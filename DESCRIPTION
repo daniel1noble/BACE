@@ -1,11 +1,8 @@
 Package: BACE
 Title: Bayesian Augmentation using Chained Equations (BACE) 
 Version: 0.0.0.9000
-Authors@R: 
-    person("Shinichi", "Nakagawa",  "s.nakagawa@unsw.edu.au", role = c("aut", "cre")),
-    person("Szymek", "Drobniak",  "szymek.drobniak@gmail.com", role = c("aut", "cre")),
-    person("Daniel", "Noble",  "daniel.noble@anu.edu.au", role = c("aut", "cre"))
-Description: Bayesian Augmentation using Chained Equations (BACE) for imputing missing data in comparative datasets
+Authors@R: c(person("Shinichi", "Nakagawa",  email = "s.nakagawa@unsw.edu.au", role = c("aut", "cre")), person("Szymek", "Drobniak",  email = "szymek.drobniak@gmail.com", role = c("aut")),person("Daniel", "Noble",  email = "daniel.noble@anu.edu.au", role = c("aut")))
+Description: Bayesian Augmentation using Chained Equations (BACE) for imputing missing data in comparative datasets.
 License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
