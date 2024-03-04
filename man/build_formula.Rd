@@ -7,7 +7,7 @@
 build_formula(x)
 }
 \arguments{
-\item{x}{A character strong specifying the formula one wishes to use in the model}
+\item{x}{A character string specifying the formula used in the model. This should be of the form: y ~ x.}
 }
 \value{
 A formula object
