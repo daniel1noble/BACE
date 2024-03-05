@@ -94,3 +94,46 @@ design_size <- function(predictor_types, dep_matrix) {
 
     return(list(ns = ns, sim_order = sim_order))
 }
+
+
+#' @title Beta generator
+#' @description This code generates regression coefficients
+#'   in correct format and in correct numbers
+#'   based on the supplied design properties
+#' @param ns A vector of numbers of beta coefs needed from
+#'   design_size function (depends on the type of variable)
+#' @param beta_matrix A matrix of beta coefficients conforming to
+#'  the dependence matrix (reg coefs instead of 1's)
+#' @param vari The index of the predictor to generate betas for
+#' @param def_b The default beta coefficient to use if no beta_matrix
+#' @param no_beta A boolean indicating whether to use beta_matrix or
+#'  just the default beta
+#' @return A list of beta coefs
+
+beta_generator <- function(
+    beta_matrix, ns, vari,
+    def_b = 0.5, no_beta = TRUE) {
+    vars <- which(beta_matrix[vari, ] != 0)
+    betas <- numeric()
+
+    if (no_beta) {
+        betas <- rep(def_b, sum(ns[vars]))
+    } else {
+        raw_betas <- beta_matrix[vari, ]
+        for (i in vars) {
+            if (ns[i] == 1) {
+                betas <- c(betas, raw_betas[i])
+            } else {
+                betas <- c(
+                    betas,
+                    seq(
+                        from = -1 * (raw_betas[i] - 1),
+                        to = raw_betas[i],
+                        length.out = ns[i]
+                    )
+                )
+            }
+        }
+    }
+    return(betas)
+}
