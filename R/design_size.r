@@ -47,5 +47,9 @@ design_size <- function(predictor_types, dep_matrix) {
         sim_order <- c(sim_order, which(as.logical(next_ix)))
     }
 
+    if (predictor_types[sim_order[1]] != "gaussian") {
+        stop("First independent predictor must be gaussian")
+    }
+
     return(list(ns = ns, sim_order = sim_order))
 }
