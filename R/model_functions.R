@@ -34,6 +34,7 @@ model_fit <- function(data, fixformula, randformula, type, nitt, thin, burnin, n
 #' @description Function creates the prior for the MCMCglmm model
 #' @param n_rand An integer specifying the number of random effects in the model.
 #' @param type A string that specifies the type of model to fit.
+#' @param nu A numeric specifying the nu parameter for the prior.
 #' @return A list of priors for the MCMCglmm model.
 #' @export
  

@@ -2,3 +2,6 @@
 
 export(build_formula)
 export(get_class)
+export(get_variables)
+export(make_prior)
+export(model_fit)
