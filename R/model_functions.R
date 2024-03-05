@@ -18,7 +18,7 @@ model_fit <- function(data, fixformula, randformula, type, nitt, thin, burnin, n
              prior <- make_prior(n_rand, type)
 
 	# Fit the model using MCMCglmm
-  	MCMCglmm_draws <- MCMCglmm::MCMCglmm(fixed = fixformula,
+  	model <- MCMCglmm::MCMCglmm(fixed = fixformula,
                                         random = randformula,
                                           data = data,
                                         family = type,
@@ -27,7 +27,8 @@ model_fit <- function(data, fixformula, randformula, type, nitt, thin, burnin, n
                                           nitt = nitt,
                                           thin = thin,
                                         burnin = burnin)
-  	return(MCMCglmm_draws)
+	class(model) <- "bace"									
+  	return(model)
 }
 
 #' @title make_prior
