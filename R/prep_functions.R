@@ -59,11 +59,17 @@ get_type <- function(data) {
 #' @export
  
 check_type <- function(x) {
-        if(length(unique(x[!is.na(x)])) == 2){type <- "binary"}
 
+        if(length(unique(x[!is.na(x)])) == 2){type <- "binary"}
+		
 		if(is.numeric(x)){type <- "continuous"}
 
-		if(is.integer(x)){type <- "count"} # Need to work on identifying counts from continuous
+		if(is.numeric(x) && all(x >= 0)){
+			fit_norm <- glm(x ~ 1, family = "gaussian")
+			fit_pois <- suppressWarnings(glm(x ~ 1, family = "poisson"))
+			
+			if((AIC(fit_norm) - AIC(fit_pois) >= 2)){type <- "count"} else{type <- "continuous"}			
+		} # Need to work on identifying counts from continuous
     
 		if(is.factor(x) && length(levels(x)) > 2){type <- "categorical"}
       
