@@ -35,7 +35,7 @@ build_formula_string <- function(x) {
 		formulas[[i]] <-  paste(vars[i], "~", paste(vars[-i], collapse = " + "))
 	}}
 
-  return(lapply(formulas, function(x) stats::as.formula(x)))
+  return(lapply(formulas, function(x) build_formula(x)))
 }
 
 
