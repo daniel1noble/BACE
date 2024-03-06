@@ -194,7 +194,7 @@ predict.bace <- function(model, type = NULL, ...) {
 	}
 
 	if(type == "categorical") {
-		pred <- 
+		
 	}
 
 return(pred)

@@ -30,8 +30,8 @@ build_formula_string <- function(x) {
 	# Create all combinations of the variables
 	for(i in 1:length(vars)) {
 
-	 	if(i == 1) { formulas[[i]] <- x}
-		else{
+	 if(i == 1) { formulas[[i]] <- x}
+	 else{
 		formulas[[i]] <-  paste(vars[i], "~", paste(vars[-i], collapse = " + "))
 	}}
 
