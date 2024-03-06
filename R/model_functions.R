@@ -18,7 +18,7 @@ model_fit <- function(data, fixformula, randformula, type, nitt, thin, burnin, n
              prior <- make_prior(n_rand, type)
 
 	# Fit the model using MCMCglmm
-  	MCMCglmm_draws <- MCMCglmm::MCMCglmm(fixed = fixformula,
+  	model <- MCMCglmm::MCMCglmm(fixed = fixformula,
                                         random = randformula,
                                           data = data,
                                         family = type,
@@ -27,7 +27,8 @@ model_fit <- function(data, fixformula, randformula, type, nitt, thin, burnin, n
                                           nitt = nitt,
                                           thin = thin,
                                         burnin = burnin)
-  	return(MCMCglmm_draws)
+	class(model) <- "bace"									
+  	return(model)
 }
 
 #' @title make_prior
@@ -177,3 +178,25 @@ get_imputed <- function(model, type) {
 
 	return(imputed_y)
 }
+
+
+#' @title predict.bace
+#' @description Function creates a predcition from MCMCglmm model
+#' @param model A MCMCglmm model object
+#' @return A list of priors for the MCMCglmm model.
+#' @export
+#' 
+#' 
+predict.bace <- function(model, type = NULL, ...) {
+
+	if(is.null(type)) {
+		pred <- as.vector(predict(model, marginal = NULL))
+	}
+
+	if(type == "categorical") {
+		pred <- 
+	}
+
+return(pred)
+}
+
