@@ -8,7 +8,7 @@
 build_formula <- function(x) {
 
 	# Some checks. Formula must have a '`~`' in it
-	if(!grepl("~", x)) { stop("Make sure you specify a formula string. This involves a structure of the form: y ~ x") } 
+	if(!grepl("~", as.character(x))) { stop("Make sure you specify a formula string. This involves a structure of the form: y ~ x") } 
 
   return(stats::as.formula(x))
 }

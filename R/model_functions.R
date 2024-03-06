@@ -91,3 +91,24 @@ make_prior <- function(n_rand, type, nu = 0.002) {
 
 	return(prior)
 }
+
+
+#' @title predict.bace
+#' @description Function creates a predcition from MCMCglmm model
+#' @param model A MCMCglmm model object
+#' @return A list of priors for the MCMCglmm model.
+#' @export
+#' 
+#' 
+predict.bace <- function(model, type = NULL, ...) {
+
+	if(is.null(type)) {
+		pred <- as.vector(predict(model, marginal = NULL))
+	}
+
+	if(type == "categorical") {
+		pred <- 
+	}
+
+return(pred)
+}
