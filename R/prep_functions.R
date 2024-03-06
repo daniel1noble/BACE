@@ -78,13 +78,3 @@ check_type <- function(x) {
   	return(type)
 }
 
-predict.bace <- function(model, newdata, type = "response", ...) {
-
-	if(model$family == "categorical"){
-
-	} else{
-		output <- predict(model, ...)
-	}
-
-}
-
