@@ -78,7 +78,7 @@ design_size <- function(predictor_types, dep_matrix) {
     while (!all(seq_along(predictor_types) %in% sim_order)) {
         # print(sim_order)
         next_ix <- apply(dep_matrix, 1, function(x, ix) {
-            if (any(x[ix] == 1) && all(x[-ix] == 0)) {
+            if (any(x[ix] != 0) && all(x[-ix] == 0)) {
                 return(1)
             } else {
                 return(0)
@@ -136,4 +136,30 @@ beta_generator <- function(
         }
     }
     return(betas)
+}
+
+
+sim_tree <- function(n_species, birth, death, n_cases, strl = 5) {
+    # generate names for species
+    mock_names <- sort(stringi::stri_rand_strings(n_species, strl))
+    your_cases <- sample(mock_names, n_cases, replace = TRUE)
+    your_species <- sort(unique(your_cases))
+
+    # simulate tree
+    mytree <- ape::rphylo(
+        n = length(your_species),
+        birth = birth, death = death, T0 = 100,
+        fossils = FALSE
+    )
+    mytree$tip.label <- your_species
+
+    return(list(tree = mytree, cases = your_cases))
+}
+
+
+
+var_name_gen <- function(n) {
+    var_names <- paste0("x", 1:n)
+    var_names <- c("y", var_names)
+    return(var_names)
 }

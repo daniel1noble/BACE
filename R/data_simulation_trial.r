@@ -3,6 +3,7 @@
 # functions and helpers ------------------------------------------
 source("./R/design_size.r")
 source("./R/beta_generator.r")
+source("./R/mnom_liab2cat.r")
 
 # fine-tuning parameters ------------------------------------------
 control_par <- list(
@@ -119,11 +120,11 @@ covars <- as.data.frame(matrix(0,
     dimnames = list(NULL, var_names[-1])
 ))
 
-liab_ix <- unlist(mapply(
-    rep.int,
-    seq_along(mydesign$ns),
-    mydesign$ns
-))
+# liab_ix <- unlist(mapply(
+#     rep.int,
+#     seq_along(mydesign$ns),
+#     mydesign$ns
+# ))
 
 covars[, mydesign$sim_order[1]] <- intercept_p[1] +
     Z %*% u_s[[1]] +
@@ -258,3 +259,4 @@ if (response_type == "gaussian" || response_type == "binary") {
     stop("Unknown response type: ", response_type)
 }
 
+outdata <- cbind(spec = your_cases, resp = resp, covars)
