@@ -28,7 +28,7 @@ get_class <- function(x) {
 #' get_variables(form)
 #' form <- "y ~ x1 + x2 + x1*x2"
 #' get_variables(form)
-#' form <- "~ 1 + X1|Species"
+#' form <- "~ 1 + x1|Species"
 #' get_variables(form, fix = FALSE)
 #' form <- "~ 1 |Species"
 #' get_variables(form, fix = FALSE)}
@@ -41,8 +41,8 @@ get_variables <- function(x, fix = TRUE) {
 	} else{
 		cluster <- unique(unlist(strsplit(x, "\\|")))[2]
 		vars <- unique(unlist(strsplit(x, "\\W+")))
-		vars <- vars[!vars %in% c(cluster, "1", "")]
-		return(list(ran = ifelse(installr::is.empty(vars), 1, vars), cluster = cluster))
+		vars <- vars[!vars %in% c(cluster,"1", "")]
+		return(list(ran = vars, cluster = cluster))
 	}
 }
 
