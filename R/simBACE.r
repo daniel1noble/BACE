@@ -88,17 +88,19 @@ simBACE <- function(
         Z %*% u_s[[sim_order[1]]] +
         Z %*% u_p[[sim_order[1]]] +
         e[[sim_order[1]]]
-    
+
     # simulate the remaining predictors
 
     for (vari in mydesign$sim_order[-1]) {
         if (predictor_types[vari] == "gaussian" ||
             predictor_types[vari] == "binary") {
+            # CODE
         } else if (substring(predictor_types[vari], 1, 11) == "categorical") {
+            # CODE
         } else {
             stop("Unknown predictor type: ", predictor_types[vari])
         }
 
-    # simulate the response
-    
+        # simulate the response
+    }
 }
