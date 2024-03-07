@@ -93,7 +93,7 @@ u_p <- lapply(
         MASS::mvrnorm(
             n = 1,
             mu = rep(0, length(your_species)),
-            Sigma = cor_phylo
+            Sigma = x * cor_phylo
         )
     }
 )
@@ -130,6 +130,7 @@ covars[, mydesign$sim_order[1]] <- intercept_p[1] +
     Z %*% u_s[[1]] +
     Z %*% u_p[[1]] +
     e[[1]]
+
 
 
 for (vari in mydesign$sim_order[-1]) {
@@ -260,3 +261,11 @@ if (response_type == "gaussian" || response_type == "binary") {
 }
 
 outdata <- cbind(spec = your_cases, resp = resp, covars)
+ape::write.nexus(mytree, file = "tree.nex")
+write.table(outdata, file = "data.csv", sep = ",", row.names = FALSE)
+
+simGaussBernPois(
+    covars = covars, vari = 3, beta_matrix = beta_matrix, beta0 = 0,
+    mydesign = mydesign, u_s = u_s, u_p = u_p, e = e, Z = Z,
+    family = "poisson", formula = NULL, Liab = F, event = T
+)
