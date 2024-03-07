@@ -36,9 +36,11 @@ I_matrix <- diag(J - 1) #identiy matrix
 IJ <- (I_matrix + J_matrix)/J # see Hadfield's Course notes p. 97
 prior <- list(R = list(V = IJ, fix = 1),
               G = list(G1 = list(V = diag(number_random_parameters), nu = J+number_random_effects)))
+prior2 <- list(R = list(V = IJ, fix = 1),
+              G = list(G1 = list(V = diag(2), nu = 0.002)))
 
-model <- MCMCglmm::MCMCglmm(x4 ~ -1 + trait + resp + x1 + x2 + x3, random = ~us(-1+trait + resp):spec, family = "categorical",
-                          nitt = 110000, pl = TRUE, pr = TRUE, thin = 10, prior = prior, burnin = 10000,
+model <- MCMCglmm::MCMCglmm(x4 ~ -1 + trait, random = ~us(-1+trait):spec, family = "categorical",
+                          nitt = 110000, pl = TRUE, pr = TRUE, thin = 10, prior = prior2, burnin = 10000,
                           ginverse=list(spec = Ainv),, verbose = FALSE, rcov = ~us(trait):units, data = dat)
 
 summary(model)
@@ -60,13 +62,15 @@ for(i in 1:n) {
   # get the column for i row's different realization)
   liab_i <- model$Liab[ , i+(0:(K-1))*n] # A-B,... A-C,....
   # get prob for B and C (probably this is incorrect)
-  prob_i <- exp(liab_i)/ (1 + rowSums(exp(liab_i)))
-  # get one for A
-  prob_all_i <- cbind(1 - rowSums(prob_i), prob_i)
+  Int <- t(apply(liab_i , 1, function(x) {
+ D %*% (x/sqrt(1 + c2 * diag(IJ)))
+ }))
+liab_test <- exp(Int)/rowSums(exp(Int))
+#prob_mean_i <- colMeans(liab_test)
   # average
-  prob_mean_i <- colMeans(prob_all_i)
+  #prob_mean_i <- colMeans(prob_all_i)
   # choose the biggest prob
-  y_pred[i] <- cat_list[which(max(colMeans(prob_all_i)) == colMeans(prob_all_i))]
+  y_pred[i] <- cat_list[which(max(colMeans(liab_test)) == colMeans(liab_test))]
 
 }
 
@@ -75,10 +79,11 @@ IJ <- (1/3) * (diag(2) + matrix(1, 2, 2))
 Delta <- cbind(c(-1, 1, 0), c(-1, 0, 1))
 c2 <- (16 * sqrt(3)/(15 * pi))^2
 D <- ginv(Delta %*% t(Delta)) %*% Delta
-Int <- t(apply(model$X %*% model$Sol[,1:6] , 1, function(x) {
+Int <- t(apply(liab_i , 1, function(x) {
 D %*% (x/sqrt(1 + c2 * diag(IJ)))
 }))
-
+liab_test <- exp(Int)/rowSums(exp(Int))
+colMeans(liab_test)
 # they should match?
 y_pred
 dat$x4
