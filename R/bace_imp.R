@@ -5,7 +5,7 @@
 bace_imp <- function(fixformula,ran_phylo_form, species = TRUE, phylo, data, ...){
 
 	# First, we need to get the variables from the formulas that are used to subset out of the data. Returns a list of variables
-		fix <- get_variables(fixformula)
+		  fix <- get_variables(fixformula)
 		phylo <- get_variables(ran_phylo_form, fix = FALSE)
 
 	# Subset the data for fixed and random effects. Need to clean up column names for randdata
