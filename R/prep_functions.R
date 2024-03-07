@@ -1,16 +1,3 @@
-
-#' @title get_class
-#' @description Function identifies the class of all variables in the dataframe
-#' @param x A dataframe containing missing data.
-#' @return A list identifying the class of all columns in the dataframe.
-#' @examples {
-#' data(iris)
-#' get_class(iris)}
-#' @export
-get_class <- function(x) {
-  return(lapply(x, class))	
-}
-
 #' @title get_variables
 #' @description Function takes a formula string and identifies the variables in the formula that relate to the data
 #' @param x A string
@@ -78,10 +65,10 @@ check_type <- function(x) {
 		if(is.numeric(x)){type <- "continuous"}
 
 		if(is.numeric(x) && all(x >= 0)){
-			fit_norm <- glm(x ~ 1, family = "gaussian")
-			fit_pois <- suppressWarnings(glm(x ~ 1, family = "poisson"))
+			fit_norm <- stats::glm(x ~ 1, family = "gaussian")
+			fit_pois <- suppressWarnings(stats::glm(x ~ 1, family = "poisson"))
 			
-			if((AIC(fit_norm) - AIC(fit_pois) >= 2)){type <- "count"} else{type <- "continuous"}			
+			if((stats::AIC(fit_norm) - stats::AIC(fit_pois) >= 2)){type <- "count"} else{type <- "continuous"}			
 		} # Need to work on identifying counts from continuous
     
 		if(is.factor(x) && length(levels(x)) > 2){type <- "categorical"}
