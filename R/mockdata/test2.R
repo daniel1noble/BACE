@@ -4,6 +4,7 @@ library(here)
 library(tidyverse)
 library(ape)
 library(MCMCglmm)
+library(MASS)
 
 
 dat <- read.csv(here("R","mockdata","data.csv"))
@@ -56,36 +57,52 @@ cat_list <- levels(unique(factor(dat$x4)))
 # n is the number of y
 # K the number of category
 
+# Germany guy way
 y_pred <- vector(mode = "character", n)
 for(i in 1:n) {
 
   # get the column for i row's different realization)
   liab_i <- model$Liab[ , i+(0:(K-1))*n] # A-B,... A-C,....
-  # get prob for B and C (probably this is incorrect)
-  Int <- t(apply(liab_i , 1, function(x) {
- D %*% (x/sqrt(1 + c2 * diag(IJ)))
- }))
-liab_test <- exp(Int)/rowSums(exp(Int))
-#prob_mean_i <- colMeans(liab_test)
+  # get prob for B and C (probably this is incorrect)?
+  prob_i <- exp(liab_i)/ (1 + rowSums(exp(liab_i)))
+  # get prob for A
+  prob_all_i <- cbind(1 - rowSums(prob_i), prob_i)
   # average
-  #prob_mean_i <- colMeans(prob_all_i)
+  prob_mean_i <- colMeans(prob_all_i)
   # choose the biggest prob
-  y_pred[i] <- cat_list[which(max(colMeans(liab_test)) == colMeans(liab_test))]
+  y_pred[i] <- cat_list[which(max(prob_mean_i) == prob_mean_i)]
 
 }
 
-# Course notes
+# Jarrod's way
 IJ <- (1/3) * (diag(2) + matrix(1, 2, 2))
 Delta <- cbind(c(-1, 1, 0), c(-1, 0, 1))
 c2 <- (16 * sqrt(3)/(15 * pi))^2
 D <- ginv(Delta %*% t(Delta)) %*% Delta
 Int <- t(apply(liab_i , 1, function(x) {
-D %*% (x/sqrt(1 + c2 * diag(IJ)))
+  D %*% (x/sqrt(1 + c2 * diag(IJ)))
 }))
-liab_test <- exp(Int)/rowSums(exp(Int))
-colMeans(liab_test)
+y_pred2 <- vector(mode = "character", n)
+for(i in 1:n) {
+
+  # get the column for i row's different realization)
+  liab_i <- model$Liab[ , i+(0:(K-1))*n] # A-B,... A-C,....
+  # get prob for B and C (probably this is incorrect)?
+  Int <- t(apply(liab_i , 1, function(x) {
+    D %*% (x/sqrt(1 + c2 * diag(IJ)))
+  }))
+  liab_test <- exp(Int)/rowSums(exp(Int))
+  #prob_mean_i <- colMeans(liab_test)
+  # average
+  #prob_mean_i <- colMeans(prob_all_i)
+  # choose the biggest prob
+  y_pred2[i] <- cat_list[which(max(colMeans(liab_test)) == colMeans(liab_test))]
+
+}
+
 # they should match?
 y_pred
+y_pred2
 dat$x4
 
 
