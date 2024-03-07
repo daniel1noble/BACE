@@ -4,10 +4,12 @@
 \alias{get_variables}
 \title{get_variables}
 \usage{
-get_variables(x)
+get_variables(x, fix = TRUE)
 }
 \arguments{
 \item{x}{A string}
+
+\item{fix}{A logical value. If TRUE, the function returns the fixed effects variables. If FALSE, the function returns the random effects variables.}
 }
 \value{
 A vector of variable names. This vector is used to subset out the 'fixed effects' and 'random effect' columns within a given dataframe.
@@ -27,5 +29,9 @@ get_variables(form)
 form <- "y ~ x1 + x2 + x1:x2"
 get_variables(form)
 form <- "y ~ x1 + x2 + x1*x2"
-get_variables(form)}
+get_variables(form)
+form <- "~ 1 + X1|Species"
+get_variables(form, fix = FALSE)
+form <- "~ 1 |Species"
+get_variables(form, fix = FALSE)}
 }

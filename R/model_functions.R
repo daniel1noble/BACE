@@ -27,7 +27,7 @@ model_fit <- function(data, fixformula, randformula, type, nitt, thin, burnin, n
                                           nitt = nitt,
                                           thin = thin,
                                         burnin = burnin)
-	class(model) <- "bace"									
+	class(model) <- c("MCMCglmm", "bace")									
   	return(model)
 }
 
@@ -39,7 +39,7 @@ model_fit <- function(data, fixformula, randformula, type, nitt, thin, burnin, n
 #' @return A list of priors for the MCMCglmm model.
 #' @export
  
-make_prior <- function(n_rand, type, nu = 0.002) {
+make_prior <- function(n_rand, n_res, type, nu = 0.002) {
 
 	if(type == "normal") {
 		prior <- list(R = list(V = 1, nu = nu),
@@ -48,7 +48,7 @@ make_prior <- function(n_rand, type, nu = 0.002) {
 
 	if(type == "poisson") {
 		prior <- list(R = list(V = 1e-07, nu = -2),
-                      G = list(G1 = list(V = diag(ncol(Z)), nu = nu)))
+                      G = list(G1 = list(V = diag(n_rand), nu = nu)))
 	}
 
 	if(type == "categorical") {
@@ -58,8 +58,6 @@ make_prior <- function(n_rand, type, nu = 0.002) {
 		# Get the number of random effects variables
 		number_random_effects <- length(znames_1)
 		number_random_parameters <- number_random_effects * (J - 1)
-		#Fix residual variance R at 1
-		# cf. http://stats.stackexchange.com/questions/32994/what-are-r-structure-g-structure-in-a-glmm
 
 		J_matrix <- array(1, dim = c(J, J) - 1) # matrix of ones
 		I_matrix <- diag(J - 1) #identiy matrix
@@ -190,7 +188,7 @@ get_imputed <- function(model, type) {
 predict.bace <- function(model, type = NULL, ...) {
 
 	if(is.null(type)) {
-		pred <- as.vector(predict(model, marginal = NULL))
+		pred <- as.vector(stats::predict(model, marginal = NULL))
 	}
 
 	if(type == "categorical") {

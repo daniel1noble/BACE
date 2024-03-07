@@ -14,6 +14,7 @@ get_class <- function(x) {
 #' @title get_variables
 #' @description Function takes a formula string and identifies the variables in the formula that relate to the data
 #' @param x A string
+#' @param fix A logical value. If TRUE, the function returns the fixed effects variables. If FALSE, the function returns the random effects variables.
 #' @return A vector of variable names. This vector is used to subset out the 'fixed effects' and 'random effect' columns within a given dataframe. 
 #' @examples {
 #' # All should return the same three variables: y, x1, x2
@@ -26,11 +27,23 @@ get_class <- function(x) {
 #' form <- "y ~ x1 + x2 + x1:x2"
 #' get_variables(form)
 #' form <- "y ~ x1 + x2 + x1*x2"
-#' get_variables(form)}
+#' get_variables(form)
+#' form <- "~ 1 + X1|Species"
+#' get_variables(form, fix = FALSE)
+#' form <- "~ 1 |Species"
+#' get_variables(form, fix = FALSE)}
 #' @export
-get_variables <- function(x) {
-	vars <- unique(unlist(strsplit(x, "\\W+")))
-  return(vars)
+get_variables <- function(x, fix = TRUE) {
+	
+	if(fix){
+		vars <- unique(unlist(strsplit(x, "\\W+")))
+		return(list(fix = vars))
+	} else{
+		cluster <- unique(unlist(strsplit(x, "\\|")))[2]
+		vars <- unique(unlist(strsplit(x, "\\W+")))
+		vars <- vars[!vars %in% c(cluster, "1", "")]
+		return(list(ran = ifelse(installr::is.empty(vars), 1, vars), cluster = cluster))
+	}
 }
 
 #' @title get_type
