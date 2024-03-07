@@ -70,6 +70,15 @@ for(i in 1:n) {
 
 }
 
+# Course notes
+IJ <- (1/3) * (diag(2) + matrix(1, 2, 2))
+Delta <- cbind(c(-1, 1, 0), c(-1, 0, 1))
+c2 <- (16 * sqrt(3)/(15 * pi))^2
+D <- ginv(Delta %*% t(Delta)) %*% Delta
+Int <- t(apply(model$X %*% model$Sol[,1:6] , 1, function(x) {
+D %*% (x/sqrt(1 + c2 * diag(IJ)))
+}))
+
 # they should match?
 y_pred
 dat$x4
