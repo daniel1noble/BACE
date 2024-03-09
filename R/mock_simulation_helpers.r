@@ -111,24 +111,23 @@ design_size <- function(predictor_types, dep_matrix) {
 #' @return A list of beta coefs
 
 beta_generator <- function(
-    beta_matrix, ns, vari,
+    beta_row, ns,
     def_b = 0.5, no_beta = TRUE) {
-    vars <- which(beta_matrix[vari, ] != 0)
+    vars <- which(beta_row != 0)
     betas <- numeric()
 
     if (no_beta) {
         betas <- rep(def_b, sum(ns[vars]))
     } else {
-        raw_betas <- beta_matrix[vari, ]
         for (i in vars) {
             if (ns[i] == 1) {
-                betas <- c(betas, raw_betas[i])
+                betas <- c(betas, beta_row[i])
             } else {
                 betas <- c(
                     betas,
                     seq(
-                        from = -1 * (raw_betas[i] - 1),
-                        to = raw_betas[i],
+                        from = -1 * (beta_row[i] - 1),
+                        to = beta_row[i],
                         length.out = ns[i]
                     )
                 )
@@ -163,3 +162,82 @@ var_name_gen <- function(n) {
     var_names <- c("y", var_names)
     return(var_names)
 }
+
+beta_extractor <- function(betas) {
+    blist <- lapply(betas, function(x) {
+        if (length(x) == 1) {
+            c(b = x, n = 1)
+        } else {
+            cbind(b = x, n = seq_along(x))
+        }
+    })
+
+    blist <- do.call(rbind, blist)
+    if (blist[1, "n"] != 1) stop("Check your betas!")
+    dim2 <- numeric(nrow(blist))
+    dim3 <- numeric(nrow(blist))
+
+    n <- blist[1, "n"]
+    dim2[1] <- 1
+    dim3[1] <- n
+    for (i in 2:nrow(blist)) {
+        if (blist[i, "n"] == 1) {
+            n <- n + 1
+            dim2[i] <- n
+            dim3[i] <- blist[i, "n"]
+        } else if (blist[i, "n"] > 1) {
+            dim2[i] <- n
+            dim3[i] <- blist[i, "n"]
+        } else {
+            stop("Beta coefs do not make sense.")
+        }
+    }
+
+    blist <- cbind(blist, dim2, dim3)
+    return(blist)
+}
+
+array_3_fill <- function(myarray, indexes, values) {
+    for (i in seq_along(values)) {
+        myarray[
+            indexes[i, 1],
+            indexes[i, 2],
+            indexes[i, 3]
+        ] <- values[i]
+    }
+
+    return(myarray)
+}
+
+
+beta_constructor <- function(mydesign, beta_coefs) {
+    ns <- mydesign$ns
+
+    if (!(all(sapply(beta_coefs, length) == length(ns)))) {
+        stop("Ill-formed beta definition list!")
+    }
+
+    beta_array <- array(dim = c(
+        length(ns),
+        length(ns),
+        max(ns)^2
+    ))
+
+    for (i in seq_along(ns)) {
+        betas <- beta_coefs[[i]]
+        indexes <- beta_extractor(betas)
+
+        beta_array <- array_3_fill(
+            beta_array,
+            cbind(i, indexes[, "dim2"], indexes[, "dim3"]),
+            indexes[, "b"]
+        )
+    }
+
+    dimnames(
+        beta_array,
+        d
+    )
+    return(beta_array)
+}
+

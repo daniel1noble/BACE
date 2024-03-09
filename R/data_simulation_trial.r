@@ -226,6 +226,7 @@ if (response_type == "gaussian" || response_type == "binary") {
         Z %*% u_p[[5]] +
         e[[5]]
 
+
     if (response_type == "binary") {
         resp <- rbinom(n_cases, 1, plogis(liab_r))
     } else {
@@ -265,7 +266,16 @@ ape::write.nexus(mytree, file = "tree.nex")
 write.table(outdata, file = "data.csv", sep = ",", row.names = FALSE)
 
 simGaussBernPois(
-    covars = covars, vari = 3, beta_matrix = beta_matrix, beta0 = 0,
+    covars = covars, vari = 3, beta_matrix = c(0.1,0.2,-0.1,0.1), beta0 = 0,
     mydesign = mydesign, u_s = u_s, u_p = u_p, e = e, Z = Z,
     family = "poisson", formula = NULL, Liab = F, event = T
+)
+
+
+
+beta_coefs <- list(
+    x1 = list(0, 0.5, 0, c(-1, 2)),
+    x2 = list(0, 0, 0, 0),
+    x3 = list(0.1, 0, 0, 0),
+    x4 = list(0, c(0.15, 0.33), 0, 0)
 )

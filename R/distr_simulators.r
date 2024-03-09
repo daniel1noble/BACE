@@ -15,6 +15,7 @@
 #' @param Liab A logical indicating whether to return the liability scale
 #' @param event A logical indicating whether to return the response event scale
 #' @param vari A numeric indicating the index of the focal variable
+#' @param info A logical indicating whether to print information
 #' @export
 
 simGaussBernPois <- function(
@@ -26,9 +27,25 @@ simGaussBernPois <- function(
     vari,
     family = "gaussian",
     formula = NULL,
-    Liab = FALSE, event = FALSE) {
+    Liab = FALSE, event = FALSE,
+    info = TRUE) {
 
-    which_x <- which(beta_matrix[vari, ] != 0)
+    # generate beta coefficients
+    if (is.matrix(beta_matrix)) {
+        beta <- c(beta0, beta_generator(
+            beta_row = beta_matrix[vari, ],
+            ns = mydesign$ns,
+            no_beta = FALSE
+        ))
+        which_x <- which(beta_matrix[vari, ] != 0)
+    } else {
+        beta <- c(beta0, beta_generator(
+            beta_row = beta_matrix,
+            ns = mydesign$ns,
+            no_beta = FALSE
+        ))
+        which_x <- which(beta_matrix != 0)
+    }
 
     # generate model formula
     xi_formula <- paste(
@@ -43,21 +60,12 @@ simGaussBernPois <- function(
         covars[, which_x, drop = FALSE]
     )
 
-    # generate beta coefficients
-    if (is.matrix(beta_matrix)) {
-        beta <- c(beta0, beta_generator(
-            beta_matrix = beta_matrix,
-            ns = mydesign$ns,
-            vari = vari,
-            no_beta = FALSE
-        ))
-    } else {
-        beta <- c(beta0, beta_matrix)
+    if (info) {
+        cat("Variable mode: ", family, "\n")
+        cat("Generating formula: ", xi_formula, "\n")
+        cat("Beta coefficients: ", beta, "\n")
+        cat("Dimensions of X: ", dim(X), "\n")
     }
-
-    cat("Variable mode: ", family, "\n")
-    cat("Generating formula: ", xi_formula, "\n")
-    cat("Beta coefficients: ", beta, "\n")
 
     # generate liability
     liab_i <- X %*% beta +
@@ -65,20 +73,20 @@ simGaussBernPois <- function(
         Z %*% u_p[[vari]] +
         e[[vari]]
     if (Liab || family == "gaussian") {
-        return(liab_i)
+        return(as.numeric(liab_i))
     } else if (family == "binary") {
         resp_i <- stats::plogis(liab_i)
         if (event) {
-            return(stats::rbinom(n_cases, 1, resp_i))
+            return(as.numeric(stats::rbinom(n_cases, 1, resp_i)))
         } else {
-            return(resp_i)
+            return(as.numeric(resp_i))
         }
     } else if (family == "poisson") {
-        resp_i <- exp(liab_i)
+        resp_i <- as.numeric(exp(liab_i))
         if (event) {
-            return(stats::rpois(n_cases, resp_i))
+            return(as.numeric(stats::rpois(n_cases, resp_i)))
         } else {
-            return(resp_i)
+            return(as.numeric(resp_i))
         }
     } else {
         stop("Family not recognized")
