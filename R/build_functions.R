@@ -22,30 +22,84 @@ build_formula <- function(x) {
 #' @return A list of formulas
 #' #' @examples \dontrun{
 #' build_formula_string("y ~ x1 + x2 + x3")
+#' build_formula_string("y ~ x1 + x2*x3")
+#' build_formula_string("y ~ x1 + x2:x3")
+#' build_formula_string("y ~ x1 + x2 + x3 + x1:x2 + x1:x3 + x2:x3 + x1:x2:x3")
 #' }
 #' @export
-
 build_formula_string <- function(x) {
 
-	# Some checks. Formula must have a '`~`' in it
-	if(!grepl("~", as.character(x))) { stop("Make sure you specify a formula string. This involves a structure of the form: y ~ x") } 
+  f <- if (inherits(x, "formula")) x else stats::as.formula(x)
 
-	vars <- get_variables(x)$fix 
+  if (length(f) < 3L) {
+    stop("Make sure you specify a formula of the form: y ~ ...")
+  }
 
-	formulas <- list()
-	# Create all combinations of the variables
-	for(i in 1:length(vars)) {
+  lhs <- f[[2]]
+  rhs <- f[[3]]
 
-	 if(i == 1) { formulas[[i]] <- x}
-	 else{
-		formulas[[i]] <-  paste(vars[i], "~", paste(vars[-i], collapse = " + "))
-	}}
+  # all variables appearing anywhere in the formula
+  vars <- unique(all.vars(f))
 
-  return(lapply(formulas, function(x) build_formula(x)))
+  # keep original as the first element
+  out <- vector("list", length(vars))
+  names(out) <- vars
+
+  for (i in seq_along(vars)) {
+    v <- vars[[i]]
+
+    if (identical(v, as.character(lhs))) {
+      # original formula unchanged
+      out[[i]] <- f
+    } else {
+      # swap v with original lhs inside the RHS expression
+      rhs2 <- .swap_symbols(rhs, a = v, b = as.character(lhs))
+
+      # new formula: v ~ (modified RHS)
+      out[[i]] <- stats::as.formula(call("~", as.name(v), rhs2), env = environment(f))
+    }
+  }
+
+  out
 }
 
+#' @title .replace_symbols
+#' @description Recursively replace symbol names in an expression
+#' @param expr An expression
+#' @param map A named list specifying the replacements to be made
+#' @return An expression with the symbol names replaced
 
+.replace_symbols <- function(expr, map) {
+  if (is.null(expr)) return(expr)
 
+  # symbol / name
+  if (is.name(expr)) {
+    nm <- as.character(expr)
+    if (nm %in% names(map)) return(as.name(map[[nm]]))
+    return(expr)
+  }
 
+  # atomic (numeric/character/etc.)
+  if (!is.language(expr)) return(expr)
 
+  # call / language: recurse over arguments
+  as.call(lapply(as.list(expr), .replace_symbols, map = map))
+}
+
+#' @title .swap_symbols
+#' @description Swap two symbol names in an expression
+#' @param expr An expression
+#' @param a The first symbol name to swap
+#' @param b The second symbol name to swap
+#' @param tmp A temporary symbol name used during the swap
+#' @return An expression with the two symbol names swapped
+.swap_symbols <- function(expr, a, b, tmp = ".TMP_SWAP_SYMBOL") {
+  if (identical(a, b)) return(expr)
+
+  # a -> tmp, b -> a, tmp -> b
+  expr <- .replace_symbols(expr, setNames(tmp, a))
+  expr <- .replace_symbols(expr, setNames(a, b))
+  expr <- .replace_symbols(expr, setNames(b, tmp))
+  expr
+}
 
