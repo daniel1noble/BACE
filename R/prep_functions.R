@@ -17,20 +17,60 @@
 #' get_variables(form)
 #' form <- "~ 1 + x1|Species"
 #' get_variables(form, fix = FALSE)
+#' form <- "~ 1 + x1| Species"
+#' get_variables(form, fix = FALSE)
 #' form <- "~ 1 |Species"
+#' get_variables(form, fix = FALSE)
+#' form <- "~ 1 | Species"
 #' get_variables(form, fix = FALSE)}
 #' @export
 get_variables <- function(x, fix = TRUE) {
-	
-	if(fix){
-		vars <- unique(unlist(strsplit(x, "\\W+")))
-		return(list(fix = vars))
-	} else{
-		cluster <- unique(unlist(strsplit(x, "\\|")))[2]
-		vars <- unique(unlist(strsplit(x, "\\W+")))
-		vars <- vars[!vars %in% c(cluster,"1", "")]
-		return(list(ran = c(1, vars), cluster = cluster))
-	}
+
+  # helper: split into "tokens" (variable-ish strings), dropping empties
+  tokens <- function(s) {
+    out <- unlist(strsplit(s, "\\W+"))
+    out <- out[out != ""]
+    unique(out)
+  }
+
+  if (fix) {
+    # For fixed effects, just return the tokens
+    return(list(fix = tokens(x)))
+  }
+
+  # For random effects, allow multiple terms:
+  # e.g. "(1 | g) + (x1 + x2 | h)" or "1 | g"
+  # Split on '+' at top-level-ish (good enough for typical formulas)
+  terms <- trimws(unlist(strsplit(x, "\\s*\\+\\s*")))
+
+  ran_vars <- character()
+  clusters <- character()
+
+  for (term in terms) {
+    # remove surrounding parentheses if present
+    term2 <- trimws(gsub("^\\(|\\)$", "", term))
+
+    # split on pipe with optional whitespace around it
+    parts <- strsplit(term2, "\\s*\\|\\s*", perl = TRUE)[[1]]
+    if (length(parts) < 2) next  # not a random effect term
+
+    lhs <- trimws(parts[1])  # e.g. "1 + x"
+    rhs <- trimws(parts[2])  # e.g. "group"
+
+    clusters <- c(clusters, rhs)
+
+    # random slope vars from LHS (drop intercept & empties)
+    lhs_vars <- tokens(lhs)
+    lhs_vars <- lhs_vars[!lhs_vars %in% c("1")]
+
+    ran_vars <- c(ran_vars, lhs_vars)
+  }
+
+  clusters <- unique(clusters)
+  ran_vars <- unique(ran_vars)
+
+  # Return intercept + slopes; intercept always included for random term
+  list(ran = c(1, ran_vars), cluster = clusters)
 }
 
 #' @title get_type

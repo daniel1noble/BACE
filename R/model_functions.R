@@ -1,32 +1,28 @@
 #' @title model_fit
 #' @description Function takes incomplete data and a formula string and fits a model using MCMCglmm
 #' @param data A dataframe containing missing data.
-#' @param fixformula A string that specifies the fixed effects in the model.
-#' @param randformula A string that specifies the random effects in the model.
-#' @param type A string that specifies the type of model to fit.
-#' @param nitt An integer specifying the number of iterations to run the MCMC algorithm.
-#' @param thin An integer specifying the thinning rate for the MCMC algorithm.
-#' @param burnin An integer specifying the number of iterations to discard as burnin.
-#' @param n.par.rand An integer specifying the number of random effects in the model.
+#' @param fixformula A string that specifies the fixed effect structure in the model.
+#' @param randformula A string that specifies the random effect structure in the model.
+#' @param type A string that specifies the type of model to fit. Options are "normal", "binary", "count", "categorical", "ordinal" and the appropriate family will be used in MCMCglmm.
+#' @param nitt An integer specifying the number of iterations to run the MCMC algorithm. Default is 50000.
+#' @param thin An integer specifying the thinning rate for the MCMC algorithm. Default is 10.
+#' @param burnin An integer specifying the number of iterations to discard as burnin. Default is 1000.
 #' @return A list of draws from the posterior distribution of the model parameters.
 #' @export
 
 
-model_fit <- function(data, fixformula, randformula, type, nitt, thin, burnin, n_rand) {
-
-	# Create a prior list for residual and random effects
-             prior <- make_prior(n_rand, type)
+model_fit <- function(data, fixformula, randformula, type, nitt = 50000, thin = 10, burnin = 1000) {
 
 	# Fit the model using MCMCglmm
   	model <- MCMCglmm::MCMCglmm(fixed = fixformula,
-                                        random = randformula,
-                                          data = data,
-                                        family = type,
-                                       verbose = FALSE, pr = TRUE, prior = prior,
-                                         saveX = TRUE, saveZ = TRUE,
-                                          nitt = nitt,
-                                          thin = thin,
-                                        burnin = burnin)
+                               random = randformula,
+                                 data = data,
+                               family = type,
+                              verbose = FALSE, pr = TRUE, prior = prior,
+                                saveX = TRUE, saveZ = TRUE,
+                                 nitt = nitt,
+                                 thin = thin,
+                               burnin = burnin)
 	class(model) <- c("MCMCglmm", "bace")									
   	return(model)
 }
@@ -39,28 +35,29 @@ model_fit <- function(data, fixformula, randformula, type, nitt, thin, burnin, n
 #' @return A list of priors for the MCMCglmm model.
 #' @export
  
-make_prior <- function(n_rand, n_res, type, nu = 0.002) {
+make_prior <- function(n_rand, type, nu = NULL) {
 
 	if(type == "normal") {
+		if(is.null(nu)) {nu <- 0.002}
 		prior <- list(R = list(V = 1, nu = nu),
 					  G = list(G1 = list(V = diag(n_rand), nu = nu)))
 	}
 
-	if(type == "poisson") {
-		prior <- list(R = list(V = 1e-07, nu = -2),
+	if(type == "count") {
+		if(is.null(nu)) {nu <- -2}
+		prior <- list(R = list(V = 1e-07, nu = nu),
                       G = list(G1 = list(V = diag(n_rand), nu = nu)))
 	}
 
 	if(type == "categorical") {
 		J <- length(unique(ph_sub)) #number of categories
-  				number_fix_parameters <- ncol(X_model_matrix_1_sub) * (J-1)
+  		number_fix_parameters <- ncol(X_model_matrix_1_sub) * (J-1)
 
 		# Get the number of random effects variables
-		number_random_effects <- length(znames_1)
-		number_random_parameters <- number_random_effects * (J - 1)
+		number_random_parameters <- n_rand * (J - 1)
 
 		J_matrix <- array(1, dim = c(J, J) - 1) # matrix of ones
-		I_matrix <- diag(J - 1) #identiy matrix
+		I_matrix <- diag(J - 1) #identity matrix
 
 		IJ <- (I_matrix + J_matrix)/J # see Hadfield's Course notes p. 97
 		prior <- list(R = list(V = IJ, fix = 1),
