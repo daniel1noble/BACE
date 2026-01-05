@@ -1,6 +1,7 @@
 #' @title model_fit
 #' @description Function takes incomplete data and a formula string and fits a model using MCMCglmm
 #' @param data A dataframe containing missing data.
+#' @param tree A phylogenetic tree of class 'phylo' from the ape package.
 #' @param fixformula A string that specifies the fixed effect structure in the model.
 #' @param randformula A string that specifies the random effect structure in the model.
 #' @param type A string that specifies the type of model to fit. Options are "normal", "binary", "count", "categorical", "ordinal" and the appropriate family will be used in MCMCglmm.
@@ -10,19 +11,26 @@
 #' @return A list of draws from the posterior distribution of the model parameters.
 #' @export
 
+model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 50000, thin = 10, burnin = 1000) {
 
-model_fit <- function(data, fixformula, randformula, type, nitt = 50000, thin = 10, burnin = 1000) {
-
+	# Create sparse matrix of phylogeny
+		A = MCMCglmm::inverseA(tree, nodes = "TIPS")$Ainv
+	
+	# Name of the column in the data corresponding to the phylogeny
+		name = get_variables(as.character(randformula), fix = FALSE)[["cluster"]]
+		
 	# Fit the model using MCMCglmm
   	model <- MCMCglmm::MCMCglmm(fixed = fixformula,
                                random = randformula,
                                  data = data,
                                family = type,
-                              verbose = FALSE, pr = TRUE, prior = prior,
+							 ginverse = setNames(list(A), name),
+                              verbose = FALSE, pr = TRUE,
                                 saveX = TRUE, saveZ = TRUE,
                                  nitt = nitt,
                                  thin = thin,
-                               burnin = burnin)
+                               burnin = burnin, 
+							    prior = prior)
 	class(model) <- c("MCMCglmm", "bace")									
   	return(model)
 }
@@ -37,13 +45,13 @@ model_fit <- function(data, fixformula, randformula, type, nitt = 50000, thin = 
  
 make_prior <- function(n_rand, type, nu = NULL) {
 
-	if(type == "normal") {
+	if(type == "gaussian") {
 		if(is.null(nu)) {nu <- 0.002}
 		prior <- list(R = list(V = 1, nu = nu),
 					  G = list(G1 = list(V = diag(n_rand), nu = nu)))
 	}
 
-	if(type == "count") {
+	if(type == "poisson") {
 		if(is.null(nu)) {nu <- -2}
 		prior <- list(R = list(V = 1e-07, nu = nu),
                       G = list(G1 = list(V = diag(n_rand), nu = nu)))
@@ -64,7 +72,7 @@ make_prior <- function(n_rand, type, nu = NULL) {
 					  G = list(G1 = list(V = diag(number_random_parameters), nu = J+number_random_effects)))
 	}
 
-	if(type == "binary") {
+	if(type == "threshold") {
 		prior <- list(R = list(V = 1, fix = TRUE),
                       G = list(G1 = list(V = diag(n_rand), nu = nu)))
 	}
@@ -151,7 +159,7 @@ get_imputed <- function(model, type) {
 					  G = list(G1 = list(V = diag(number_random_parameters), nu = J+number_random_effects)))
 	}
 
-	if(type == "binary") {
+	if(type == "threshold") {
 		prior <- list(R = list(V = 1, fix = TRUE),
                       G = list(G1 = list(V = diag(n_rand), nu = nu)))
 	}

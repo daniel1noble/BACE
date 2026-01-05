@@ -102,4 +102,39 @@ build_formula_string <- function(x) {
   expr <- .replace_symbols(expr, setNames(b, tmp))
   expr
 }
+#' @title build_formula_string_random
+#' @description Function takes a string specifying a random effects formula and converts this to a formula object to be used in the models.
+#' @param ran_phylo_form A character string specifying the random effects and phylogenetic structure formula used in the model.
+#' @return A formula	 object
+#' #' @examples \dontrun{
+#' build_formula_string_random("~ 1 | Species")
+#' }
+#' @export	
+
+build_formula_string_random <- function(ran_phylo_form) {
+
+  f <- if (inherits(ran_phylo_form, "formula")) {
+    ran_phylo_form
+  } else {
+    stats::as.formula(ran_phylo_form)
+  }
+
+  # Extract RHS as character
+  rhs <- as.character(f)[length(as.character(f))]
+
+  # Remove parentheses
+  rhs <- gsub("[()]", "", rhs)
+
+  # Split on pipe with optional whitespace
+  parts <- strsplit(rhs, "\\s*\\|\\s*", perl = TRUE)[[1]]
+
+  if (length(parts) < 2L) {
+    stop("No random-effects structure detected (missing '|').")
+  }
+
+  cluster <- trimws(parts[2])
+
+  # Return formula of the form: ~ Species
+  stats::as.formula(paste("~", cluster))
+}
 

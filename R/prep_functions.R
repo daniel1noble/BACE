@@ -85,9 +85,7 @@ get_variables <- function(x, fix = TRUE) {
 #' }
 #' @export
 get_type <- function(data) {
- 
   types  <- lapply(data, function(x) check_type(x))
-
   return(types)
 
 }
@@ -125,7 +123,7 @@ check_type <- function(x) {
 		type <- NULL 
         
 		# Binary
-		if(length(unique(x_complete)) == 2 && is.factor(x_complete)){type <- "binary"}
+		if(length(unique(x_complete)) == 2 && is.factor(x_complete)){type <- "threshold"}
 
 		# Continuous or count
 		if(is.numeric(x_complete) && all(x_complete >= 0)){
@@ -134,14 +132,14 @@ check_type <- function(x) {
 			fit_pois <- suppressWarnings(stats::glm(x_complete ~ 1, family = "poisson"))
 			
 			if((stats::AIC(fit_norm) - stats::AIC(fit_pois) >= 2)){
-				type <- "count" } else {type <- "continuous"}			
+				type <- "poisson" } else {type <- "gaussian"}			
 		} 
     
 		# Multinomial categorical
 		if(is.factor(x_complete) && length(levels(x_complete)) > 2){type <- "categorical"}
       
 		# Ordered categorical
-	    if(is.ordered(x_complete)){type <- "ordered_categorical"}
+	    if(is.ordered(x_complete)){type <- "ordinal"}
   
   	return(type)
 }
