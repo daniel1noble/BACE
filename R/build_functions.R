@@ -3,6 +3,9 @@
 #' @description Function takes a string specifying a formula and converts this to a formula object to be used in the models.
 #' @param x A character string specifying the formula used in the model. This should be of the form: y ~ x.
 #' @return A formula object
+#' #' @examples \dontrun{
+#' build_formula("y ~ x1 + x2")
+#' }
 #' @export
 
 build_formula <- function(x) {
@@ -17,6 +20,9 @@ build_formula <- function(x) {
 #' @description Function takes a string specifying a formula and creates all combinations of models using the variables.
 #' @param x A character string specifying the formula used in the model. This should be of the form: y ~ x.
 #' @return A list of formulas
+#' #' @examples \dontrun{
+#' build_formula_string("y ~ x1 + x2 + x3")
+#' }
 #' @export
 
 build_formula_string <- function(x) {

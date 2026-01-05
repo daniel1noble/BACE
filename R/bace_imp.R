@@ -1,8 +1,16 @@
 
+#' @title bace_imp
+#' @description Function to perform Bayesian imputation using BACE for missing data in a dataset
+#' @param fixformula A character string specifying the fixed effects formula used in the model. This should be of the form: y ~ x.
+#' @param ran_phylo_form A character string specifying the random effects and phylogenetic structure formula used in the model.
+#' @param species A logical indicating whether species is included as a random effect.
+#' @param phylo A phylogenetic tree of class 'phylo' from the ape package.
+#' @param data A data frame containing the dataset with missing values to be imputed.
+#' @param ... Additional arguments to be passed to the underlying modeling functions.
+#' @return A list containing imputed datasets and model summaries.
+#' @export
 
-
-
-bace_imp <- function(fixformula,ran_phylo_form, species = TRUE, phylo, data, ...){
+bace_imp <- function(fixformula, ran_phylo_form, species = TRUE, phylo, data, ...){
 
 	# First, we need to get the variables from the formulas that are used to subset out of the data. Returns a list of variables
 		  fix <- get_variables(fixformula)
