@@ -49,3 +49,4 @@ po/*~
 rsconnect/
 
 .lintr
+.DS_Store
