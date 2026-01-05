@@ -1,0 +1,501 @@
+"V1","V2","V3","V4","V5","V6","V7","V8","V9","V10","V11","V12","V13","V14","V15","V16","V17","V18","V19","V20"
+"581","Coracopsis_nigra","altrical","5.55","265","0.243547938","25.97","20.7","0","1.8","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"1534","Platalea_regia","altrical","11.4","1730.5","0.100768516","165","120.3","50","2.5","others","4.262679877","2","colonial","large_groups","-0.62752385","sedentary","Aquatic predator","Low","0"
+"786","Falco_moluccensis","altrical","3.49","162","0.161516017","23.55","41.5","30","2.7","others",NA,NA,NA,NA,NA,"sedentary","Vertivore","Low",NA
+"1693","Ptychoramphus_aleuticus","precocial","2.06","191.8","-0.10842197","24.5","23.5","70","2.3","others","3.784189634","2","colonial","large_groups","-0.62752385","migratory","Aquatic predator","Low",NA
+"1545","Plectrophenax_nivalis","altrical","1.02","42.2","-0.046249109","13.05","20.7","30","1.3","others","3.258096538","2","acolonial","small_groups","-0.528644617","migratory","Granivore","Low",NA
+"1044","Leptoptilos_crumeniferus","altrical","27.17","6325","0.163403517","324","265.5","10","1.9","others","4.262679877","2","colonial","large_groups","0.386377314","migratory","Omnivore","Low",NA
+"1254","Myiarchus_validus","altrical","1.2","41","0.03133311","26.075","23.4","50","2","others",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low","0"
+"1573","Poicephalus_cryptoxanthus","altrical","4.65","140","0.321565026","23.3","16","0","1.7","arboreal",NA,"2","acolonial","large_groups","0.500003408","sedentary","Omnivore","Low",NA
+"1073","Limnodromus_griseus","precocial","1.38","110.75","-0.149130425","64.25","33.6","70","1.9","others","0","2","acolonial","large_groups","-0.513897756","migratory","Aquatic predator","Low","5472.961"
+"680","Dendroica_coronata","altrical","0.51","11.95","-0.041080436","13.03636364","18.1","70","1.9","arboreal",NA,"2","acolonial","pair","-0.543391477","migratory","Invertivore","Low",NA
+"1146","Megalaima_virens","altrical","2.123552124","229.5","-0.138776865","43.25","33.4","20","1.8","arboreal","4.442651256","2","acolonial","large_groups","0.500003408","sedentary","Frugivore","Low",NA
+"1109","Lybius_torquatus","altrical","1.16","51.7","-0.039666377","22.15","23.1","40","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low","0"
+"1521","Piranga_rubra","altrical","1.02","28.2","0.051578605","19.43333333","19.5","90","2","arboreal","3.433987204","2","acolonial","small_groups","0.485256548","migratory","Invertivore","Low",NA
+"607","Cossypha_caffra","altrical","1.02","28.5","0.049010438","18.45","29.1","100","2","others","4.085976313","2","acolonial","asocial","0.455762826","sedentary","Invertivore","Low","0"
+"1608","Prioniturus_platurus","altrical","4.76","66.3","0.513117911","26.7","17.4","0","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Very High",NA
+"756","Eudocimus_albus","altrical","6.36","900","0.005984119","117.4","90.4","10","2.9","others","4.110873864","2","colonial","large_groups","-0.62752385","sedentary","Aquatic predator","Low",NA
+"1172","Melanoptila_glabrirostris","altrical","1.2","35.4","0.066974551","20.91666667","27.8","60","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1668","Pteronetta_hartlaubii","precocial","5.73","790","-0.00768093","49.45","41.6","80","1.9","others","0","2","acolonial","small_groups","-0.528644617","sedentary","Aquatic predator","Very High",NA
+"1829","Spheniscus_humboldti","altrical","15.98","4379","0.022125073","63.7","39","30","2.7","others",NA,"2","colonial",NA,NA,"migratory","Aquatic predator","Low",NA
+"615","Crateroscelis_nigrorufa","altrical","0.8","15.5","0.091313711","16.13333333","23.1","100","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Medium","0"
+"2028","Tringa_solitaria","precocial","0.82","52.1","-0.192180963","32.9","29.6","80","2.2","others","0","2","acolonial","asocial","-0.558138338","migratory","Aquatic predator","Medium","7801.266"
+"882","Glaucidium_brasilianum","altrical","2.51","74.33","0.207439265","15.52","17.2","60","2.4","others","4.110873864","2","acolonial","asocial","0.455762826","sedentary","Invertivore","Low",NA
+"338","Cacatua_sanguinea","altrical","8.91","437.54","0.327438844","33.975","24.2","10","1.6","others",NA,"2","acolonial","large_groups","0.500003408","sedentary","Granivore","Low","0"
+"1914","Syrrhaptes_paradoxus","precocial","1.544401544","275","-0.320974346","15.65","17.6","0","1.7","others","0","2","acolonial","small_groups","0.485256548","migratory","Granivore","Low",NA
+"1562","Podilymbus_podiceps","precocial","3.16","416","-0.110500115","25.45","37.1","70","2.3","others","3.951243719","2","acolonial","large_groups","0.500003408","sedentary","Aquatic predator","Medium",NA
+"586","Corvus_albus","altrical","8.75","524","0.275806558","60.52","61.5","40","2.4","others",NA,"2","acolonial","large_groups","0.500003408","sedentary","Omnivore","Low","0"
+"342","Cacomantis_castaneiventris","altrical","0.95","31","-0.002272219","20.6","16.4","100","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1575","Poicephalus_meyeri","altrical","4.41","117.5","0.341070857","24.85","16.1","10","1.7","arboreal",NA,"2","acolonial","small_groups","0.485256548","sedentary","Omnivore","Low","0"
+"1845","Stelgidopteryx_ruficollis","altrical","0.53","15.2","-0.082757138","11.88","11","100","2","others","3.817712326","2","colonial","large_groups","0.386377314","migratory","Invertivore","Low",NA
+"926","Haematopus_palliatus","precocial","4.52","602.5","-0.04494154","88.05","54","100","2","others","3.737669618","2","acolonial","small_groups","0.485256548","sedentary","Aquatic predator","Low",NA
+"2055","Turnix_velox","precocial","0.67","45","-0.244365403","12.9","17.8","20","1.8","others",NA,"1","acolonial","large_groups","-1.632637865","sedentary","Granivore","Low","0"
+"2034","Trogon_citreolus","altrical","1.48","79","-0.036760593","19.7","15.5","50","2","others",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low",NA
+"1835","Spizaetus_ornatus","altrical","7.6","1215","0.010508359","38","93.8","0","3","others","5.746203191","2","acolonial","small_groups","0.485256548","sedentary","Vertivore","Low",NA
+"140","Anas_wyvilliana","precocial","4.54","614.5","-0.047810266","47.175","34","40","2","others","0","1","acolonial","pair","-1.662131586","sedentary","Omnivore","Low","0"
+"918","Gyps_africanus","altrical","18.25","5500","0.024495504","59.1","95.7","0","1","others","5.723585102","2","colonial","large_groups","0.386377314","sedentary","Scavenger","Low",NA
+"271","Bombycilla_cedrorum","altrical","0.89","31.6","-0.035258155","14.575","16.7","20","1.9","arboreal","3.198673118","2","acolonial","large_groups","-0.513897756","migratory","Frugivore","Low","2441.479"
+"304","Bucorvus_abyssinicus","altrical","23.75","4000","0.216181629","246","145.6","30","2.3","others",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low",NA
+"724","Emberiza_citrinella","altrical","0.759700772","28.25","-0.076808918","13.4","19.1","30","1.9","others","3.295836866","2","acolonial","large_groups","-0.513897756","migratory","Granivore","Low",NA
+"1679","Ptilinopus_occipitalis","altrical","1.95","238","-0.184631225","20.12","26.1","0","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low","0"
+"745","Eremophila_alpestris","altrical","0.89","31.2","-0.032166527","12.9","23.5","50","2","others","3.218875825","2","acolonial","small_groups","0.485256548","migratory","Omnivore","Low","3049.888"
+"753","Estrilda_caerulescens","altrical","0.41","8.4","-0.050318808","10.25","14.7","0","2","others","3.481240089","2","acolonial","small_groups","0.485256548","sedentary","Granivore","Low",NA
+"595","Corvus_dauuricus","altrical","4.75","208","0.23472596","32.44","44.1","60","2","others",NA,NA,NA,NA,NA,"sedentary","Omnivore","Medium","1753.196"
+"1065","Lichenostomus_melanops","altrical","0.92","32.35","-0.026553078","18.75555556","21.7","50","1.6","arboreal","4.016383021","2.5","colonial","large_groups","0.746629531","sedentary","Omnivore","Low","0"
+"167","Apalis_thoracica","altrical","0.51","11.75","-0.036984313","15.25","20.5","80","2","arboreal",NA,"2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Low",NA
+"376","Calyptorhynchus_banksii","altrical","11.95","723.67","0.332815607","53.1","29.2","0","2","arboreal","5.18178355","2","acolonial","small_groups","0.485256548","migratory","Granivore","Low",NA
+"802","Formicarius_colma","altrical","1.08","45.25","-0.038360994","20.23333333","29.9","100","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"782","Falco_columbarius","altrical","3.09","157.39","0.115655402","17.55","34.3","20","2.8","others","4.060443011","2.5","acolonial","asocial","-0.197886121","migratory","Vertivore","Low","3419.917"
+"379","Calyptorhynchus_lathami","altrical","9.78","437","0.3681997","44.9","20.8","0","2","arboreal","5.198497031","2","acolonial","large_groups","0.500003408","sedentary","Granivore","Low",NA
+"2014","Trichoglossus_chlorolepidotus","altrical","3.05","87.1","0.253588843","18.73333333","14.6","0","1.3","arboreal","4.276666119","2","acolonial","large_groups","0.500003408","sedentary","Nectarivore","Low","0"
+"1716","Pyrrhura_frontalis","altrical","2.81","80.13","0.238237223","22.4","12.2","10","1.7","arboreal",NA,NA,NA,NA,NA,"sedentary","Omnivore","Very High","0"
+"889","Glyphorynchus_spirurus","altrical","0.62","14.75","-0.007347929","14.5","16.5","100","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","High","0"
+"1038","Lathamus_discolor","altrical","2.37","64.7","0.216187893","15.84","14.3","20","1.2","arboreal","4.521788577","2","colonial","large_groups","0.386377314","migratory","Nectarivore","Medium","787.003"
+"773","Eurocephalus_anguitimens","altrical","1.73","69.05","0.063693922","21.65","26.4","80","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low",NA
+"1572","Pogoniulus_scolopaceus","altrical","0.44","15.5","-0.168323599","14.23333333","15.2","50","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Very High",NA
+"2104","Xenops_minutus","altrical","0.49","11.7","-0.053323485","14.56666667","13.5","100","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"230","Artamus_leucorynchus","altrical","1.08","41.7","-0.018532887","20.32","18.4","100","2","others",NA,"3.5","acolonial","small_groups","1.388782427","sedentary","Invertivore","Low","0"
+"363","Calidris_ptilocnemis","precocial","1.13","82.1","-0.163285024","35.75","23.7","100","2","others","0","2","acolonial","large_groups","0.500003408","migratory","Aquatic predator","Low",NA
+"1746","Rhea_americana","precocial","18.88","23000","-0.307992447","94.7","308","20","2","others","0","1.3","acolonial","large_groups","-2.223149845","sedentary","Omnivore","Low",NA
+"1936","Tanysiptera_sylvia","altrical","1.14","49.6","-0.037155922","37.3","15.3","70","2.3","others","4.094344562","2.07","acolonial","small_groups","0.540793233","migratory","Invertivore","Low","738.296"
+"901","Grus_canadensis","precocial","14.82","3901.04","0.017445876","114.9","216.2","20","1.9","others","4.276666119","2","acolonial","small_groups","0.485256548","migratory","Omnivore","Low","3264.224"
+"278","Brachygalba_lugubris","altrical","0.43","15.9","-0.184491327","47.25","9.1","100","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1399","Patagioenas_plumbea","altrical","1.35","179","-0.275193499","23.06666667","23.1","0","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"1825","Speculanas_specularis","precocial","6.1","1217","-0.085374558","51.7","44.3","20","1.5","others","0","2","acolonial","pair","0.470509687","migratory","Herbivore aquatic","Low","588.587"
+"1929","Tadorna_variegata","precocial","5.96","1539.75","-0.15254629","43.95","60.8","50","1.5","others","0","2","acolonial","large_groups","0.500003408","sedentary","Omnivore","Low","0"
+"1190","Menura_novaehollandiae","altrical","10.71","980","0.211649567","40.6","109.5","80","2.1","others","5.209486153","1","acolonial","small_groups","-2.661285889","sedentary","Invertivore","Low","0"
+"913","Gymnopithys_leucaspis","altrical","0.76","23.8","-0.035039001","18.3","26.2","90","2.1","others","4.204692619","2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Low",NA
+"694","Dives_dives","altrical","2.2","91.7","0.099221549","29.225","36.4","100","2","others",NA,"2","acolonial","large_groups","0.500003408","sedentary","Omnivore","Low",NA
+"349","Calandrella_cinerea","altrical","0.67","23.7","-0.088755938","13.02","20","40","2","others",NA,"2","acolonial","large_groups","-0.513897756","sedentary","Granivore","Low","0"
+"179","Apteryx_owenii","precocial","7.3","1243","-0.012511746","92.1","59.6","80","1.9","others","0","1","acolonial","pair","-0.648230422","sedentary","Invertivore","Low",NA
+"1930","Taeniopygia_bichenovii","altrical","0.4","9.6","-0.093449341","9.7","13.5","20","2","others","3.713572067","2","acolonial","small_groups","0.485256548","sedentary","Granivore","Low","0"
+"611","Coturnix_pectoralis","precocial","0.96","101.95","-0.286645308","15.05","23","10","1.7","others","0","2","acolonial","small_groups","0.485256548","sedentary","Granivore","Low","0"
+"845","Gallinula_ventralis","precocial","2.77","387","-0.150170547","26.25","54.5","40","1.7","others",NA,NA,NA,NA,NA,"migratory","Omnivore","Low","0"
+"106","Amblyornis_subalaris","altrical","3.55","109","0.265084285","26.1","34","40","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Very High",NA
+"81","Amadina_fasciata","altrical","0.59","15.4","-0.039353453","10.8","14.3","20","2","others","3.828641396","2","colonial","large_groups","0.386377314","migratory","Granivore","Low",NA
+"2010","Treron_pompadora","altrical","1.39","234","-0.327537556","20.29166667","22","10","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"2007","Treron_formosae","altrical","1.55","240","-0.286365024","22.98","27.6","0","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low","0"
+"40","Aegolius_acadicus","altrical","3.36","73.12","0.338088014","19.16666667","23.6","20","2.8","others","4.304065093","2","acolonial","asocial","0.455762826","migratory","Vertivore","Low","928.901"
+"538","Coccothraustes_coccothraustes","altrical","1.421554796","57.06","0.024698995","21.8","21","10","1.6","arboreal","3.540959324","2","colonial","large_groups","0.386377314","migratory","Omnivore","Low",NA
+"1009","Lanius_cristatus","altrical","1.05","29.74","0.051263698","17.48","23.8","80","2.2","others","3.417726684","2","acolonial","asocial","0.455762826","migratory","Invertivore","Low","4571.84"
+"2107","Xolmis_irupero","altrical","0.82","29.8","-0.056600878","20.125","23.7","100","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low",NA
+"1156","Melampitta_lugubris","altrical","2.1","42.7","0.264511447","20.6","38.1","80","2.1","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low",NA
+"681","Dendroica_magnolia","altrical","0.366795367","8.16","-0.091643852","12.325","18.2","100","2","arboreal","3.569532696","2","acolonial","asocial","-0.558138338","migratory","Invertivore","Low",NA
+"257","Babax_lanceolatus","altrical","2.48","68","0.223818273","27.1","35.2","50","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","High",NA
+"414","Cathartes_aura","altrical","9.98","1733.3","0.042601845","51.51666667","54","0","1","others","4.983606622","2","acolonial","pair","0.470509687","migratory","Scavenger","High","3239.313"
+"1621","Prosopeia_tabuensis","altrical","5.3","280","0.210168394","33.15","26.8","10","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"688","Dicrurus_bracteatus","altrical","1.8","82.75","0.036995189","34.34","23.6","60","2.1","others",NA,"2","acolonial","large_groups","0.500003408","sedentary","Invertivore","Low",NA
+"217","Ardeola_ralloides","altrical","2.316602317","250","-0.121752306","68.25","59.4","10","2.9","others","3.891820298","2","colonial","small_groups","-0.642270711","migratory","Aquatic predator","Low",NA
+"391","Caprimulgus_europaeus","precocial","0.88","67","-0.22255527","20.8","17.3","100","2","others","3.912023005","2","acolonial","asocial","-0.558138338","migratory","Invertivore","Low","6553.718"
+"1345","Orthonyx_temminckii","altrical","1.76","58.63","0.110860696","16.04","29.9","100","2","others",NA,"1","acolonial","pair","-0.648230422","sedentary","Invertivore","Low","0"
+"1108","Luscinia_megarhynchos","altrical","0.7","19.4","-0.02114578","15.25","26.4","70","2","others","3.258096538","2","acolonial","asocial","-0.558138338","migratory","Invertivore","Low","4563.037"
+"425","Cercomacra_nigrescens","altrical","0.84","16.5","0.097329976","18.08571429","23.6","100","2","arboreal",NA,"2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Low","0"
+"97","Amazona_oratrix","altrical","8.62","517","0.272569656","36.2","25.9","0","1.7","arboreal",NA,"2","acolonial",NA,NA,"sedentary","Omnivore","Low",NA
+"2069","Tyto_novaehollandiae","altrical","8.47","675.33","0.200109215","35.7","65","10","2.9","others","4.94875989","2","acolonial","asocial","0.455762826","sedentary","Vertivore","Low","0"
+"1748","Rhinocrypta_lanceolata","altrical","1.4","61.9","-0.001695586","16.85","30.2","100","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low",NA
+"110","Amphispiza_bilineata","altrical","0.68","13.79","0.04910215","11.7","18.1","50","2","others","3.198673118","2","acolonial","pair","0.470509687","migratory","Omnivore","Low","1341.243"
+"1972","Tigrisoma_lineatum","altrical","6.86","813","0.063523821","117.1","98.8","70","2.3","others",NA,"2","acolonial",NA,NA,"sedentary","Aquatic predator","Low","0"
+"117","Anas_clypeata","precocial","3.56","613","-0.152822989","68.05","33.8","60","1.8","others","0","1","acolonial","large_groups","-1.632637865","migratory","Aquatic predator","Low","3552.53"
+"523","Cisticola_cherina","altrical","0.43","10","-0.071947946","12.45","17.7","100","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low",NA
+"1142","Megaceryle_alcyon","altrical","2.46","147.6","0.032217766","59.56666667","12.5","10","2.9","others","3.912023005","2","acolonial","asocial","0.455762826","migratory","Aquatic predator","Low","3494.96"
+"1892","Strix_woodfordii","altrical","5.5","286.25","0.220897612","31.42","43.4","60","2.4","others","5.040194096","2","acolonial","asocial","0.455762826","sedentary","Invertivore","Low",NA
+"1006","Laniarius_erythrogaster","altrical","1.56","45.8","0.118407815","22.1","32.2","70","2.2","arboreal",NA,"2","acolonial","pair","0.470509687","sedentary","Invertivore","Low",NA
+"1391","Passerina_cyanea","altrical","0.65","14.7","0.013997812","11.49","17.2","0","2","others","3.349904087","2","acolonial","small_groups","-0.528644617","migratory","Granivore","Low","2411.078"
+"1820","Sittasomus_griseicapillus","altrical","0.55","12.23","-0.013908775","17.82","17.2","90","1.9","arboreal",NA,"2","acolonial","large_groups","-0.513897756","sedentary","Invertivore","Medium","0"
+"1842","Starnoenas_cyanocephala","altrical","1.63","251","-0.27538501","22.8","32.9","20","2","others",NA,"2","acolonial","small_groups","0.485256548","sedentary","Omnivore","Low",NA
+"952","Heterophasia_melanoleuca","altrical","1.16","32.6","0.072248796","20.35","27.4","50","1.8","arboreal",NA,NA,NA,NA,NA,"sedentary","Omnivore","Medium",NA
+"513","Cinclosoma_punctatum","altrical","2.11","113.5","0.029320394","21.53333333","33.1","80","2.1","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1864","Sterna_sumatrana","precocial","1.31","106","-0.161099602","35.9","18.5","10","2.9","others","4.430816799","2","colonial","large_groups","0.386377314","migratory","Aquatic predator","Low",NA
+"1416","Peneothello_cyanus","altrical","0.96","27.05","0.035354037","14.175","23.5","100","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"623","Crypturellus_obsoletus","precocial","3.185328185","445.75","-0.123796304","31.26666667","45.9","50","2","others","0","1","acolonial","pair","-1.662131586","sedentary","Omnivore","Low",NA
+"1093","Lophura_nycthemera","precocial","4.74","1490","-0.244043327","40.3","90.6","30","2","others","0","1","acolonial","small_groups","-1.647384725","sedentary","Omnivore","Low",NA
+"1923","Tachymarptis_melba","altrical","1.090733591","104","-0.236029413","12.85","15.4","100","2","others","4.787491743","2","colonial","large_groups","0.386377314","migratory","Invertivore","Low",NA
+"1870","Stigmatura_budytoides","altrical","0.53","11.1","-0.006467613","11.2","19.2","100","2","arboreal",NA,NA,NA,NA,NA,"migratory","Invertivore","Low",NA
+"1307","Notiomystis_cincta","altrical","1.16","93.95","-0.18462602","19.55","27.6","30","1.6","arboreal","3.784189634","1","acolonial","small_groups","-0.633483561","sedentary","Omnivore","Low",NA
+"270","Bolborhynchus_lineola","altrical","2.08","56.2","0.193684351","11.95","10.8","0","1.7","arboreal",NA,"2","acolonial",NA,NA,"migratory","Omnivore","Very High",NA
+"627","Cuculus_pallidus","altrical","1.43","87.7","-0.077041026","27.25","22.7","100","2","arboreal",NA,NA,NA,NA,NA,"migratory","Invertivore","Low","2231.5"
+"256","Aythya_valisineria","precocial","6.78","1203","-0.03666669","58","37.9","10","1.5","others","0","1","colonial","large_groups","-1.746263959","migratory","Herbivore aquatic","Low","3058.761"
+"58","Agelaioides_badius","altrical","1.48","45.3","0.098208949","19.2","26.8","60","2","others",NA,"4","colonial","small_groups","1.4907739","sedentary","Omnivore","Low","0"
+"1943","Tchagra_australis","altrical","1.23","32.3","0.099939596","19.875","26.5","60","2.4","others",NA,"2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Low",NA
+"2062","Tyrannus_forficatus","altrical","0.86","39.3","-0.10307238","22.55","18.6","60","2","others",NA,"2","acolonial","large_groups","0.500003408","migratory","Invertivore","Low",NA
+"494","Chrysococcyx_basalis","altrical","0.62","23.15","-0.116740637","16.5","18","80","2","arboreal","3.850147602","2","acolonial","asocial","-0.558138338","migratory","Invertivore","Low","2339.822"
+"1352","Otus_magicus","altrical","3.76","165","0.189425291","21.18181818","34.4","90","2.1","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Very High",NA
+"422","Cepphus_columba","precocial","3.9","530","-0.077899986","37.4","32","40","2.6","others","3.713572067","2","colonial","large_groups","0.386377314","migratory","Aquatic predator","Low",NA
+"1670","Ptilinopus_dupetithouarsii","altrical","1.1","100","-0.22283696","18.85","24.1","0","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"186","Aquila_heliaca","altrical","14.96138996","3490","0.048591017","61.65","93.7","0","2.8","others","4.579852378","2","acolonial","small_groups","0.485256548","migratory","Vertivore","Low",NA
+"380","Calyptorhynchus_latirostris","altrical","14.25","612","0.449938105","44.9","30.1","20","1.7","arboreal","5.10291057","2","acolonial","small_groups","0.485256548","sedentary","Granivore","Low","170.972"
+"1625","Psarocolius_montezuma","altrical","5.89","325","0.219838448","62.53333333","52.2","50","2","arboreal","4.369447852","1","colonial","small_groups","-2.774911984","sedentary","Omnivore","Low","0"
+"909","Gymnocichla_nudiceps","altrical","1.06","32.75","0.031982563","19.8","29.3","90","2.1","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1427","Petroica_rodinogaster","altrical","0.49","9.65","-0.00657398","11.675","18.3","100","2","others",NA,"2","acolonial",NA,NA,"migratory","Invertivore","Medium","129.158"
+"1959","Thamnophilus_punctatus","altrical","0.94","20.5","0.093499265","19","21.3","100","2","arboreal",NA,"2","acolonial",NA,NA,"sedentary","Invertivore","Low","0"
+"1221","Mohoua_ochrocephala","altrical","0.709","30","-0.121391843","13.55","30.9","60","1.8","arboreal","4.304065093","2.41","acolonial","small_groups","0.786314496","sedentary","Invertivore","Low",NA
+"1340","Oriolus_flavocinctus","altrical","2.1","89","0.086271184","34.625","27.1","0","2","arboreal",NA,"2","acolonial","small_groups","0.485256548","sedentary","Frugivore","Low","0"
+"1519","Pipra_pipra","altrical","0.5","11.15","-0.03286422","11.83333333","14.1","40","2","others",NA,NA,NA,NA,NA,"sedentary","Frugivore","Medium","0"
+"1889","Strix_uralensis","altrical","11.21","784.5","0.285465581","37.15","53.12222222","10","2.9","others","4.424846632","2","acolonial","asocial","0.455762826","sedentary","Vertivore","Low",NA
+"1021","Larus_glaucescens","precocial","7.62","1063","0.044084943","69.05","65.2","30","2.3","others","3.828641396","2","colonial","large_groups","0.386377314","migratory","Aquatic predator","Low",NA
+"32","Acryllium_vulturinum","precocial","4.55","1330","-0.234241429","38.96666667","94.2","10","1.5","others","0","2","acolonial","large_groups","0.500003408","sedentary","Omnivore","Low",NA
+"831","Gallicolumba_crinigera","altrical","1.45","162.5","-0.220689296","19.7","36.1","30","2","others",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low",NA
+"2005","Treron_capellei","altrical","2.2","404.5","-0.260961074","32.4","23.1","0","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"1538","Platycercus_eximius","altrical","3.01","104","0.204818395","16.8","17.8","10","1.7","arboreal","4.17438727","2","acolonial","small_groups","0.485256548","sedentary","Omnivore","Low","0"
+"548","Collocalia_esculenta","altrical","0.2","6.1","-0.284425875","6.733333333","8.1","100","2","others",NA,"2","colonial","large_groups","0.386377314","sedentary","Invertivore","High","0"
+"1011","Lanius_ludovicianus","altrical","1.53","51.75","0.080332468","21.05","27.7","70","2.1","others","3.795489189","2","acolonial","asocial","0.455762826","migratory","Invertivore","Low","2365.354"
+"1126","Malurus_cyaneus","altrical","0.47","9.3","-0.015706398","12.16666667","23.9","80","2","others","3.761200116","4","acolonial","small_groups","1.604399994","sedentary","Invertivore","Low","0"
+"432","Certhionyx_pectoralis","altrical","0.425","10.1","-0.079442313","15.6","16.4","20","1.3","arboreal",NA,NA,NA,NA,NA,"migratory","Nectarivore","High",NA
+"689","Dicrurus_hottentottus","altrical","1.96","66.34","0.127620655","37.05714286","25.2","50","1.7","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low",NA
+"194","Ara_militaris","altrical","18.83","1134","0.421288933","54.35","28.8","0","2","arboreal",NA,NA,NA,NA,NA,"migratory","Frugivore","Low",NA
+"1469","Pheucticus_ludovicianus","altrical","1.32","42","0.066877572","18.52","21.6","50","1.9","arboreal","3.481240089","2","acolonial","small_groups","-0.528644617","migratory","Omnivore","Low","4107.108"
+"483","Chloroceryle_amazona","altrical","1.95","126.5","-0.031244572","70.7","12.6","50","2.5","others",NA,NA,NA,NA,NA,"sedentary","Aquatic predator","Low","0"
+"555","Columba_leucomela","altrical","2.29","420","-0.25267412","23.75","27.4","0","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low","0"
+"69","Alcedo_cristata","altrical","0.54","15.7","-0.082493962","33.63333333","7.8","40","2.6","others","3.701301974","2","acolonial","pair","-0.543391477","migratory","Aquatic predator","Medium",NA
+"1626","Psephotus_chrysopterygius","altrical","1.4","46.8","0.066169375","12.9","14.6","0","1.7","others","4.043051268","2","acolonial","large_groups","0.500003408","sedentary","Granivore","Low","0"
+"783","Falco_eleonorae","altrical","4.04","385","0.014988511","22.85","33.1","50","2.5","others","3.96081317","2","colonial","asocial","0.342136732","migratory","Omnivore","Low","6913.54"
+"1714","Pyrrholaemus_brunneus","altrical","0.57","12.5","-0.003696145","13.56","20.7","50","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","High","0"
+"674","Dendrocygna_arborea","precocial","5.791505792","1150","-0.094170151","52.9","65.5","0","1.7","others","0","2","acolonial","small_groups","0.485256548","sedentary","Omnivore","Low",NA
+"716","Egretta_novaehollandiae","altrical","3.91","560","-0.090150266","79.16666667","89","50","2.3","others",NA,"2","colonial","asocial","-0.671764432","migratory","Aquatic predator","Low","1432.453"
+"1992","Torgos_tracheliotos","altrical","27.88","6200","0.179450911","89.15","138.4","0","1.2","others","5.707110265","2","acolonial","small_groups","0.485256548","sedentary","Scavenger","Low",NA
+"725","Emberiza_hortulana","altrical","0.7","19.9","-0.027321419","17","18.6","70","2","others","2.917770732","2","acolonial","large_groups","-0.513897756","migratory","Omnivore","Low",NA
+"754","Estrilda_melpoda","altrical","0.38","7.6","-0.059029862","10.15","14.2","40","2","others","3.511545439","2","acolonial","small_groups","0.485256548","sedentary","Granivore","Low","0"
+"1961","Thinocorus_orbignyianus","precocial","1.158301158","125","-0.254562753","15.55","23.7","0","1","others","0","1","acolonial","small_groups","-1.647384725","sedentary","Herbivore terrestrial","Low",NA
+"1740","Regulus_calendula","altrical","0.31","6.2","-0.098040435","10.1","18.4","80","2","arboreal","3.295836866","2","acolonial","small_groups","-0.528644617","migratory","Invertivore","Low","2624.233"
+"1954","Thalassarche_melanophrys","precocial","17.88","3232","0.144625287","119.7","80.3","50","2.5","others","4.762173935","2","colonial","asocial","0.342136732","migratory","Aquatic predator","Low",NA
+"1852","Sterna_anaethetus","precocial","1.96","133.5","-0.042094167","43","20.6","30","2.7","others","4.564348191","2","colonial","small_groups","0.371630454","migratory","Aquatic predator","Low",NA
+"1678","Ptilinopus_monacha","altrical","0.91","85.9","-0.268302759","13.63333333","18.5","0","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"1797","Scythrops_novaehollandiae","altrical","5.35","765","-0.029677576","76.65","45.4","30","1.9","arboreal",NA,"2","acolonial","asocial","-0.558138338","migratory","Frugivore","Low","1654.124"
+"1745","Rhagologus_leucostigma","altrical","1.04","25.6","0.083487038","17.25","20","30","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"895","Grallaria_quitensis","altrical","2.05","65.7","0.149471103","25.5","47.8","80","2.1","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"2018","Tricholaema_leucomelas","altrical","0.98","32.2","0.002013087","19.25","20.6","30","1.9","arboreal",NA,"2","acolonial","pair","0.470509687","sedentary","Omnivore","Medium","0"
+"765","Euneornis_campestris","altrical","0.7","16.15","0.023352073","16.3","17.5","30","1.7","arboreal",NA,NA,NA,NA,NA,"sedentary","Nectarivore","Low","0"
+"2002","Tregellasia_leucops","altrical","0.59","15.63","-0.042951236","14.34","19.3","80","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"102","Amazona_vittata","altrical","5.73","275","0.248420049","33.675","21.7","0","1.6","arboreal",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low","0"
+"479","Chloephaga_hybrida","precocial","7.61","2691.19","-0.181916834","26.2","53.5","0","1.2","others","0","2","acolonial","small_groups","0.485256548","migratory","Herbivore terrestrial","Low","142.564"
+"1303","Northiella_haematogaster","altrical","2.4","85.5","0.153999832","17.75","20.8","10","1.7","arboreal","3.761200116","2","acolonial","small_groups","0.485256548","sedentary","Omnivore","High","0"
+"1641","Psittacula_columboides","altrical","3.43","90","0.296634366","24.85","15.2","0","1.6","arboreal",NA,NA,NA,NA,NA,"sedentary","Omnivore","Medium","0"
+"328","Bycanistes_cylindricus","altrical","10.13","921","0.202538749","128.6","52.6","10","2","arboreal",NA,NA,NA,NA,NA,"migratory","Frugivore","Medium",NA
+"1464","Phaps_elegans","altrical","1.65","211.5","-0.228533445","20.8","28.3","10","2","others",NA,"2","acolonial","small_groups","0.485256548","sedentary","Granivore","Low","0"
+"2075","Urocolius_indicus","altrical","1.07","55","-0.0897571","12.5","20.7","0","1.7","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"2122","Anas_formosa","precocial","3.131274131","449.05","-0.133019473","36.2","32.1","10","1.3","others","0","1","colonial","large_groups","-1.746263959","migratory","Herbivore aquatic","Medium",NA
+"2025","Tringa_melanoleuca","precocial","1.79","171","-0.141577927","60.5","60.5","80","2.2","others","0","2","acolonial","large_groups","0.500003408","migratory","Aquatic predator","Low","7398.054"
+"720","Elanus_axillaris","altrical","3.37","271","0.021451282","25.4","38.8","10","2.9","others","4.189654742","2","colonial","asocial","0.342136732","migratory","Vertivore","Low","0"
+"1185","Melithreptus_lunatus","altrical","0.6","14.05","-0.009788637","14.65454545","16.9","70","1.7","arboreal",NA,NA,NA,NA,NA,"migratory","Invertivore","Medium","0"
+"1358","Pachycephala_pectoralis","altrical","1.12","25.4","0.117575178","17.66842105","22.7","70","2","arboreal",NA,"2","acolonial","large_groups","0.500003408","sedentary","Invertivore","Low","0"
+"348","Calamospiza_melanocorys","altrical","1.18","37.6","0.04504302","17.95","24","30","2","others",NA,"2.2","acolonial","large_groups","-0.360029468","migratory","Omnivore","Low","1811.645"
+"1831","Sphyrapicus_varius","altrical","1.3","49.91","0.01837049","24.77142857","20.5","50","1.7","arboreal","3.496507561","2","acolonial","small_groups","0.485256548","migratory","Omnivore","Low","2838.064"
+"578","Coracina_novaehollandiae","altrical","2.4","118","0.075812979","27.42","28.7","50","2","others","4.465908119","2","acolonial","small_groups","0.485256548","migratory","Invertivore","Low","3928.836"
+"324","Buteogallus_meridionalis","altrical","7.84","808","0.123012932","38.1","93.4","20","2.8","others","5.794536838","2","acolonial","large_groups","0.500003408","sedentary","Vertivore","Low",NA
+"467","Chen_rossii","precocial","6.85","1636","-0.106817256","38.15","58.8","0","1","others","0","2","colonial","large_groups","0.386377314","migratory","Herbivore terrestrial","Medium","3263.33"
+"687","Dicaeum_hirundinaceum","altrical","0.37","9.05","-0.11298933","10.77","12.8","60","1.8","arboreal",NA,"2","acolonial","small_groups","-0.528644617","migratory","Invertivore","Low","0"
+"695","Dolichonyx_oryzivorus","altrical","1.07","31.55","0.045119923","15.25","26.5","60","2","others","3.676300672","2.5","acolonial","large_groups","-0.153645539","migratory","Granivore","Low",NA
+"216","Ardea_sumatrana","altrical","8.73","2024","-0.053143132","165.4","156.8","40","2.6","others",NA,"2","colonial","asocial","0.342136732","sedentary","Aquatic predator","Low",NA
+"1074","Limnodromus_scolopaceus","precocial","1.37","91.79","-0.106718638","74.05","38.6","60","1.8","others","0","2","acolonial","large_groups","0.500003408","migratory","Aquatic predator","Low","5368.63"
+"1872","Stipiturus_malachurus","altrical","0.4","7.3","-0.026979415","11.15","18.6","100","2","others","4.615120517","2.08","acolonial","small_groups","0.548573426","sedentary","Invertivore","Very High",NA
+"61","Ailuroedus_melanotis","altrical","4.4","165","0.257690123","36.9","45.8","10","1.9","arboreal","4.248495242","2","acolonial","small_groups","0.485256548","sedentary","Frugivore","Very High","0"
+"105","Amblyornis_macgregoriae","altrical","3.58","123.5","0.238428671","26.95","37.3","20","1.8","arboreal",NA,"1","acolonial",NA,NA,"sedentary","Frugivore","Very High","0"
+"408","Caryothraustes_poliogaster","altrical","1.43","37.5","0.129143361","18.66666667","21.5","20","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low","0"
+"1075","Limnothlypis_swainsonii","altrical","0.67","18.9","-0.033832117","16.95","17.7","90","2.1","others","3.401197382","2","acolonial","pair","0.470509687","migratory","Invertivore","Low","1545.994"
+"1990","Todus_todus","altrical","0.41","6.52","0.011168358","16.15","12.6","90","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1029","Larus_novaehollandiae","precocial","3.12","271.5","-0.012471379","43.3","47.46","20","2","others","3.761200116","2","colonial","large_groups","0.386377314","migratory","Omnivore","Low","428.017"
+"1654","Psophodes_occidentalis","altrical","1.33","39.8","0.083212634","14.95","24","50","2","others",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low",NA
+"1525","Pitohui_dichrous","altrical","1.88","71.65","0.090835312","27.56","31.2","10","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low","0"
+"540","Coccyzus_americanus","altrical","1.17","64","-0.087734586","30.63333333","24.5","60","2.3","arboreal",NA,"2","acolonial",NA,NA,"migratory","Invertivore","Low","5916.696"
+"524","Cisticola_exilis","altrical","0.39","7.05","-0.029517863","11.72","17.4","100","2","others",NA,"1","acolonial","small_groups","-2.661285889","sedentary","Invertivore","Low","0"
+"1300","Ninox_squamipila","altrical","4.4","130","0.315549977","27.03333333","35.1","100","2","others","5.030437921","2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Low","0"
+"381","Campephaga_phoenicea","altrical","1.05","27.1","0.073823923","17.5","19.7","100","2","arboreal",NA,NA,NA,NA,NA,"migratory","Invertivore","Low","1149.531"
+"1738","Recurvirostra_avosetta","precocial","1.83","304","-0.271614709","81.66666667","86.9","80","2","others","0","2","colonial","small_groups","-0.642270711","migratory","Aquatic predator","Low","6415.835"
+"1696","Puffinus_griseus","altrical","5.31","770","-0.034517882","49.75","55.8","30","2.7","others","4.574710979","2","colonial","large_groups","0.386377314","migratory","Aquatic predator","Low",NA
+"404","Carduelis_tristis","altrical","0.54","12.8","-0.032932993","11.8","13.5","10","1.7","arboreal","3.583518938","2","colonial","large_groups","0.386377314","sedentary","Granivore","Low",NA
+"1850","Sterna_albifrons","precocial","1.03","57","-0.114972057","33.43333333","15.4","40","2.6","others","4.510859507","2","colonial","small_groups","0.371630454","migratory","Aquatic predator","Low","7673.717"
+"969","Hylacola_pyrrhopygia","altrical","1.03","19.9","0.140417766","14.25","21.6","80","2","others","4.110873864","2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Medium","0"
+"1302","Nipponia_nippon","altrical","10.9","1900","0.058612405","161","78","20","2.8","others",NA,NA,NA,NA,NA,"sedentary","Aquatic predator","Low",NA
+"1379","Paroaria_coronata","altrical","1.23","37.85","0.061457838","16.5","25.3","60","1.8","others",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low",NA
+"1117","Macropygia_amboinensis","altrical","1.49","237","-0.300457716","20.65","22.8","0","2","arboreal",NA,"2","acolonial","small_groups","0.485256548","sedentary","Frugivore","Low","0"
+"2101","Xanthotis_flaviventer","altrical","1.05","33.13","0.025066269","28.25","26","70","1.8","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1690","Ptiloris_paradiseus","altrical","2.78","125.5","0.12469173","53.88","35.4","40","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low","0"
+"41","Aegolius_funereus","altrical","4.02","91.17","0.362431667","18.5","23.4","30","2.7","others","4.369447852","2","acolonial","asocial","-0.558138338","migratory","Vertivore","Low","0"
+"662","Daption_capense","altrical","5.02","430","0.08248351","37.5","42.6","70","2.3","others","3.931825633","2","colonial","large_groups","0.386377314","migratory","Aquatic predator","Low",NA
+"1606","Prinia_leucopogon","altrical","0.59","11.7","0.027332447","15.575","21.2","100","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low",NA
+"525","Cisticola_fulvicapilla","altrical","0.51","10.25","-0.003838864","10.95","17.3","70","1.8","others",NA,"2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Low","0"
+"225","Arremon_brunneinucha","altrical","1.54","41.5","0.136730857","17.96666667","28.8","40","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1623","Prunella_modularis","altrical","0.78","19.7","0.022126574","13.825","20.4","50","2","others","3.218875825","3.25","acolonial","small_groups","1.26912131","sedentary","Invertivore","Low","2288.047"
+"1202","Microeca_fascinans","altrical","0.54","14.57","-0.064366005","12.4","16.5","100","2","others","3.449987546","3","acolonial","small_groups","1.139880529","sedentary","Invertivore","Low","0"
+"686","Dicaeum_aeruginosum","altrical","0.5","11.83","-0.04723124","10","14.6","20","1.8","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low","0"
+"1620","Prosopeia_splendens","altrical","5.93","237.25","0.299154843","31.05","24.9","20","1.9","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"1767","Rissa_tridactyla","precocial","4.31","387.25","0.041670229","44.05","33.9","30","2.4","others","4.151039906","2","colonial","large_groups","0.386377314","migratory","Aquatic predator","Low",NA
+"1837","Spizella_arborea","altrical","0.74","17.85","0.023196548","11.45","20.2","50","2","others","3.339321978","2","acolonial","small_groups","-0.528644617","migratory","Omnivore","Low",NA
+"1330","Oenanthe_oenanthe","altrical","0.78","30.6","-0.084749365","18.07142857","27.3","70","2","others","3.417726684","2","acolonial","asocial","0.455762826","migratory","Invertivore","Low","5900.739"
+"643","Cyclarhis_gujanensis","altrical","1.26","28.8","0.138239537","17.72142857","22.8","100","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1150","Megapodius_eremita","precocial","3.21","657.5","-0.214775594","25","62.7","30","2","others","0","0","acolonial","asocial","-13.84955872","migratory","Omnivore","Low",NA
+"1478","Phoebastria_immutabilis","precocial","14.383","2550","0.107626555","104.95","82.6","70","2.3","others","5.111987788","2","colonial","small_groups","0.371630454","migratory","Aquatic predator","Low",NA
+"1182","Melipotes_fumigatus","altrical","1.55","58.6","0.055803939","22.18","30.3","20","1.9","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"449","Charadrius_falklandicus","precocial","1.11","65","-0.114360173","18.85","28.4","100","2","others","0","2","acolonial","large_groups","0.500003408","sedentary","Aquatic predator","Low","2581.684"
+"819","Fregata_minor","altrical","9.23","1296","0.079233646","125","19.6","20","2.6","others","6.063785209","2","colonial","large_groups","-0.62752385","sedentary","Aquatic predator","Low",NA
+"1655","Psophodes_olivaceus","altrical","2.18","62.73","0.18740034","22.46","31.5","80","2","others","3.465735903","2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Low","0"
+"1310","Numenius_arquata","precocial","4.63","805.5","-0.10497008","163.425","82.7","40","2","others","0","2","acolonial","small_groups","0.485256548","migratory","Aquatic predator","Low",NA
+"911","Gymnogyps_californianus","altrical","27.25","8450","0.094383814","96.475","115.8","0","1","others","5.846438775","2","acolonial","small_groups","0.485256548","migratory","Scavenger","Low",NA
+"1786","Sayornis_saya","altrical","0.61","20.9","-0.098988552","19.8","20.2","90","2","others",NA,"2","acolonial","small_groups","0.485256548","migratory","Invertivore","Low","3558.721"
+"1671","Ptilinopus_hyogastrus","altrical","1.6","149","-0.156888443","20.05","21.9","0","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"1802","Semnornis_ramphastinus","altrical","1.91","97.7","0.022450773","21.9","29","40","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"1785","Sayornis_phoebe","altrical","0.59","18.3","-0.081225535","17.15","17.7","90","2","others","3.555348061","2","acolonial","pair","0.470509687","migratory","Invertivore","Low",NA
+"509","Cinclodes_patagonicus","altrical","1.24","53.2","-0.01764375","23.6","28.5","100","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"929","Halcyon_smyrnensis","altrical","1.84","91.4","0.022411961","61.625","15","30","2.7","others",NA,"2","acolonial",NA,NA,"migratory","Omnivore","Low","0"
+"2135","Streptopelia_roseogrisea","altrical","1.03957529","137.25","-0.324217422","18.55","21.2","10","1.8","others",NA,"2","acolonial","large_groups","0.500003408","sedentary","Granivore","Low",NA
+"2021","Trigonoceps_occipitalis","altrical","23","3828.5","0.212880816","71.05","115.9","0","1.2","others",NA,"2","acolonial","small_groups","0.485256548","sedentary","Scavenger","Low",NA
+"1643","Psittacula_derbiana","altrical","6.1","251","0.297757221","37.2","19.3","0","2","arboreal",NA,NA,NA,NA,NA,"migratory","Omnivore","Low",NA
+"27","Aceros_undulatus","altrical","18.25","2343.75","0.231508655","171.7","49","10","2","arboreal",NA,"2","acolonial","small_groups","0.485256548","migratory","Frugivore","Low",NA
+"1561","Podiceps_nigricollis","precocial","1.69","414.25","-0.38127741","25.7","39.6","80","2.2","others","3.091042453","2","colonial","large_groups","0.386377314","migratory","Aquatic predator","Low","1871.421"
+"1377","Pardalotus_striatus","altrical","0.52","9","0.036156833","9.157142857","19.1","80","1.8","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","512.451"
+"34","Actitis_macularius","precocial","0.68","48.24","-0.254804539","25.76666667","24.2","80","2.2","others","0","1","colonial","asocial","-1.79050454","migratory","Aquatic predator","Low","6849.823"
+"1586","Polytelis_anthopeplus","altrical","3.85","170","0.192453175","22.65","20","0","1.7","others","4.356708827","2","colonial","large_groups","0.386377314","migratory","Omnivore","Medium","0"
+"1942","Tauraco_persa","altrical","3.25","306","-0.02377385","24.9","38.8","0","1.6","arboreal","4.812184355","2","acolonial","pair","0.470509687","sedentary","Frugivore","Low",NA
+"1720","Pyrrhura_picta","altrical","2.45","62.1","0.240559593","18.27333333","12.7","0","1.7","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Very High",NA
+"1699","Pulsatrix_perspicillata","altrical","10.6","1000","0.202262977","47.94","55.1","10","2.9","others","6.001414878","2","acolonial","small_groups","0.485256548","sedentary","Vertivore","Low",NA
+"456","Charadrius_placidus","precocial","1.08","62.7","-0.117516307","22.55","30","100","2","others","0","2","acolonial","large_groups","0.500003408","migratory","Aquatic predator","Low",NA
+"333","Cacatua_leadbeateri","altrical","8.47","376","0.34223118","34.5","22.7","20","2","others","4.770684624","2","acolonial","large_groups","0.500003408","sedentary","Granivore","Low","0"
+"1725","Quiscalus_quiscula","altrical","2.59","110.21","0.125476463","31.475","35.6","40","2.2","others","4.034240638","2","colonial","large_groups","-0.62752385","sedentary","Omnivore","Low","1948.77"
+"985","Irena_puella","altrical","1.36","66.4","-0.031315905","25.74","17.8","10","1.9","arboreal",NA,"2","acolonial",NA,NA,"sedentary","Frugivore","Low","0"
+"1115","Macronectes_giganteus","altrical","17.94","3697.5","0.113424937","93.9","85.4","20","2.8","others","4.795790546","2","colonial","large_groups","0.386377314","sedentary","Omnivore","Low",NA
+"1985","Todiramphus_pyrrhopygius","altrical","1.13","51.7","-0.051045923","39.15","15.3","40","2.6","others",NA,"2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Low","0"
+"482","Chloephaga_poliocephala","precocial","5.8","2024.5","-0.230789328","28.9","55.2","0","1.2","others","0","2","colonial","small_groups","0.371630454","migratory","Herbivore terrestrial","Low","855.267"
+"654","Cyphorhinus_arada","altrical","0.91","20.9","0.074723006","17.8","24","80","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"465","Chelidoptera_tenebrosa","altrical","0.85","35.9","-0.086191605","22.55","13.4","100","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"843","Gallinula_mortierii","precocial","4.054054054","400","0.007220793","37.975","75","30","1.8","others","3.951243719","3.5","acolonial","small_groups","1.388782427","sedentary","Omnivore","Low",NA
+"1067","Lichenostomus_penicillatus","altrical","0.83","19.4","0.052834272","16.0125","19.8","60","1.7","arboreal","3.327909586","2.2","acolonial","small_groups","0.639124835","sedentary","Omnivore","Medium","0"
+"1196","Merops_ornatus","altrical","0.62","26.9","-0.153175978","37.06666667","10.7","100","2","others","3.761200116","2.45","colonial","small_groups","0.699265144","migratory","Invertivore","Low","2481.608"
+"3","Acanthisitta_chloris","altrical","0.33147","5.7","-0.04855181","12","18","90","2","arboreal","4.034240638","3.3","acolonial","small_groups","1.293773269","sedentary","Invertivore","Low",NA
+"1527","Pitohui_nigrescens","altrical","2","75.25","0.105810151","27.95","31.1","50","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low",NA
+"1347","Orthorhyncus_cristatus","altrical","0.14","2.75","-0.245980051","15.9","5","10","1.1","others","3.839452313","1","acolonial","asocial","-2.690779611","sedentary","Nectarivore","Low","0"
+"1958","Thamnophilus_caerulescens","altrical","0.98","21","0.105749264","17.10909091","22.6","80","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1102","Loxia_leucoptera","altrical","1.38","28.98","0.176235989","18.5","15.6","20","1.7","arboreal","4.077537444","2","acolonial","small_groups","-0.528644617","migratory","Omnivore","Medium","1513.539"
+"575","Coracias_garrulus","altrical","2.32","146","0.009415787","39.83333333","23.7","90","2.1","others","3.761200116","2","colonial","small_groups","-0.642270711","migratory","Invertivore","Low","5563.439"
+"609","Coturnix_chinensis","precocial","0.56","44.5","-0.319540536","12.4","19","30","1.7","others","0","2","acolonial","small_groups","0.485256548","sedentary","Omnivore","Low","0"
+"358","Calidris_himantopus","precocial","0.92","57.35","-0.165507097","44.7","40","80","2","others",NA,"2","acolonial","large_groups","0.500003408","migratory","Aquatic predator","Low","8526.966"
+"977","Icteria_virens","altrical","0.91","24.9","0.032223548","16.03333333","26.1","80","2","arboreal",NA,"2","acolonial","small_groups","-0.528644617","migratory","Invertivore","Low",NA
+"1350","Otis_tarda","precocial","10.42471042","8100","-0.312652349","57.1","137.8","40","1.8","others","0","1","acolonial","large_groups","-2.646539029","migratory","Omnivore","Low",NA
+"1482","Phoenicopterus_ruber","altrical","10.8","3065.75","-0.061502305","122.75","282","50","1.9","others",NA,"2","colonial","large_groups","-0.62752385","migratory","Aquatic predator","Low",NA
+"146","Anodorhynchus_hyacinthinus","altrical","24.73","1500","0.4717791","97.66","40.1","0","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"678","Dendrocygna_viduata","precocial","4.72972973","625","-0.034141615","43.86666667","47.9","30","1.6","others","0","2","colonial","large_groups","0.386377314","sedentary","Herbivore aquatic","Low",NA
+"2131","Marmaronetta_angustirostris","precocial","3.381274131","452.2","-0.101356658","46.26666667","32.5","20","1.4","others","0","1","colonial","large_groups","-1.746263959","sedentary","Herbivore aquatic","High",NA
+"1683","Ptilinopus_purpuratus","altrical","0.99","88.5","-0.238945648","18","27.5","0","1.9","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"850","Galloperdix_spadicea","precocial","1.930501931","369","-0.295421248","19.6","41.8","20","2","others","0","2","acolonial","small_groups","0.485256548","sedentary","Omnivore","Low",NA
+"2083","Vanellus_senegallus","precocial","2.43","251","-0.10196634","34.6","83.5","90","2","others","0","2","colonial","small_groups","0.371630454","sedentary","Aquatic predator","Low","0"
+"2096","Vultur_gryphus","altrical","31.56","11300","0.087619925","94.8","127.4","0","1","others",NA,"2","acolonial","large_groups","0.500003408","sedentary","Scavenger","Low",NA
+"1949","Tetrao_tetrix","precocial","3.8","1082.5","-0.262498061","29.23333333","47.2","10","1.3","others","0.693147181","1","acolonial","small_groups","-1.647384725","sedentary","Herbivore terrestrial","Low",NA
+"1812","Sialia_mexicana","altrical","0.84","26.45","-0.017194178","15.25","19.8","70","2","others","3.610917913","2.5","acolonial","small_groups","0.845508764","sedentary","Omnivore","Low","1653.943"
+"1489","Phylidonyris_novaehollandiae","altrical","0.9","20.25","0.077591744","23.04285714","21.8","30","1.3","arboreal","3.828641396","2.5","acolonial","small_groups","0.845508764","sedentary","Nectarivore","Medium",NA
+"905","Guira_guira","altrical","1.92","141","-0.064314033","29.56","36.4","40","2.6","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1061","Lichenostomus_fuscus","altrical","0.73","17.75","0.018651116","16.08571429","18.9","60","1.7","arboreal","3.843744165","2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Medium",NA
+"1111","Lymnocryptes_minimus","precocial","0.97","50.2","-0.110207185","44.5","23.3","80","2","others","0","2","acolonial","asocial","0.455762826","migratory","Aquatic predator","Low",NA
+"2044","Turdus_lherminieri","altrical","2.2","105","0.066352175","26.85","41.9","50","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1807","Sericulus_chrysocephalus","altrical","3.34","100","0.259516821","28.76666667","36.1","0","2","arboreal","4.356708827","1","acolonial","small_groups","-2.661285889","sedentary","Frugivore","Low","0"
+"1446","Phalacrocorax_atriceps","altrical","14.13","3050","0.056466109","63.2","65.6","50","2.5","others","4.465908119","2","colonial","small_groups","-0.642270711","sedentary","Aquatic predator","Low","1476.918"
+"1420","Perissocephalus_tricolor","altrical","4.7","339.5","0.111227914","45","40.1","20","2","others",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low","0"
+"1636","Psilopsiagon_aymara","altrical","1.4","53.5","0.033697894","11.75","11.7","0","1.7","arboreal",NA,NA,NA,NA,NA,"sedentary","Omnivore","Very High",NA
+"1588","Pomatorhinus_ruficollis","altrical","1.53","28.35","0.226382384","22.8","28","80","2","others",NA,"2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Low","0"
+"1938","Tauraco_corythaix","altrical","2.7","318","-0.11362881","25.5","41.2","10","1.9","arboreal","4.204692619","2","acolonial","small_groups","0.485256548","sedentary","Frugivore","Low",NA
+"218","Ardeotis_arabs","precocial","9.652509653","7850","-0.338467659","76.3","163.4","30","2.1","others","0","1","acolonial","small_groups","-2.661285889","migratory","Omnivore","Low",NA
+"1517","Pipra_fasciicauda","altrical","0.62","15.9","-0.025568093","14.31428571","16","10","2","others",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low","0"
+"870","Geotrygon_chrysia","altrical","1.31","160.5","-0.261780521","23.7","30.2","30","2","others",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low","0"
+"834","Gallicrex_cinerea","precocial","2.56","403","-0.194242156","41.40909091","64.4","30","1.7","others",NA,"2","acolonial",NA,NA,"migratory","Omnivore","Low",NA
+"973","Hypocnemis_cantator","altrical","0.63","12.3","0.04368398","15.7","19.6","100","2","arboreal",NA,"2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Low","0"
+"587","Corvus_bennetti","altrical","6.44","391.75","0.213274936","49.24","55.4","30","1.9","others",NA,"2","colonial","large_groups","0.386377314","sedentary","Omnivore","Low","0"
+"1325","Oceanodroma_tethys","altrical","0.6","26.9","-0.167416417","13.05","21.8","60","2.4","others",NA,"2","colonial",NA,NA,"migratory","Aquatic predator","High",NA
+"1857","Sterna_fuscata","precocial","2.32","185.54","-0.04874812","46.25","21","20","2.6","others","4.634728988","2","colonial","large_groups","0.386377314","migratory","Aquatic predator","Low",NA
+"1356","Oxyura_maccoa","precocial","4.68","862.5","-0.116898372","43","33.3","30","1.7","others","0","1","colonial","small_groups","-1.761010819","sedentary","Omnivore","Low","0"
+"1721","Pytilia_melba","altrical","0.57","15.4","-0.054330609","12.5","16.7","20","2","others","3.538056564","2","acolonial","small_groups","0.485256548","sedentary","Granivore","Low",NA
+"1049","Leptotila_rufaxilla","altrical","1.27","157","-0.269897245","21.23333333","27.3","10","2","others",NA,NA,NA,NA,NA,"sedentary","Granivore","Low","0"
+"374","Calonectris_diomedea","altrical","4.92","571.83","0.004564665","52.075","51.5","40","2.2","others","4.510859507","2","colonial","large_groups","0.386377314","migratory","Aquatic predator","Low",NA
+"1619","Progne_subis","altrical","1.03","53.8","-0.100949991","17.8","15","100","2","others","3.63758616","2","colonial","pair","-0.657017571","migratory","Invertivore","Low","7334.486"
+"1412","Pelecanus_occidentalis","altrical","20.75289575","3438","0.194340992","319.5","71.7","10","2.7","others","4.304065093","2","colonial","large_groups","0.386377314","migratory","Aquatic predator","Low",NA
+"191","Ara_ararauna","altrical","18.08","1125","0.40557083","61.76666667","31.9","0","1.6","arboreal",NA,"2","acolonial","small_groups","0.485256548","migratory","Omnivore","Low",NA
+"822","Fringilla_montifringilla","altrical","0.745924496","22.72","-0.031887226","14.25","19","20","2","arboreal","3.569532696","2","colonial","large_groups","-0.62752385","migratory","Omnivore","Medium",NA
+"198","Aramides_ypecaha","precocial","4.9","687.5","-0.04191264","72.8","85.3","50","2.3","others",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low","0"
+"1094","Lophura_swinhoii","precocial","4.25","1100","-0.217784739","35.35","84.4","20","1.6","others","0","1","acolonial","small_groups","-1.647384725","sedentary","Omnivore","Low",NA
+"1060","Lichenostomus_frenatus","altrical","1.04","30","0.044995261","25.1875","24.2","40","1.7","arboreal",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low","0"
+"879","Gerygone_hypoxantha","altrical","0.415","6.5","0.017178189","9.1","16","100","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"174","Aplonis_metallica","altrical","1.58","56.5","0.072986053","22.675","22.5","20","1.8","arboreal",NA,"2","colonial","large_groups","-0.62752385","migratory","Frugivore","Low",NA
+"498","Chrysococcyx_osculans","altrical","0.73","28","-0.091971372","19","18.8","80","2","others",NA,NA,NA,NA,NA,"migratory","Invertivore","Low","0"
+"161","Anthreptes_malacensis","altrical","0.58","12.43","0.005219874","20.02916667","16.4","60","1.9","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"153","Anser_erythropus","precocial","6.467181467","2000","-0.18054739","37.8","61.2","0","1","others","0","2","acolonial","large_groups","0.500003408","migratory","Herbivore terrestrial","Low",NA
+"818","Fregata_magnificens","altrical","8.88030888","1343.5","0.053724275","124","28.9","10","2.7","others","6.089044875","2","colonial","small_groups","-0.642270711","sedentary","Aquatic predator","Low",NA
+"444","Charadrius_alexandrinus","precocial","0.89","42.3","-0.106033688","17.71666667","26.5","100","2","others","0","2","acolonial","large_groups","0.500003408","migratory","Aquatic predator","Low","3426.72"
+"502","Chthonicola_sagittatus","altrical","0.6","13.5","-9.74E-05","11.54","20","80","1.9","arboreal","4.043051268","2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Medium","0"
+"922","Haematopus_bachmani","precocial","4.52","555","-0.025011986","77.54","51","90","2.1","others","3.737669618","2","acolonial","small_groups","0.485256548","sedentary","Aquatic predator","Low","0"
+"1433","Phaenicophaeus_superciliosus","altrical","2.51","102.25","0.130044087","34.8","36.8","80","2.2","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"530","Claravis_pretiosa","altrical","0.9","68.2","-0.217103643","16.7","16.3","20","2","others",NA,"2","acolonial","large_groups","0.500003408","migratory","Granivore","Low","0"
+"1553","Pluvialis_dominica","precocial","1.82","149.19","-0.10124631","26.4","39.9","70","1.9","others","0","2","acolonial","large_groups","-0.513897756","migratory","Invertivore","Low","10308.64"
+"867","Geophaps_smithii","altrical","1.39","194","-0.282042263","19.2","29.6","0","2","others",NA,"2","acolonial","large_groups","0.500003408","sedentary","Granivore","Low","0"
+"1285","Neopsittacus_musschenbroekii","altrical","2.45","57","0.261356803","14.26666667","14.3","20","1.8","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low","0"
+"184","Aquila_clanga","altrical","11.38996139","2000","0.065259815","50.75","96.8","10","2.7","others","4.537961436","2","acolonial","pair","0.470509687","migratory","Vertivore","Low",NA
+"705","Ducula_luctuosa","altrical","3.1","410","-0.115299686","29.5","31.4","0","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"344","Cacomantis_variolosus","altrical","0.97","35.93","-0.029041517","20.8","16.3","100","2","arboreal","3.850147602","2","acolonial","asocial","0.455762826","sedentary","Invertivore","Low","0"
+"173","Aphrastura_spinicauda","altrical","0.81","11.46","0.169995469","13.6","20.2","100","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"520","Circus_cyaneus","altrical","4.78","401","0.078153188","32.25","72.1","10","2.7","others","4.060443011","2","colonial","asocial","0.342136732","migratory","Vertivore","Low","2974.783"
+"2129","Falco_cherrug","altrical","7.060810811","1006","0.0243599","36.55","52.6","0","3","others","4.424846632","2","acolonial","asocial","0.455762826","migratory","Vertivore","Low",NA
+"1160","Melanerpes_formicivorus","altrical","1.99","79.65","0.089842126","26.2","21.8","20","1.9","arboreal","4.127134385","5","acolonial","small_groups","1.964732914","sedentary","Granivore","Low","0"
+"1406","Pelagodroma_marina","altrical","0.97","35","-0.022677096","21.8","40.6","60","2.4","others","4.060443011","2","colonial","large_groups","0.386377314","migratory","Aquatic predator","Very High",NA
+"1793","Scolopax_minor","precocial","2.02","197.5","-0.124045086","74.9","31.3","100","2","others","0.693147181","2","acolonial","asocial","-1.572039502","migratory","Invertivore","Low","1737.65"
+"1082","Locustella_naevia","altrical","0.482625483","15","-0.120208281","13.15","20","100","2","arboreal","3.295836866","2","acolonial","pair","-0.543391477","migratory","Invertivore","Low",NA
+"685","Deroptyus_accipitrinus","altrical","7.74","246","0.4060516","33.9","19.2","0","1.6","arboreal",NA,"2","acolonial",NA,NA,"sedentary","Frugivore","Low","0"
+"169","Aphelocephala_leucopsis","altrical","0.54","12.35","-0.024247352","10.14","17.8","30","2","others",NA,"2.5","acolonial","large_groups","0.860255625","sedentary","Invertivore","High","0"
+"410","Casuarius_bennetti","precocial","23.64864865","17600","-0.145245533","73.75","260","10","2.1","others","0","1","acolonial","small_groups","-1.647384725","sedentary","Frugivore","Low",NA
+"213","Ardea_cinerea","altrical","7.849903475","1546.5","-0.033989818","131.85","137.9","20","2.8","others","4.262679877","2","colonial","large_groups","-0.62752385","migratory","Aquatic predator","Low",NA
+"1567","Poecilodryas_superciliosa","altrical","0.92","20","0.090151877","15.975","19.9","80","2","others",NA,"2","acolonial",NA,NA,"sedentary","Invertivore","Low","0"
+"1203","Microeca_flavigaster","altrical","0.51","12.55","-0.052969646","12.42","13.1","100","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1742","Regulus_satrapa","altrical","0.36","6.2","-0.033099628","8.5","16.2","100","2","arboreal","3.583518938","2","acolonial","small_groups","0.485256548","migratory","Invertivore","Low","1797.206"
+"1756","Rhipidura_rufifrons","altrical","0.36","9.47","-0.135897956","12.40909091","19","100","2","others","3.384390263","2","acolonial","pair","0.470509687","migratory","Invertivore","Low","1641.565"
+"965","Hirundo_rustica","altrical","0.55","19.3","-0.124626919","12.36923077","11.7","80","2","others","3.288401888","2","colonial","small_groups","-0.642270711","migratory","Invertivore","Low","6512.855"
+"1361","Pachycephala_simplex","altrical","0.83","19","0.057890486","15.6","15.2","80","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1866","Sterna_vittata","precocial","2.01","139","-0.040952152","35.6","17.7","10","2.9","others",NA,"2","colonial","large_groups","0.386377314","migratory","Aquatic predator","Low",NA
+"1116","Macronous_gularis","altrical","0.65","12","0.063249426","13.375","17","80","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1885","Strigops_habroptila","altrical","16.5","1750","0.258628175","48.68571429","54.5","0","1.5","others","5.081404365","1","acolonial","small_groups","-2.661285889","sedentary","Omnivore","Low",NA
+"254","Aythya_marila","precocial","4.922779923","1075","-0.148383934","42.7","34.2","80","1.9","others","0","1","colonial","large_groups","-1.746263959","migratory","Aquatic predator","Low",NA
+"1867","Stictonetta_naevosa","precocial","4.41","905.5","-0.154512997","57.875","38.9","10","1.3","others","0","1","acolonial","large_groups","-0.6187367","migratory","Herbivore aquatic","High","0"
+"1045","Leptoptilos_dubius","altrical","32","7454","0.194604346","294.16","312.8","20","2.2","others",NA,NA,NA,NA,NA,"migratory","Omnivore","Low","1424.161"
+"1550","Ploceus_cucullatus","altrical","1.37","35.95","0.120772263","18.75","23","30","1.8","arboreal",NA,"1","colonial","small_groups","-2.774911984","sedentary","Granivore","Low","0"
+"788","Falco_peregrinus","altrical","6.19","743.07","0.040718056","32.5","45.1","10","2.9","others","4.709530201","2","acolonial","asocial","0.455762826","migratory","Vertivore","Low","5680.047"
+"743","Epthianura_aurifrons","altrical","0.43","10.5","-0.083788807","12.94","18.1","80","1.8","arboreal","3.465735903","2","acolonial","small_groups","-0.528644617","sedentary","Invertivore","High","0"
+"526","Cistothorus_palustris","altrical","0.52","10.7","-0.005833103","15.3","19.2","100","2","arboreal","3.295836866","2","acolonial","pair","0.470509687","migratory","Invertivore","Low",NA
+"900","Grus_antigone","precocial","20.06","5958.5","0.04613125","175.5","301","10","2","others","4.718498871","2","acolonial","large_groups","0.500003408","migratory","Omnivore","Low","351.483"
+"655","Cypsiurus_parvus","altrical","0.3","13.6","-0.302918458","6.35","9.4","100","2","others",NA,"2","colonial",NA,NA,"migratory","Invertivore","Very High",NA
+"403","Carduelis_spinus","altrical","0.538676608","13.25","-0.042384137","12.7","12.7","10","1.7","arboreal","3.583518938","2","colonial","large_groups","-0.62752385","migratory","Granivore","Low",NA
+"1677","Ptilinopus_melanospilus","altrical","1.3","106","-0.164427546","17.53333333","21","0","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"1334","Opisthocomus_hoazin","altrical","3.89","855","-0.195075051","30.55","51.3","0","1","others",NA,"2.99","acolonial","small_groups","1.134489452","sedentary","Herbivore terrestrial","Low",NA
+"1184","Melithreptus_brevirostris","altrical","0.68","12.6","0.071004121","14.525","16.7","50","1.7","arboreal",NA,"2.5","acolonial","small_groups","0.845508764","sedentary","Omnivore","High","0"
+"118","Anas_crecca","precocial","2.7","343.83","-0.132581881","35.24","25.9","30","1.5","others","0","1","colonial","large_groups","-1.746263959","migratory","Herbivore aquatic","Medium","3521.49"
+"656","Cyrtonyx_montezumae","precocial","1.46","185.5","-0.249830922","14.975","29","40","1.6","others","0","2","acolonial","small_groups","0.485256548","sedentary","Omnivore","Low","0"
+"1448","Phalacrocorax_capensis","altrical","9.652509653","1230.5","0.111258555","56.1","59.5","20","2.8","others","4.521788577","2","colonial","large_groups","-0.62752385","sedentary","Aquatic predator","Low",NA
+"634","Cyanocitta_stelleri","altrical","3.54","128","0.224863266","31.9","43","20","2.4","arboreal","3.871201011","2","acolonial","small_groups","0.485256548","sedentary","Omnivore","Low","0"
+"181","Apus_pallidus","altrical","0.72","41.9","-0.195785342","11.75","11.4","100","2","others","3.871201011","2","colonial","large_groups","0.386377314","migratory","Invertivore","Low",NA
+"2063","Tyrannus_savana","altrical","0.73","31.9","-0.123618447","20.06","17.9","70","2","others",NA,NA,NA,NA,NA,"migratory","Invertivore","Low",NA
+"497","Chrysococcyx_minutillus","altrical","0.58","15.5","-0.048348282","18.9","14.7","100","2","arboreal",NA,NA,NA,NA,NA,"migratory","Invertivore","Low","0"
+"1404","Pavo_muticus","precocial","6.274131274","4425","-0.38643418","40.25","150","70","1.9","others","0","1","acolonial","small_groups","-2.661285889","sedentary","Invertivore","Low",NA
+"2089","Vidua_paradisaea","altrical","0.64","20.4","-0.072261866","11.33333333","16","0","2","others","3.921973336","2","acolonial","large_groups","-1.52779892","sedentary","Granivore","Low","0"
+"793","Falco_subbuteo","altrical","3.59","209.5","0.111382915","17.5","31.7","70","2.3","others","4.276666119","2","acolonial","asocial","0.455762826","migratory","Invertivore","Low","6093.926"
+"956","Hieraaetus_pennatus","altrical","5.308880309","842","-0.056303362","34.5","65.3","10","2.9","others","4.418840608","2","acolonial","small_groups","0.485256548","migratory","Vertivore","Low",NA
+"2071","Upupa_epops","altrical","1.35","66.82","-0.036051294","53.93333333","21.1","80","2.2","others","4.110873864","2","acolonial","small_groups","-0.528644617","migratory","Invertivore","Low",NA
+"1299","Ninox_rufa","altrical","8.43","953.75","0.114276931","39.5","47.2","30","2.7","others","5.017279837","2","acolonial","small_groups","0.485256548","sedentary","Vertivore","Low",NA
+"682","Dendroica_petechia","altrical","0.52","11.07","-0.014083334","14.225","20","100","2","arboreal","3.433987204","2","acolonial","asocial","-0.558138338","sedentary","Invertivore","Low","5422.655"
+"2100","Xanthomyza_phrygia","altrical","1.03","33.5","0.014018831","20.8","22.2","20","1.3","arboreal","3.80666249","2","colonial","large_groups","0.386377314","migratory","Omnivore","Medium","62.083"
+"1193","Mergus_serrator","precocial","4.83","1021.5","-0.144258282","61.95","45.5","20","2.6","others","0","1","colonial","large_groups","-1.746263959","migratory","Aquatic predator","Low",NA
+"709","Ducula_pinon","altrical","3.78","792.5","-0.189110544","32.26","34.6","0","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"385","Campylopterus_largipennis","altrical","0.31","8.3","-0.168834475","31.03333333","5.6","10","1.1","others",NA,"1","acolonial","asocial","-2.690779611","sedentary","Nectarivore","Low","0"
+"1879","Streptopelia_orientalis","altrical","1.49","233","-0.296326731","22.23333333","25.5","0","1.6","others",NA,"2","acolonial","small_groups","0.485256548","migratory","Omnivore","Low","3813.267"
+"220","Ardeotis_kori","precocial","12.93436293","10425","-0.280212233","102.9","210.2","20","2","others","0","1","acolonial","small_groups","-2.661285889","sedentary","Omnivore","Low",NA
+"1152","Megarynchus_pitangua","altrical","1.17","63.4","-0.08544864","33.47142857","19.2","70","2.1","others",NA,NA,NA,NA,NA,"migratory","Invertivore","Low","0"
+"396","Cardellina_rubrifrons","altrical","0.43","9.8","-0.067044961","11.5","16.9","100","2","arboreal","2.995732274","2","acolonial","pair","-0.543391477","migratory","Invertivore","Low","1684.418"
+"805","Forpus_conspicillatus","altrical","1.2","26","0.141872242","11.1","9.9","0","1.8","arboreal",NA,NA,NA,NA,NA,"sedentary","Omnivore","Very High",NA
+"1454","Phalacrocorax_sulcirostris","altrical","5.64","1030.5","-0.079055178","49.35","45.3","20","2.8","others",NA,"2","colonial","large_groups","-0.62752385","sedentary","Aquatic predator","Medium","0"
+"1480","Phoebetria_palpebrata","precocial","16.94","2785","0.157296305","103.75","76.8","90","2.1","others","5.049856007","2","colonial","asocial","0.342136732","migratory","Aquatic predator","Low",NA
+"1736","Ramsayornis_modestus","altrical","0.51","11.25","-0.026430933","15.71666667","15.9","50","1.5","arboreal",NA,"2","colonial","small_groups","0.371630454","sedentary","Nectarivore","High","0"
+"1378","Pardirallus_maculatus","precocial","1.89","171","-0.117969153","41.46666667","38.7","60","2","others",NA,"2","acolonial",NA,NA,"migratory","Aquatic predator","Low",NA
+"345","Cairina_moschata","precocial","7.35","2625","-0.190970557","60.05","56.2","30","1.9","others","0","1","acolonial","large_groups","-1.632637865","sedentary","Omnivore","Low","0"
+"936","Halobaena_caerulea","altrical","2.77","173.38","0.044694318","29.925","31.6","80","2.2","others","3.988984047","2","colonial","large_groups","0.386377314","sedentary","Aquatic predator","High",NA
+"330","Cacatua_ducorpsii","altrical","8.7","394","0.342518432","31.1","21.6","20","1.8","arboreal",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low",NA
+"141","Anastomus_lamelligerus","altrical","10.28","1120","0.161446543","168","143.8","80","2.2","others",NA,"2","colonial","large_groups","-0.62752385","migratory","Aquatic predator","High",NA
+"903","Grus_virgo","precocial","10.23","2417","-0.027347323","68.35","181.2","10","2.1","others",NA,"2","acolonial","small_groups","0.485256548","migratory","Omnivore","Medium","3287.957"
+"1229","Monarcha_trivirgatus","altrical","0.63","13.5","0.021091912","15.25","18.1","100","2","arboreal","4.051784948","2","acolonial","large_groups","0.500003408","migratory","Invertivore","High","1773.829"
+"1040","Leiothrix_lutea","altrical","0.92","21.4","0.073731833","13.1","23.7","80","2","arboreal",NA,"2","acolonial","large_groups","0.500003408","sedentary","Invertivore","Low",NA
+"1187","Melopsittacus_undulatus","altrical","1.5","29","0.212280732","12.55","12.4","0","2","others","3.891820298","2","acolonial","large_groups","0.500003408","migratory","Granivore","Low","0"
+"471","Chionis_albus","precocial","3.97","677","-0.129583086","31.35","46.5","0","3","others","4.454347296","2","acolonial","small_groups","-0.528644617","migratory","Omnivore","Low","1721.14"
+"552","Colonia_colonus","altrical","0.47","18.3","-0.179979689","12.78","15.1","100","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"784","Falco_longipennis","altrical","3.35","253","0.035546076","20.15","35.9","30","2.7","others","4.369447852","2","acolonial","asocial","0.455762826","migratory","Vertivore","Low","0"
+"1522","Pitangus_sulphuratus","altrical","1.35","63.33","-0.023032631","29.5","25.8","40","2.3","others",NA,"2","acolonial","small_groups","0.485256548","sedentary","Omnivore","Low","0"
+"131","Anas_poecilorhyncha","precocial","6.127","1125","-0.064379715","59.06666667","43.5","10","1.4","others","0","2","colonial","large_groups","-0.62752385","migratory","Herbivore aquatic","Medium",NA
+"1583","Polyplectron_bicalcaratum","precocial","2.992277992","462.86","-0.160089785","22.9","66.6","20","1.9","others","0","1","acolonial","small_groups","-1.647384725","sedentary","Omnivore","Low",NA
+"1598","Porphyrio_porphyrio","precocial","4.7","744.13","-0.079220688","53.425","79.9","10","1.8","others","3.828641396","3","acolonial","small_groups","1.139880529","sedentary","Herbivore aquatic","Low","0"
+"919","Gyps_fulvus","altrical","25.0965251","8500","0.0571991","79.35","109.9","0","1","others","5.351858133","2","colonial","small_groups","0.371630454","migratory","Scavenger","Low",NA
+"1919","Tachycineta_thalassina","altrical","0.46","14.15","-0.126903265","9.975","11.3","100","2","others",NA,"2","colonial","small_groups","-0.642270711","migratory","Invertivore","Low","3628.307"
+"1554","Pluvialis_fulva","precocial","1.77","135","-0.089088615","24.5","40.2","70","1.9","others","0","2","acolonial","large_groups","0.500003408","migratory","Omnivore","Low","7128.72"
+"632","Cyanerpes_cyaneus","altrical","0.55","14","-0.046711994","19.4125","13.7","40","1.8","arboreal",NA,"2","acolonial","small_groups","-0.528644617","sedentary","Omnivore","Low","0"
+"164","Anthus_trivialis","altrical","0.6","23.4","-0.133587862","16.1","20.6","60","1.8","others","3.433987204","2","acolonial","large_groups","-0.513897756","migratory","Invertivore","Low","6050.161"
+"273","Bonasa_umbellus","precocial","2.46","545.83","-0.285171975","26.2","42.2","10","1.3","others","0","1","acolonial","small_groups","-1.647384725","sedentary","Herbivore terrestrial","Medium","0"
+"1579","Polihierax_semitorquatus","altrical","1.47","51.2","0.065551485","14.95","27.7","40","2.6","others",NA,"2.2","acolonial","small_groups","0.639124835","sedentary","Vertivore","Low","0"
+"1162","Melanerpes_striatus","altrical","2.04","73.5","0.120120928","28.35","23.8","60","1.9","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1105","Loxipasser_anoxanthus","altrical","0.57","11.3","0.020797516","10.4","13.5","40","1.9","arboreal",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low","0"
+"715","Egretta_garzetta","altrical","3.571428571","459","-0.08121737","91.95","98.8","60","2.4","others","3.931825633","2","colonial","small_groups","-0.642270711","migratory","Aquatic predator","Low",NA
+"1803","Sericornis_citreogularis","altrical","0.79","17.63","0.054601636","15.8","26.3","70","1.9","others","4.219507705","2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Low","0"
+"1066","Lichenostomus_ornatus","altrical","0.75","17.65","0.03176065","15.025","19.1","40","1.5","arboreal",NA,"2","acolonial","small_groups","0.485256548","sedentary","Omnivore","Medium","0"
+"554","Columba_guinea","altrical","2.12","352","-0.243309063","24.475","28.8","0","2","others",NA,"2","acolonial","large_groups","0.500003408","sedentary","Granivore","Low","0"
+"748","Erythropygia_coryphaeus","altrical","0.72","23.05","-0.050749224","15.3","28.6","70","2","others","3.749504076","2.15","acolonial","small_groups","0.602010035","sedentary","Invertivore","Low","0"
+"1444","Phainopepla_nitens","altrical","0.79","22.1","-0.000240274","14.1","20.9","40","2","arboreal","3.33220451","2","colonial","small_groups","-0.642270711","migratory","Frugivore","Low","2215.95"
+"1425","Petroica_multicolor","altrical","0.52","12.23","-0.03826812","13.06","21.5","100","2","others","4.094344562","2","acolonial","large_groups","0.500003408","sedentary","Invertivore","Low","301.41"
+"1026","Larus_maculipennis","precocial","3.25","339","-0.048628897","40.15","43.8","80","2","others",NA,NA,NA,NA,NA,"sedentary","Omnivore","Medium","2237.428"
+"190","Ara_ambiguus","altrical","17.5","1347.5","0.347612766","77.3","37","0","2","arboreal",NA,NA,NA,NA,NA,"migratory","Granivore","Low",NA
+"934","Haliastur_indus","altrical","6.1","529","0.116823579","55","48.2","10","1.9","others","4.639571613","2","acolonial","asocial","0.455762826","sedentary","Omnivore","Low","0"
+"602","Corydon_sumatranus","altrical","2.4","140","0.034323315","27.9375","25.4","90","2.1","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low",NA
+"477","Chlamydotis_undulata","precocial","5.308880309","1975","-0.263206764","45.6","92.1","20","1.8","others","0","1","acolonial","small_groups","-2.661285889","migratory","Omnivore","Low",NA
+"630","Curaeus_curaeus","altrical","2.47","90","0.1540372","31.45","33.8","60","1.8","others",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low",NA
+"1035","Larus_schistisagus","precocial","7.45","1323","-0.018815867","72.5","68.2","30","2.2","others",NA,NA,NA,NA,NA,"migratory","Omnivore","Low",NA
+"2065","Tyrannus_verticalis","altrical","0.98","39.6","-0.048190312","21.65","18.3","90","2","others","3.63758616","2","acolonial","small_groups","0.485256548","migratory","Invertivore","Low","3143.647"
+"781","Falco_cenchroides","altrical","3.14","168.75","0.105713168","21.15","38.3","60","2.4","others","4.007333185","2","colonial","asocial","0.342136732","migratory","Invertivore","Low","0"
+"916","Gypaetus_barbatus","altrical","22.25","5800","0.097673453","79.95","103.6","0","1","others","6.03787092","2","acolonial","small_groups","0.485256548","sedentary","Scavenger","Low",NA
+"1470","Phigys_solitarius","altrical","2.75","83.6","0.218575211","19.45","16.8","0","1.2","arboreal",NA,NA,NA,NA,NA,"migratory","Nectarivore","Low",NA
+"1154","Megascops_choliba","altrical","3.41","107.63","0.25067996","22.25","30","90","2.1","others",NA,"2","acolonial",NA,NA,"sedentary","Invertivore","Medium","0"
+"1507","Picus_viridis","altrical","4.239060489","194","0.20221255","43.98333333","29","90","2","others","4.110873864","2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Low",NA
+"1343","Ortalis_vetula","precocial","3.23","563","-0.174421153","26.4","61.1","0","1.6","arboreal","3.135494216","2","acolonial","small_groups","0.485256548","sedentary","Frugivore","Low",NA
+"996","Junco_hyemalis","altrical","0.83","20.1","0.044231718","11.3","21.1","30","2","others","3.33220451","2","acolonial","small_groups","-0.528644617","migratory","Granivore","Low","2391.578"
+"1781","Sasia_abnormis","altrical","0.58","8.1","0.109151375","14.5","13.7","100","2","arboreal",NA,"2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Low","0"
+"814","Francolinus_swainsonii","precocial","3.667953668","600.21","-0.134731955","28.3","52.8","20","1.6","others","0","2","acolonial","small_groups","0.485256548","sedentary","Omnivore","Low",NA
+"1533","Platalea_flavipes","altrical","11.12","1747.5","0.087595965","197.75","123.3","70","2.1","others","4.043051268","2","colonial","large_groups","-0.62752385","sedentary","Aquatic predator","Low",NA
+"779","Falco_berigora","altrical","6.24","593.5","0.098757201","28.1","71.8","20","2.4","others","4.394449155","2","acolonial","asocial","0.455762826","sedentary","Vertivore","Low","0"
+"1816","Sitta_canadensis","altrical","0.57","9.8","0.055361439","13.7","14.5","50","2","arboreal","3.511545439","2","acolonial","small_groups","0.485256548","migratory","Omnivore","Low","1372.04"
+"1983","Todiramphus_chloris","altrical","1.34","83.4","-0.093071392","51.30909091","15.7","80","2.2","others",NA,"2","acolonial","pair","0.470509687","sedentary","Invertivore","Low","0"
+"511","Cincloramphus_mathewsi","altrical","0.9","30.25","-0.019809601","15.725","25.7","90","2","others",NA,"2","acolonial",NA,NA,"migratory","Invertivore","Low",NA
+"1824","Somateria_spectabilis","precocial","7.39","1318.5","-0.02150082","32.8","42.8","80","1.9","others","0","1","acolonial","large_groups","-1.632637865","migratory","Aquatic predator","Low",NA
+"23","Accipiter_tachiro","altrical","4.150579151","282.5","0.101843971","18.7","65.7","10","2.9","others","4.812184355","2","acolonial","asocial","0.455762826","sedentary","Vertivore","Medium",NA
+"1500","Picoides_pubescens","altrical","1.21","27.7","0.130105413","16.84","15.8","80","2","arboreal","3.737669618","2.2","acolonial","small_groups","0.639124835","sedentary","Invertivore","Low","0"
+"1132","Malurus_splendens","altrical","0.45","9.43","-0.037960685","11.54285714","22.1","90","1.9","others","3.749504076","3.5","acolonial","small_groups","1.388782427","sedentary","Invertivore","Low","0"
+"157","Anthochaera_chrysoptera","altrical","1.7","68.35","0.05856958","29.2","27.4","20","1.3","arboreal","3.401197382","2.2","acolonial","large_groups","0.653871696","sedentary","Nectarivore","Low","0"
+"1784","Sayornis_nigricans","altrical","0.49","18.65","-0.16647924","18.01666667","17.4","100","2","others","3.384390263","2","acolonial","pair","0.470509687","migratory","Invertivore","Low",NA
+"1592","Pomatostomus_superciliosus","altrical","1.52","43.2","0.121310452","26.8","26.7","70","2.1","others","4.824305716","5.5","acolonial","small_groups","2.118645222","sedentary","Invertivore","Low","0"
+"892","Goura_scheepmakeri","altrical","5.75","2236.5","-0.258718776","49.475","89.8","10","2","others",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low",NA
+"185","Aquila_fasciatus","altrical","10.5","2000","0.029926862","46.8","93.2","0","3","others","4.836281907","2","acolonial","pair","0.470509687","migratory","Vertivore","Low",NA
+"2111","Zenaida_auriculata","altrical","1.19","112.65","-0.217590761","20.2","21","0","2","others",NA,"2","colonial","large_groups","0.386377314","sedentary","Granivore","Low","0"
+"737","Eopsaltria_pulverulenta","altrical","0.83","19.3","0.054088484","16.4","21.7","100","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low",NA
+"1077","Limosa_haemastica","precocial","2.32","255.5","-0.126397093","97.3","56.1","90","1.9","others","0","2","acolonial","large_groups","0.500003408","migratory","Aquatic predator","Low","10812.515"
+"672","Dendrocopos_medius","altrical","2.22007722","67.5","0.177525748","23.75","19.5","70","2","arboreal","3.63758616","2","acolonial","large_groups","0.500003408","sedentary","Invertivore","Low",NA
+"759","Eudynamys_taitensis","altrical","2","117","-0.001302812","32.25","33.2","70","2.3","arboreal",NA,NA,NA,NA,NA,"migratory","Invertivore","Low","5105.556"
+"594","Corvus_cryptoleucus","altrical","8.95","534","0.2810337","51.33333333","59.5","30","2.3","others",NA,"2","acolonial","large_groups","0.500003408","sedentary","Omnivore","Low","643.717"
+"923","Haematopus_leucopodus","precocial","4.55","618","-0.048233084","81.5","45.6","100","2","others",NA,NA,NA,NA,NA,"migratory","Aquatic predator","Low","142.429"
+"287","Brotogeris_jugularis","altrical","2.12","63.25","0.173276226","20.6","12.1","0","1.6","arboreal",NA,NA,NA,NA,NA,"sedentary","Omnivore","High","0"
+"200","Aratinga_acuticaudata","altrical","5.25","173","0.322906343","30.9","15.5","0","2","arboreal",NA,NA,NA,NA,NA,"migratory","Frugivore","Low",NA
+"2047","Turdus_philomelos","altrical","1.63","67.75","0.042448082","23.54285714","31.8","40","2","others","3.535145354","2","acolonial","large_groups","-0.513897756","migratory","Invertivore","Low","3415.304"
+"637","Cyanocorax_yncas","altrical","2.316602317","88.4","0.130545024","29.88","38.7","40","2.2","arboreal","3.931825633","3.5","acolonial","small_groups","1.388782427","sedentary","Omnivore","Low",NA
+"588","Corvus_brachyrhynchos","altrical","7.17","438.54","0.23252626","49.45","59.3","20","2.1","others","4.532599493","7.5","acolonial","small_groups","2.619518317","sedentary","Omnivore","Low","1985.2"
+"1236","Motacilla_alba","altrical","0.6","24.8","-0.147689975","15.92","23.4","100","2","others","3.005682604","2","acolonial","large_groups","-0.513897756","migratory","Invertivore","Low",NA
+"162","Anthus_novaeseelandiae","altrical","0.84","27.87","-0.029885549","15.7625","25.6","70","2","others",NA,"2","acolonial","large_groups","-0.513897756","sedentary","Invertivore","Low","0"
+"35","Actophilornis_africanus","precocial","1.447876448","199","-0.270501199","36.55","65.7","80","2","others","0","1","acolonial","small_groups","-1.647384725","migratory","Aquatic predator","Low",NA
+"78","Alle_alle","precocial","2.1","171","-0.072211663","19.33333333","20.1","100","2","others","4.043051268","2","colonial","large_groups","0.386377314","migratory","Aquatic predator","Low",NA
+"836","Gallinago_hardwickii","precocial","1.99","151.5","-0.066193537","74.03333333","34.9","60","2","others","0.693147181","2","acolonial","asocial","-0.558138338","migratory","Aquatic predator","Low","7395.921"
+"649","Cygnus_cygnus","precocial","19.5","9350","-0.075510662","100.75","102","0","1","others","0","2","acolonial","small_groups","0.485256548","migratory","Herbivore aquatic","Low","2320.656"
+"1276","Neochmia_phaeton","altrical","0.5","10","-0.006446398","11.525","15.1","20","1.9","others",NA,"2","colonial","large_groups","0.386377314","sedentary","Granivore","Low","0"
+"99","Amazona_versicolor","altrical","9.6","676","0.254256383","39.45","26.3","0","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low",NA
+"1265","Myrmotherula_axillaris","altrical","0.39","8.1","-0.063212012","15.05294118","15.4","100","2","arboreal",NA,"2","acolonial","small_groups","0.485256548","sedentary","Invertivore","Low","0"
+"1140","Margarops_fuscus","altrical","1.54","67.23","0.019651093","21.85","29.1","30","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low","0"
+"168","Apaloderma_narina","altrical","1.52","67.75","0.012104065","19.85","16.3","90","2.1","arboreal","4.471638793","2","acolonial","small_groups","0.485256548","migratory","Invertivore","Low",NA
+"1145","Megalaima_lineata","altrical","2.01","149","-0.057812368","31.36666667","28.5","20","1.9","arboreal",NA,"2","acolonial",NA,NA,"sedentary","Frugivore","Low","0"
+"70","Alcippe_nipalensis","altrical","0.93","15.8","0.152054335","12.1","19.9","40","1.7","arboreal",NA,NA,NA,NA,NA,"sedentary","Invertivore","High","0"
+"156","Anthochaera_carunculata","altrical","2.2","106.35","0.06325177","31.92857143","34.1","20","1.3","arboreal","3.663561646","2","acolonial","large_groups","0.500003408","sedentary","Nectarivore","Low","0"
+"281","Branta_bernicla","precocial","6.1","1279.25","-0.097481162","39.26666667","55.2","0","1","others","0","2","colonial","large_groups","0.386377314","migratory","Herbivore terrestrial","Low","4116.996"
+"1564","Poecilodryas_albonotata","altrical","1.3","38","0.084536198","19.9","21.3","100","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Low","0"
+"1591","Pomatostomus_ruficeps","altrical","2.35","56","0.247554082","27.22","28.2","80","2","others",NA,"3","acolonial","small_groups","1.139880529","sedentary","Invertivore","Low",NA
+"1055","Lewinia_pectoralis","precocial","1.34","78.1","-0.077136823","30.1","29.2","50","1.9","others",NA,"2","acolonial","pair","0.470509687","sedentary","Aquatic predator","Low","0"
+"1450","Phalacrocorax_fuscescens","altrical","8.89","1515","0.025041904","65.8","61.3","0","3","others",NA,"2","colonial","large_groups","-0.62752385","sedentary","Aquatic predator","Low",NA
+"1118","Macropygia_nigrirostris","altrical","1.15","90.1","-0.178231419","18.5","19.7","0","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Omnivore","Low",NA
+"1258","Myiopagis_cotta","altrical","0.42","11.6","-0.11818709","11.8","16.7","90","2","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Medium","0"
+"1613","Priotelus_temnurus","altrical","1.16","58","-0.067572086","17.5","18.3","30","2","others",NA,NA,NA,NA,NA,"sedentary","Frugivore","Low",NA
+"958","Himantopus_mexicanus","precocial","1.9","186","-0.136083447","67.08","110.8","100","2","others","0","2","acolonial","small_groups","-0.528644617","migratory","Aquatic predator","Low",NA
+"261","Bambusicola_thoracicus","precocial","1.78","270.25","-0.255086036","21.125","36.7","20","1.5","others","0","2","acolonial","large_groups","-0.513897756","sedentary","Omnivore","Low","0"
+"1694","Pucrasia_macrolopha","precocial","3.338803089","1153.75","-0.33416093","27.7","60.9","20","1.8","others","0","1","acolonial","small_groups","-1.647384725","migratory","Omnivore","Low",NA
+"447","Charadrius_collaris","precocial","0.77","28.3","-0.07138992","16.75","25.9","80","2","others","0","2","acolonial","large_groups","0.500003408","sedentary","Aquatic predator","Low",NA
+"1157","Melanerpes_aurifrons","altrical","2.20021","81.25","0.128626384","34.2","22.8","40","2.1","arboreal","3.63758616","2","acolonial","asocial","0.455762826","sedentary","Omnivore","Low",NA
+"1843","Steatornis_caripensis","altrical","3.9","370","0.009316313","36.75","19.1","0","2","others",NA,"2","colonial","small_groups","-0.642270711","migratory","Frugivore","Low",NA
+"1198","Mesembrinibis_cayennensis","altrical","6.34","756","0.046929999","116.35","60.3","80","1.8","others",NA,"2","acolonial","small_groups","0.485256548","sedentary","Aquatic predator","Low","0"
+"457","Charadrius_ruficapillus","precocial","0.82","37.4","-0.111730788","15.35","24.9","60","1.8","others","0","2","colonial","large_groups","0.386377314","sedentary","Aquatic predator","Low","0"
+"1315","Nyctanassa_violacea","altrical","5.98","682.5","0.046363928","75.4","98.5","10","2.9","others","4.058717385","2","colonial","asocial","-0.671764432","sedentary","Aquatic predator","Low","2276.201"
+"1874","Strepera_graculina","altrical","5.34","299.5","0.197094756","56.7","52.6","30","2.2","others","4.605170186","2","acolonial","pair","0.470509687","sedentary","Omnivore","Low","0"
+"562","Columbina_inca","altrical","0.73","42.5","-0.193245598","16.9","15.5","0","2","others","3.091042453","2","acolonial","large_groups","0.500003408","sedentary","Granivore","Low","0"
+"424","Ceratogymna_atrata","altrical","13.5","1203.5","0.262336537","142.86","57.8","10","2","arboreal",NA,NA,NA,NA,NA,"sedentary","Frugivore","Medium",NA
+"1278","Neophema_chrysostoma","altrical","1.54","46.1","0.111219452","13.4","14.8","0","2","others",NA,"2","colonial","small_groups","0.371630454","sedentary","Granivore","Low","0"
+"1649","Psitteuteles_versicolor","altrical","2","53.5","0.188599854","16.73333333","12.7","0","1","arboreal","3.988984047","2","acolonial","large_groups","0.500003408","sedentary","Nectarivore","Medium","0"
+"625","Crypturellus_tataupa","precocial","1.583011583","221.25","-0.257470897","24.06666667","32.5","50","1.8","others","0","1","acolonial","pair","-1.662131586","sedentary","Omnivore","Low",NA
+"1978","Tockus_deckeni","altrical","3.45","169.5","0.145526385","66.75","39.5","40","2.4","others",NA,NA,NA,NA,NA,"sedentary","Invertivore","Very High",NA
