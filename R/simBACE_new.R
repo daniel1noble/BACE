@@ -27,7 +27,21 @@ source(here::here("R", "auxiliary_sim.r"))
 #' @param beta_matrix Square matrix of regression coefficients. Entry [i,j]
 #'   indicates effect of predictor j on predictor i. If NULL, a default
 #'   sparse matrix is generated
-#' @param beta_resp Vector of regression coefficients for response on predictors
+#' @param beta_resp Regression coefficients for response on predictors. Can be:
+#'   - A numeric vector of length n_predictors (single values spread automatically
+#'     across levels for multinomial predictors)
+#'   - A named list where each element is either a single value OR a vector of
+#'     K-1 coefficients for multinomialK predictors (direct specification)
+#'   Example: list(x1 = 0.5, x2 = c(-0.3, 0.2, 0.5), x3 = 0.1) for a multinomial4 x2
+#' @param ix_matrix Interaction matrix (lower triangular) defining interactions.
+#'   Rows/columns correspond to predictors (x1, x2, ...) with response (y) as last row.
+#'   Integer codes indicate which variables interact: variables sharing the same
+#'   digit in a row will interact. E.g., for row [12, 1, 2, 0]:
+#'   - x1 has codes {1,2}, x2 has {1}, x3 has {2}
+#'   - x1:x2 (share code 1), x1:x3 (share code 2)
+#'   Multi-digit numbers encode multiple codes (12 = codes 1 and 2).
+#' @param beta_ix Interaction coefficients. Either NULL (random generation) or
+#'   a nested named list: list(y = list("x1:x2" = 0.3, "x1:x3" = -0.2))
 #' @param intercepts Named list with 'predictors' (vector) and 'response' (scalar)
 #' @param birth Birth rate for phylogenetic tree simulation (default 0.8)
 #' @param death Death rate for phylogenetic tree simulation (default 0.4)
@@ -41,7 +55,7 @@ source(here::here("R", "auxiliary_sim.r"))
 #'   - sigma_species: variances for non-phylogenetic species effects
 #'   - sigma_residual: residual variances
 #'   Each element is a vector for response + predictors
-#' @param rr Logical, if TRUE allow random slopes (default FALSE
+#' @param rr Logical, if TRUE allow random slopes (default FALSE)
 #' @param rr_form Named list specifying random slopes. Each element is named
 #'   by random effect and contains character vector of covariate names
 #'
@@ -69,6 +83,23 @@ source(here::here("R", "auxiliary_sim.r"))
 #'   rr_form = list(species = c("x1"))
 #' )
 #'
+#' # With interaction terms
+#' # ix_matrix encoding: rows/cols are x1, x2, x3, y
+#' # Row 4 (y): x1 and x2 share code '1' -> x1:x2 interaction
+#' # Row 4 (y): x1 (code 12) and x3 (code 2) share '2' -> x1:x3 interaction
+#' ix_mat <- matrix(c(
+#'   0, 0, 0, 0,
+#'   0, 0, 0, 0,
+#'   0, 0, 0, 0,
+#'   12, 1, 2, 0
+#' ), nrow = 4, byrow = TRUE)
+#' sim <- simBACE(
+#'   response_type = "gaussian",
+#'   predictor_types = c("gaussian", "gaussian", "gaussian"),
+#'   ix_matrix = ix_mat,
+#'   n_cases = 200
+#' )
+#'
 #' @export
 
 simBACE <- function(
@@ -78,6 +109,8 @@ simBACE <- function(
     beta_matrix = NULL,
     beta_resp = NULL,
     beta_sparsity = 0.7,
+    ix_matrix = NULL,
+    beta_ix = NULL,
     intercepts = NULL,
     birth = 0.8,
     death = 0.4,
@@ -106,7 +139,7 @@ simBACE <- function(
   # Generate default beta matrix if not provided
   if (is.null(beta_matrix)) {
     beta_matrix <- generate_default_beta_matrix(n_predictors, sparsity = beta_sparsity)
-    message("Generated default beta_matrix with sparse dependencies")
+    message("Generated default beta_matrix with pre-set sparsity")
   }
   if (!is.matrix(beta_matrix) || nrow(beta_matrix) != n_predictors ||
     ncol(beta_matrix) != n_predictors) {
@@ -121,10 +154,8 @@ simBACE <- function(
   # Generate default beta_resp if not provided
   if (is.null(beta_resp)) {
     beta_resp <- runif(n_predictors, -0.5, 0.5)
+    names(beta_resp) <- predictor_names
     message("Generated default beta_resp: ", paste(round(beta_resp, 3), collapse = ", "))
-  }
-  if (length(beta_resp) != n_predictors) {
-    stop("beta_resp must have length equal to number of predictors")
   }
 
   # Setup intercepts
@@ -166,6 +197,46 @@ simBACE <- function(
   if (rr && is.null(rr_form)) {
     warning("rr=TRUE but rr_form not specified. No random slopes will be generated.")
     rr <- FALSE
+  }
+
+  # -------------------------------------------------------------------------
+  # PARSE INTERACTION MATRIX
+  # -------------------------------------------------------------------------
+  
+  # ix_matrix should be (n_predictors + 1) x (n_predictors + 1)
+  # with predictors first (x1, x2, ...) and response (y) last
+  ix_var_names <- c(predictor_names, var_names[1])  # x1, x2, ..., y
+  parsed_interactions <- NULL
+  ix_betas <- NULL
+  
+  if (!is.null(ix_matrix)) {
+    # Validate dimensions
+    expected_dim <- n_vars
+    if (!is.matrix(ix_matrix) || nrow(ix_matrix) != expected_dim || 
+        ncol(ix_matrix) != expected_dim) {
+      stop("ix_matrix must be a square matrix with dimensions ", expected_dim, 
+           " (n_predictors + 1 for response)")
+    }
+    
+    # Name the matrix for clarity
+    rownames(ix_matrix) <- ix_var_names
+    colnames(ix_matrix) <- ix_var_names
+    
+    # Parse interactions
+    parsed_interactions <- parse_ix_matrix(ix_matrix, ix_var_names)
+    
+    # Generate or validate interaction coefficients
+    ix_betas <- generate_ix_betas(parsed_interactions, beta_ix)
+    
+    # Report parsed interactions
+    has_ix <- sapply(parsed_interactions, function(x) length(x) > 0)
+    if (any(has_ix)) {
+      message("Interaction terms detected:")
+      for (var_name in names(parsed_interactions)[has_ix]) {
+        ix_names <- names(parsed_interactions[[var_name]])
+        message("  ", var_name, ": ", paste(ix_names, collapse = ", "))
+      }
+    }
   }
 
   # -------------------------------------------------------------------------
@@ -221,21 +292,39 @@ simBACE <- function(
 
   # Random slopes (if specified)
   u_slopes <- list()
+  ignored_rr_covars <- c()  # Track ignored covariates for warning
+  
   if (rr && !is.null(rr_form)) {
+    # Identify continuous predictors (gaussian, poisson) - valid for random slopes
+    continuous_predictors <- var_names[-1][predictor_types %in% c("gaussian", "poisson")]
+    
     for (re_name in names(rr_form)) {
       covars_with_slopes <- rr_form[[re_name]]
       u_slopes[[re_name]] <- list()
 
       for (cov in covars_with_slopes) {
-        if (re_name == "species") {
-          # Random slopes at species level
-          u_slopes[[re_name]][[cov]] <- rnorm(
-            n_species_actual,
-            mean = 0,
-            sd = sqrt(sigma2_species[1] * 0.5) # Half the species variance
-          )
+        # Check if covariate is continuous
+        if (cov %in% continuous_predictors) {
+          if (re_name == "species") {
+            # Random slopes at species level
+            u_slopes[[re_name]][[cov]] <- rnorm(
+              n_species_actual,
+              mean = 0,
+              sd = sqrt(sigma2_species[1] * 0.5) # Half the species variance
+            )
+          }
+        } else {
+          # Track ignored non-continuous covariates
+          ignored_rr_covars <- c(ignored_rr_covars, cov)
         }
       }
+    }
+    
+    # Issue warning for ignored covariates
+    if (length(ignored_rr_covars) > 0) {
+      warning("Random slopes ignored for non-continuous covariates: '",
+              paste(unique(ignored_rr_covars), collapse = "', '"), 
+              "'. Random slopes are only applied to gaussian and poisson predictors.")
     }
   }
 
@@ -309,6 +398,24 @@ simBACE <- function(
       }
     }
 
+    # Add interaction terms if applicable (for predictors)
+    if (!is.null(parsed_interactions) && pred_name %in% names(parsed_interactions)) {
+      pred_interactions <- parsed_interactions[[pred_name]]
+      if (length(pred_interactions) > 0) {
+        for (ix_name in names(pred_interactions)) {
+          ix_pair <- pred_interactions[[ix_name]]
+          # Only add interaction if both variables have been simulated
+          if (all(ix_pair %in% names(covars)) && 
+              !all(covars[[ix_pair[1]]] == 0) && 
+              !all(covars[[ix_pair[2]]] == 0)) {
+            ix_term <- calculate_ix_term(covars, ix_pair)
+            ix_coef <- ix_betas[[pred_name]][ix_name]
+            linear_pred <- linear_pred + ix_coef * ix_term
+          }
+        }
+      }
+    }
+
     # Generate response based on predictor type
     if (pred_type == "gaussian") {
       covars[[pred_name]] <- linear_pred
@@ -336,8 +443,7 @@ simBACE <- function(
           liab_linear <- liab_intercept + linear_pred - intercepts$predictors[vari]
         }
 
-        # Add liability-specific noise
-        liabilities[, k] <- liab_linear + rnorm(n_cases, 0, 0.5)
+        liabilities[, k] <- liab_linear
       }
 
       covars[[pred_name]] <- mnom_liab2cat(liabilities, categories)
@@ -369,29 +475,29 @@ simBACE <- function(
 
   X_resp <- model.matrix(as.formula(X_resp_formula), covars_for_X)
 
-  # Adjust beta_resp for factor expansion
-  beta_resp_full <- intercepts$response
-  for (i in seq_len(n_predictors)) {
-    if (grepl("^multinomial", predictor_types[i])) {
-      n_cats <- as.numeric(gsub("multinomial", "", predictor_types[i]))
-      # Spread the effect across categories
-      beta_resp_full <- c(
-        beta_resp_full,
-        seq(-abs(beta_resp[i]) / 2, abs(beta_resp[i]) / 2,
-          length.out = n_cats - 1
-        ) * sign(beta_resp[i])
-      )
-    } else {
-      beta_resp_full <- c(beta_resp_full, beta_resp[i])
-    }
-  }
+  # Expand beta_resp to full coefficient vector using helper function
+  # This handles both vector and list formats, with automatic or manual expansion
+  beta_expanded <- expand_beta_resp(
+    beta_resp = beta_resp,
+    predictor_types = predictor_types,
+    var_names = var_names,
+    intercept = intercepts$response
+  )
+  beta_resp_full <- beta_expanded$beta_full
+  beta_resp_stored <- beta_expanded$beta_resp_stored
 
-  # Ensure correct length
+  # Verify length matches model matrix
+
   if (length(beta_resp_full) != ncol(X_resp)) {
-    beta_resp_full <- c(
-      intercepts$response,
-      rep(beta_resp, length.out = ncol(X_resp) - 1)
-    )
+    warning("beta_resp_full length (", length(beta_resp_full), 
+            ") doesn't match X_resp columns (", ncol(X_resp), 
+            "). This may indicate a mismatch in categorical levels.")
+    # Fallback: pad or truncate
+    if (length(beta_resp_full) < ncol(X_resp)) {
+      beta_resp_full <- c(beta_resp_full, rep(0, ncol(X_resp) - length(beta_resp_full)))
+    } else {
+      beta_resp_full <- beta_resp_full[seq_len(ncol(X_resp))]
+    }
   }
 
   # Linear predictor for response
@@ -407,6 +513,20 @@ simBACE <- function(
         cov_vals <- if (is.numeric(covars[[cov]])) covars[[cov]] else as.numeric(factor(covars[[cov]]))
         slope_contribution <- as.numeric(Z %*% u_slopes$species[[cov]]) * cov_vals
         linear_pred_resp <- linear_pred_resp + slope_contribution
+      }
+    }
+  }
+
+  # Add interaction terms for response
+  resp_name_ix <- var_names[1]  # Response name for looking up in parsed_interactions
+  if (!is.null(parsed_interactions) && resp_name_ix %in% names(parsed_interactions)) {
+    resp_interactions <- parsed_interactions[[resp_name_ix]]
+    if (length(resp_interactions) > 0) {
+      for (ix_name in names(resp_interactions)) {
+        ix_pair <- resp_interactions[[ix_name]]
+        ix_term <- calculate_ix_term(covars_for_X, ix_pair)
+        ix_coef <- ix_betas[[resp_name_ix]][ix_name]
+        linear_pred_resp <- linear_pred_resp + ix_coef * ix_term
       }
     }
   }
@@ -429,8 +549,7 @@ simBACE <- function(
 
     for (k in 1:n_liab) {
       liab_intercept <- intercepts$response + (k - n_liab / 2) * 0.5
-      liabilities[, k] <- liab_intercept + linear_pred_resp - intercepts$response +
-        rnorm(n_cases, 0, 0.5)
+      liabilities[, k] <- liab_intercept + linear_pred_resp - intercepts$response
     }
 
     response <- mnom_liab2cat(liabilities, categories)
@@ -475,7 +594,11 @@ simBACE <- function(
     predictor_types = predictor_types,
     var_names = var_names,
     beta_matrix = beta_matrix,
-    beta_resp = beta_resp,
+    beta_resp = beta_resp_stored,  # Store the expanded/validated list format
+    beta_resp_full = beta_resp_full,  # Store full coefficient vector with intercept
+    ix_matrix = ix_matrix,
+    ix_betas = ix_betas,
+    parsed_interactions = parsed_interactions,
     intercepts = intercepts,
     phylo_signal = phylo_signal,
     sigmas = sigmas,
@@ -625,6 +748,26 @@ print_simBACE_summary <- function(sim_output) {
     }
   } else {
     cat("Random slopes: NO\n")
+  }
+
+  # Display interaction terms
+  if (!is.null(sim_output$params$parsed_interactions)) {
+    has_ix <- sapply(sim_output$params$parsed_interactions, function(x) length(x) > 0)
+    if (any(has_ix)) {
+      cat("\nInteraction terms:\n")
+      for (var_name in names(sim_output$params$parsed_interactions)[has_ix]) {
+        ix_names <- names(sim_output$params$parsed_interactions[[var_name]])
+        ix_coefs <- sim_output$params$ix_betas[[var_name]]
+        cat("  ", var_name, ":\n", sep = "")
+        for (ix_n in ix_names) {
+          cat("    ", ix_n, " (beta = ", round(ix_coefs[ix_n], 3), ")\n", sep = "")
+        }
+      }
+    } else {
+      cat("\nInteraction terms: NONE\n")
+    }
+  } else {
+    cat("\nInteraction terms: NONE\n")
   }
 
   cat("\n--- Data preview ---\n")
