@@ -33,6 +33,10 @@ docs/
 po/*~
 # RStudio Connect folder
 rsconnect/
+
+.lintr
+.DS_Store
+*/zzz/
 inst/doc
 .Rbuildignore
 BACE.Rproj
