@@ -25,7 +25,7 @@ model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 5
                                  data = data,
                                family = type,
 							 ginverse = setNames(list(A), name),
-                              verbose = FALSE, pr = TRUE,
+                              verbose = FALSE, pr = TRUE, pl = TRUE,
                                 saveX = TRUE, saveZ = TRUE,
                                  nitt = nitt,
                                  thin = thin,
@@ -115,12 +115,14 @@ predict_bace <- function(model, dat_prep, type = NULL, ...) {
 			     }
 
 				 if(type == "poisson"){  
+					# Predict from model and round to nearest integer to retain count data
 						pred_values <- round(predict(model, marginal = NULL, type = "response", posterior = "all"), digits = 0)
 				 }
 
-				 if(type == "threshold" || type == "categorical" || type == "ordinal"){
+				 if(type == "threshold" || type == "ordinal"){
 					# Identify number of categories and their levels from the data
-			      levels_var <- levels(dat_prep[[1]][[response_var]])
+			      	     lv  <- dat_prep[[1]][[response_var]]
+				  levels_var <- sort(unique(as.character(lv)))
 				   
 				   # Predicts probabilities for each category
 				 pred_prob <- predict(model, marginal = NULL, type = "response", posterior = "all")
@@ -131,10 +133,72 @@ predict_bace <- function(model, dat_prep, type = NULL, ...) {
 				   })
 				 }
 				 
-				return(pred_values)
+				 if(type == "categorical"){
+					# Identify number of categories and their levels from the data
+			      	     lv  <- dat_prep[[1]][[response_var]]
+				  levels_var <- sort(unique(as.character(lv)))
+					
+					# Predict category probabilities
+					pred_prob <- pred_cat(model, baseline_name = levels_var[1])
+
+					# For each observation, sample from the categorical distribution based on the predicted probabilities
+				   pred_values <- apply(pred_prob, 1, function(probs) {
+					   sample(levels_var, size = 1, prob = probs)
+				   })
+				 }
+
+	return(pred_values)
 }
 
-
+pred_cat <- function(model, baseline_name = "Baseline") {
+  # 1. Identify dimensions
+  # n_obs: Number of data points
+  n_obs <- model$Residual$nrl
+  # liab: The posterior distribution of latent variables
+  liab <- model$Liab
+  n_samples <- nrow(liab)
+  # n_traits: Number of non-baseline categories (J-1)
+  n_traits <- ncol(liab) / n_obs
+  
+  # 2. Extract and Exponentiate Liabilities
+  exp_liab_list <- list()
+  exp_sum <- 1 # exp(0) for the baseline
+  
+  for (i in 1:n_traits) {
+    cols <- ((i - 1) * n_obs + 1):(i * n_obs)
+    exp_liab_list[[i]] <- exp(liab[, cols])
+    exp_sum <- exp_sum + exp_liab_list[[i]]
+  }
+  
+  # 3. Calculate Mean Probabilities (%)
+  prob_results <- list()
+  for (i in 1:n_traits) {
+    prob_results[[i]] <- colMeans(exp_liab_list[[i]] / exp_sum) * 100
+  }
+  
+  # 4. Calculate the Baseline category (%)
+  prob_results[[n_traits + 1]] <- colMeans(1 / exp_sum) * 100
+  
+  # 5. Extract Level Names Generically
+  # Grab first n_traits names from solutions
+  raw_names <- colnames(model$Sol)[1:n_traits]
+  
+  # Logic: Find the common prefix 'traitXXXXXXXX.' and remove it
+  # We look for the pattern 'trait' followed by any characters ending in a dot
+  clean_names <- gsub("^trait.*?\\.", "", raw_names)
+  
+  # 6. Combine and Order
+  df_final <- as.data.frame(do.call(cbind, prob_results))
+  colnames(df_final) <- c(clean_names, baseline_name)
+  
+  # Rearrange columns alphabetically
+  df_ordered <- df_final[, order(colnames(df_final))]
+  
+  # Add row names
+  rownames(df_ordered) <- paste0("Obs_", 1:n_obs)
+  
+  return(round(df_ordered, 2))
+}
 
 #' @title get_imputed
 #' @description Function extracts the prior for the MCMCglmm model
