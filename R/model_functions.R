@@ -95,6 +95,47 @@ make_prior <- function(n_rand, type, nu = NULL) {
 	return(prior)
 }
 
+
+#' @title predict_bace
+#' @description Function creates a predcition from MCMCglmm model
+#' @param model A MCMCglmm model object
+#' @param dat_prep A list containing the prepared data frame and attributes for continuous variables.
+#' @param type A string that specifies the type of model to fit.
+#' @return A vector of predicted values from the MCMCglmm model.
+#' @export
+predict_bace <- function(model, dat_prep, type = NULL, ...) {				
+
+				if(type == "gaussian"){
+					# z-transformed so need to back-transform
+					mean_val <- dat_prep[[2]][[response_var]]$mean
+					sd_val   <- dat_prep[[2]][[response_var]]$sd
+					
+					# Predict from model and back-transform
+				 		pred_values <- predict(model, marginal = NULL, type = "response", posterior = "all") * sd_val + mean_val
+			     }
+
+				 if(type == "poisson"){  
+						pred_values <- round(predict(model, marginal = NULL, type = "response", posterior = "all"), digits = 0)
+				 }
+
+				 if(type == "threshold" || type == "categorical" || type == "ordinal"){
+					# Identify number of categories and their levels from the data
+			      levels_var <- levels(dat_prep[[1]][[response_var]])
+				   
+				   # Predicts probabilities for each category
+				 pred_prob <- predict(model, marginal = NULL, type = "response", posterior = "all")
+
+				   # For each observation, sample from the categorical distribution based on the predicted probabilities
+				   pred_values <- apply(pred_prob, 1, function(probs) {
+					   sample(levels_var, size = 1, prob = probs)
+				   })
+				 }
+				 
+				return(pred_values)
+}
+
+
+
 #' @title get_imputed
 #' @description Function extracts the prior for the MCMCglmm model
 #' @param model An integer specifying the number of random effects in the model.
