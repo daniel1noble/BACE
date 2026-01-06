@@ -123,13 +123,18 @@ predict_bace <- function(model, dat_prep, type = NULL, ...) {
 					# Identify number of categories and their levels from the data
 			      	     lv  <- dat_prep[[1]][[response_var]]
 				  levels_var <- sort(unique(as.character(lv)))
+
+				  # Check there are only two levels for threshold model
+				  if(type == "threshold" && length(levels_var) != 2){
+					  stop("Threshold models can only be used for binary data with two levels.")
+				  }
 				   
 				   # Predicts probabilities for each category
 				 pred_prob <- predict(model, marginal = NULL, type = "response", posterior = "all")
 
 				   # For each observation, sample from the categorical distribution based on the predicted probabilities
 				   pred_values <- apply(pred_prob, 1, function(probs) {
-					   sample(levels_var, size = 1, prob = probs)
+					   sample(levels_var, size = 1, prob = c(probs, 1-probs))
 				   })
 				 }
 				 
@@ -216,7 +221,12 @@ pred_cat <- function(model, baseline_name = "Baseline") {
   return(round(df_ordered, 2))
 }
 
-
+#' @title pred_threshold
+#' @description Function calculates predicted probabilities for each category from a threshold MCMCglmm model
+#' @param model A MCMCglmm model object
+#' @param level_names A vector of strings specifying the names of the levels/categories
+#' @return A data frame of predicted probabilities for each category
+#' @export	
 pred_threshold <- function(model, level_names = NULL) {
   # 1. Dimensions and Data
   n_obs <- model$Residual$nrl
