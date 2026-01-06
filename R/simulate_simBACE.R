@@ -4,7 +4,9 @@
 #'   with multiple dependencies on additional covariates. The data can be
 #'   gaussian, binary, poissonian, multinomial (unordered categories),
 #'   or ordinal (ordered categories coded as integers 1,2,3,...).
-#' @author BACE Development Team
+#' @author Szymek Drobniak
+#' @author Daniel Noble
+#' @author Shinichi Nakagawa
 #' @importFrom ape rphylo vcv Ntip
 #' @importFrom MASS mvrnorm ginv
 #' @importFrom stats rnorm rbinom rpois plogis model.matrix as.formula
@@ -20,7 +22,7 @@
 #' @param predictor_types Character vector specifying type of each predictor
 #' @param var_names Character vector of variable names (response + predictors).
 #'   If NULL, default names (y, x1, x2, ...) are generated
-#' @param beta_matrix Square matrix of regression coefficients. Entry [i,j]
+#' @param beta_matrix Square matrix of regression coefficients. Entry i,j-th
 #'   indicates effect of predictor j on predictor i. If NULL, a default
 #'   sparse matrix is generated
 #' @param beta_resp Regression coefficients for response on predictors. Can be:
@@ -32,7 +34,7 @@
 #' @param ix_matrix Interaction matrix (lower triangular) defining interactions.
 #'   Rows/columns correspond to predictors (x1, x2, ...) with response (y) as last row.
 #'   Integer codes indicate which variables interact: variables sharing the same
-#'   digit in a row will interact. E.g., for row [12, 1, 2, 0]:
+#'   digit in a row will interact. E.g., for row (12, 1, 2, 0):
 #'   - x1 has codes {1,2}, x2 has {1}, x3 has {2}
 #'   - x1:x2 (share code 1), x1:x3 (share code 2)
 #'   Multi-digit numbers encode multiple codes (12 = codes 1 and 2).

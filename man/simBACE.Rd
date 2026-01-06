@@ -35,7 +35,7 @@ simBACE(
 \item{var_names}{Character vector of variable names (response + predictors).
 If NULL, default names (y, x1, x2, ...) are generated}
 
-\item{beta_matrix}{Square matrix of regression coefficients. Entry \link{i,j}
+\item{beta_matrix}{Square matrix of regression coefficients. Entry i,j-th
 indicates effect of predictor j on predictor i. If NULL, a default
 sparse matrix is generated}
 
@@ -51,7 +51,7 @@ Example: list(x1 = 0.5, x2 = c(-0.3, 0.2, 0.5), x3 = 0.1) for a multinomial4 x2
 \item{ix_matrix}{Interaction matrix (lower triangular) defining interactions.
 Rows/columns correspond to predictors (x1, x2, ...) with response (y) as last row.
 Integer codes indicate which variables interact: variables sharing the same
-digit in a row will interact. E.g., for row \link{12, 1, 2, 0}:
+digit in a row will interact. E.g., for row (12, 1, 2, 0):
 \itemize{
 \item x1 has codes {1,2}, x2 has {1}, x3 has {2}
 \item x1:x2 (share code 1), x1:x3 (share code 2)
@@ -142,5 +142,9 @@ sim <- simBACE(
 
 }
 \author{
-BACE Development Team
+Szymek Drobniak
+
+Daniel Noble
+
+Shinichi Nakagawa
 }
