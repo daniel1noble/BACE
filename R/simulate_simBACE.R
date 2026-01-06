@@ -2,7 +2,7 @@
 #' @description simBACE is a function to simulate mock data for BACE.
 #'   The function simulates data with defined phylogenetic structure and
 #'   with multiple dependencies on additional covariates. The data can be
-#'   gaussian, binary, poissonian, multinomial (unordered categories), 
+#'   gaussian, binary, poissonian, multinomial (unordered categories),
 #'   or ordinal (ordered categories coded as integers 1,2,3,...).
 #' @author BACE Development Team
 #' @importFrom ape rphylo vcv Ntip
@@ -15,7 +15,7 @@
 # =============================================================================
 
 #' @param response_type Type of response variable: "gaussian", "poisson",
-#'   "binary", "multinomialK" (unordered categories), or "ordinalK" 
+#'   "binary", "multinomialK" (unordered categories), or "ordinalK"
 #'   (ordered categories coded as integers 1,2,...,K) where K is number of categories
 #' @param predictor_types Character vector specifying type of each predictor
 #' @param var_names Character vector of variable names (response + predictors).
