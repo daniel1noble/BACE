@@ -54,12 +54,18 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, runs = 10L, nitt =
 		for(j in 2:runs){
 			for(i in 1:length(fix$fix)){
 			prior_i <- make_prior(n_rand = length(phylo_ran$ran), type = types[[i]])
+			 
 			  model <-  model_fit(data = data, 
 			                      tree = phylo,
 			                fixformula = formulas[[i]],  # Only simple structure for now
 						   randformula = ran_phylo_form, # Only phylogeny, but need to add species too
 							      type = types[[i]], 
-							     prior = prior_i, nitt = nitt, thin = thin, burnin = burnin)        # Prior Not working for all types yet
+							     prior = prior_i, 
+								  nitt = nitt, 
+								  thin = thin, 
+								burnin = burnin)        # Prior Not working for all types yet
+
+
 			complete_data_list[[j]]  <-  predict(model, data_list[[i]], marginal = NULL, posterior = "all")
 		}
 		}

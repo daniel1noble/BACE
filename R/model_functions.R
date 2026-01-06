@@ -14,10 +14,10 @@
 model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 50000, thin = 10, burnin = 1000) {
 
 	# Create sparse matrix of phylogeny
-		A = MCMCglmm::inverseA(tree, nodes = "TIPS")$Ainv
+		   A  <- MCMCglmm::inverseA(tree, nodes = "TIPS")$Ainv
 	
 	# Name of the column in the data corresponding to the phylogeny
-		name = get_variables(as.character(randformula), fix = FALSE)[["cluster"]]
+		name  <- all.vars(randformula)
 		
 	# Fit the model using MCMCglmm
   	model <- MCMCglmm::MCMCglmm(fixed = fixformula,
@@ -52,8 +52,8 @@ make_prior <- function(n_rand, type, nu = NULL) {
 	}
 
 	if(type == "poisson") {
-		if(is.null(nu)) {nu <- -2}
-		prior <- list(R = list(V = 1e-07, nu = nu),
+		if(is.null(nu)) {nu <- 0.02}
+		prior <- list(R = list(V = 1, nu = nu),
                       G = list(G1 = list(V = diag(n_rand), nu = nu)))
 	}
 
