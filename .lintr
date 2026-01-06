@@ -7,4 +7,5 @@ linters: all_linters(
     undesirable_function_linter = NULL,
     conjunct_test_linter = NULL,
     nonportable_path_linter = NULL,
-    string_boundary_linter = NULL)
+    string_boundary_linter = NULL,
+    line_length_linter = NULL)

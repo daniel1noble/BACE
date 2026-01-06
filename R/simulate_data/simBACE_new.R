@@ -10,10 +10,6 @@
 #' @importFrom stats rnorm rbinom rpois plogis model.matrix as.formula
 #' @importFrom stringi stri_rand_strings
 
-# Source auxiliary functions
-library(here)
-source(here::here("R", "auxiliary_sim.r"))
-
 # =============================================================================
 # MAIN SIMULATION FUNCTION
 # =============================================================================
