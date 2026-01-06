@@ -4,24 +4,34 @@
 \alias{model_fit}
 \title{model_fit}
 \usage{
-model_fit(data, fixformula, randformula, type, nitt, thin, burnin, n_rand)
+model_fit(
+  data,
+  tree,
+  fixformula,
+  randformula,
+  type,
+  prior,
+  nitt = 50000,
+  thin = 10,
+  burnin = 1000
+)
 }
 \arguments{
 \item{data}{A dataframe containing missing data.}
 
-\item{fixformula}{A string that specifies the fixed effects in the model.}
+\item{tree}{A phylogenetic tree of class 'phylo' from the ape package.}
 
-\item{randformula}{A string that specifies the random effects in the model.}
+\item{fixformula}{A string that specifies the fixed effect structure in the model.}
 
-\item{type}{A string that specifies the type of model to fit.}
+\item{randformula}{A string that specifies the random effect structure in the model.}
 
-\item{nitt}{An integer specifying the number of iterations to run the MCMC algorithm.}
+\item{type}{A string that specifies the type of model to fit. Options are "normal", "binary", "count", "categorical", "ordinal" and the appropriate family will be used in MCMCglmm.}
 
-\item{thin}{An integer specifying the thinning rate for the MCMC algorithm.}
+\item{nitt}{An integer specifying the number of iterations to run the MCMC algorithm. Default is 50000.}
 
-\item{burnin}{An integer specifying the number of iterations to discard as burnin.}
+\item{thin}{An integer specifying the thinning rate for the MCMC algorithm. Default is 10.}
 
-\item{n.par.rand}{An integer specifying the number of random effects in the model.}
+\item{burnin}{An integer specifying the number of iterations to discard as burnin. Default is 1000.}
 }
 \value{
 A list of draws from the posterior distribution of the model parameters.

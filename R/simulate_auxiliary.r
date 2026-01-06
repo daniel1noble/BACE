@@ -19,6 +19,7 @@ var_name_gen <- function(n_predictors) {
 #' @param n_cases Number of observations to generate
 #' @param str_len Length of random species name strings
 #' @return List containing tree and case-to-species assignment
+#' @export
 sim_tree <- function(n_species, birth, death, n_cases, str_len = 5) {
   # Generate random species names
   mock_names <- sort(stringi::stri_rand_strings(n_species, str_len))
@@ -144,6 +145,7 @@ beta_generator <- function(beta_row, ns, default_beta = 0.5) {
 #' @param sparsity Proportion of zero entries (default 0.7)
 #' @param beta_range Range for non-zero beta values
 #' @return Square matrix of beta coefficients
+#' @export
 generate_default_beta_matrix <- function(n_predictors, sparsity = 0.7,
                                          beta_range = c(-0.5, 0.5)) {
   beta_matrix <- matrix(0, nrow = n_predictors, ncol = n_predictors)
@@ -165,6 +167,7 @@ generate_default_beta_matrix <- function(n_predictors, sparsity = 0.7,
 #' @param liability Matrix of liabilities (n_cases x K-1 for K categories)
 #' @param categories Vector of category labels
 #' @return Character vector of sampled categories
+#' @export
 mnom_liab2cat <- function(liability, categories) {
   n_cats <- length(categories)
   n_cases <- nrow(liability)
@@ -191,6 +194,7 @@ mnom_liab2cat <- function(liability, categories) {
 #' @param n_cats Number of ordered categories
 #' @param threshold_spread Controls spread of thresholds (default 1.5)
 #' @return Integer vector of ordered categories (1, 2, ..., n_cats)
+#' @export
 ordinal_liab2cat <- function(liability, n_cats, threshold_spread = 1.5) {
   n_cases <- length(liability)
 

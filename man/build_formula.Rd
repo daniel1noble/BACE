@@ -11,6 +11,9 @@ build_formula(x)
 }
 \value{
 A formula object
+#' @examples \dontrun{
+build_formula("y ~ x1 + x2")
+}
 }
 \description{
 Function takes a string specifying a formula and converts this to a formula object to be used in the models.

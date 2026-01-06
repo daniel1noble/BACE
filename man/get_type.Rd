@@ -14,12 +14,14 @@ get_type(data)
 \item{random_form}{The random effect formula}
 }
 \value{
-A list of variable names and their correpsonding class.
+A list of variable names and their corresponding class.
 }
 \description{
 Function takes a dataframe and identifies the class of variables (type)
 }
 \examples{
-{
-data(iris)}
+\dontrun{
+data <- data.frame(y = c(1,2,3,NA,5), x1 = factor(c("A","B","A","B","A")), x2 = c(10,20,30,40,50))
+get_type(data)
+}
 }

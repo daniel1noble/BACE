@@ -30,8 +30,12 @@ form <- "y ~ x1 + x2 + x1:x2"
 get_variables(form)
 form <- "y ~ x1 + x2 + x1*x2"
 get_variables(form)
-form <- "~ 1 + X1|Species"
+form <- "~ 1 + x1|Species"
+get_variables(form, fix = FALSE)
+form <- "~ 1 + x1| Species"
 get_variables(form, fix = FALSE)
 form <- "~ 1 |Species"
+get_variables(form, fix = FALSE)
+form <- "~ 1 | Species"
 get_variables(form, fix = FALSE)}
 }

@@ -4,7 +4,7 @@
 \alias{make_prior}
 \title{make_prior}
 \usage{
-make_prior(n_rand, n_res, type, nu = 0.002)
+make_prior(n_rand, type, nu = NULL)
 }
 \arguments{
 \item{n_rand}{An integer specifying the number of random effects in the model.}
