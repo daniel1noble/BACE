@@ -144,3 +144,88 @@ check_type <- function(x) {
   	return(type)
 }
 
+#' @title data_prep
+#' @description Function prepares the data for imputation by handling missing values and standardizing continuous variables.
+#' @param formula A formula specifying the response and predictor variables.
+#' @param data A data frame containing the dataset to be prepared.
+#' @param types A list specifying the type of each variable in the dataset.
+#' @return A list containing the prepared data frame and attributes for continuous variables.
+#' @examples \dontrun{
+#' data <- data.frame(y = c(1,2,3,NA,5), x1 = factor(c("A","B","A","B","A")), x2 = c(10,20,30,NA,50))
+#' formula <- as.formula("y ~ x1 + x2")
+#' types <- list(y = "gaussian", x1 = "categorical", x2 = "gaussian")
+#' data_prep(formula, data, types)
+#' }	
+#' @export
+data_prep  <- function(formula, data, types) {
+				# Identify response variable in formula
+			response_var <- all.vars(formula[[2]])
+			
+			# Identify predictors in formula
+			  predictors <- all.vars(formula[[3]])
+			
+			# Check missing data in predictors and impute values for the model for. For count and gaussian we use the mean for now, for categorical we sample from the empirical distribution.
+			predictor_data <- data[, predictors, drop = FALSE]
+			for(p in 1:ncol(predictor_data)){
+				if(any(is.na(predictor_data[, p]))){
+					if(types[[predictors[p]]] %in% c("gaussian")){
+						predictor_data[is.na(predictor_data[, p]), p] <- mean(predictor_data[, p], na.rm = TRUE)
+					}
+					
+					if(types[[predictors[p]]] %in% c("poisson")){
+						predictor_data[is.na(predictor_data[, p]), p] <- round(mean(predictor_data[, p], na.rm = TRUE))
+					}
+
+					if(types[[predictors[p]]] %in% c("categorical", "threshold")){
+						obs_values <- predictor_data[!is.na(predictor_data[, p]), p]
+						predictor_data[is.na(predictor_data[, p]), p] <- sample(obs_values, sum(is.na(predictor_data[, p])), replace = TRUE)
+					}
+				}
+			}
+			
+			# Create the data frame for the model fitting
+			  data_i <- data.frame(data_sub[, response_var],
+			                     predictor_data,
+			                   data_sub[, phylo_ran[["cluster"]], drop = FALSE])
+			colnames(data_i)[1] <- response_var
+
+			# z-transform all gaussian variables for better mixing and store attributes to revert later name the slots with variable names
+
+			data_i_attrs <- extract_gaussian_attrs(data_i, types)
+
+			data_i <- data_i %>%
+			          dplyr::mutate(dplyr::across(.cols = dplyr::where(is.numeric) & dplyr::all_of(names(types)[types == "gaussian"]),
+			                                      .fns = ~ as.numeric(scale(.x))))
+
+return(list = (list(data_i,
+				   data_i_attrs)))
+}
+
+
+#' @title extract_gaussian_attrs
+#' @description Function extracts the mean and standard deviation of gaussian variables in a dataframe for later use in back-transformation.
+#' @param data A data frame containing the dataset.
+#' @param types A list specifying the type of each variable in the dataset.
+#' @return A list containing the mean and standard deviation of each gaussian variable.
+#' @examples \dontrun{
+#' data <- data.frame(y = c(1,2,3,NA,5), x1 = factor(c("A","B","A","B","A")), x2 = c(10,20,30,NA,50))
+#' types <- list(y = "gaussian", x1 = "categorical", x2 = "gaussian")
+#' extract_gaussian_attrs(data, types)
+#' }
+#' @export
+extract_gaussian_attrs <- function(data, types) {
+  out <- lapply(names(types), function(v) {
+    if (!is.null(types[[v]]) && types[[v]] == "gaussian") {
+      x <- data[[v]]
+      list(
+        mean = mean(x, na.rm = TRUE),
+        sd   = sd(x, na.rm = TRUE)
+      )
+    } else {
+      NULL
+    }
+  })
+  
+  names(out) <- names(types)
+  out
+}

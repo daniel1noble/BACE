@@ -30,8 +30,7 @@ model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 5
                                  nitt = nitt,
                                  thin = thin,
                                burnin = burnin, 
-							    prior = prior)
-	class(model) <- c("MCMCglmm", "bace")									
+							    prior = prior, singular.ok=TRUE)									
   	return(model)
 }
 
@@ -73,6 +72,7 @@ make_prior <- function(n_rand, type, nu = NULL) {
 	}
 
 	if(type == "threshold") {
+		if(is.null(nu)) {nu <- 0.02}
 		prior <- list(R = list(V = 1, fix = TRUE),
                       G = list(G1 = list(V = diag(n_rand), nu = nu)))
 	}
