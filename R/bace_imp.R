@@ -10,8 +10,16 @@
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
 #' @return A list containing imputed datasets and model summaries.
 #' @examples \dontrun{
-#' phylo <- force.ultrametric(ape::rtree(5)) # Example phylogenetic tree with 5 tips
-#' data <- data.frame(y = c(1,2,3,NA,5), x1 = factor(c("A",NA,"A","B","A")), x2 = c(10,20,30,NA,50), Species = phylo$tip.label)
+#' set.seed(123)
+#' phylo <- force.ultrametric(ape::rtree(30)) # Example phylogenetic tree with 30 tips
+#' phylo  <- compute.brlen(phylo, method = "Grafen")
+#' data <- data.frame(y = rpois(30, lambda = 5), x1 = factor(rep(c("A", "B","A"), length.out = 30)), x2 = rnorm(30, 10, 2), Species = phylo$tip.label)
+#' # Introduce some missing data
+#' missing_indices <- sample(1:30, 10)
+#' data$y[missing_indices] <- NA
+#' data$x1[sample(1:30, 5)] <- NA
+#' data$x2[sample(1:30, 5)] <- NA	
+#' # Run BACE imputation
 #' bace_imp(fixformula = "y ~ x1 + x2", ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data)
 #' bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 20)
 #' }
@@ -70,11 +78,13 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, runs = 10L, nitt =
 	#---------------------------------------------#
 	# How we need to use the data, type of variable class to fit the models
 	
+		# List to hold runs
 		pred_missing_run <- list()
 
 		for(r in 1:runs){
 
-			pred_missing_traits <- matrix(0, nrow = nrow(data_sub), ncol = length(fix))
+			# List to hold variables predictions for this run
+			pred_missing_vars <- matrix(0, nrow = nrow(data_sub), ncol = length(fix))
 			
 			for(i in 1:length(fix)){
 
@@ -101,7 +111,8 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, runs = 10L, nitt =
 				missing_matrix_pred <- data.frame(missing_matrix)  %>% dplyr::filter(col != col_response)
 
 				# Fill in missing values with predicted values from previous run
-				 data_i[missing_matrix_pred$row, missing_matrix_pred$col] <- pred_missing_run[[r-1]][missing_matrix_pred$row, missing_matrix_pred$col]
+				         idx <- cbind(missing_matrix_pred$row, missing_matrix_pred$col)
+				 data_i[idx] <- pred_missing_run[[r-1]][idx]
 			 }
 
 			# Set up prior for the specific variable type
@@ -119,21 +130,20 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, runs = 10L, nitt =
 								  thin = thin, 
 								burnin = burnin)         # Prior Not working for all types yet
 
-			# Predict missing data and store in list to keep track across runs, if the variable was z-transformed then transform back using the attributes from data_i 
-			 if(response_var %in% names(dat_prep[[2]]) && !is.null(dat_prep[[2]][[response_var]])){
-					mean_val <- dat_prep[[2]][[response_var]]$mean
-					sd_val   <- dat_prep[[2]][[response_var]]$sd
-					
-					              pred_values <- predict(model, marginal = NULL, type = "response", posterior = "all") * sd_val + mean_val
-			 } else {
-					            pred_values <- predict(model, marginal = NULL, type = "response", posterior = "all")
-			 }
+			# Predict missing data and store in list to keep track across runs, if the variable was z-transformed then transform back using the attributes from data_i preparation which is done automatically for gaussian variables
+
+				pred_values <- predict_bace(model, dat_prep, type = types[[response_var]])
 			 
-			 id <- missing_matrix[with(missing_matrix, colname == response_var), "row"]
-			 pred_missing_traits[id,i]  <- pred_values[id]
+			# Store predicted values for only the missing data points
+			                       id <- missing_matrix[with(missing_matrix, colname == response_var), "row"]
+			 pred_missing_vars[id,i]  <- pred_values[id]
 			 
 		}
 		
-		pred_missing_run[[r]] <- as(pred_missing_traits, "sparseMatrix")
+		     pred_missing_run[[r]] <- pred_missing_vars
+		names(pred_missing_run)[r] <- paste0("Iter_", r)
 }
+return(list(iterations = pred_missing_run))
+}	
+	
 
