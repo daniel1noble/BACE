@@ -70,7 +70,7 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, runs = 10L, nitt =
 	   missing_matrix <- which(is.na(data_sub), arr.ind = TRUE)
 
 	# Add a new column to indicate the variable (column) names for easier tracking
-	   missing_matrix <- data.frame(missing_matrix)
+	           missing_matrix <- data.frame(missing_matrix)
 	   missing_matrix$colname <- colnames(data_sub)[missing_matrix[,2]]
 
 	#---------------------------------------------#
@@ -95,11 +95,12 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, runs = 10L, nitt =
 			response_var <- all.vars(formulas[[i]][[2]])
 			
 			# Prepare the data 
-				# For iteration 1 we want to impute missing data as a rough approximation z-transform for continuous data, and random sampling from the empirical distribution for categorical data.
 			dat_prep <- data_prep(data = data_sub, formula = formulas[[i]], types = types)
 			
 			 if(r == 1){
+				# For iteration 1 we want to impute missing data as a rough approximation z-transform for continuous data, and random sampling from the empirical distribution for categorical data.
 				data_i <- dat_prep[[1]]
+
 			 } else {
 				# If not the first iteration then we use the predicted values for the missing cells of the predictors from the previous iteration to fill in missing data for the response
 				data_i <- data_sub 
@@ -116,7 +117,6 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, runs = 10L, nitt =
 			 }
 
 			# Set up prior for the specific variable type
-
 			     prior_i <- make_prior(n_rand = length(phylo_ran$ran), type = types[[response_var]])
 			
 			# Fit the model and predict missing data
@@ -131,7 +131,6 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, runs = 10L, nitt =
 								burnin = burnin)         # Prior Not working for all types yet
 
 			# Predict missing data and store in list to keep track across runs, if the variable was z-transformed then transform back using the attributes from data_i preparation which is done automatically for gaussian variables
-
 				pred_values <- predict_bace(model, dat_prep, type = types[[response_var]])
 			 
 			# Store predicted values for only the missing data points

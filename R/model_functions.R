@@ -150,54 +150,141 @@ predict_bace <- function(model, dat_prep, type = NULL, ...) {
 	return(pred_values)
 }
 
+#' @title pred_cat
+#' @description Function calculates predicted probabilities for each category from a categorical MCMCglmm model
+#' 	@param model A MCMCglmm model object
+#' @param baseline_name A string specifying the name of the baseline category
+#' @return A data frame of predicted probabilities for each category
+#' @export
 pred_cat <- function(model, baseline_name = "Baseline") {
-  # 1. Identify dimensions
-  # n_obs: Number of data points
-  n_obs <- model$Residual$nrl
-  # liab: The posterior distribution of latent variables
-  liab <- model$Liab
-  n_samples <- nrow(liab)
-  # n_traits: Number of non-baseline categories (J-1)
-  n_traits <- ncol(liab) / n_obs
   
-  # 2. Extract and Exponentiate Liabilities
+  # 1. Basic Dimensions
+  n_obs <- model$Residual$nrl
+  n_traits <- (ncol(model$Sol) - model$Fixed$nll) / (model$Fixed$nfl / (ncol(model$Sol) / (ncol(model$Liab)/n_obs)))
+  # Simpler way to get n_traits for categorical:
+  n_traits <- ncol(model$Liab) / n_obs
+  
+  # 2. Calculate the c2 Scaling Factor
+  # c = 16 * sqrt(3) / (15 * pi)
+  c2 <- (16 * sqrt(3) / (15 * pi))^2
+  
+  # Get Total Variance (G + R) for each sample in the chain
+  # We sum the Phylo and Units variances. 
+  # Note: MCMCglmm categorical models usually have fixed residual variance (e.g. 1)
+  v_total <- rowSums(model$VCV)
+  scaling_factor <- sqrt(1 + c2 * v_total)
+  
+  # 3. Extract and Scale Liabilities
   exp_liab_list <- list()
-  exp_sum <- 1 # exp(0) for the baseline
+  # Initialize exp_sum with 1 (which is exp(0) for the baseline)
+  exp_sum <- 1 
   
   for (i in 1:n_traits) {
     cols <- ((i - 1) * n_obs + 1):(i * n_obs)
-    exp_liab_list[[i]] <- exp(liab[, cols])
+    
+    # Apply c2 scaling to the liabilities before exponentiating
+    # We divide each sample's liabilities by that sample's scaling factor
+    scaled_liab <- model$Liab[, cols] / scaling_factor
+    
+    exp_liab_list[[i]] <- exp(scaled_liab)
     exp_sum <- exp_sum + exp_liab_list[[i]]
   }
   
-  # 3. Calculate Mean Probabilities (%)
+  # 4. Calculate Mean Probabilities (%)
   prob_results <- list()
   for (i in 1:n_traits) {
     prob_results[[i]] <- colMeans(exp_liab_list[[i]] / exp_sum) * 100
   }
   
-  # 4. Calculate the Baseline category (%)
+  # Calculate Baseline level %
   prob_results[[n_traits + 1]] <- colMeans(1 / exp_sum) * 100
   
-  # 5. Extract Level Names Generically
-  # Grab first n_traits names from solutions
+  # 5. Extract Names Generically
+  # Look at Fixed effects to get trait/variable names
   raw_names <- colnames(model$Sol)[1:n_traits]
-  
-  # Logic: Find the common prefix 'traitXXXXXXXX.' and remove it
-  # We look for the pattern 'trait' followed by any characters ending in a dot
+  # Removes "trait", the variable name, and the following dot
   clean_names <- gsub("^trait.*?\\.", "", raw_names)
   
-  # 6. Combine and Order
+  # 6. Final Data Frame Assembly
   df_final <- as.data.frame(do.call(cbind, prob_results))
   colnames(df_final) <- c(clean_names, baseline_name)
   
-  # Rearrange columns alphabetically
+  # Rearrange columns alphabetically (Aquatic, Insessorial, Terrestrial)
   df_ordered <- df_final[, order(colnames(df_final))]
-  
-  # Add row names
   rownames(df_ordered) <- paste0("Obs_", 1:n_obs)
   
   return(round(df_ordered, 2))
+}
+
+
+pred_threshold <- function(model, level_names = NULL) {
+  # 1. Dimensions and Data
+  n_obs <- model$Residual$nrl
+  liab <- model$Liab
+  v_total <- rowSums(model$VCV)
+  scaling_factor <- sqrt(1 + v_total)
+  
+  # 2. Thresholds (Cut-points)
+  # MCMCglmm fixes the first threshold at 0.
+  # Additional cut-points are in model$CP.
+  if (!is.null(model$CP)) {
+    # Ordinal case: J > 2 levels
+    cp_samples <- cbind(0, model$CP) # First CP is 0
+    n_levels <- ncol(cp_samples) + 1
+  } else {
+    # Binary case: 2 levels
+    cp_samples <- matrix(0, nrow = nrow(liab), ncol = 1)
+    n_levels <- 2
+  }
+  
+  # 3. Calculate Probabilities
+  # We iterate through iterations and calculate area under normal curve
+  # Prob(category j) = Phi((CP_j - Liab) / scale) - Phi((CP_j-1 - Liab) / scale)
+  
+  all_probs <- list()
+  
+  for (j in 1:n_levels) {
+    # Define upper and lower bounds for the current category
+    # Lower bound (T_low)
+    if (j == 1) {
+      t_low <- -Inf 
+    } else {
+      t_low <- cp_samples[, j - 1]
+    }
+    
+    # Upper bound (T_high)
+    if (j == n_levels) {
+      t_high <- Inf
+    } else {
+      t_high <- cp_samples[, j]
+    }
+    
+    # Calculate probability for this category across all MCMC samples
+    # Probability = pnorm(Upper) - pnorm(Lower)
+    # We use mapply or row-wise math to handle the scaling per iteration
+    
+    # Prob per sample: pnorm(t_high, mean=liab, sd=scaling_factor) - pnorm(t_low, ...)
+    p_cat <- pnorm(t_high, mean = liab, sd = scaling_factor) - 
+      pnorm(t_low, mean = liab, sd = scaling_factor)
+    
+    all_probs[[j]] <- colMeans(p_cat) * 100
+  }
+  
+  # 4. Final Data Frame
+  df_final <- as.data.frame(do.call(cbind, all_probs))
+  
+  # 5. Naming and Ordering
+  if (is.null(level_names)) {
+    colnames(df_final) <- paste0("Level_", 1:n_levels)
+  } else {
+    colnames(df_final) <- level_names
+  }
+  
+  # Sort alphabetically (e.g., Aquatic, Insessorial, Terrestrial)
+  df_final <- df_final[, order(colnames(df_final))]
+  rownames(df_final) <- paste0("Obs_", 1:n_obs)
+  
+  return(round(df_final, 2))
 }
 
 #' @title get_imputed
