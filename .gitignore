@@ -40,3 +40,5 @@ rsconnect/
 inst/doc
 .Rbuildignore
 BACE.Rproj
+.DS_Store
+R/Untitled-2
