@@ -119,6 +119,8 @@ simBACE <- function(
     sigmas = NULL,
     rr = FALSE,
     rr_form = NULL) {
+
+  
   # -------------------------------------------------------------------------
   # SETUP AND VALIDATION
   # -------------------------------------------------------------------------
@@ -795,3 +797,4 @@ print_simBACE_summary <- function(sim_output) {
 
   invisible(sim_output)
 }
+
