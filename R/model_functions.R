@@ -161,6 +161,7 @@ pred_cat <- function(model, baseline_name = "Baseline") {
   # 1. Basic Dimensions
   n_obs <- model$Residual$nrl
   n_traits <- (ncol(model$Sol) - model$Fixed$nll) / (model$Fixed$nfl / (ncol(model$Sol) / (ncol(model$Liab)/n_obs)))
+  
   # Simpler way to get n_traits for categorical:
   n_traits <- ncol(model$Liab) / n_obs
   
@@ -171,11 +172,12 @@ pred_cat <- function(model, baseline_name = "Baseline") {
   # Get Total Variance (G + R) for each sample in the chain
   # We sum the Phylo and Units variances. 
   # Note: MCMCglmm categorical models usually have fixed residual variance (e.g. 1)
-  v_total <- rowSums(model$VCV)
+         v_total <- rowSums(model$VCV)
   scaling_factor <- sqrt(1 + c2 * v_total)
   
   # 3. Extract and Scale Liabilities
   exp_liab_list <- list()
+  
   # Initialize exp_sum with 1 (which is exp(0) for the baseline)
   exp_sum <- 1 
   
@@ -187,7 +189,7 @@ pred_cat <- function(model, baseline_name = "Baseline") {
     scaled_liab <- model$Liab[, cols] / scaling_factor
     
     exp_liab_list[[i]] <- exp(scaled_liab)
-    exp_sum <- exp_sum + exp_liab_list[[i]]
+               exp_sum <- exp_sum + exp_liab_list[[i]]
   }
   
   # 4. Calculate Mean Probabilities (%)
@@ -202,6 +204,7 @@ pred_cat <- function(model, baseline_name = "Baseline") {
   # 5. Extract Names Generically
   # Look at Fixed effects to get trait/variable names
   raw_names <- colnames(model$Sol)[1:n_traits]
+  
   # Removes "trait", the variable name, and the following dot
   clean_names <- gsub("^trait.*?\\.", "", raw_names)
   
