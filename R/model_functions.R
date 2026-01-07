@@ -34,65 +34,116 @@ model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 5
   	return(model)
 }
 
+
+
+#' @title .list_of_G
+#' @description Function creates a list of G priors for the MCMCglmm model
+#' @param n_rand An integer specifying the number of random effects in the model.
+#' @param nu A numeric specifying the nu parameter for the prior.
+#' @param par_expand A logical indicating whether to use parameter expansion.
+#' @return A list of G priors for the MCMCglmm model.
+
+.list_of_G <- function(n_rand, nu = NULL, par_expand = FALSE, diag = 1) {
+  
+  if(is.null(nu)) {nu <- 0.002}
+  
+  prior_G <- list()
+
+  if (par_expand) {
+    for (i in 1:n_rand) {
+      prior_G[[paste0("G", i)]] <- list(
+        V = diag(diag), nu = nu,
+        alpha.mu = rep(0, diag), alpha.V = 1e4 * diag(diag)
+      )
+    }
+  } else {
+    for (i in 1:n_rand) {
+      prior_G[[paste0("G", i)]] <- list(V = diag(diag), nu = nu)
+    }
+  }
+  
+  return(prior_G)
+}
+
+
+
 #' @title make_prior
 #' @description Function creates the prior for the MCMCglmm model
 #' @param n_rand An integer specifying the number of random effects in the model.
 #' @param type A string that specifies the type of model to fit.
 #' @param nu A numeric specifying the nu parameter for the prior.
+#' @param n_levels An integer specifying the number of levels for categorical or ordinal data.
 #' @return A list of priors for the MCMCglmm model.
 #' @export
- 
-make_prior <- function(n_rand, type, nu = NULL) {
 
-	if(type == "gaussian") {
-		if(is.null(nu)) {nu <- 0.002}
-		prior <- list(R = list(V = 1, nu = nu),
-					  G = list(G1 = list(V = diag(n_rand), nu = nu)))
-	}
+make_prior <- function(n_rand, type, nu = NULL, n_levels = NULL, par_expand = FALSE) {
+  if (type == "gaussian") {
+    if (is.null(nu)) {
+      nu <- 0.002
+    }
 
-	if(type == "poisson") {
-		if(is.null(nu)) {nu <- 0.02}
-		prior <- list(R = list(V = 1, nu = nu),
-                      G = list(G1 = list(V = diag(n_rand), nu = nu)))
-	}
+    prior_G <- .list_of_G(n_rand, nu, par_expand)
+    prior <- list(
+      R = list(V = 1, nu = nu),
+      G = prior_G
+    )
+  }
 
-	if(type == "categorical") {
-		J <- length(unique(ph_sub)) #number of categories
-  		number_fix_parameters <- ncol(X_model_matrix_1_sub) * (J-1)
+  if (type == "poisson") {
+    if (is.null(nu)) {
+      nu <- 0.02
+    }
+    prior_G <- .list_of_G(n_rand, nu, par_expand)
+    prior <- list(
+      R = list(V = 1, nu = nu),
+      G = prior_G
+    )
+  }
 
-		# Get the number of random effects variables
-		number_random_parameters <- n_rand * (J - 1)
+  if (type == "categorical") {
 
-		J_matrix <- array(1, dim = c(J, J) - 1) # matrix of ones
-		I_matrix <- diag(J - 1) #identity matrix
+    stopifnot(!is.null(n_levels))
 
-		IJ <- (I_matrix + J_matrix)/J # see Hadfield's Course notes p. 97
-		prior <- list(R = list(V = IJ, fix = 1),
-					  G = list(G1 = list(V = diag(number_random_parameters), nu = J+number_random_effects)))
-	}
+    J <- n_levels
 
-	if(type == "threshold") {
-		if(is.null(nu)) {nu <- 0.02}
-		prior <- list(R = list(V = 1, fix = TRUE),
-                      G = list(G1 = list(V = diag(n_rand), nu = nu)))
-	}
+    J_matrix <- array(1, dim = c(J, J) - 1) # matrix of ones
+    I_matrix <- diag(J - 1) # identity matrix
 
-	if(type == "ordinal") {
-		# Get the number of random effects variables
-		number_random_effects <- length(znames_1)
-		number_random_parameters <- number_random_effects
-		#Fix residual variance R at 1
-		# cf. http://stats.stackexchange.com/questions/32994/what-are-r-structure-g-structure-in-a-glmm
+    IJ <- (I_matrix + J_matrix) / J # see Hadfield's Course notes p. 97
 
-		J <- length(table(y_imp)) #number of categories
-		#priors from https://stat.ethz.ch/pipermail/r-sig-mixed-models/2012q2/018194.html
+    prior_G <- .list_of_G(n_rand, nu = nu, par_expand, diag = J - 1)
+    prior <- list(
+      R = list(V = IJ, fix = 1),
+      G = prior_G
+    )
+  }
 
-		#The residual variance has to be fixed, because the latent variable is without scale
-		prior <- list(R = list(V = 1, fix = TRUE),
-			G = list(G1 = list(V = diag(number_random_effects), nu = 0.002)))
-	}
+  if (type == "threshold") {
+    stop("Threshold prior not supported")
+  }
 
-	return(prior)
+  if (type == "ordinal") {
+    # stopifnot(!is.null(n_levels)) # this check not needed for ordinal prior
+
+    if (is.null(nu)) {
+      nu <- 0.002
+    }
+
+    # Fix residual variance R at 1
+    # cf. http://stats.stackexchange.com/questions/32994/what-are-r-structure-g-structure-in-a-glmm
+    # priors from https://stat.ethz.ch/pipermail/r-sig-mixed-models/2012q2/018194.html
+    # The residual variance has to be fixed, because the latent variable is without scale
+
+    # J <- n_levels # number of categories not needed for ordinal prior
+
+    prior_G <- .list_of_G(n_rand, nu = nu, par_expand)
+    prior <- list(
+      R = list(V = 1, fix = 1),
+      G = prior_G
+    )
+  }
+
+  return(prior)
 }
 
 
