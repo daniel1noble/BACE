@@ -135,7 +135,8 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 50000, thin
 			 
 			# Store predicted values for only the missing data points
 			                       id <- missing_matrix[with(missing_matrix, colname == response_var), "row"]
-			 pred_missing_vars[id,i]  <- pred_values[id]
+							  data_id <- which(colnames(data_sub) == response_var)
+			 pred_missing_vars[id, data_id]  <- pred_values[id]
 			 
 		}
 		
