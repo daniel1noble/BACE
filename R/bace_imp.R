@@ -81,32 +81,32 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 50000, thin
 	#---------------------------------------------#
 	# How we need to use the data, type of variable class to fit the models
 	
-		# List to hold runs
+		# List to hold runs. 
 		pred_missing_run <- list()
+
+		# Store initial data as first run
+		     pred_missing_run[[1]] <- data_sub
+		names(pred_missing_run)[1] <- "Initial_Data"
 
 		# We need to obtain the class/type of the variables. list.
 	               types <- get_type(data_sub)
 			
-		for(r in 1:runs){
-
-			# List to hold variables predictions for this run
-			pred_missing_vars <- matrix(0, nrow = nrow(data_sub), ncol = ncol(data_sub))
-			
+		for(r in 2:(runs+1)){
 			for(i in 1:length(formulas)){
 
 			# Identify the response variable for the current formula			
 			response_var <- all.vars(formulas[[i]][[2]])
 			
 			# Prepare the data 
-			    dat_prep <- data_prep(data = data_sub, formula = formulas[[i]], types = types)
+			    dat_prep <- data_prep(data = pred_missing_run[[1]], formula = formulas[[i]], types = types)
 			
-			 if(r == 1){
+			 if(r == 2){
 				# For iteration 1 we want to impute missing data as a rough approximation z-transform for continuous data, and random sampling from the empirical distribution for categorical data.
 				data_i <- dat_prep[[1]]
 
 			 } else {
 				# If not the first iteration then we use the predicted values for the missing cells of the predictors from the previous iteration to fill in missing data for the response
-				data_i <- data_sub 
+				data_i <- dat_prep[[1]] 
 
 				# remove response variable from missing matrix
 				col_response <- which(colnames(data_i) == response_var)
@@ -115,9 +115,11 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 50000, thin
 				missing_matrix_pred <- data.frame(missing_matrix)  %>% dplyr::filter(col != col_response)
 
 				# Fill in missing values with predicted values from previous run. **! Need to make sure variables are coerced to the correct type (e.g., factors, ordered etc)!**
-				         idx <- cbind(missing_matrix_pred$row, missing_matrix_pred$col)
-						 type_pred_missing_run <- pred_missing_run[[r-1]]
-				 data_i[idx] <- type_pred_missing_run[idx]
+				                             idx <- cbind(missing_matrix_pred$row, missing_matrix_pred$col)
+				                  			cols <- sort(unique(idx[,2]))
+									for (j in cols) {
+									           rows <- idx[idx[,2] == j, 1]
+									data_i[rows, j] <- pred_missing_run[[r-1]][rows, j]}
 			 }
 
 			# Set up prior for the specific variable type
@@ -140,12 +142,12 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 50000, thin
 			# Store predicted values for only the missing data points
 			                       id <- missing_matrix[with(missing_matrix, colname == response_var), "row"]
 							  data_id <- which(colnames(data_sub) == response_var)
-			 pred_missing_vars[id, data_id]  <- pred_values[id]
+			     data_sub[id, data_id]  <- pred_values[id]
 			 
 		}
 		
-		     pred_missing_run[[r]] <- pred_missing_vars
-		names(pred_missing_run)[r] <- paste0("Iter_", r)
+		     pred_missing_run[[r]] <- data_sub
+		names(pred_missing_run)[r] <- paste0("Iter_", r-1)
 }
 return(list(iterations = pred_missing_run))
 }	

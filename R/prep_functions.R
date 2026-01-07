@@ -184,9 +184,9 @@ data_prep  <- function(formula, data, types) {
 			}
 			
 			# Create the data frame for the model fitting
-			  data_i <- data.frame(data_sub[, response_var],
+			  data_i <- data.frame(data[, response_var],
 			                     predictor_data,
-			                   data_sub[, phylo_ran[["cluster"]], drop = FALSE])
+			                   data[, phylo_ran[["cluster"]], drop = FALSE])
 			colnames(data_i)[1] <- response_var
 
 			# z-transform all gaussian variables for better mixing and store attributes to revert later name the slots with variable names
@@ -239,20 +239,42 @@ extract_gaussian_attrs <- function(data, types) {
 #' summarise_var_types(data)
 #' }
 #' @export
-summarise_var_types <- function(df) {
+summarise_var_types <- function(df, store_levels = TRUE, max_levels_store = 200) {
   stopifnot(is.data.frame(df))
   
-  data.frame(variable = names(df),
-                class = vapply(df, function(x) paste(class(x), collapse = ", "), character(1)),
-               typeof = vapply(df, typeof, character(1)),
-           is_numeric = vapply(df, is.numeric, logical(1)),
-           is_integer = vapply(df, is.integer, logical(1)),
-            is_factor = vapply(df, is.factor, logical(1)),
-         is_character = vapply(df, is.character, logical(1)),
-           is_logical = vapply(df, is.logical, logical(1)),
-		   is_ordered = vapply(df, function(x) if (is.factor(x)) is.ordered(x) else FALSE, logical(1)),
-             n_levels = vapply(df, function(x) if (is.factor(x)) nlevels(x) else NA_integer_, integer(1)),
-             n_unique = vapply(df, function(x) length(unique(x[!is.na(x)])), integer(1)),
-               has_na = vapply(df, function(x) any(is.na(x)), logical(1)),
-     stringsAsFactors = FALSE)
+  # helper to store "levels" for factors, and optionally for low-cardinality character columns
+  get_levels <- function(x) {
+    if (!store_levels) return(NULL)
+    if (inherits(x, c("Date", "POSIXct", "POSIXlt"))) return(NULL)
+    
+    if (is.factor(x)) {
+      lv <- levels(x)
+      return(if (length(lv) <= max_levels_store) lv else NULL)
+    }
+    if (is.character(x)) {
+      ux <- sort(unique(x[!is.na(x)]))
+      return(if (length(ux) <= max_levels_store) ux else NULL)
+    }
+    NULL
+  }
+  
+  out <- data.frame(
+    variable = names(df),
+    class = vapply(df, function(x) paste(class(x), collapse = ", "), character(1)),
+    typeof = vapply(df, typeof, character(1)),
+    is_numeric = vapply(df, is.numeric, logical(1)),
+    is_integer = vapply(df, is.integer, logical(1)),
+    is_factor = vapply(df, is.factor, logical(1)),
+    is_character = vapply(df, is.character, logical(1)),
+    is_logical = vapply(df, is.logical, logical(1)),
+    n_levels = vapply(df, function(x) if (is.factor(x)) nlevels(x) else NA_integer_, integer(1)),
+    n_unique = vapply(df, function(x) length(unique(x[!is.na(x)])), integer(1)),
+    has_na = vapply(df, function(x) any(is.na(x)), logical(1)),
+    stringsAsFactors = FALSE
+  )
+  
+  # list-column of levels
+  out$levels <- lapply(df, get_levels)
+  out
 }
+
