@@ -132,7 +132,7 @@ predict_bace <- function(model, dat_prep, type = NULL, ...) {
 				   # Predicts probabilities for each category
 				 pred_prob <- predict(model, marginal = NULL, type = "response", posterior = "all")
 
-				   # For each observation, sample from the categorical distribution based on the predicted probabilities
+				   # For each observation, sample from the categorical distribution based on the predicted probabilities. TO DO: Note we could also just take the max probability for baseline level
 				   pred_values <- apply(pred_prob, 1, function(probs) {
 					   sample(levels_var, size = 1, prob = c(probs, 1-probs))
 				   })
@@ -221,87 +221,12 @@ pred_cat <- function(model, baseline_name = "Baseline") {
   return(round(df_ordered, 2))
 }
 
-#' @title pred_threshold
-#' @description Function calculates predicted probabilities for each category from a threshold MCMCglmm model
-#' @param model A MCMCglmm model object
-#' @param level_names A vector of strings specifying the names of the levels/categories
-#' @return A data frame of predicted probabilities for each category
-#' @export	
-pred_threshold <- function(model, level_names = NULL) {
-  # 1. Dimensions and Data
-  n_obs <- model$Residual$nrl
-  liab <- model$Liab
-  v_total <- rowSums(model$VCV)
-  scaling_factor <- sqrt(1 + v_total)
-  
-  # 2. Thresholds (Cut-points)
-  # MCMCglmm fixes the first threshold at 0.
-  # Additional cut-points are in model$CP.
-  if (!is.null(model$CP)) {
-    # Ordinal case: J > 2 levels
-    cp_samples <- cbind(0, model$CP) # First CP is 0
-    n_levels <- ncol(cp_samples) + 1
-  } else {
-    # Binary case: 2 levels
-    cp_samples <- matrix(0, nrow = nrow(liab), ncol = 1)
-    n_levels <- 2
-  }
-  
-  # 3. Calculate Probabilities
-  # We iterate through iterations and calculate area under normal curve
-  # Prob(category j) = Phi((CP_j - Liab) / scale) - Phi((CP_j-1 - Liab) / scale)
-  
-  all_probs <- list()
-  
-  for (j in 1:n_levels) {
-    # Define upper and lower bounds for the current category
-    # Lower bound (T_low)
-    if (j == 1) {
-      t_low <- -Inf 
-    } else {
-      t_low <- cp_samples[, j - 1]
-    }
-    
-    # Upper bound (T_high)
-    if (j == n_levels) {
-      t_high <- Inf
-    } else {
-      t_high <- cp_samples[, j]
-    }
-    
-    # Calculate probability for this category across all MCMC samples
-    # Probability = pnorm(Upper) - pnorm(Lower)
-    # We use mapply or row-wise math to handle the scaling per iteration
-    
-    # Prob per sample: pnorm(t_high, mean=liab, sd=scaling_factor) - pnorm(t_low, ...)
-    p_cat <- pnorm(t_high, mean = liab, sd = scaling_factor) - 
-      pnorm(t_low, mean = liab, sd = scaling_factor)
-    
-    all_probs[[j]] <- colMeans(p_cat) * 100
-  }
-  
-  # 4. Final Data Frame
-  df_final <- as.data.frame(do.call(cbind, all_probs))
-  
-  # 5. Naming and Ordering
-  if (is.null(level_names)) {
-    colnames(df_final) <- paste0("Level_", 1:n_levels)
-  } else {
-    colnames(df_final) <- level_names
-  }
-  
-  # Sort alphabetically (e.g., Aquatic, Insessorial, Terrestrial)
-  df_final <- df_final[, order(colnames(df_final))]
-  rownames(df_final) <- paste0("Obs_", 1:n_obs)
-  
-  return(round(df_final, 2))
-}
 
-#' @title get_imputed
+#' @title get_imputed. NOT COMPLETE
 #' @description Function extracts the prior for the MCMCglmm model
 #' @param model An integer specifying the number of random effects in the model.
 #' @param type A string that specifies the type of model to fit.
-#' @return imputated data based the MCMCglmm model.
+#' @return imputed data based the MCMCglmm model.
 #' @export
  
 get_imputed <- function(model, type) {
@@ -382,26 +307,5 @@ get_imputed <- function(model, type) {
 	}
 
 	return(imputed_y)
-}
-
-
-#' @title predict.bace
-#' @description Function creates a predcition from MCMCglmm model
-#' @param model A MCMCglmm model object
-#' @return A list of priors for the MCMCglmm model.
-#' @export
-#' 
-#' 
-predict.bace <- function(model, type = NULL, ...) {
-
-	if(is.null(type)) {
-		pred <- as.vector(stats::predict(model, marginal = NULL))
-	}
-
-	if(type == "categorical") {
-		
-	}
-
-return(pred)
 }
 
