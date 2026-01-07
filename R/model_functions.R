@@ -197,11 +197,11 @@ pred_cat <- function(model, baseline_name = "Baseline") {
   # 4. Calculate Mean Probabilities (%)
   prob_results <- list()
   for (i in 1:n_traits) {
-    prob_results[[i]] <- colMeans(exp_liab_list[[i]] / exp_sum)
+    prob_results[[i]] <- colMeans(exp_liab_list[[i]] / exp_sum) * 100
   }
   
   # Calculate Baseline level %
-  prob_results[[n_traits + 1]] <- colMeans(1 / exp_sum)
+  prob_results[[n_traits + 1]] <- colMeans(1 / exp_sum) * 100
   
   # 5. Extract Names Generically
   # Look at Fixed effects to get trait/variable names
@@ -218,7 +218,7 @@ pred_cat <- function(model, baseline_name = "Baseline") {
   df_ordered <- df_final[, order(colnames(df_final))]
   rownames(df_ordered) <- paste0("Obs_", 1:n_obs)
   
-  return(round(df_ordered, 4))
+  return(round(df_ordered, 2))
 }
 
 
