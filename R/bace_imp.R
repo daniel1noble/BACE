@@ -25,7 +25,7 @@
 #' }
 #' @export
 
-bace_imp <- function(fixformula, ran_phylo_form, phylo, data, runs = 10L, nitt = 50000, thin = 10, burnin = 1000, runs = 10, ...){
+bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 50000, thin = 10, burnin = 1000, runs = 10, ...){
 	#---------------------------------------------#
 	# Preparation steps & Checks
 	#---------------------------------------------#
@@ -81,21 +81,21 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, runs = 10L, nitt =
 		# List to hold runs
 		pred_missing_run <- list()
 
+		# We need to obtain the class/type of the variables. list.
+	               types <- get_type(data_sub)
+			
 		for(r in 1:runs){
 
 			# List to hold variables predictions for this run
-			pred_missing_vars <- matrix(0, nrow = nrow(data_sub), ncol = length(fix))
+			pred_missing_vars <- matrix(0, nrow = nrow(data_sub), ncol = ncol(data_sub))
 			
-			for(i in 1:length(fix)){
+			for(i in 1:length(formulas)){
 
-			# We need to obtain the class/type of the variables. list.
-	          types <- get_type(data_sub)
-			
-			# identify the response variable for the current formula			
+			# Identify the response variable for the current formula			
 			response_var <- all.vars(formulas[[i]][[2]])
 			
 			# Prepare the data 
-			dat_prep <- data_prep(data = data_sub, formula = formulas[[i]], types = types)
+			    dat_prep <- data_prep(data = data_sub, formula = formulas[[i]], types = types)
 			
 			 if(r == 1){
 				# For iteration 1 we want to impute missing data as a rough approximation z-transform for continuous data, and random sampling from the empirical distribution for categorical data.

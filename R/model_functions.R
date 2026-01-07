@@ -159,7 +159,7 @@ predict_bace <- function(model, dat_prep, type = NULL, ...) {
 pred_cat <- function(model, baseline_name = "Baseline") {
   
   # 1. Basic Dimensions
-  n_obs <- model$Residual$nrl
+     n_obs <- model$Residual$nrl
   n_traits <- (ncol(model$Sol) - model$Fixed$nll) / (model$Fixed$nfl / (ncol(model$Sol) / (ncol(model$Liab)/n_obs)))
   
   # Simpler way to get n_traits for categorical:
@@ -167,7 +167,7 @@ pred_cat <- function(model, baseline_name = "Baseline") {
   
   # 2. Calculate the c2 Scaling Factor
   # c = 16 * sqrt(3) / (15 * pi)
-  c2 <- (16 * sqrt(3) / (15 * pi))^2
+        c2 <- (16 * sqrt(3) / (15 * pi))^2
   
   # Get Total Variance (G + R) for each sample in the chain
   # We sum the Phylo and Units variances. 
