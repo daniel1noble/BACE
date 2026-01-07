@@ -50,6 +50,9 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 50000, thin
 	# Subset the data for fixed and random effects to keep data focused. Need to clean up column names for randdata
 		 data_sub <- data[, c(fix, phylo_ran[["cluster"]])]
 
+	# Get a summary of the data types, classes etc
+	   data_summary <- summarise_var_types(data_sub)
+	
 	#---------------------------------------------#
 	# Build formulas if needed otherwise user specified
 	#---------------------------------------------#
@@ -111,9 +114,10 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 50000, thin
 				# Filter out response variable column from missing matrix
 				missing_matrix_pred <- data.frame(missing_matrix)  %>% dplyr::filter(col != col_response)
 
-				# Fill in missing values with predicted values from previous run
+				# Fill in missing values with predicted values from previous run. **! Need to make sure variables are coerced to the correct type (e.g., factors, ordered etc)!**
 				         idx <- cbind(missing_matrix_pred$row, missing_matrix_pred$col)
-				 data_i[idx] <- pred_missing_run[[r-1]][idx]
+						 type_pred_missing_run <- pred_missing_run[[r-1]]
+				 data_i[idx] <- type_pred_missing_run[idx]
 			 }
 
 			# Set up prior for the specific variable type

@@ -229,3 +229,30 @@ extract_gaussian_attrs <- function(data, types) {
   names(out) <- names(types)
   out
 }
+
+#' @title summarise_var_types
+#' @description Function summarizes the types and characteristics of variables in a dataframe.
+#' @param df A data frame containing the dataset.
+#' @return A data frame summarizing the types and characteristics of each variable.
+#' @examples \dontrun{
+#' data <- data.frame(y = c(1,2,3,NA,5), x1 = factor(c("A","B","A","B","A")), x2 = c(10,20,30,NA,50))
+#' summarise_var_types(data)
+#' }
+#' @export
+summarise_var_types <- function(df) {
+  stopifnot(is.data.frame(df))
+  
+  data.frame(variable = names(df),
+                class = vapply(df, function(x) paste(class(x), collapse = ", "), character(1)),
+               typeof = vapply(df, typeof, character(1)),
+           is_numeric = vapply(df, is.numeric, logical(1)),
+           is_integer = vapply(df, is.integer, logical(1)),
+            is_factor = vapply(df, is.factor, logical(1)),
+         is_character = vapply(df, is.character, logical(1)),
+           is_logical = vapply(df, is.logical, logical(1)),
+		   is_ordered = vapply(df, function(x) if (is.factor(x)) is.ordered(x) else FALSE, logical(1)),
+             n_levels = vapply(df, function(x) if (is.factor(x)) nlevels(x) else NA_integer_, integer(1)),
+             n_unique = vapply(df, function(x) length(unique(x[!is.na(x)])), integer(1)),
+               has_na = vapply(df, function(x) any(is.na(x)), logical(1)),
+     stringsAsFactors = FALSE)
+}
