@@ -123,7 +123,7 @@ check_type <- function(x) {
 		type <- NULL 
         
 		# Binary
-		if(length(unique(x_complete)) == 2 && is.factor(x_complete)){type <- "threshold"}
+		if(length(unique(x_complete)) == 2 && is.factor(x_complete)){type <- "ordinal"}
 
 		# Continuous or count
 		if(is.numeric(x_complete) && all(x_complete >= 0)){

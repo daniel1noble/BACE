@@ -150,7 +150,7 @@ make_prior <- function(n_rand, type, nu = NULL, n_levels = NULL, par_expand = FA
 #' @param type A string that specifies the type of model to fit.
 #' @return A vector of predicted values from the MCMCglmm model.
 #' @export
-predict_bace <- function(model, dat_prep, type = NULL, ...) {				
+predict_bace <- function(model, dat_prep, type = NULL, sample = FALSE, ...) {				
 
 				if(type == "gaussian"){
 					# z-transformed so need to back-transform
@@ -175,10 +175,9 @@ predict_bace <- function(model, dat_prep, type = NULL, ...) {
 				 pred_prob <- pred_threshold(model, level_names = levels_var)
 
 				   # For each observation, sample from the categorical distribution based on the predicted probabilities. TO DO: Note we could also just take the max probability for baseline level
-				   pred_values <- apply(pred_prob, 1, function(probs) {
-					   sample(levels_var, size = 1, prob = c(probs, 1-probs))
-				   })
-				 }
+             pred_values <- .impute_levels(pred_prob, levels_var, sample = sample)
+          }
+				 
 				 
 				 if(type == "categorical"){
 					# Identify number of categories and their levels from the data
@@ -189,12 +188,27 @@ predict_bace <- function(model, dat_prep, type = NULL, ...) {
 					pred_prob <- pred_cat(model, baseline_name = levels_var[1])
 
 					# For each observation, sample from the categorical distribution based on the predicted probabilities
-				   pred_values <- apply(pred_prob, 1, function(probs) {
-					   sample(levels_var, size = 1, prob = probs)
-				   })
+				   pred_values <- .impute_levels(pred_prob, levels_var, sample = sample)
 				 }
 
 	return(pred_values)
+}
+
+#' @title .impute_levels
+#' @description Function samples predicted levels for categorical or ordinal variables based on predicted probabilities
+#' @param pred_prob A data frame of predicted probabilities for each category
+#' @param levels_var A character vector specifying the names of the levels/categories
+#' @param sample A logical indicating whether to sample from the distribution or take the maximum probability
+#' @return A vector of predicted levels for each observation
+.impute_levels <- function(pred_prob, levels_var, sample = FALSE) {
+  if (sample) {
+    pred_values <- apply(pred_prob, 1, function(probs) {
+      sample(levels_var, size = 1, prob = probs)
+    })
+  } else {
+    pred_values <- levels_var[apply(pred_prob, 1, which.max)]
+  }
+  return(pred_values)
 }
 
 #' @title pred_cat
@@ -320,7 +334,7 @@ pred_threshold <- function(model, level_names = NULL) {
     # Prob per sample: pnorm(t_high, mean=liab, sd=scaling_factor) - pnorm(t_low, ...)
              p_cat <- pnorm(t_high, mean = liab, sd = scaling_factor) -
                       pnorm(t_low, mean = liab, sd = scaling_factor)
-    all_probs[[j]] <- colMeans(p_cat) * 100
+    all_probs[[j]] <- colMeans(p_cat) 
   }
   
   # 4. Final Data Frame

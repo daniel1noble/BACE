@@ -21,7 +21,7 @@
 #' data$x2[sample(1:30, 5)] <- NA	
 #' # Run BACE imputation
 #' bace_imp(fixformula = "y ~ x1 + x2", ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data)
-#' bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 20)
+#' bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 20)
 #' }
 #' @export
 
