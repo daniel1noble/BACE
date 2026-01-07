@@ -118,10 +118,6 @@ make_prior <- function(n_rand, type, nu = NULL, n_levels = NULL, par_expand = FA
     )
   }
 
-  if (type == "threshold") {
-    stop("Threshold prior not supported")
-  }
-
   if (type == "ordinal") {
     # stopifnot(!is.null(n_levels)) # this check not needed for ordinal prior
 
@@ -336,6 +332,7 @@ pred_threshold <- function(model, level_names = NULL) {
   } else {
     colnames(df_final) <- level_names
   }
+  return(df_final)
 }
 
 #' @title get_imputed. NOT COMPLETE
