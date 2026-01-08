@@ -92,7 +92,8 @@ get_type <- function(data) {
 
 #' @title check_type
 #' @description Function takes a variable in a dataframe and checks / classifies what type of variable it is (binary, continuous, count, categorical, ordered_categorical) so that it can be modeled appropriately.
-#' @param x A vector of data
+#' @param x A summary of a variables in a dataframe
+#' @param var The name of the variable
 #' @return Returns a character string specifying the class of the variable. 
 #' @examples \dontrun{
 #' x1 <- as.factor(c(1,0,1,1,0,NA))
@@ -109,24 +110,22 @@ get_type <- function(data) {
 #' check_type(x5) # returns "ordered_categorical"
 #' }
 #' @export
-check_type <- function(x) {
+check_type <- function(x, var) {
 	
-	# Use only complete cases to fit the models
-		x_complete <- x[!is.na(x)]
-
-	# Add a warning to check binary variables dummy coded as 0/1 numeric
-		if(length(unique(x_complete)) == 2 && is.numeric(x_complete)){
-			warning("Check that binary / categorical variables are coded as factors / ordered factors, not numeric (e.g., 0/1 dummy coding).")
-		}
-
 	# Classification of variable type
-		type <- NULL 
-        
-		# Binary
-		if(length(unique(x_complete)) == 2 && is.factor(x_complete)){type <- "ordinal"}
+		   type <- NULL 
+    sum_var <- data_summary[data_summary$variable == var, ]
+		
+    # Binary
+		if(sum_var$is_factor == TRUE && sum_var$is_ordered == TRUE && sum_var$n_levels == 2){type <- "threshold"}
 
-		# Continuous or count
-		if(is.numeric(x_complete) && all(x_complete >= 0)){
+    if(sum_var$is_factor == TRUE && sum_var$is_ordered == FALSE && sum_var$n_levels == 2){type <- "threshold"}
+
+    # Gaussian / Continuous
+    if(sum_var$is_numeric == TRUE & sum_var$is_integer == FALSE){type <- "gaussian"}
+
+		# Poisson?
+		if(sum_var$is_numeric == TRUE & sum_var$is_integer == TRUE){
 			
 			fit_norm <- suppressWarnings(stats::glm(x_complete ~ 1, family = "gaussian"))
 			fit_pois <- suppressWarnings(stats::glm(x_complete ~ 1, family = "poisson"))
@@ -136,11 +135,9 @@ check_type <- function(x) {
 		} 
     
 		# Multinomial categorical
-		if(is.factor(x_complete) && length(levels(x_complete)) > 2){type <- "categorical"}
+		if(sum_var$is_factor == TRUE && sum_var$is_ordered == FALSE && sum_var$n_levels > 2){type <- "categorical"}
+    if(sum_var$is_factor == TRUE && sum_var$is_ordered == TRUE && sum_var$n_levels > 2) {type <- "threshold"}
       
-		# Ordered categorical
-	    if(is.ordered(x_complete)){type <- "ordinal"}
-  
   	return(type)
 }
 
@@ -265,6 +262,7 @@ summarise_var_types <- function(df, store_levels = TRUE, max_levels_store = 200)
     is_numeric = vapply(df, is.numeric, logical(1)),
     is_integer = vapply(df, is.integer, logical(1)),
     is_factor = vapply(df, is.factor, logical(1)),
+    is_ordered = vapply(df, is.ordered, logical(1)),
     is_character = vapply(df, is.character, logical(1)),
     is_logical = vapply(df, is.logical, logical(1)),
     n_levels = vapply(df, function(x) if (is.factor(x)) nlevels(x) else NA_integer_, integer(1)),

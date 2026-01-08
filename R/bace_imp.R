@@ -13,15 +13,16 @@
 #' set.seed(123)
 #' phylo <- force.ultrametric(ape::rtree(30)) # Example phylogenetic tree with 30 tips
 #' phylo  <- compute.brlen(phylo, method = "Grafen")
-#' data <- data.frame(y = rpois(30, lambda = 5), x1 = factor(rep(c("A", "B","A"), length.out = 30)), x2 = rnorm(30, 10, 2), Species = phylo$tip.label)
+#' data <- data.frame(y = rpois(30, lambda = 5), x1 = factor(rep(c("A", "B","A"), length.out = 30)), x2 = rnorm(30, 10, 2), x3 = factor(rep(c("A", "B", "C", "D", "E"), length.out = 30)), Species = phylo$tip.label)
 #' # Introduce some missing data
 #' missing_indices <- sample(1:30, 10)
 #' data$y[missing_indices] <- NA
 #' data$x1[sample(1:30, 5)] <- NA
 #' data$x2[sample(1:30, 5)] <- NA	
+#' data$x3[sample(1:30, 5)] <- NA	
 #' # Run BACE imputation
 #' bace_imp(fixformula = "y ~ x1 + x2", ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data)
-#' bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 20)
+#' bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2", "x3 ~ x1 + x2"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 20)
 #' }
 #' @export
 
@@ -123,7 +124,9 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 50000, thin
 			 }
 
 			# Set up prior for the specific variable type
-			     prior_i <- make_prior(n_rand = length(phylo_ran$ran), type = types[[response_var]])
+			   levels_cat <- data_summary$n_levels[which(data_summary$variable == response_var)]
+				  levels  <- ifelse(is.na(levels_cat), NULL, levels_cat)
+			      prior_i <- make_prior(n_rand = length(phylo_ran$ran), n_levels = levels, type = types[[response_var]])
 			
 			# Fit the model and predict missing data
 			  model <-  model_fit(data = data_i, 
