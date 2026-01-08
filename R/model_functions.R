@@ -104,14 +104,14 @@ make_prior <- function(n_rand, type, nu = NULL, n_levels = NULL, par_expand = FA
 
     stopifnot(!is.null(n_levels))
 
-    J <- n_levels
+    J <- n_levels - 1
 
-    J_matrix <- array(1, dim = c(J, J) - 1) # matrix of ones
-    I_matrix <- diag(J - 1) # identity matrix
+    J_matrix <- array(1, dim = c(J, J)) # matrix of ones
+    I_matrix <- diag(J) # identity matrix
 
-    IJ <- (I_matrix + J_matrix) / J # see Hadfield's Course notes p. 97
+    IJ <- (I_matrix + J_matrix) / n_levels # see Hadfield's Course notes p. 97
 
-    prior_G <- .list_of_G(n_rand, nu = nu, par_expand, diag = J - 1)
+    prior_G <- .list_of_G(n_rand, nu = nu, par_expand, diag = J)
     prior <- list(
       R = list(V = IJ, fix = 1),
       G = prior_G
