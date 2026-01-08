@@ -13,16 +13,17 @@
 #' set.seed(123)
 #' phylo <- force.ultrametric(ape::rtree(30)) # Example phylogenetic tree with 30 tips
 #' phylo  <- compute.brlen(phylo, method = "Grafen")
-#' data <- data.frame(y = rpois(30, lambda = 5), x1 = factor(rep(c("A", "B","A"), length.out = 30)), x2 = rnorm(30, 10, 2), x3 = factor(rep(c("A", "B", "C", "D", "E"), length.out = 30)), Species = phylo$tip.label)
+#' data <- data.frame(y = rpois(30, lambda = 5), x1 = factor(rep(c("A", "B","A"), length.out = 30)), x2 = rnorm(30, 10, 2), x3 = factor(rep(c("A", "B", "C", "D", "E"), length.out = 30)), x4 = factor(rep(c("A", "B", "C", "D", "E"), length.out = 30), levels = c("B", "A", "C", "D", "E"), ordered = TRUE), Species = phylo$tip.label)
 #' # Introduce some missing data
 #' missing_indices <- sample(1:30, 10)
 #' data$y[missing_indices] <- NA
 #' data$x1[sample(1:30, 5)] <- NA
 #' data$x2[sample(1:30, 5)] <- NA	
-#' data$x3[sample(1:30, 5)] <- NA	
+#' data$x3[sample(1:30, 5)] <- NA
+#' data$x4[sample(1:30, 5)] <- NA	
 #' # Run BACE imputation
 #' bace_imp(fixformula = "y ~ x1 + x2", ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data)
-#' bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2", "x3 ~ x1 + x2"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 20)
+#' bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2", "x3 ~ x1 + x2", "x4 ~ x1 + x2"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 20)
 #' }
 #' @export
 
@@ -90,8 +91,9 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 50000, thin
 		names(pred_missing_run)[1] <- "Initial_Data"
 
 		# We need to obtain the class/type of the variables. list.
-	               types <- get_type(data_sub)
-			
+	               types <- lapply(fix, function(var) get_type(data_summary, var, data_sub))
+			names(types) <- fix
+
 		for(r in 2:(runs+1)){
 			for(i in 1:length(formulas)){
 
