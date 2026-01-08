@@ -20,6 +20,7 @@ model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 5
 		name  <- all.vars(randformula)
 		
 	# Fit the model using MCMCglmm
+  if(type != "categorical"){
   	model <- MCMCglmm::MCMCglmm(fixed = fixformula,
                                random = randformula,
                                  data = data,
@@ -30,7 +31,25 @@ model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 5
                                  nitt = nitt,
                                  thin = thin,
                                burnin = burnin, 
-							    prior = prior, singular.ok=TRUE)									
+							    prior = prior, singular.ok=TRUE)	
+        } else {
+
+      # Categorical model needs special treatment. Append -1 to the right size of ~ formula to remove intercept
+      fixformula_cat <- as.formula(paste0(as.character(fixformula)[2], "~ -1 + ", as.character(fixformula)[3]))
+
+      model <- MCMCglmm::MCMCglmm(fixed = fixformula_cat,
+                               random = randformula,
+                                 data = data,
+                               family = type,
+                               rcov = ~us(trait):units,
+							               ginverse = setNames(list(A), name),
+                              verbose = FALSE, pr = TRUE, pl = TRUE,
+                                saveX = TRUE, saveZ = TRUE,
+                                 nitt = nitt,
+                                 thin = thin,
+                               burnin = burnin, 
+							    prior = prior, singular.ok=TRUE)	     
+                  }								
   	return(model)
 }
 
@@ -100,7 +119,7 @@ make_prior <- function(n_rand, type, nu = NULL, n_levels = NULL, par_expand = FA
     )
   }
 
-  if (type == "categorical") {
+  if (type  == "categorical") {
 
     stopifnot(!is.null(n_levels))
 
@@ -118,7 +137,7 @@ make_prior <- function(n_rand, type, nu = NULL, n_levels = NULL, par_expand = FA
     )
   }
 
-  if (type == "ordinal") {
+  if (type == "threshold" || type == "ordinal") {
     # stopifnot(!is.null(n_levels)) # this check not needed for ordinal prior
 
     if (is.null(nu)) {
