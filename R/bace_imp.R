@@ -23,24 +23,23 @@
 #' data$x4[sample(1:30, 5)] <- NA	
 #' # Run BACE imputation
 #' bace_imp(fixformula = "y ~ x1 + x2", ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data)
-#' bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2", "x3 ~ x1 + x2", "x4 ~ x1 + x2"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 20)
+#' bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2", "x3 ~ x1 + x2", "x4 ~ x1 + x2"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 5)
 #' }
 #' @export
-
-bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 50000, thin = 10, burnin = 1000, runs = 10, ...){
+bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 5000, thin = 10, burnin = 1000, runs = 10, ...){
 	#---------------------------------------------#
 	# Preparation steps & Checks
 	#---------------------------------------------#
 	# First, we need to get the variables from the formulas that are used to subset out of the data. Returns a list of variables. Check if a list of formulas is provided and if not then create formulas
 	
 	if(!is.list(fixformula)){
-	    fix <- as.vector(unlist(get_variables(fixformula)))
+	    fix <- as.vector(unlist(.get_variables(fixformula)))
 	} else {
-		fix <- unique(as.vector(unlist(lapply(fixformula, get_variables))))
+		fix <- unique(as.vector(unlist(lapply(fixformula, .get_variables))))
 	}
 	
 	# Get the random effect and phylogenetic variables
-		phylo_ran <- get_variables(ran_phylo_form, fix = FALSE)
+		phylo_ran <- .get_variables(ran_phylo_form, fix = FALSE)
 
 	# Check that all variable names are in the dataframe and if not stop
 		all_vars <- c(fix, phylo_ran[["cluster"]])
@@ -51,22 +50,23 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 50000, thin
 
 	# Subset the data for fixed and random effects to keep data focused. Need to clean up column names for randdata
 		 data_sub <- data[, c(fix, phylo_ran[["cluster"]])]
+		 data_sub2 <- data_sub  # Create a copy to hold imputed data across runs
 
 	# Get a summary of the data types, classes etc
-	   data_summary <- summarise_var_types(data_sub)
+	   data_summary <- .summarise_var_types(data_sub)
 	
 	#---------------------------------------------#
 	# Build formulas if needed otherwise user specified
 	#---------------------------------------------#
 	# Now, create the formulas for all the fixed effect variables that will change as we move through the chained equations. list.
 	if(!is.list(fixformula)){
-		formulas <- build_formula_string(fixformula) 
+		formulas <- .build_formula_string(fixformula) 
 	} else {
 		formulas <- lapply(fixformula, as.formula)
 	}
 	
 	# Random effect formula. TO DO: Need to be more sophisticated here to allow for multiple random effects
-	   ran_phylo_form <- build_formula_string_random(ran_phylo_form)
+	   ran_phylo_form <- .build_formula_string_random(ran_phylo_form)
 
 	#---------------------------------------------#
 	# Create indicators for where missing data are
@@ -90,10 +90,11 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 50000, thin
 		     pred_missing_run[[1]] <- data_sub
 		names(pred_missing_run)[1] <- "Initial_Data"
 
-		# We need to obtain the class/type of the variables. list.
-	               types <- lapply(fix, function(var) get_type(data_summary, var, data_sub))
+		# We need to categorize the variable types for all fixed effect variables for modelling
+	               types <- lapply(fix, function(var) .get_type(data_summary, var, data_sub))
 			names(types) <- fix
-
+	
+	# Now, we can loop through the number of runs specified by the user
 		for(r in 2:(runs+1)){
 			for(i in 1:length(formulas)){
 
@@ -101,7 +102,7 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 50000, thin
 			response_var <- all.vars(formulas[[i]][[2]])
 			
 			# Prepare the data 
-			    dat_prep <- data_prep(data = pred_missing_run[[1]], formula = formulas[[i]], types = types)
+			    dat_prep <- .data_prep(data = pred_missing_run[[1]], formula = formulas[[i]], types = types)
 			
 			 if(r == 2){
 				# For iteration 1 we want to impute missing data as a rough approximation z-transform for continuous data, and random sampling from the empirical distribution for categorical data.
@@ -111,27 +112,32 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 50000, thin
 				# If not the first iteration then we use the predicted values for the missing cells of the predictors from the previous iteration to fill in missing data for the response
 				data_i <- dat_prep[[1]] 
 
-				# remove response variable from missing matrix
-				col_response <- which(colnames(data_i) == response_var)
-				
-				# Filter out response variable column from missing matrix
-				missing_matrix_pred <- data.frame(missing_matrix)  %>% dplyr::filter(col != col_response)
+				# Variable names in the subset data
+				predictor_vars <- colnames(data_i)
 
-				# Fill in missing values with predicted values from previous run. **! Need to make sure variables are coerced to the correct type (e.g., factors, ordered etc)!**
-				                             idx <- cbind(missing_matrix_pred$row, missing_matrix_pred$col)
-				                  			cols <- sort(unique(idx[,2]))
+				# Remove responses variable from predictors
+				predictor_vars <- predictor_vars[which(predictor_vars != response_var)]
+
+				# Subset the missing matrix to only include rows for the predictors (all except the response variable) and any missing x variables
+				missing_matrix_pred_r <- missing_matrix[which(missing_matrix$colname %in% predictor_vars), ] 
+
+				# Fill in missing values with predicted values from previous run. 
+				                             idx_full <- cbind(missing_matrix_pred_r$row, missing_matrix_pred_r$col)
+				                  			cols <- sort(unique(idx_full[,2]))
+
+			    # Now, match the missing data points in data_i and fill in with predicted values from previous run
 									for (j in cols) {
-									           rows <- idx[idx[,2] == j, 1]
+									           rows <- idx_full[idx_full[,2] == j, 1]
 									data_i[rows, j] <- pred_missing_run[[r-1]][rows, j]}
 			 }
 
 			# Set up prior for the specific variable type
 			   levels_cat <- data_summary$n_levels[which(data_summary$variable == response_var)]
-				  levels  <- ifelse(is.na(levels_cat), NULL, levels_cat)
-			      prior_i <- make_prior(n_rand = length(phylo_ran$ran), n_levels = levels, type = types[[response_var]])
+				  levels  <- if(anyNA(levels_cat)) NULL else levels_cat
+			      prior_i <- .make_prior(n_rand = length(phylo_ran$ran), n_levels = levels, type = types[[response_var]])
 			
 			# Fit the model and predict missing data
-			  model <-  model_fit(data = data_i, 
+			  model <-  .model_fit(data = data_i, 
 			                      tree = phylo,
 			                fixformula = formulas[[i]],  # Only simple structure for now
 						   randformula = ran_phylo_form, # Only phylogeny, but need to add species too
@@ -142,18 +148,19 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 50000, thin
 								burnin = burnin)         # Prior Not working for all types yet
 
 			# Predict missing data and store in list to keep track across runs, if the variable was z-transformed then transform back using the attributes from data_i preparation which is done automatically for gaussian variables
-				pred_values <- predict_bace(model, dat_prep, type = types[[response_var]])
+				pred_values <- .predict_bace(model, dat_prep, response_var = response_var, type = types[[response_var]])
 			 
 			# Store predicted values for only the missing data points
-			                       id <- missing_matrix[with(missing_matrix, colname == response_var), "row"]
-							  data_id <- which(colnames(data_sub) == response_var)
-			     data_sub[id, data_id]  <- pred_values[id]
+			                         id <- missing_matrix[with(missing_matrix, colname == response_var), "row"]
+							    data_id <- which(colnames(data_sub2) == response_var)
+			     data_sub2[id, data_id]  <- pred_values[id]
 			 
 		}
 		
 		     pred_missing_run[[r]] <- data_sub
 		names(pred_missing_run)[r] <- paste0("Iter_", r-1)
 }
+
 return(list(iterations = pred_missing_run))
 }	
 	
