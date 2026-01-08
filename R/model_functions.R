@@ -1,4 +1,4 @@
-#' @title model_fit
+#' @title .model_fit
 #' @description Function takes incomplete data and a formula string and fits a model using MCMCglmm
 #' @param data A dataframe containing missing data.
 #' @param tree A phylogenetic tree of class 'phylo' from the ape package.
@@ -11,7 +11,7 @@
 #' @return A list of draws from the posterior distribution of the model parameters.
 #' @export
 
-model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 50000, thin = 10, burnin = 1000) {
+.model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 50000, thin = 10, burnin = 1000) {
 
 	# Create sparse matrix of phylogeny
 		   A  <- MCMCglmm::inverseA(tree, nodes = "TIPS")$Ainv
@@ -25,7 +25,7 @@ model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 5
                                random = randformula,
                                  data = data,
                                family = type,
-							 ginverse = setNames(list(A), name),
+							               ginverse = setNames(list(A), name),
                               verbose = FALSE, pr = TRUE, pl = TRUE,
                                 saveX = TRUE, saveZ = TRUE,
                                  nitt = nitt,
@@ -36,9 +36,10 @@ model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 5
 
       # Categorical model needs special treatment. Append -1 to the right size of ~ formula to remove intercept
       fixformula_cat <- as.formula(paste0(as.character(fixformula)[2], "~ -1 + ", as.character(fixformula)[3]))
+      ranformula_cat <- as.formula(paste0("~", "idh(trait):",as.character(randformula)[2]))
 
       model <- MCMCglmm::MCMCglmm(fixed = fixformula_cat,
-                               random = randformula,
+                                 random = ranformula_cat,
                                  data = data,
                                family = type,
                                rcov = ~us(trait):units,
@@ -52,8 +53,6 @@ model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 5
                   }								
   	return(model)
 }
-
-
 
 #' @title .list_of_G
 #' @description Function creates a list of G priors for the MCMCglmm model
@@ -84,9 +83,7 @@ model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 5
   return(prior_G)
 }
 
-
-
-#' @title make_prior
+#' @title .make_prior
 #' @description Function creates the prior for the MCMCglmm model
 #' @param n_rand An integer specifying the number of random effects in the model.
 #' @param type A string that specifies the type of model to fit.
@@ -95,7 +92,7 @@ model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 5
 #' @return A list of priors for the MCMCglmm model.
 #' @export
 
-make_prior <- function(n_rand, type, nu = NULL, n_levels = NULL, par_expand = FALSE) {
+.make_prior <- function(n_rand, type, nu = NULL, n_levels = NULL, par_expand = FALSE) {
   if (type == "gaussian") {
     if (is.null(nu)) {
       nu <- 0.002
@@ -161,15 +158,15 @@ make_prior <- function(n_rand, type, nu = NULL, n_levels = NULL, par_expand = FA
   return(prior)
 }
 
-
-#' @title predict_bace
+#' @title .predict_bace
 #' @description Function creates a predcition from MCMCglmm model
 #' @param model A MCMCglmm model object
 #' @param dat_prep A list containing the prepared data frame and attributes for continuous variables.
+#' @param response_var A string specifying the name of the response variable.
 #' @param type A string that specifies the type of model to fit.
 #' @return A vector of predicted values from the MCMCglmm model.
 #' @export
-predict_bace <- function(model, dat_prep, type = NULL, sample = FALSE, ...) {				
+.predict_bace <- function(model, dat_prep, response_var, type = NULL, sample = FALSE, ...) {				
 
 				if(type == "gaussian"){
 					# z-transformed so need to back-transform
@@ -191,7 +188,7 @@ predict_bace <- function(model, dat_prep, type = NULL, sample = FALSE, ...) {
 				  levels_var <- sort(unique(as.character(lv)))
 				  
 				   # Predicts probabilities for each category
-				 pred_prob <- pred_threshold(model, level_names = levels_var)
+				 pred_prob <- .pred_threshold(model, level_names = levels_var)
 
 				   # For each observation, sample from the categorical distribution based on the predicted probabilities. TO DO: Note we could also just take the max probability for baseline level
              pred_values <- .impute_levels(pred_prob, levels_var, sample = sample)
@@ -204,7 +201,7 @@ predict_bace <- function(model, dat_prep, type = NULL, sample = FALSE, ...) {
 				  levels_var <- sort(unique(as.character(lv)))
 					
 					# Predict category probabilities
-					pred_prob <- pred_cat(model, baseline_name = levels_var[1])
+					pred_prob <- .pred_cat(model, baseline_name = levels_var[1])
 
 					# For each observation, sample from the categorical distribution based on the predicted probabilities
 				   pred_values <- .impute_levels(pred_prob, levels_var, sample = sample)
@@ -230,13 +227,13 @@ predict_bace <- function(model, dat_prep, type = NULL, sample = FALSE, ...) {
   return(pred_values)
 }
 
-#' @title pred_cat
+#' @title .pred_cat
 #' @description Function calculates predicted probabilities for each category from a categorical MCMCglmm model
 #' 	@param model A MCMCglmm model object
 #' @param baseline_name A string specifying the name of the baseline category
 #' @return A data frame of predicted probabilities for each category
 #' @export
-pred_cat <- function(model, baseline_name = "Baseline") {
+.pred_cat <- function(model, baseline_name = "Baseline") {
   
   # 1. Basic Dimensions
      n_obs <- model$Residual$nrl
@@ -302,13 +299,13 @@ pred_cat <- function(model, baseline_name = "Baseline") {
 }
 
 
-#' @title pred_threshold
+#' @title .pred_threshold
 #' @description Function calculates predicted probabilities for each category from a threshold MCMCglmm model
 #' @param model A MCMCglmm model object
 #' @param level_names A character vector specifying the names of the levels/categories	
 #' @return A data frame of predicted probabilities for each category
 #' @export
-pred_threshold <- function(model, level_names = NULL) {
+.pred_threshold <- function(model, level_names = NULL) {
   # 1. Dimensions and Data
            n_obs <- model$Residual$nrl
             liab <- model$Liab
@@ -367,91 +364,3 @@ pred_threshold <- function(model, level_names = NULL) {
   }
   return(df_final)
 }
-
-#' @title get_imputed. NOT COMPLETE
-#' @description Function extracts the prior for the MCMCglmm model
-#' @param model An integer specifying the number of random effects in the model.
-#' @param type A string that specifies the type of model to fit.
-#' @return imputed data based the MCMCglmm model.
-#' @export
- 
-get_imputed <- function(model, type) {
-    
-    # the number of estimated random effects without Node
-
-
-
-	# Extract the imputed data from the model
-
-  posterior.mean <- summary(model$Sol)$statistics[,1]
-  # get posterior mean of random effects
-  zpost.mean.extra <- posterior.mean[(ncol(model$X) + 1):length(posterior.mean)]
-  # remove the .Node columns
-  zpost.mean <- zpost.mean.extra[!grepl("\\.Node", names(zpost.mean.extra))] 
-  # get posteior mean of fixed effects
-  xpost.mean <- posterior.mean[1:ncol(model$X)]
-  # get residual variance  
-  varaince.e <- as.numeric(posterior.mode(model$VCV)[dim(summary(model$VCV)$statistics)[1]]) 
-  # the last column contains the variance (not standard deviation) of the residuals
-
-  #number_of_draws <- nrow(pointdraws)
-  #select.record <- sample(1:number_of_draws, size = 1)
-
-  # -------------------- drawing samples with the parameters from the gibbs sampler --------
-  ###start imputation
-  rand.eff.imp <- matrix(zpost.mean, ncol = n.par.rand)
-
-  fix.eff.imp <- matrix(xpost.mean, nrow = ncol(model$X))
-
-  sigma.y.imp <- sqrt(varaince.e)
-
-	if(type == "normal") {
-		imputed_y <- fix.eff.imp + X_model_matrix_1_sub %*% t(rand.eff.imp) + rnorm(nrow(X_model_matrix_1_sub), 0, sigma.y.imp)
-	}
-
-	if(type == "poisson") {
-		prior <- list(R = list(V = 1e-07, nu = -2),
-                      G = list(G1 = list(V = diag(ncol(Z)), nu = nu)))
-	}
-
-	if(type == "categorical") {
-		J <- length(unique(ph_sub)) #number of categories
-  				number_fix_parameters <- ncol(X_model_matrix_1_sub) * (J-1)
-
-		# Get the number of random effects variables
-		number_random_effects <- length(znames_1)
-		number_random_parameters <- number_random_effects * (J - 1)
-		#Fix residual variance R at 1
-		# cf. http://stats.stackexchange.com/questions/32994/what-are-r-structure-g-structure-in-a-glmm
-
-		J_matrix <- array(1, dim = c(J, J) - 1) # matrix of ones
-		I_matrix <- diag(J - 1) #identiy matrix
-
-		IJ <- (I_matrix + J_matrix)/J # see Hadfield's Course notes p. 97
-		prior <- list(R = list(V = IJ, fix = 1),
-					  G = list(G1 = list(V = diag(number_random_parameters), nu = J+number_random_effects)))
-	}
-
-	if(type == "threshold") {
-		prior <- list(R = list(V = 1, fix = TRUE),
-                      G = list(G1 = list(V = diag(n_rand), nu = nu)))
-	}
-
-	if(type == "ordinal") {
-		# Get the number of random effects variables
-		number_random_effects <- length(znames_1)
-		number_random_parameters <- number_random_effects
-		#Fix residual variance R at 1
-		# cf. http://stats.stackexchange.com/questions/32994/what-are-r-structure-g-structure-in-a-glmm
-
-		J <- length(table(y_imp)) #number of categories
-		#priors from https://stat.ethz.ch/pipermail/r-sig-mixed-models/2012q2/018194.html
-
-		#The residual variance has to be fixed, because the latent variable is without scale
-		prior <- list(R = list(V = 1, fix = TRUE),
-			G = list(G1 = list(V = diag(number_random_effects), nu = 0.002)))
-	}
-
-	return(imputed_y)
-}
-

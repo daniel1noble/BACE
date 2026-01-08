@@ -1,4 +1,4 @@
-#' @title get_variables
+#' @title .get_variables
 #' @description Function takes a formula string and identifies the variables in the formula that relate to the data
 #' @param x A string
 #' @param fix A logical value. If TRUE, the function returns the fixed effects variables. If FALSE, the function returns the random effects variables.
@@ -6,25 +6,25 @@
 #' @examples {
 #' # All should return the same three variables: y, x1, x2
 #' form <- "y ~ x1 + x2"
-#' get_variables(form)
+#' .get_variables(form)
 #' form <- "y ~ x1 * x2"
-#' get_variables(form)
+#' .get_variables(form)
 #' form <- "y ~ x1 + x2 + x1 : x2"
-#' get_variables(form)
+#' .get_variables(form)
 #' form <- "y ~ x1 + x2 + x1:x2"
-#' get_variables(form)
+#' .get_variables(form)
 #' form <- "y ~ x1 + x2 + x1*x2"
-#' get_variables(form)
+#' .get_variables(form)
 #' form <- "~ 1 + x1|Species"
-#' get_variables(form, fix = FALSE)
+#' .get_variables(form, fix = FALSE)
 #' form <- "~ 1 + x1| Species"
-#' get_variables(form, fix = FALSE)
+#' .get_variables(form, fix = FALSE)
 #' form <- "~ 1 |Species"
-#' get_variables(form, fix = FALSE)
+#' .get_variables(form, fix = FALSE)
 #' form <- "~ 1 | Species"
-#' get_variables(form, fix = FALSE)}
+#' .get_variables(form, fix = FALSE)}
 #' @export
-get_variables <- function(x, fix = TRUE) {
+.get_variables <- function(x, fix = TRUE) {
 
   # helper: split into "tokens" (variable-ish strings), dropping empties
   tokens <- function(s) {
@@ -73,17 +73,17 @@ get_variables <- function(x, fix = TRUE) {
   list(ran = c(1, ran_vars), cluster = clusters)
 }
 
-#' @title check_type
+#' @title .get_type
 #' @description Function takes a variable in a dataframe and checks / classifies what type of variable it is (binary, continuous, count, categorical, ordered_categorical) so that it can be modeled appropriately.
 #' @param x A summary of a variables in a dataframe
 #' @param var The name of the variable
-#' @param data The dataframe containing the variable
+#' @param data The dataframe containing the variables
 #' @return Returns a character string specifying the class of the variable. 
 #' @examples \dontrun{
 #' 
 #' }
 #' @export
-get_type <- function(x, var, data) {
+.get_type <- function(x, var, data) {
 	
       x_complete <- data[[var]][!is.na(data[[var]])]
 
@@ -129,7 +129,7 @@ get_type <- function(x, var, data) {
 #' data_prep(formula, data, types)
 #' }	
 #' @export
-data_prep  <- function(formula, data, types) {
+.data_prep  <- function(formula, data, types) {
 				# Identify response variable in formula
 			response_var <- all.vars(formula[[2]])
 			
@@ -163,7 +163,7 @@ data_prep  <- function(formula, data, types) {
 
 			# z-transform all gaussian variables for better mixing and store attributes to revert later name the slots with variable names
 
-			data_i_attrs <- extract_gaussian_attrs(data_i, types)
+			data_i_attrs <- .extract_gaussian_attrs(data_i, types)
 
 			data_i <- data_i %>%
 			          dplyr::mutate(dplyr::across(.cols = dplyr::where(is.numeric) & dplyr::all_of(names(types)[types == "gaussian"]),
@@ -185,7 +185,7 @@ return(list = (list(data_i,
 #' extract_gaussian_attrs(data, types)
 #' }
 #' @export
-extract_gaussian_attrs <- function(data, types) {
+.extract_gaussian_attrs <- function(data, types) {
   out <- lapply(names(types), function(v) {
     if (!is.null(types[[v]]) && types[[v]] == "gaussian") {
       x <- data[[v]]
@@ -211,11 +211,39 @@ extract_gaussian_attrs <- function(data, types) {
 #' summarise_var_types(data)
 #' }
 #' @export
-summarise_var_types <- function(df, store_levels = TRUE, max_levels_store = 200) {
-  stopifnot(is.data.frame(df))
+.summarise_var_types <- function(df, store_levels = TRUE, max_levels_store = 200) {
   
-  # helper to store "levels" for factors, and optionally for low-cardinality character columns
-  get_levels <- function(x) {
+  stopifnot(is.data.frame(df))
+
+  out <- data.frame(
+        variable = names(df),
+           class = vapply(df, function(x) paste(class(x), collapse = ", "), character(1)),
+          typeof = vapply(df, typeof, character(1)),
+      is_numeric = vapply(df, is.numeric, logical(1)),
+      is_integer = vapply(df, is.integer, logical(1)),
+       is_factor = vapply(df, is.factor, logical(1)),
+      is_ordered = vapply(df, is.ordered, logical(1)),
+    is_character = vapply(df, is.character, logical(1)),
+      is_logical = vapply(df, is.logical, logical(1)),
+        n_levels = vapply(df, function(x) if (is.factor(x)) nlevels(x) else NA_integer_, integer(1)),
+        n_unique = vapply(df, function(x) length(unique(x[!is.na(x)])), integer(1)),
+          has_na = vapply(df, function(x) any(is.na(x)), logical(1)),
+    stringsAsFactors = FALSE
+  )
+  
+  # list-column of levels
+  out$levels <- lapply(df, function(x) .get_levels(x, store_levels, max_levels_store))
+  out
+}
+
+ 
+  #' @title .get_levels
+  #' @description Helper function to get levels of a variable if applicable
+  #' @param x A variable
+  #' @param store_levels A logical indicating whether to store levels
+  #' @param max_levels_store An integer specifying the maximum number of levels to store
+  #' @return A vector of levels or NULL if not applicable
+  .get_levels <- function(x, store_levels, max_levels_store) {
     if (!store_levels) return(NULL)
     if (inherits(x, c("Date", "POSIXct", "POSIXlt"))) return(NULL)
     
@@ -230,24 +258,3 @@ summarise_var_types <- function(df, store_levels = TRUE, max_levels_store = 200)
     NULL
   }
   
-  out <- data.frame(
-    variable = names(df),
-    class = vapply(df, function(x) paste(class(x), collapse = ", "), character(1)),
-    typeof = vapply(df, typeof, character(1)),
-    is_numeric = vapply(df, is.numeric, logical(1)),
-    is_integer = vapply(df, is.integer, logical(1)),
-    is_factor = vapply(df, is.factor, logical(1)),
-    is_ordered = vapply(df, is.ordered, logical(1)),
-    is_character = vapply(df, is.character, logical(1)),
-    is_logical = vapply(df, is.logical, logical(1)),
-    n_levels = vapply(df, function(x) if (is.factor(x)) nlevels(x) else NA_integer_, integer(1)),
-    n_unique = vapply(df, function(x) length(unique(x[!is.na(x)])), integer(1)),
-    has_na = vapply(df, function(x) any(is.na(x)), logical(1)),
-    stringsAsFactors = FALSE
-  )
-  
-  # list-column of levels
-  out$levels <- lapply(df, get_levels)
-  out
-}
-
