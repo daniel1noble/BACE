@@ -5,13 +5,14 @@
 #' @param fixformula A string that specifies the fixed effect structure in the model.
 #' @param randformula A string that specifies the random effect structure in the model.
 #' @param type A string that specifies the type of model to fit. Options are "normal", "binary", "count", "categorical", "ordinal" and the appropriate family will be used in MCMCglmm.
-#' @param nitt An integer specifying the number of iterations to run the MCMC algorithm. Default is 50000.
-#' @param thin An integer specifying the thinning rate for the MCMC algorithm. Default is 10.
+#' @param nitt An integer specifying the number of iterations to run the MCMC algorithm. Default is 6000
+#' @param thin An integer specifying the thinning rate for the MCMC algorithm. Default is 5.
 #' @param burnin An integer specifying the number of iterations to discard as burnin. Default is 1000.
+#' @param prior A list specifying the prior distributions for the MCMCglmm model.
 #' @return A list of draws from the posterior distribution of the model parameters.
 #' @export
 
-.model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 50000, thin = 10, burnin = 1000) {
+.model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 6000, thin = 5, burnin = 1000) {
 
 	# Create sparse matrix of phylogeny
 		   A  <- MCMCglmm::inverseA(tree, nodes = "TIPS")$Ainv
@@ -59,6 +60,7 @@
 #' @param n_rand An integer specifying the number of random effects in the model.
 #' @param nu A numeric specifying the nu parameter for the prior.
 #' @param par_expand A logical indicating whether to use parameter expansion.
+#' @param diag An integer specifying the dimension of the variance-covariance matrix.
 #' @return A list of G priors for the MCMCglmm model.
 
 .list_of_G <- function(n_rand, nu = NULL, par_expand = FALSE, diag = 1) {
@@ -89,6 +91,7 @@
 #' @param type A string that specifies the type of model to fit.
 #' @param nu A numeric specifying the nu parameter for the prior.
 #' @param n_levels An integer specifying the number of levels for categorical or ordinal data.
+#' @param par_expand A logical indicating whether to use parameter expansion.
 #' @return A list of priors for the MCMCglmm model.
 #' @export
 
@@ -164,6 +167,8 @@
 #' @param dat_prep A list containing the prepared data frame and attributes for continuous variables.
 #' @param response_var A string specifying the name of the response variable.
 #' @param type A string that specifies the type of model to fit.
+#' @param sample A logical indicating whether to sample from the distribution for categorical/ordinal variables.
+#' @param ... Additional arguments (not used).
 #' @return A vector of predicted values from the MCMCglmm model.
 #' @export
 .predict_bace <- function(model, dat_prep, response_var, type = NULL, sample = FALSE, ...) {				

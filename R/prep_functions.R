@@ -89,7 +89,7 @@
 
 	# Classification of variable type
 		   type <- NULL 
-    sum_var <- data_summary[data_summary$variable == var, ]
+    sum_var <- x[x$variable == var, ]
 		
     # Binary
 		if(sum_var$is_factor == TRUE && sum_var$is_ordered == TRUE && sum_var$n_levels == 2){type <- "threshold"}
@@ -121,6 +121,7 @@
 #' @param formula A formula specifying the response and predictor variables.
 #' @param data A data frame containing the dataset to be prepared.
 #' @param types A list specifying the type of each variable in the dataset.
+#' @param ran_cluster A string specifying the random effect cluster variable.
 #' @return A list containing the prepared data frame and attributes for continuous variables.
 #' @examples \dontrun{
 #' data <- data.frame(y = c(1,2,3,NA,5), x1 = factor(c("A","B","A","B","A")), x2 = c(10,20,30,NA,50))
@@ -129,7 +130,7 @@
 #' data_prep(formula, data, types)
 #' }	
 #' @export
-.data_prep  <- function(formula, data, types) {
+.data_prep  <- function(formula, data, types, ran_cluster) {
 				# Identify response variable in formula
 			response_var <- all.vars(formula[[2]])
 			
@@ -157,8 +158,8 @@
 			
 			# Create the data frame for the model fitting
 			  data_i <- data.frame(data[, response_var],
-			                     predictor_data,
-			                   data[, phylo_ran[["cluster"]], drop = FALSE])
+			                       predictor_data,
+			                       data[, ran_cluster, drop = FALSE])
 			colnames(data_i)[1] <- response_var
 
 			# z-transform all gaussian variables for better mixing and store attributes to revert later name the slots with variable names
@@ -258,3 +259,14 @@ return(list = (list(data_i,
     NULL
   }
   
+
+  #' Pipe operator
+#'
+#' See magrittr::%>% for details.
+#'
+#' @name %>%
+#' @rdname pipe
+#' @keywords internal
+#' @export
+#' @importFrom magrittr %>%
+NULL

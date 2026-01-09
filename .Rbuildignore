@@ -4,3 +4,8 @@
 prep/
 .linr/
 R/mockdata/
+/bib
+dev/
+ms/
+.vscode/
+^\.Rhistory$

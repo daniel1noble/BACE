@@ -11,3 +11,8 @@ Suggests:
     knitr,
     rmarkdown
 VignetteBuilder: knitr
+Imports: 
+    ape,
+    magrittr,
+    MASS,
+    stringi

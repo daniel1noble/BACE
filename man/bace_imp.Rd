@@ -9,10 +9,10 @@ bace_imp(
   ran_phylo_form,
   phylo,
   data,
-  runs = 10L,
-  nitt = 50000,
-  thin = 10,
+  nitt = 6000,
+  thin = 5,
   burnin = 1000,
+  runs = 10,
   ...
 )
 }
@@ -24,6 +24,12 @@ bace_imp(
 \item{phylo}{A phylogenetic tree of class 'phylo' from the ape package.}
 
 \item{data}{A data frame containing the dataset with missing values to be imputed.}
+
+\item{nitt}{An integer specifying the number of iterations to run the MCMC algorithm. Default is 6000.}
+
+\item{thin}{An integer specifying the thinning rate for the MCMC algorithm. Default is 5.}
+
+\item{burnin}{An integer specifying the number of iterations to discard as burnin. Default is 1000.}
 
 \item{runs}{An integer specifying the number of imputation iterations to perform. Default is 10.}
 
@@ -39,9 +45,19 @@ Function to perform Bayesian imputation using BACE for missing data in a dataset
 }
 \examples{
 \dontrun{
-phylo <- force.ultrametric(ape::rtree(5)) # Example phylogenetic tree with 5 tips
-data <- data.frame(y = c(1,2,3,NA,5), x1 = factor(c("A","B","A","B","A")), x2 = c(10,20,30,40,50), Species = phylo$tip.label)
+set.seed(123)
+phylo <- force.ultrametric(ape::rtree(30)) # Example phylogenetic tree with 30 tips
+phylo  <- compute.brlen(phylo, method = "Grafen")
+data <- data.frame(y = rpois(30, lambda = 5), x1 = factor(rep(c("A", "B","A"), length.out = 30)), x2 = rnorm(30, 10, 2), x3 = factor(rep(c("A", "B", "C", "D", "E"), length.out = 30)), x4 = factor(rep(c("A", "B", "C", "D", "E"), length.out = 30), levels = c("B", "A", "C", "D", "E"), ordered = TRUE), Species = phylo$tip.label)
+# Introduce some missing data
+missing_indices <- sample(1:30, 10)
+data$y[missing_indices] <- NA
+data$x1[sample(1:30, 5)] <- NA
+data$x2[sample(1:30, 5)] <- NA	
+data$x3[sample(1:30, 5)] <- NA
+data$x4[sample(1:30, 5)] <- NA	
+# Run BACE imputation
 bace_imp(fixformula = "y ~ x1 + x2", ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data)
-bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 20)
+bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2", "x3 ~ x1 + x2", "x4 ~ x1 + x2"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 10)
 }
 }

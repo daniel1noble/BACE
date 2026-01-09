@@ -7,6 +7,9 @@
 #' @param phylo A phylogenetic tree of class 'phylo' from the ape package.
 #' @param data A data frame containing the dataset with missing values to be imputed.
 #' @param runs An integer specifying the number of imputation iterations to perform. Default is 10.
+#' @param nitt An integer specifying the number of iterations to run the MCMC algorithm. Default is 6000.
+#' @param thin An integer specifying the thinning rate for the MCMC algorithm. Default is 5.
+#' @param burnin An integer specifying the number of iterations to discard as burnin. Default is 1000.
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
 #' @return A list containing imputed datasets and model summaries.
 #' @examples \dontrun{
@@ -26,8 +29,7 @@
 #' bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2", "x3 ~ x1 + x2", "x4 ~ x1 + x2"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 10)
 #' }
 #' @export
-#' options(error = recover)
-bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 5000, thin = 10, burnin = 1000, runs = 10, ...){
+bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, ...){
 	#---------------------------------------------#
 	# Preparation steps & Checks
 	#---------------------------------------------#
@@ -48,6 +50,11 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 5000, thin 
 				missing_vars <- all_vars[!all_vars %in% colnames(data)]
 				stop(paste("The following variables are not in the dataframe: ", paste(missing_vars, collapse = ", ")))
 			}
+
+	# Make sure there is no missing data in the phylogeny random effect variable
+		if(any(is.na(data[, phylo_ran[["cluster"]]]))){
+			stop(paste("There are missing data in the random effect cluster variable:", phylo_ran[["cluster"]], ". This variable must be complete. Please remove missing data from this variable before proceeding."))
+		}
 
 	# Subset the data for fixed and random effects to keep data focused. Need to clean up column names for randdata
 		 data_sub <- data[, c(fix, phylo_ran[["cluster"]])]
@@ -103,7 +110,7 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 5000, thin 
 			response_var <- all.vars(formulas[[i]][[2]])
 			
 			# Prepare the data 
-			    dat_prep <- .data_prep(data = pred_missing_run[[1]], formula = formulas[[i]], types = types)
+			    dat_prep <- .data_prep(data = pred_missing_run[[1]], formula = formulas[[i]], types = types, ran_cluster = phylo_ran[["cluster"]])
 			
 			 if(r == 2){
 				# For iteration 1 we want to impute missing data as a rough approximation z-transform for continuous data, and random sampling from the empirical distribution for categorical data.
