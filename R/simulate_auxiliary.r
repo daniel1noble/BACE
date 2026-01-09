@@ -62,8 +62,8 @@ design_size <- function(predictor_types, beta_matrix) {
     } else if (grepl("^multinomial", type)) {
       n_cats <- as.numeric(gsub("multinomial", "", type))
       n_cats - 1 # K-1 liabilities for K categories
-    } else if (grepl("^ordinal", type)) {
-      # Ordinal uses single latent variable with thresholds
+    } else if (grepl("^threshold", type)) {
+      # Threshold type uses single latent variable with thresholds
       1
     } else {
       stop("Unknown predictor type: ", type)
@@ -230,6 +230,12 @@ sample_random_effects <- function(sigma2, n, cor_matrix = NULL) {
     # Correlated random effects (e.g., phylogenetic)
     return(MASS::mvrnorm(n = 1, mu = rep(0, n), Sigma = sigma2 * cor_matrix))
   }
+
+  # TODO: add later option to generate a RE matrix with given structure
+  # e.g., block-diagonal for multiple REs for subsequent categories
+  # in categorical (multinomial) variables (for now we assume
+  # homogeneous RE variance across categories)
+  
 }
 
 #' @title Apply missingness to data

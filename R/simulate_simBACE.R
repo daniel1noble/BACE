@@ -17,8 +17,15 @@
 # =============================================================================
 
 #' @param response_type Type of response variable: "gaussian", "poisson",
-#'   "binary", "multinomialK" (unordered categories), or "ordinalK"
-#'   (ordered categories coded as integers 1,2,...,K) where K is number of categories
+#'   "binary", "multinomialK" (unordered categories), or "thresholdK"
+#'   (ordered categories coded as integers 1,2,...,K; numerically
+#'   equivalent to an ordinal variable) where K is number of categories. The simulation
+#'   function generates ordered categorical variables (threshold & binary)
+#'   with integers for category names for simplicity, but of course real data
+#'   can come with any character-based coding - refer to the BACE documentation
+#'   for more details on how categories are used (e.g., reference level 
+#'   in multinomial logit models) and how category ordering is inferred
+#'   (for ordinal/threshold-type data).
 #' @param predictor_types Character vector specifying type of each predictor
 #' @param var_names Character vector of variable names (response + predictors).
 #'   If NULL, default names (y, x1, x2, ...) are generated
@@ -186,7 +193,7 @@ simBACE <- function(
     stop("missingness must have length equal to n_vars (response + predictors)")
   }
 
-  # Setup variance components
+  # Setup variance components (default: all random effect SD = 1)
   if (is.null(sigmas)) {
     sigmas <- list(
       sigma_species = rep(1, n_vars),
@@ -448,10 +455,10 @@ simBACE <- function(
       }
 
       covars[[pred_name]] <- mnom_liab2cat(liabilities, categories)
-    } else if (grepl("^ordinal", pred_type)) {
-      n_cats <- as.numeric(gsub("ordinal", "", pred_type))
+    } else if (grepl("^threshold", pred_type)) {
+      n_cats <- as.numeric(gsub("threshold", "", pred_type))
       
-      # Ordinal uses single latent variable with thresholds
+      # Threshold type uses single latent variable with thresholds
       covars[[pred_name]] <- ordinal_liab2cat(linear_pred, n_cats)
     }
   }
@@ -472,6 +479,8 @@ simBACE <- function(
       covars_for_X[[var_names[i + 1]]] <- factor(covars_for_X[[var_names[i + 1]]])
     }
     # Note: ordinal predictors are kept as integers (treated as numeric in regression)
+
+    # TODO: Add proper handling of ordinal/threshold predictors (as factors)
   }
 
   X_resp <- model.matrix(as.formula(X_resp_formula), covars_for_X)
@@ -554,10 +563,10 @@ simBACE <- function(
     }
 
     response <- mnom_liab2cat(liabilities, categories)
-  } else if (grepl("^ordinal", response_type)) {
-    n_cats <- as.numeric(gsub("ordinal", "", response_type))
+  } else if (grepl("^threshold", response_type)) {
+    n_cats <- as.numeric(gsub("threshold", "", response_type))
     
-    # Ordinal uses single latent variable with thresholds
+    # Threshold type uses single latent variable with thresholds
     response <- ordinal_liab2cat(linear_pred_resp, n_cats)
   } else {
     stop("Unknown response_type: ", response_type)
@@ -624,18 +633,18 @@ simBACE <- function(
 
   # Warn about integer representation of categorical variables
   int_vars <- c()
-  if (response_type == "binary" || grepl("^ordinal", response_type)) {
+  if (response_type == "binary" || grepl("^threshold", response_type)) {
     int_vars <- c(int_vars, var_names[1])
   }
   for (i in seq_len(n_predictors)) {
-    if (predictor_types[i] == "binary" || grepl("^ordinal", predictor_types[i])) {
+    if (predictor_types[i] == "binary" || grepl("^threshold", predictor_types[i])) {
       int_vars <- c(int_vars, var_names[i + 1])
     }
   }
   if (length(int_vars) > 0) {
     message("Note: Variables '", paste(int_vars, collapse = "', '"), 
             "' are categorical but represented as integers. ",
-            "Consider converting to factor if needed for analysis.")
+            "Consider converting to factor before analysis.")
   }
 
   return(list(
