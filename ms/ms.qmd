@@ -1,5 +1,5 @@
 ---
-title: "Bayesian imputation through chained equations for phylogenetic comparative data: the BACE R package"
+title: "Bayesian augmentation by chained equations for phylogenetic comparative data: the BACE R package"
 bibliography: ../bib/refs.bib
 csl: ../bib/trends-in-ecology-and-evolution.csl
 format:
