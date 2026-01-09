@@ -13,7 +13,9 @@ Suggests:
 VignetteBuilder: knitr
 Imports: 
     ape,
+    dplyr,
     magrittr,
     MASS,
+    MCMCglmm,
     stringi,
     testthat
