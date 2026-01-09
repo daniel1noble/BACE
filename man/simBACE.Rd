@@ -27,8 +27,15 @@ simBACE(
 }
 \arguments{
 \item{response_type}{Type of response variable: "gaussian", "poisson",
-"binary", "multinomialK" (unordered categories), or "ordinalK"
-(ordered categories coded as integers 1,2,...,K) where K is number of categories}
+"binary", "multinomialK" (unordered categories), or "thresholdK"
+(ordered categories coded as integers 1,2,...,K; numerically
+equivalent to an ordinal variable) where K is number of categories. The simulation
+function generates ordered categorical variables (threshold & binary)
+with integers for category names for simplicity, but of course real data
+can come with any character-based coding - refer to the BACE documentation
+for more details on how categories are used (e.g., reference level
+in multinomial logit models) and how category ordering is inferred
+(for ordinal/threshold-type data).}
 
 \item{predictor_types}{Character vector specifying type of each predictor}
 
