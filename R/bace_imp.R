@@ -26,7 +26,7 @@
 #' data$x4[sample(1:30, 5)] <- NA	
 #' # Run BACE imputation
 #' bace_imp(fixformula = "y ~ x1 + x2", ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data)
-#' bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2", "x3 ~ x1 + x2", "x4 ~ x1 + x2"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 10)
+#' bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2", "x3 ~ x1 + x2", "x4 ~ x1 + x2"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 5)
 #' }
 #' @export
 bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, ...){
@@ -180,8 +180,15 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 		     pred_missing_run[[r]] <- data_sub2
 		names(pred_missing_run)[r] <- paste0("Iter_", r-1)
 }
-
-       out <- list(iterations = pred_missing_run)
+#---------------------------------------------#
+# Return the output
+#---------------------------------------------#
+       out <- list(  data = pred_missing_run,
+	   			 miss_dat = missing_matrix,
+	   				forms = formulas,
+	   				types = types,
+	   			phylo_ran = phylo_ran,
+	   				 call = match.call())
 class(out) <- "bace"
 
 return(out)
