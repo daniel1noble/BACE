@@ -9,6 +9,7 @@
 #' @param nitt An integer specifying the number of iterations to run the MCMC algorithm. Default is 6000.
 #' @param thin An integer specifying the thinning rate for the MCMC algorithm. Default is 5.
 #' @param burnin An integer specifying the number of iterations to discard as burnin. Default is 1000.
+#' @param verbose A logical indicating whether to print progress messages. Default is TRUE.
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
 #' @return A list containing imputed datasets and model summaries.
 #' @examples \dontrun{
@@ -54,7 +55,7 @@
 #' )
 #' }
 #' @export
-bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, ...){
+bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, verbose = TRUE, ...){
 	#---------------------------------------------#
 	# Preparation steps & Checks
 	#---------------------------------------------#
@@ -201,6 +202,10 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 							    data_id <- which(colnames(data_sub2) == response_var)
 			     data_sub2[id, data_id]  <- pred_values[id]
 			 
+			 if(verbose){
+				cat(paste0("Run ", r-1, ", Imputed variable: ", response_var, "\n"))
+			 } 
+
 		} # End of formula loop		
 		     pred_missing_run[[r]] <- data_sub2
 		names(pred_missing_run)[r] <- paste0("Iter_", r-1)

@@ -28,4 +28,92 @@ editor_options:
   chunk_output_type: console
 ---
 
+# Introduction
+We provide a brief introduction to the BACE package for Bayesian phylogenetic and correlated trait imputation. The BACE package allows users to impute missing data in comparative datasets using Bayesian methods that account for phylogenetic relationships among species.
 
+# Installation
+You can install the BACE package from GitHub using the following command:
+
+```{r}
+#| label: install_bace
+#| ehcho: true
+
+# Install from github and load
+install.packages("pacman")
+  pacman::p_load(devtools)
+devtools::install_github("daniel1noble/BACE")
+  pacman::p_load(BACE, ape, phytools, MCMCglmm, dplyr, magrittr)
+```
+
+If you encounter any issues during installation, please ensure that you have the required dependencies installed.
+
+# Documentation
+The main function in the BACE package is `bace_imp()`, which performs Bayesian imputation using chained equations. You can access the documentation for this function using the following command:
+```{r}
+#| label: bace_imp_doc
+#| echo: true
+?bace_imp
+```
+
+As you will see, the function allows you to specify fixed effects, random effects, phylogenetic trees, and other parameters for the imputation process. At the bare minimum, you need to provide a formula for the fixed effects, a formula for the random effects (including phylogeny), a phylogenetic tree, and the dataset with missing values.
+
+# Example Usage
+
+We'll first simulate a dataset with missing values and a phylogenetic tree. We can do this using the `simBACE()` function.
+
+```{r}
+#| label: simulate_data
+#| echo: true
+
+set.seed(123)
+# Simulate data. Note that threshold4 indicates an ordinal variable with 4 levels, and multinomial3 indicates a categorical variable with 3 levels. You can replace the numbers 
+sim_data <- simBACE(response_type = "poisson",
+                  predictor_types = c("gaussian", "binary", "threshold4", "multinomial3"),
+                     phylo_signal = c(0.5, 0.3, 0.1, 0.7, 0.7),
+                      missingness = c(0.2, 0.3, 0.4, 0.2, 0.5),
+                               rr = TRUE,
+                          rr_form = list(species = c("x1")))
+```
+
+We can then view the simulated data and phylogenetic tree because the `simBACE()` function returns a list containing both objects. It also has a lot of other useful information about the simulation users can explore.
+
+```{r}
+#| label: view_simulated_data
+#| echo: true
+
+# Object contains both the simulated data and phylogeny
+    data <- sim_data$data
+    tree <- sim_data$tree
+
+# View first few rows of the data
+head(data)
+```
+
+
+Here, we can see that the dataset contains lots of missing values across different variable types. Of course, with normal modelling, we would need to exclude these cases to use a complete datset. However, with BACE we simply feed in the entire dataset, specify the models we want to use for imputation (or the real model of interest), and impute the missing data. 
+
+# Using BACE for Imputation
+Now that we have the data we can now use the `bace_imp()` function to impute the missing data.
+
+```{r}
+#| label: bace_imputation
+#| echo: true 
+
+# First check that all variables are correctly classified
+  str(data)
+
+# Convert them tothe correct class if needed
+  data$species <- as.character(data$species)
+       data$x2 <- as.numeric(data$x2)
+       data$x3 <- factor(data$x3, ordered = TRUE)
+       data$x4 <- as.factor(data$x4)
+
+# Perform BACE imputation
+bace_impute <- bace_imp(fixformula = list("y ~ x1 + x2 + x3",
+                                          "x1 ~ x2",
+                                          "x2 ~ x4"),
+                    ran_phylo_form = "~ 1 |species",
+                             phylo = tree,
+                              data = data,
+                              runs = 5)
+```
