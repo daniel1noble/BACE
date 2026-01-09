@@ -8,6 +8,20 @@ format:
   pdf:
     include-in-header: 
       text: \usepackage{bm}\usepackage{lineno}\linenumbers
+  html:
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    toc-title: "**Table of Contents**"
+    output-file: "index.html"
+    theme: cosmo
+    embed-resources: true
+    code-fold: show
+    code-tools: true
+    number-sections: true
+    fontsize: "12"
+    max-width: "10"
+    code-overflow: wrap    
 editor_options: 
   chunk_output_type: console
 execute:
@@ -23,3 +37,62 @@ crossref:
   fig-prefix: "Figure"
   tbl-prefix: "Table"
 ---
+
+
+# Abstract
+
+1. **Motivation:** *(2–3 sentences)* Missing data are pervasive in comparative datasets and standard ad hoc approaches (e.g., complete-case analyses, single imputation) can bias inference and understate uncertainty.
+2. **Method/software:** *(2–3 sentences)* We introduce **BACE**, an R package implementing **Bayesian augmentation by chained equations** for phylogenetic comparative data, enabling imputation with phylogeny-informed covariance and complex random-effect structures (e.g., species effects, random slopes).
+3. **Performance:** *(2–3 sentences)* Using simulations spanning phylogenetic signal, trait correlations, and missingness patterns, we evaluate imputation accuracy and inferential calibration, and compare BACE to leading alternatives (e.g., multilevel FCS-based tools).
+4. **Availability:** *(1 sentence)* BACE is open-source with vignettes, reproducible workflows, and archived releases.
+
+# Introduction
+
+## Missing data in comparative biology: why it matters
+- Trait databases + environmental covariates + phylogenies → systematic missingness (taxonomic, geographic, trait-type).
+- Consequences: reduced power, compositional bias (which taxa remain), and overconfident inference if uncertainty is ignored.
+
+## Why multiple imputation, and why *Bayesian* chained equations
+- MI as uncertainty propagation (imputation as inference, not a preprocessing “fill”).
+- Chained equations: flexible conditional models per variable; practical for mixed data types and modular model building.
+- Bayesian approach: coherent uncertainty, hierarchical structure, prior regularisation, posterior predictive checks.
+
+## Gap in current tooling (positioning)
+- Existing MI tools handle multilevel/cross-classified structures only partially; nominal categorical + complex random effects often limited.
+- Phylogeny-aware tools exist but are frequently oriented toward model-based prediction for continuous traits rather than general MI workflows.
+- **BACE contribution:** MI for phylogenetic comparative data with multilevel structure + mixed data types (as supported), designed for downstream comparative analyses.
+
+# Overview of the BACE framework
+
+## Concept: Bayesian augmentation by chained equations
+- Describe the iterative cycle (variable-by-variable conditional models).
+- Emphasise “augmentation”: draw missing values from the posterior predictive distribution each cycle.
+
+## Phylogenetic information in the imputation model
+- How the tree enters (e.g., covariance among species; phylogenetic random effect).
+- How this interacts with species-level random effects and other grouping structures.
+
+## Supported data types and models (v1 scope)
+*(Explicitly list what is supported in BACE v1 to avoid overclaiming.)*
+- Continuous
+- Binary
+- Count
+- Ordered categorical
+- Unordered categorical (multinomial) *(if/when supported)*
+- Missingness patterns handled (MCAR/MAR; sensitivity options if present)
+
+> **Design choice box (optional):** When to use a joint-model vs chained equations; why BACE chooses chained equations.
+
+# The BACE R package
+
+## Inputs, outputs, and core workflow
+- Inputs: data frame, species ID, phylogeny, optional predictors, grouping factors, priors, M (number of imputations / posterior draws).
+- Outputs: imputed datasets (long/wide), posterior summaries, diagnostics, helper functions for pooling and downstream analysis.
+
+## Typical user pipeline (pseudo-code)
+```{r}
+# 1) Prepare data and tree
+# 2) Define imputation model / recipe
+# 3) Run imputation
+# 4) Diagnostics and export
+```
