@@ -41,8 +41,8 @@ crossref:
 
 # Abstract
 
-1. **Motivation:** *(2–3 sentences)* Missing data are pervasive in comparative datasets and standard ad hoc approaches (e.g., complete-case analyses, single imputation) can bias inference and understate uncertainty.
-2. **Method/software:** *(2–3 sentences)* We introduce **BACE**, an R package implementing **Bayesian augmentation by chained equations** for phylogenetic comparative data, enabling imputation with phylogeny-informed covariance and complex random-effect structures (e.g., species effects, random slopes).
+1. **Motivation:** *(2–3 sentences)* Missing data are pervasive in comparative datasets and standard *ad hoc* approaches (e.g., complete-case analyses, single imputation) can bias inference and underestimate uncertainty. Additionally, comparative traits are highly variable in nature (e.g., multinomial, ordered categorical, count and continuous traits). Many existing software cannot impute such traits limiting the use of imputation approaches in comparative biology.
+2. **Method/software:** *(2–3 sentences)* We introduce **BACE**, an R package implementing **Bayesian Augmentation by Chained Equations** for phylogenetic comparative data, enabling imputation with phylogeny-informed covariance,  complex random-effect structures (e.g., species effects, random slopes) and mixed data types.
 3. **Performance:** *(2–3 sentences)* Using simulations spanning phylogenetic signal, trait correlations, and missingness patterns, we evaluate imputation accuracy and inferential calibration, and compare BACE to leading alternatives (e.g., multilevel FCS-based tools).
 4. **Availability:** *(1 sentence)* BACE is open-source with vignettes, reproducible workflows, and archived releases.
 
@@ -51,6 +51,7 @@ crossref:
 ## Missing data in comparative biology: why it matters
 - Trait databases + environmental covariates + phylogenies → systematic missingness (taxonomic, geographic, trait-type).
 - Consequences: reduced power, compositional bias (which taxa remain), and overconfident inference if uncertainty is ignored.
+- comparative data in conservation biology, macroecology, evolutionary biology, functional ecology. Used to inform theory, policy, and management.
 
 ## Why multiple imputation, and why *Bayesian* chained equations
 - MI as uncertainty propagation (imputation as inference, not a preprocessing “fill”).
