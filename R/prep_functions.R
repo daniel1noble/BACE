@@ -143,16 +143,24 @@
 			# Check missing data in predictors and impute values for the model for. For count and gaussian we use the mean for now, for categorical we sample from the empirical distribution.
 			predictor_data <- data[, predictors, drop = FALSE]
 			for(p in 1:ncol(predictor_data)){
+				pred_name <- predictors[p]
+				
+				# Check if predictor type exists
+				if (!pred_name %in% names(types)) {
+					stop(paste0("Variable '", pred_name, "' not found in types list. Available variables: ", 
+					           paste(names(types), collapse = ", ")))
+				}
+				
 				if(any(is.na(predictor_data[, p]))){
-					if(types[[predictors[p]]] %in% c("gaussian")){
+					if(types[[pred_name]] %in% c("gaussian")){
 						predictor_data[is.na(predictor_data[, p]), p] <- mean(predictor_data[, p], na.rm = TRUE)
 					}
 					
-					if(types[[predictors[p]]] %in% c("poisson")){
+					if(types[[pred_name]] %in% c("poisson")){
 						predictor_data[is.na(predictor_data[, p]), p] <- round(mean(predictor_data[, p], na.rm = TRUE))
 					}
 
-					if(types[[predictors[p]]] %in% c("categorical", "threshold")){
+					if(types[[pred_name]] %in% c("categorical", "threshold")){
 						obs_values <- predictor_data[!is.na(predictor_data[, p]), p]
 						predictor_data[is.na(predictor_data[, p]), p] <- sample(obs_values, sum(is.na(predictor_data[, p])), replace = TRUE)
 					}

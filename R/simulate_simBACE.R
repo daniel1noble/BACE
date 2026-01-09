@@ -108,6 +108,8 @@
 #'
 #' @export
 
+# TODO: Make sure to check all variable types before exporting into the final object
+
 simBACE <- function(
     response_type = "gaussian",
     predictor_types = c("gaussian", "gaussian"),
@@ -172,6 +174,25 @@ simBACE <- function(
       predictors = rep(0, n_predictors),
       response = 0
     )
+  } else if (is.numeric(intercepts) && !is.list(intercepts)) {
+    # Convert numeric vector to list format
+    # Expect: c(response_intercept, predictor1_intercept, predictor2_intercept, ...)
+    if (length(intercepts) != n_vars) {
+      stop("intercepts vector must have length equal to n_vars (response + predictors)")
+    }
+    intercepts <- list(
+      response = intercepts[1],
+      predictors = intercepts[-1]
+    )
+    message("Converted intercepts vector to list format")
+  } else if (is.list(intercepts)) {
+    # Validate list structure
+    if (!all(c("response", "predictors") %in% names(intercepts))) {
+      stop("intercepts list must have 'response' and 'predictors' elements")
+    }
+    if (length(intercepts$predictors) != n_predictors) {
+      stop("intercepts$predictors must have length equal to n_predictors")
+    }
   }
 
   # Setup phylogenetic signal (default: no signal)
