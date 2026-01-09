@@ -90,6 +90,7 @@
 #' @param nu A numeric specifying the nu parameter for the prior.
 #' @param n_levels An integer specifying the number of levels for categorical or ordinal data.
 #' @return A list of priors for the MCMCglmm model.
+#' @export
 
 .make_prior <- function(n_rand, type, nu = NULL, n_levels = NULL, par_expand = FALSE) {
   if (type == "gaussian") {
