@@ -15,4 +15,5 @@ Imports:
     ape,
     magrittr,
     MASS,
-    stringi
+    stringi,
+    testthat
