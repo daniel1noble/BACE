@@ -26,6 +26,7 @@
 #' bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2", "x3 ~ x1 + x2", "x4 ~ x1 + x2"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 5)
 #' }
 #' @export
+#' options(error = recover)
 bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 5000, thin = 10, burnin = 1000, runs = 10, ...){
 	#---------------------------------------------#
 	# Preparation steps & Checks
@@ -109,26 +110,39 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 5000, thin 
 				data_i <- dat_prep[[1]]
 
 			 } else {
-				# If not the first iteration then we use the predicted values for the missing cells of the predictors from the previous iteration to fill in missing data for the response
-				data_i <- dat_prep[[1]] 
+				data_i <- dat_prep[[1]]
 
-				# Variable names in the subset data
-				predictor_vars <- colnames(data_i)
+					# predictors in *this* subset
+					predictor_vars <- setdiff(names(data_i), response_var)
 
-				# Remove responses variable from predictors
-				predictor_vars <- predictor_vars[which(predictor_vars != response_var)]
+					# missing entries that correspond to predictors present in this subset
+					mm <- missing_matrix[missing_matrix$colname %in% predictor_vars, , drop = FALSE]
 
-				# Subset the missing matrix to only include rows for the predictors (all except the response variable) and any missing x variables
-				missing_matrix_pred_r <- missing_matrix[which(missing_matrix$colname %in% predictor_vars), ] 
+					# predictions from previous run
+					pred_full <- pred_missing_run[[r - 1]]
 
-				# Fill in missing values with predicted values from previous run. 
-				                             idx_full <- cbind(missing_matrix_pred_r$row, missing_matrix_pred_r$col)
-				                  			cols <- sort(unique(idx_full[,2]))
+					# --- Safety checks ---
+					stopifnot(is.data.frame(mm))
+					stopifnot(all(c("row", "colname") %in% names(mm)))
 
-			    # Now, match the missing data points in data_i and fill in with predicted values from previous run
-									for (j in cols) {
-									           rows <- idx_full[idx_full[,2] == j, 1]
-									data_i[rows, j] <- pred_missing_run[[r-1]][rows, j]}
+					# Ensure rows are valid for data_i
+					mm <- mm[mm$row >= 1 & mm$row <= nrow(data_i), , drop = FALSE]
+
+					# Ensure predicted object has the needed columns (by name)
+					if (!all(mm$colname %in% colnames(pred_full))) {
+					missing_cols <- setdiff(unique(mm$colname), colnames(pred_full))
+					stop("pred_full is missing columns: ", paste(missing_cols, collapse = ", "))
+					}
+
+					# Split rows by column name, then fill
+					rows_by_col <- split(mm$row, mm$colname)
+
+					for (cn in names(rows_by_col)) {
+					rows <- rows_by_col[[cn]]
+
+					# Use [[ ]] to avoid data.frame coercion issues
+					data_i[[cn]][rows] <- pred_full[[cn]][rows]
+					}
 			 }
 
 			# Set up prior for the specific variable type
@@ -138,14 +152,14 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 5000, thin 
 			
 			# Fit the model and predict missing data
 			  model <-  .model_fit(data = data_i, 
-			                      tree = phylo,
-			                fixformula = formulas[[i]],  # Only simple structure for now
-						   randformula = ran_phylo_form, # Only phylogeny, but need to add species too
-							      type = types[[response_var]], 
-							     prior = prior_i, 
-								  nitt = nitt, 
-								  thin = thin, 
-								burnin = burnin)         # Prior Not working for all types yet
+			                       tree = phylo,
+			                 fixformula = formulas[[i]],  # Only simple structure for now
+						    randformula = ran_phylo_form, # Only phylogeny, but need to add species too
+					 		       type = types[[response_var]], 
+							      prior = prior_i, 
+								   nitt = nitt, 
+								   thin = thin, 
+								 burnin = burnin)         # Prior Not working for all types yet
 
 			# Predict missing data and store in list to keep track across runs, if the variable was z-transformed then transform back using the attributes from data_i preparation which is done automatically for gaussian variables
 				pred_values <- .predict_bace(model, dat_prep, response_var = response_var, type = types[[response_var]])
@@ -155,13 +169,13 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 5000, thin 
 							    data_id <- which(colnames(data_sub2) == response_var)
 			     data_sub2[id, data_id]  <- pred_values[id]
 			 
-		}
-		
-		     pred_missing_run[[r]] <- data_sub
+		} # End of formula loop		
+		     pred_missing_run[[r]] <- data_sub2
 		names(pred_missing_run)[r] <- paste0("Iter_", r-1)
 }
 
-return(list(iterations = pred_missing_run))
-}	
-	
+       out <- list(iterations = pred_missing_run)
+class(out) <- "bace"
 
+return(out)
+}	
