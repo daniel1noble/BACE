@@ -108,12 +108,29 @@ Now that we have the data we can now use the `bace_imp()` function to impute the
        data$x3 <- factor(data$x3, ordered = TRUE)
        data$x4 <- as.factor(data$x4)
 
-# Perform BACE imputation
-bace_impute <- bace_imp(fixformula = list("y ~ x1 + x2 + x3",
+# Perform BACE imputation. NOTE: YOU MUST HAVE A MODEL FOR EACH MISSING VARIABLE IF YOU PROVIDE A LIST
+bace_impute <- bace_imp(fixformula = list("y ~ x1 + x2",
                                           "x1 ~ x2",
-                                          "x2 ~ x4"),
+                                          "x2 ~ x4",
+                                          "x3 ~ x1 + x2",
+                                          "x4 ~ x1 + x2"),
                     ran_phylo_form = "~ 1 |species",
                              phylo = tree,
                               data = data,
                               runs = 5)
+                       
+```
+
+If you want to just model your main variables and ignore others you can also simply feed in a single formula as below. Here, BACE will automatically build models for the other variables based on their types and the variables present in the dataset.
+
+```{r}
+#| label: bace_imputation_simple
+#| echo: true
+
+# Fit BACE with a single formula
+bace_impute2 <- bace_imp(fixformula = "y ~ x1 + x2",
+                    ran_phylo_form = "~ 1 |species",
+                             phylo = tree,
+                              data = data,
+                              runs = 5)     
 ```
