@@ -3,7 +3,8 @@
 #' @description Function takes a string specifying a formula and converts this to a formula object to be used in the models.
 #' @param x A character string specifying the formula used in the model. This should be of the form: y ~ x.
 #' @return A formula object
-#' #' @examples \dontrun{
+#' @examples
+#' \dontrun{
 #' .build_formula("y ~ x1 + x2")
 #' }
 #' @export
@@ -20,7 +21,8 @@
 #' @description Function takes a string specifying a formula and creates all combinations of models using the variables.
 #' @param x A character string specifying the formula used in the model. This should be of the form: y ~ x.
 #' @return A list of formulas
-#' #' @examples \dontrun{
+#' @examples
+#' \dontrun{
 #' .build_formula_string("y ~ x1 + x2 + x3")
 #' .build_formula_string("y ~ x1 + x2*x3")
 #' .build_formula_string("y ~ x1 + x2:x3")
@@ -106,7 +108,8 @@
 #' @description Function takes a string specifying a random effects formula and converts this to a formula object to be used in the models.
 #' @param ran_phylo_form A character string specifying the random effects and phylogenetic structure formula used in the model.
 #' @return A formula	 object
-#' #' @examples \dontrun{
+#' @examples
+#' \dontrun{
 #' .build_formula_string_random("~ 1 | Species")
 #' }
 #' @export	

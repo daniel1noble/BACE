@@ -11,10 +11,12 @@
 }
 \value{
 A formula	 object
-#' @examples \dontrun{
-.build_formula_string_random("~ 1 | Species")
-}
 }
 \description{
 Function takes a string specifying a random effects formula and converts this to a formula object to be used in the models.
+}
+\examples{
+\dontrun{
+.build_formula_string_random("~ 1 | Species")
+}
 }

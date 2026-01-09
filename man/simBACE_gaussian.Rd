@@ -20,6 +20,8 @@ simBACE_gaussian(
 \item{n_species}{Number of species}
 
 \item{phylo_signal}{Single phylogenetic signal value applied to all variables}
+
+\item{beta_sparsity}{Proportion of coefficients in beta_matrix to set to zero (default 0.7)}
 }
 \value{
 simBACE output list

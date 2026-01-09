@@ -1,10 +1,12 @@
 ^LICENSE\.md$
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^\.github$
+^\.lintr$
 prep/
 .linr/
 R/mockdata/
-/bib
+^bib$
 dev/
 ms/
 .vscode/

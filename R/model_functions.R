@@ -234,7 +234,7 @@
 
 #' @title .pred_cat
 #' @description Function calculates predicted probabilities for each category from a categorical MCMCglmm model
-#' 	@param model A MCMCglmm model object
+#' @param model A MCMCglmm model object
 #' @param baseline_name A string specifying the name of the baseline category
 #' @return A data frame of predicted probabilities for each category
 #' @export

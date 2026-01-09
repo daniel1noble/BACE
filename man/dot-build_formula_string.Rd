@@ -11,13 +11,15 @@
 }
 \value{
 A list of formulas
-#' @examples \dontrun{
+}
+\description{
+Function takes a string specifying a formula and creates all combinations of models using the variables.
+}
+\examples{
+\dontrun{
 .build_formula_string("y ~ x1 + x2 + x3")
 .build_formula_string("y ~ x1 + x2*x3")
 .build_formula_string("y ~ x1 + x2:x3")
 .build_formula_string("y ~ x1 + x2 + x3 + x1:x2 + x1:x3 + x2:x3 + x1:x2:x3")
 }
-}
-\description{
-Function takes a string specifying a formula and creates all combinations of models using the variables.
 }

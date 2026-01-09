@@ -7,6 +7,8 @@
 .pred_cat(model, baseline_name = "Baseline")
 }
 \arguments{
+\item{model}{A MCMCglmm model object}
+
 \item{baseline_name}{A string specifying the name of the baseline category}
 }
 \value{
@@ -14,5 +16,4 @@ A data frame of predicted probabilities for each category
 }
 \description{
 Function calculates predicted probabilities for each category from a categorical MCMCglmm model
-@param model A MCMCglmm model object
 }

@@ -3,7 +3,6 @@
 #' @description Function to perform Bayesian imputation using BACE for missing data in a dataset
 #' @param fixformula A character string specifying the fixed effects formula that is of major interest or a list of formulas that one wishes to estimate. This should be of the form: y ~ x. Providing a list gives users complex flexibility in the types of models fit for the different variables. Note that users can also include interaction terms using the standard R formula syntax (e.g., x1*x2). 
 #' @param ran_phylo_form A character string specifying the random effects and phylogenetic structure formula used in the model.
-#' @param species A logical indicating whether species is included as a random effect.
 #' @param phylo A phylogenetic tree of class 'phylo' from the ape package.
 #' @param data A data frame containing the dataset with missing values to be imputed.
 #' @param runs An integer specifying the number of imputation iterations to perform. Default is 10.
@@ -14,9 +13,21 @@
 #' @return A list containing imputed datasets and model summaries.
 #' @examples \dontrun{
 #' set.seed(123)
-#' phylo <- phytools::force.ultrametric(ape::rtree(30)) # Example phylogenetic tree with 30 tips
+#' # Example phylogenetic tree with 30 tips
+#' phylo <- phytools::force.ultrametric(ape::rtree(30))
 #' phylo  <- ape::compute.brlen(phylo, method = "Grafen")
-#' data <- data.frame(y = rpois(30, lambda = 5), x1 = factor(rep(c("A", "B","A"), length.out = 30)), x2 = rnorm(30, 10, 2), x3 = factor(rep(c("A", "B", "C", "D", "E"), length.out = 30)), x4 = factor(rep(c("A", "B", "C", "D", "E"), length.out = 30), levels = c("B", "A", "C", "D", "E"), ordered = TRUE), Species = phylo$tip.label)
+#' data <- data.frame(
+#'   y = rpois(30, lambda = 5),
+#'   x1 = factor(rep(c("A", "B","A"), length.out = 30)),
+#'   x2 = rnorm(30, 10, 2),
+#'   x3 = factor(rep(c("A", "B", "C", "D", "E"), length.out = 30)),
+#'   x4 = factor(
+#'     rep(c("A", "B", "C", "D", "E"), length.out = 30),
+#'     levels = c("B", "A", "C", "D", "E"),
+#'     ordered = TRUE
+#'   ),
+#'   Species = phylo$tip.label
+#' )
 #' # Introduce some missing data
 #' missing_indices <- sample(1:30, 10)
 #' data$y[missing_indices] <- NA
@@ -25,8 +36,22 @@
 #' data$x3[sample(1:30, 5)] <- NA
 #' data$x4[sample(1:30, 5)] <- NA	
 #' # Run BACE imputation
-#' bace_imp(fixformula = "y ~ x1 + x2", ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data)
-#' bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2", "x3 ~ x1 + x2", "x4 ~ x1 + x2"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 5)
+#' bace_imp(
+#'   fixformula = "y ~ x1 + x2",
+#'   ran_phylo_form = "~ 1 |Species",
+#'   phylo = phylo,
+#'   data = data
+#' )
+#' bace_imp(
+#'   fixformula = list(
+#'     "y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2",
+#'     "x3 ~ x1 + x2", "x4 ~ x1 + x2"
+#'   ),
+#'   ran_phylo_form = "~ 1 |Species",
+#'   phylo = phylo,
+#'   data = data,
+#'   runs = 5
+#' )
 #' }
 #' @export
 bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, ...){

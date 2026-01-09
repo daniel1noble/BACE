@@ -34,8 +34,6 @@ bace_imp(
 \item{runs}{An integer specifying the number of imputation iterations to perform. Default is 10.}
 
 \item{...}{Additional arguments to be passed to the underlying modeling functions.}
-
-\item{species}{A logical indicating whether species is included as a random effect.}
 }
 \value{
 A list containing imputed datasets and model summaries.
@@ -46,9 +44,21 @@ Function to perform Bayesian imputation using BACE for missing data in a dataset
 \examples{
 \dontrun{
 set.seed(123)
-phylo <- phytools::force.ultrametric(ape::rtree(30)) # Example phylogenetic tree with 30 tips
+# Example phylogenetic tree with 30 tips
+phylo <- phytools::force.ultrametric(ape::rtree(30))
 phylo  <- ape::compute.brlen(phylo, method = "Grafen")
-data <- data.frame(y = rpois(30, lambda = 5), x1 = factor(rep(c("A", "B","A"), length.out = 30)), x2 = rnorm(30, 10, 2), x3 = factor(rep(c("A", "B", "C", "D", "E"), length.out = 30)), x4 = factor(rep(c("A", "B", "C", "D", "E"), length.out = 30), levels = c("B", "A", "C", "D", "E"), ordered = TRUE), Species = phylo$tip.label)
+data <- data.frame(
+  y = rpois(30, lambda = 5),
+  x1 = factor(rep(c("A", "B","A"), length.out = 30)),
+  x2 = rnorm(30, 10, 2),
+  x3 = factor(rep(c("A", "B", "C", "D", "E"), length.out = 30)),
+  x4 = factor(
+    rep(c("A", "B", "C", "D", "E"), length.out = 30),
+    levels = c("B", "A", "C", "D", "E"),
+    ordered = TRUE
+  ),
+  Species = phylo$tip.label
+)
 # Introduce some missing data
 missing_indices <- sample(1:30, 10)
 data$y[missing_indices] <- NA
@@ -57,7 +67,21 @@ data$x2[sample(1:30, 5)] <- NA
 data$x3[sample(1:30, 5)] <- NA
 data$x4[sample(1:30, 5)] <- NA	
 # Run BACE imputation
-bace_imp(fixformula = "y ~ x1 + x2", ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data)
-bace_imp(fixformula = list("y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2", "x3 ~ x1 + x2", "x4 ~ x1 + x2"), ran_phylo_form = "~ 1 |Species", phylo = phylo, data = data, runs = 5)
+bace_imp(
+  fixformula = "y ~ x1 + x2",
+  ran_phylo_form = "~ 1 |Species",
+  phylo = phylo,
+  data = data
+)
+bace_imp(
+  fixformula = list(
+    "y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2",
+    "x3 ~ x1 + x2", "x4 ~ x1 + x2"
+  ),
+  ran_phylo_form = "~ 1 |Species",
+  phylo = phylo,
+  data = data,
+  runs = 5
+)
 }
 }

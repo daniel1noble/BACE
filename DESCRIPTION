@@ -9,7 +9,8 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Suggests: 
     knitr,
-    rmarkdown
+    rmarkdown,
+    testthat
 VignetteBuilder: knitr
 Imports: 
     ape,
@@ -17,5 +18,4 @@ Imports:
     magrittr,
     MASS,
     MCMCglmm,
-    stringi,
-    testthat
+    stringi

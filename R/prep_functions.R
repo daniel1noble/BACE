@@ -1,3 +1,8 @@
+#' @importFrom stats pnorm predict runif sd setNames
+#' @importFrom utils combn head
+#' @keywords internal
+"_PACKAGE"
+
 #' @title .get_variables
 #' @description Function takes a formula string and identifies the variables in the formula that relate to the data
 #' @param x A string
@@ -79,9 +84,7 @@
 #' @param var The name of the variable
 #' @param data The dataframe containing the variables
 #' @return Returns a character string specifying the class of the variable. 
-#' @examples \dontrun{
-#' 
-#' }
+#' @keywords internal
 #' @export
 .get_type <- function(x, var, data) {
 	
@@ -209,6 +212,8 @@ return(list = (list(data_i,
 #' @title summarise_var_types
 #' @description Function summarizes the types and characteristics of variables in a dataframe.
 #' @param df A data frame containing the dataset.
+#' @param store_levels A logical indicating whether to store levels for factor and character variables. Default is TRUE.
+#' @param max_levels_store An integer specifying the maximum number of levels to store. Default is 200.
 #' @return A data frame summarizing the types and characteristics of each variable.
 #' @examples \dontrun{
 #' data <- data.frame(y = c(1,2,3,NA,5), x1 = factor(c("A","B","A","B","A")), x2 = c(10,20,30,NA,50))

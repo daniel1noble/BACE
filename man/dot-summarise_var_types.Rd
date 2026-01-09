@@ -8,6 +8,10 @@
 }
 \arguments{
 \item{df}{A data frame containing the dataset.}
+
+\item{store_levels}{A logical indicating whether to store levels for factor and character variables. Default is TRUE.}
+
+\item{max_levels_store}{An integer specifying the maximum number of levels to store. Default is 200.}
 }
 \value{
 A data frame summarizing the types and characteristics of each variable.

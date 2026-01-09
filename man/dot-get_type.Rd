@@ -19,8 +19,4 @@ Returns a character string specifying the class of the variable.
 \description{
 Function takes a variable in a dataframe and checks / classifies what type of variable it is (binary, continuous, count, categorical, ordered_categorical) so that it can be modeled appropriately.
 }
-\examples{
-\dontrun{
-
-}
-}
+\keyword{internal}
