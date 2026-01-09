@@ -166,9 +166,12 @@
 
 			data_i_attrs <- .extract_gaussian_attrs(data_i, types)
 
-			data_i <- data_i %>%
-			          dplyr::mutate(dplyr::across(.cols = dplyr::where(is.numeric) & dplyr::all_of(names(types)[types == "gaussian"]),
-			                                      .fns = ~ as.numeric(scale(.x))))
+		# Get gaussian variables that actually exist in data_i
+		gaussian_vars_in_data <- intersect(names(types)[types == "gaussian"], colnames(data_i))
+
+		data_i <- data_i %>%
+		          dplyr::mutate(dplyr::across(.cols = dplyr::all_of(gaussian_vars_in_data),
+		                                      .fns = ~ as.numeric(scale(.x))))
 
 return(list = (list(data_i,
 				   data_i_attrs)))
