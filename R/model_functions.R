@@ -179,12 +179,12 @@
 					sd_val   <- dat_prep[[2]][[response_var]]$sd
 					
 					# Predict from model and back-transform
-				 		pred_values <- predict(model, marginal = NULL, type = "response", posterior = "all") * sd_val + mean_val
+				 		pred_values <- .pred_cont(model)[,1] * sd_val + mean_val
 			     }
 
 				 if(type == "poisson"){  
 					# Predict from model and round to nearest integer to retain count data
-						pred_values <- round(predict(model, marginal = NULL, type = "response", posterior = "all"), digits = 0)
+						pred_values <- round(.pred_count(model)[,1], digits = 0)
 				 }
 
 				 if(type == "threshold" || type == "ordinal"){
@@ -402,7 +402,7 @@
     Sol <- Sol[, common, drop = FALSE]
   } else {
     # Fallback: assume ordering matches for first min columns
-    p <- min(ncol(W), ncol(Sol))
+      p <- min(ncol(W), ncol(Sol))
     W   <- W[, seq_len(p), drop = FALSE]
     Sol <- Sol[, seq_len(p), drop = FALSE]
   }
