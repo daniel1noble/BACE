@@ -179,12 +179,14 @@
 					sd_val   <- dat_prep[[2]][[response_var]]$sd
 					
 					# Predict from model and back-transform
-				 		pred_values <- .pred_cont(model)[,1] * sd_val + mean_val
+				 		  pred_prob <- .pred_cont(model) * sd_val + mean_val # Full prediction
+            pred_values <- pred_prob[,1]          # Extract posterior mean
 			     }
 
 				 if(type == "poisson"){  
 					# Predict from model and round to nearest integer to retain count data
-						pred_values <- round(.pred_count(model)[,1], digits = 0)
+              pred_prob <- .pred_count(model)           # Full prediction
+						pred_values <- round(pred_prob[,1], digits = 0) # Extract posterior mean and round
 				 }
 
 				 if(type == "threshold" || type == "ordinal"){
@@ -192,7 +194,7 @@
 			      	     lv  <- dat_prep[[1]][[response_var]]
 				  levels_var <- sort(unique(as.character(lv)))
 				  
-				   # Predicts probabilities for each category
+				   # Predicts probabilities for each category. Full prediction
 				 pred_prob <- .pred_threshold(model, level_names = levels_var)
 
 				   # For each observation, sample from the categorical distribution based on the predicted probabilities. TO DO: Note we could also just take the max probability for baseline level
@@ -205,14 +207,15 @@
 			      	     lv  <- dat_prep[[1]][[response_var]]
 				  levels_var <- sort(unique(as.character(lv)))
 					
-					# Predict category probabilities
+					# Predict category probabilities. Full prediction
 					pred_prob <- .pred_cat(model, baseline_name = levels_var[1])
 
 					# For each observation, sample from the categorical distribution based on the predicted probabilities
 				   pred_values <- .impute_levels(pred_prob, levels_var, sample = sample)
 				 }
 
-	return(pred_values)
+	return(list(full_prediction = pred_prob, 
+                  pred_values = pred_values))
 }
 
 #' @title .impute_levels
