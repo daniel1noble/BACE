@@ -24,7 +24,7 @@ library(readr)
 library(MCMCglmm)
 library(Rphylopars)
 library(here)
-library(BACE)
+#library(BACE)
 
 ## ---- 1) Source BACE functions ----
 ## Adjust these paths if you have the package installed; this is for running from the provided scripts.
@@ -59,16 +59,16 @@ fit_bace <- bace_imp(
   ran_phylo_form = "~ 1 | species",
   phylo          = tree,
   data           = dat,
-  runs           = 5,       
-  nitt           = 4000,    
-  burnin         = 1000,
-  thin           = 10,
+  runs           = 10,       
+  nitt           = 4000*10,    
+  burnin         = 1000*10,
+  thin           = 10*10,
   verbose        = TRUE
 )
 
 bace_last <- fit_bace$data[[length(fit_bace$data)]]
 bace_last <- as.data.frame(bace_last)
-write_csv(bace_last, "bace_last.csv")
+#write_csv(bace_last, "bace_last.csv")
 
 ## ---- 4) Run Rphylopars imputation ----
 ## Rphylopars expects rownames = species and a trait matrix/data.frame of numeric traits
@@ -77,22 +77,73 @@ trait_mat <- dat %>%
   as.data.frame()
 rownames(trait_mat) <- dat$species
 
-rp <- phylopars(trait_data = trait_mat, tree = tree, model = "BM", pheno_error = FALSE)
+## ---- 4) Run Rphylopars imputation ----
+trait_df <- dat %>%
+  dplyr::select(species, dplyr::everything()) %>%   # ensure species is first
+  as.data.frame()
 
+# let's system.time
+
+system.time(
+rp <- Rphylopars::phylopars(
+  trait_data  = trait_df,
+  tree        = tree,
+  model       = "BM",
+  pheno_error = FALSE
+))
 ## Extract reconstructed tip traits (includes imputations)
 ## Different versions expose slightly different slot names; handle both.
-if (!is.null(rp$tip_recon)) {
-  rp_recon <- rp$tip_recon
-} else if (!is.null(rp$trait_recon)) {
-  rp_recon <- rp$trait_recon
-} else {
-  stop("Could not find reconstructed tip traits in phylopars output. Try str(rp) to locate the matrix.")
+## Robustly extract reconstructed TIP traits from a phylopars fit
+get_tip_recon_phylopars <- function(rp, what = c("mean", "var")) {
+  what <- match.arg(what)
+  
+  if (is.null(rp$tree) || is.null(rp$tree$tip.label)) {
+    stop("rp$tree$tip.label not found; cannot identify tips.")
+  }
+  
+  tip_labels <- rp$tree$tip.label
+  
+  # Choose source matrix
+  mat <- switch(
+    what,
+    mean = rp$anc_recon,
+    var  = rp$anc_var
+  )
+  
+  if (is.null(mat)) {
+    stop(sprintf("Could not find rp$anc_%s in phylopars output.", what))
+  }
+  
+  # Need rownames to match tips; anc_recon in your object *does* have them
+  if (is.null(rownames(mat))) {
+    stop("Reconstruction matrix has no rownames; cannot match to tip labels.")
+  }
+  
+  # Subset/reorder to tips
+  idx <- match(tip_labels, rownames(mat))
+  
+  if (anyNA(idx)) {
+    missing <- tip_labels[is.na(idx)]
+    stop(
+      "Some tip labels were not found in reconstruction matrix rownames. ",
+      "Examples: ", paste(utils::head(missing, 10), collapse = ", ")
+    )
+  }
+  
+  mat[idx, , drop = FALSE]
 }
 
-rp_recon <- as.data.frame(rp_recon)
+## Usage:
+rp_tip_recon <- get_tip_recon_phylopars(rp, what = "mean")  # 2000 x 8
+rp_tip_var   <- get_tip_recon_phylopars(rp, what = "var")   # 2000 x 8
+
+dim(rp_tip_recon)
+head(rp_tip_recon[, 1:3])
+
+rp_recon <- as.data.frame(rp_tip_recon)
 rp_recon$species <- rownames(rp_recon)
 rp_recon <- rp_recon %>% select(species, all_of(traits))
-write_csv(rp_recon, "rphylopars_recon.csv")
+#write_csv(rp_recon, "rphylopars_recon.csv")
 
 ## ---- 5) Compare on held-out (masked) entries ----
 ## Long-form predictions for held-out cells
@@ -126,7 +177,7 @@ metrics <- preds %>%
     .groups = "drop"
   ) %>% arrange(trait)
 
-write_csv(metrics, "compare_metrics_by_trait.csv")
-write_csv(preds, "compare_predictions_long.csv")
+#write_csv(metrics, "compare_metrics_by_trait.csv")
+#rite_csv(preds, "compare_predictions_long.csv")
 
 print(metrics)
