@@ -13,6 +13,7 @@ bace_imp(
   thin = 5,
   burnin = 1000,
   runs = 10,
+  verbose = TRUE,
   ...
 )
 }
@@ -32,6 +33,8 @@ bace_imp(
 \item{burnin}{An integer specifying the number of iterations to discard as burnin. Default is 1000.}
 
 \item{runs}{An integer specifying the number of imputation iterations to perform. Default is 10.}
+
+\item{verbose}{A logical indicating whether to print progress messages. Default is TRUE.}
 
 \item{...}{Additional arguments to be passed to the underlying modeling functions.}
 }
