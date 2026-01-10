@@ -1,8 +1,8 @@
 simdata <- simBACE(
     response_type = "gaussian",
     predictor_types = c("gaussian", "binary", "multinomial4", "poisson", "gaussian", "gaussian"),
-    beta_resp = c(1, 0.7, -0.3, 0.3, 0.1, 1.2),
-    intercepts = c(0, 0.5, 0.2, 0, -0.5, 0.7, 0),
+    beta_resp = c(0.6, 0.4, -0.3, 0.3, 0.1, 0.8),
+    intercepts = c(0, 0.2, 0.2, 0, -0.5, -0.3, 0),
     phylo_signal = c(0.8, 0.5, 0.3, 0.6, 0.9, 0.4, 0.2),
     n_cases = 750,
     n_species = 200,
@@ -13,8 +13,8 @@ results <- bace_imp(
     data = simdata$data,
     ran_phylo_form = "~ 1 | species",
     phylo = simdata$tree,
-    runs = 10,
-    fixformula = "y ~ x1 + x2 + x3 + x4 + x5 + x6"
+    runs = 50,
+    fixformula = "y ~ x1 + x2 + x3 + x4 + x5"
 )
 
 
@@ -24,7 +24,7 @@ plot.bace_convergence(conv, type = "all")
 plot_convergence_summary(conv)
 plot_trace_convergence(conv)
 plot_density_convergence(conv)
-plot_bace_imputation_comparison(results, "x2")
+plot_bace_imputation_comparison(results, "x5")
 
 conv <- assess_convergence(results, method = "energy")
 print(conv)
