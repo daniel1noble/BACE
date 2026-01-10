@@ -5,10 +5,12 @@
 "_PACKAGE"
 
 #' @title .get_variables
-#' @description Function takes a formula string and identifies the variables in the formula that relate to the data
-#' @param x A string
+#' @description Function takes a formula string and identifies the variables in the formula that relate to the data. 
+#' This function properly handles variable names containing dots (.) and underscores (_), which are valid R name characters.
+#' @param x A string or formula object
 #' @param fix A logical value. If TRUE, the function returns the fixed effects variables. If FALSE, the function returns the random effects variables.
-#' @return A vector of variable names. This vector is used to subset out the 'fixed effects' and 'random effect' columns within a given dataframe. 
+#' @return A list of variable names. For fixed effects (fix=TRUE), returns list(fix = character vector). 
+#' For random effects (fix=FALSE), returns list(ran = character vector, cluster = character vector).
 #' @examples {
 #' # All should return the same three variables: y, x1, x2
 #' form <- "y ~ x1 + x2"
@@ -21,6 +23,12 @@
 #' .get_variables(form)
 #' form <- "y ~ x1 + x2 + x1*x2"
 #' .get_variables(form)
+#' 
+#' # Works with special characters in variable names
+#' form <- "my.response ~ pred_1 + pred.var_2"
+#' .get_variables(form)
+#' 
+#' # Random effects
 #' form <- "~ 1 + x1|Species"
 #' .get_variables(form, fix = FALSE)
 #' form <- "~ 1 + x1| Species"
@@ -28,20 +36,32 @@
 #' form <- "~ 1 |Species"
 #' .get_variables(form, fix = FALSE)
 #' form <- "~ 1 | Species"
+#' .get_variables(form, fix = FALSE)
+#' 
+#' # Random effects with special characters
+#' form <- "~ 1 + var.one | cluster_name"
 #' .get_variables(form, fix = FALSE)}
 #' @export
 .get_variables <- function(x, fix = TRUE) {
 
-  # helper: split into "tokens" (variable-ish strings), dropping empties
-  tokens <- function(s) {
-    out <- unlist(strsplit(s, "\\W+"))
-    out <- out[out != ""]
-    unique(out)
+  # Ensure x is a character string
+  if (inherits(x, "formula")) {
+    x <- deparse(x, width.cutoff = 500L)
+    x <- paste(x, collapse = " ")
+  }
+  
+  # Ensure we have a character string at this point
+  if (!is.character(x)) {
+    stop("Input must be a formula or character string")
   }
 
   if (fix) {
-    # For fixed effects, just return the tokens
-    return(list(fix = tokens(x)))
+    # For fixed effects, use all.vars() on the formula to get all variable names
+    # This properly handles variables with '.', '_', and other valid R name characters
+    f <- tryCatch(stats::as.formula(x), error = function(e) {
+      stop("Could not convert input to formula: ", e$message)
+    })
+    return(list(fix = all.vars(f)))
   }
 
   # For random effects, allow multiple terms:
@@ -65,11 +85,18 @@
 
     clusters <- c(clusters, rhs)
 
-    # random slope vars from LHS (drop intercept & empties)
-    lhs_vars <- tokens(lhs)
-    lhs_vars <- lhs_vars[!lhs_vars %in% c("1")]
-
-    ran_vars <- c(ran_vars, lhs_vars)
+    # random slope vars from LHS using all.vars() to handle special characters
+    # Create a temporary formula to extract variables properly
+    if (lhs != "1") {
+      temp_formula <- tryCatch(
+        stats::as.formula(paste("~", lhs)),
+        error = function(e) NULL
+      )
+      if (!is.null(temp_formula)) {
+        lhs_vars <- all.vars(temp_formula)
+        ran_vars <- c(ran_vars, lhs_vars)
+      }
+    }
   }
 
   clusters <- unique(clusters)

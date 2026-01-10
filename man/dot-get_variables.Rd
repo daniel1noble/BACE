@@ -7,15 +7,17 @@
 .get_variables(x, fix = TRUE)
 }
 \arguments{
-\item{x}{A string}
+\item{x}{A string or formula object}
 
 \item{fix}{A logical value. If TRUE, the function returns the fixed effects variables. If FALSE, the function returns the random effects variables.}
 }
 \value{
-A vector of variable names. This vector is used to subset out the 'fixed effects' and 'random effect' columns within a given dataframe.
+A list of variable names. For fixed effects (fix=TRUE), returns list(fix = character vector).
+For random effects (fix=FALSE), returns list(ran = character vector, cluster = character vector).
 }
 \description{
-Function takes a formula string and identifies the variables in the formula that relate to the data
+Function takes a formula string and identifies the variables in the formula that relate to the data.
+This function properly handles variable names containing dots (.) and underscores (_), which are valid R name characters.
 }
 \examples{
 {
@@ -30,6 +32,12 @@ form <- "y ~ x1 + x2 + x1:x2"
 .get_variables(form)
 form <- "y ~ x1 + x2 + x1*x2"
 .get_variables(form)
+
+# Works with special characters in variable names
+form <- "my.response ~ pred_1 + pred.var_2"
+.get_variables(form)
+
+# Random effects
 form <- "~ 1 + x1|Species"
 .get_variables(form, fix = FALSE)
 form <- "~ 1 + x1| Species"
@@ -37,5 +45,9 @@ form <- "~ 1 + x1| Species"
 form <- "~ 1 |Species"
 .get_variables(form, fix = FALSE)
 form <- "~ 1 | Species"
+.get_variables(form, fix = FALSE)
+
+# Random effects with special characters
+form <- "~ 1 + var.one | cluster_name"
 .get_variables(form, fix = FALSE)}
 }

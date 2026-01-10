@@ -35,6 +35,27 @@ test_that(".get_variables() handles edge cases", {
   expect_equal(result$cluster, "Species")
 })
 
+test_that(".get_variables() handles variable names with dots and underscores", {
+  # Fixed effects with dots and underscores
+  result <- .get_variables("response.var ~ predictor_1 + predictor.2", fix = TRUE)
+  expect_equal(result$fix, c("response.var", "predictor_1", "predictor.2"))
+  
+  # More complex variable names
+  result <- .get_variables("my.response_var ~ pred.one_two + pred_three.four", fix = TRUE)
+  expect_equal(result$fix, c("my.response_var", "pred.one_two", "pred_three.four"))
+  
+  # Random effects with dots and underscores
+  result <- .get_variables("~ 1 + var.one | cluster_name.group", fix = FALSE)
+  expect_equal(result$ran, c("1", "var.one"))
+  expect_equal(result$cluster, "cluster_name.group")
+  
+  # Formula object with special characters
+  formula_obj <- as.formula("resp_var.value ~ pred.one + pred_two")
+  result <- .get_variables(formula_obj, fix = TRUE)
+  expect_equal(result$fix, c("resp_var.value", "pred.one", "pred_two"))
+})
+
+
 
 # Test .get_type() function ----
 test_that(".get_type() correctly identifies binary variables", {
