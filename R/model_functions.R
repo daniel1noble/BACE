@@ -369,3 +369,239 @@
   }
   return(df_final)
 }
+
+
+#' @title .check_mcmc_diagnostics
+#' @description Function checks MCMC convergence and mixing for all parameters in MCMCglmm models
+#' @param bace_output Output from bace_imp function containing models_last_run
+#' @return A list containing diagnostic statistics and a summary data frame
+#' @details This function performs the following diagnostics:
+#' \itemize{
+#'   \item Effective Sample Size (ESS) for all parameters
+#'   \item Geweke convergence diagnostic
+#'   \item Autocorrelation at lag 1
+#'   \item Summary statistics for fixed and random effects
+#' }
+#' @export
+.check_mcmc_diagnostics <- function(bace_output) {
+  
+  if (!inherits(bace_output, "bace")) {
+    stop("Input must be a 'bace' object from bace_imp()")
+  }
+  
+  if (is.null(bace_output$models_last_run)) {
+    stop("No models found in bace_output. Make sure models were saved during imputation.")
+  }
+  
+  models <- bace_output$models_last_run
+  diagnostics <- list()
+  
+  for (var_name in names(models)) {
+    model <- models[[var_name]]
+    
+    # Extract ONLY fixed effects and variance components (exclude BLUPs)
+    # Fixed effects: First nfl columns of Sol (number of fixed effects levels)
+    n_fixed <- model$Fixed$nfl
+    fixed_effects <- model$Sol[, 1:n_fixed, drop = FALSE]
+    
+    # Random effect variance components
+    random_variances <- model$VCV
+    
+    # Combine fixed effects and variance components only
+    all_params <- cbind(fixed_effects, random_variances)
+    param_names <- colnames(all_params)
+    
+    # Initialize results for this model
+    var_diagnostics <- data.frame(
+      parameter = param_names,
+      mean = numeric(length(param_names)),
+      sd = numeric(length(param_names)),
+      ess = numeric(length(param_names)),
+      geweke_z = numeric(length(param_names)),
+      geweke_pval = numeric(length(param_names)),
+      autocorr_lag1 = numeric(length(param_names)),
+      convergence = character(length(param_names)),
+      stringsAsFactors = FALSE
+    )
+    
+    # Calculate diagnostics for each parameter
+    for (i in seq_along(param_names)) {
+      param <- all_params[, i]
+      
+      # Basic statistics
+      var_diagnostics$mean[i] <- mean(param)
+      var_diagnostics$sd[i] <- sd(param)
+      
+      # Effective Sample Size
+      var_diagnostics$ess[i] <- coda::effectiveSize(param)
+      
+      # Geweke diagnostic (tests for equality of means in first 10% and last 50% of chain)
+      geweke_result <- coda::geweke.diag(param)
+      var_diagnostics$geweke_z[i] <- geweke_result$z
+      var_diagnostics$geweke_pval[i] <- 2 * pnorm(-abs(geweke_result$z))
+      
+      # Autocorrelation at lag 1
+      acf_result <- stats::acf(param, lag.max = 1, plot = FALSE)
+      var_diagnostics$autocorr_lag1[i] <- acf_result$acf[2]
+      
+      # Convergence assessment
+      # ESS > 200 is generally considered adequate
+      # Geweke p-value > 0.05 suggests convergence
+      # Low autocorrelation (< 0.4) suggests good mixing
+      
+      ess_ok <- var_diagnostics$ess[i] > 200
+      geweke_ok <- var_diagnostics$geweke_pval[i] > 0.05
+      autocorr_ok <- abs(var_diagnostics$autocorr_lag1[i]) < 0.4
+      
+      if (ess_ok && geweke_ok && autocorr_ok) {
+        var_diagnostics$convergence[i] <- "Good"
+      } else if (ess_ok && geweke_ok) {
+        var_diagnostics$convergence[i] <- "Acceptable"
+      } else {
+        var_diagnostics$convergence[i] <- "Poor"
+      }
+    }
+    
+    # Identify fixed vs random variance components
+    # Fixed effects are the first n_fixed parameters
+    var_diagnostics$effect_type <- ifelse(
+      seq_along(param_names) <= n_fixed,
+      "Fixed",
+      "Variance"
+    )
+    
+    diagnostics[[var_name]] <- var_diagnostics
+  }
+  
+  # Create overall summary
+  all_diagnostics <- do.call(rbind, lapply(names(diagnostics), function(var) {
+    df <- diagnostics[[var]]
+    df$response_variable <- var
+    df
+  }))
+  
+  # Summary statistics
+  summary_stats <- list(
+    n_models = length(models),
+    n_parameters_total = nrow(all_diagnostics),
+    n_fixed_effects = sum(all_diagnostics$effect_type == "Fixed"),
+    n_variance_components = sum(all_diagnostics$effect_type == "Variance"),
+    convergence_summary = table(all_diagnostics$convergence),
+    mean_ess_fixed = mean(all_diagnostics$ess[all_diagnostics$effect_type == "Fixed"]),
+    mean_ess_variance = mean(all_diagnostics$ess[all_diagnostics$effect_type == "Variance"]),
+    prop_good_convergence = mean(all_diagnostics$convergence == "Good"),
+    prop_poor_convergence = mean(all_diagnostics$convergence == "Poor")
+  )
+  
+  result <- list(
+    diagnostics_by_model = diagnostics,
+    all_diagnostics = all_diagnostics,
+    summary = summary_stats
+  )
+  
+  class(result) <- c("bace_diagnostics", "list")
+  return(result)
+}
+
+
+#' @title print.bace_diagnostics
+#' @description Print method for MCMC diagnostics from bace_imp models
+#' @param x A bace_diagnostics object from .check_mcmc_diagnostics()
+#' @param ... Additional arguments (not used)
+#' @export
+print.bace_diagnostics <- function(x, ...) {
+  
+  cat("\n========================================\n")
+  cat("BACE MCMC Diagnostics Summary\n")
+  cat("========================================\n\n")
+  
+  # Overall summary
+  cat("Number of models:", x$summary$n_models, "\n")
+  cat("Total parameters:", x$summary$n_parameters_total, "\n")
+  cat("  Fixed effects:", x$summary$n_fixed_effects, "\n")
+  cat("  Variance components:", x$summary$n_variance_components, "\n\n")
+  
+  # Effective Sample Size
+  cat("Mean Effective Sample Size:\n")
+  cat(sprintf("  Fixed effects:      %.1f\n", x$summary$mean_ess_fixed))
+  cat(sprintf("  Variance components: %.1f\n", x$summary$mean_ess_variance))
+  cat("\n")
+  
+  # Convergence summary
+  cat("Convergence Assessment:\n")
+  conv_table <- x$summary$convergence_summary
+  for (status in names(conv_table)) {
+    prop <- conv_table[status] / sum(conv_table) * 100
+    cat(sprintf("  %-12s: %3d parameters (%.1f%%)\n", 
+                status, conv_table[status], prop))
+  }
+  cat("\n")
+  
+  # Overall assessment
+  if (x$summary$prop_good_convergence >= 0.8) {
+    cat("Overall: GOOD - Most parameters show good convergence\n")
+  } else if (x$summary$prop_poor_convergence <= 0.2) {
+    cat("Overall: ACCEPTABLE - Most parameters converged adequately\n")
+  } else {
+    cat("Overall: POOR - Many parameters show convergence issues\n")
+    cat("  Consider increasing nitt, adjusting priors, or checking model specification\n")
+  }
+  cat("\n")
+  
+  # Model-by-model summary
+  cat("Convergence by Response Variable:\n")
+  cat("----------------------------------------\n")
+  
+  for (var_name in names(x$diagnostics_by_model)) {
+    diag <- x$diagnostics_by_model[[var_name]]
+    
+    n_good <- sum(diag$convergence == "Good")
+    n_poor <- sum(diag$convergence == "Poor")
+    n_total <- nrow(diag)
+    
+    status_symbol <- if (n_good / n_total >= 0.8) "[OK]" else if (n_poor / n_total > 0.3) "[X]" else "[~]"
+    
+    cat(sprintf("%s %-15s: %2d/%2d parameters good\n", 
+                status_symbol, var_name, n_good, n_total))
+    
+    # Highlight poorly converged parameters
+    poor_params <- diag$parameter[diag$convergence == "Poor"]
+    if (length(poor_params) > 0) {
+      cat(sprintf("    Poor convergence: %s\n", 
+                  paste(poor_params, collapse=", ")))
+    }
+  }
+  
+  cat("========================================\n\n")
+  
+  invisible(x)
+}
+
+
+#' @title summary.bace_diagnostics
+#' @description Detailed summary method for MCMC diagnostics
+#' @param object A bace_diagnostics object from .check_mcmc_diagnostics()
+#' @param ... Additional arguments (not used)
+#' @export
+summary.bace_diagnostics <- function(object, ...) {
+  
+  cat("\n========================================\n")
+  cat("Detailed MCMC Diagnostics\n")
+  cat("========================================\n\n")
+  
+  for (var_name in names(object$diagnostics_by_model)) {
+    cat("\nResponse Variable:", var_name, "\n")
+    cat("----------------------------------------\n")
+    
+    diag <- object$diagnostics_by_model[[var_name]]
+    
+    # Print table
+    print(diag[, c("parameter", "effect_type", "mean", "sd", "ess", 
+                   "geweke_pval", "autocorr_lag1", "convergence")], 
+          row.names = FALSE, digits = 3)
+    
+    cat("\n")
+  }
+  
+  invisible(object)
+}

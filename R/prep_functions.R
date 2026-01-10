@@ -1,5 +1,6 @@
-#' @importFrom stats pnorm predict runif sd setNames
+#' @importFrom stats pnorm predict runif sd setNames acf
 #' @importFrom utils combn head
+#' @importFrom coda effectiveSize geweke.diag
 #' @keywords internal
 "_PACKAGE"
 
@@ -153,19 +154,19 @@
 				
 				if(any(is.na(predictor_data[, p]))){
 					if(types[[pred_name]] %in% c("gaussian")){
-						predictor_data[is.na(predictor_data[, p]), p] <- mean(predictor_data[, p], na.rm = TRUE)
-					}
-					
-					if(types[[pred_name]] %in% c("poisson")){
-						predictor_data[is.na(predictor_data[, p]), p] <- round(mean(predictor_data[, p], na.rm = TRUE))
-					}
+					predictor_data[is.na(predictor_data[, p]), p] <- mean(as.numeric(predictor_data[, p]), na.rm = TRUE)
+				}
+				
+				if(types[[pred_name]] %in% c("poisson")){
+					predictor_data[is.na(predictor_data[, p]), p] <- round(mean(as.numeric(predictor_data[, p]), na.rm = TRUE))
+				}
 
 					if(types[[pred_name]] %in% c("categorical", "threshold")){
 						obs_values <- predictor_data[!is.na(predictor_data[, p]), p]
 						predictor_data[is.na(predictor_data[, p]), p] <- sample(obs_values, sum(is.na(predictor_data[, p])), replace = TRUE)
 					}
 				}
-			}
+		}
 			
 			# Create the data frame for the model fitting
 			  data_i <- data.frame(data[, response_var],
@@ -203,7 +204,7 @@ return(list = (list(data_i,
 .extract_gaussian_attrs <- function(data, types) {
   out <- lapply(names(types), function(v) {
     if (!is.null(types[[v]]) && types[[v]] == "gaussian") {
-      x <- data[[v]]
+      x <- as.numeric(data[[v]])
       list(
         mean = mean(x, na.rm = TRUE),
         sd   = sd(x, na.rm = TRUE)
