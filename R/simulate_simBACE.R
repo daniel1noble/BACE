@@ -394,6 +394,9 @@ sim_bace <- function(
   # Store liabilities for categorical variables (needed for subsequent dependencies)
   liabilities <- list()
 
+  # Store linear model components for each variable
+  linear_models <- list()
+
   # Simulate predictors in dependency order
   for (pred_idx in sim_order) {
     pred_type <- predictor_types[pred_idx]
@@ -412,6 +415,10 @@ sim_bace <- function(
     # Build linear predictor
     if (is.null(pred_formula)) {
       # Independent predictor (no dependencies)
+      # Create intercept-only design matrix
+      X <- matrix(1, nrow = n_cases, ncol = 1)
+      colnames(X) <- "(Intercept)"
+      beta_vec <- c(fixeff$intercepts[pred_name])
       linear_pred <- rep(fixeff$intercepts[pred_name], n_cases)
     } else {
       # Dependent predictor
@@ -536,11 +543,47 @@ sim_bace <- function(
       }
     }
 
-    # Normalize liability (mean = 0, sd = 1)
-    linear_pred <- scale(linear_pred, center = TRUE, scale = TRUE)[, 1]
+    # Normalize liability
+    # For categorical variables: mean=0, sd=1 (needed for identification)
+    # For gaussian/poisson: only center to mean=0 (preserve variance for parameter recovery)
+    if (pred_type %in% c("binary") || grepl("^threshold", pred_type) || grepl("^multinomial", pred_type)) {
+      # Categorical: normalize to sd=1 (standard for latent variable models)
+      linear_pred <- scale(linear_pred, center = TRUE, scale = TRUE)[, 1]
+    } else {
+      # Gaussian/Poisson: only center, preserve variance
+      linear_pred <- scale(linear_pred, center = TRUE, scale = FALSE)[, 1]
+    }
 
     # Store liability
     liabilities[[pred_name]] <- linear_pred
+
+    # Determine link function for this variable type
+    link_function <- if (pred_type == "gaussian") {
+      "identity"
+    } else if (pred_type == "poisson") {
+      "log"
+    } else if (pred_type == "binary" || grepl("^threshold", pred_type) || grepl("^multinomial", pred_type)) {
+      "probit"  # Using probit link for liability threshold models
+    } else {
+      "identity"
+    }
+
+    # Store linear model components
+    # Note: For multinomial variables (K>2), the full model involves K-1 latent
+    # liabilities stored as a matrix. Currently we only store scalar model components.
+    # For multinomial predictors, only the structural information is stored.
+    linear_models[[pred_name]] <- list(
+      link = link_function,
+      X = X,
+      beta = beta_vec,
+      Z = Z,
+      u = u_phylo[[pred_idx]] + u_species[[pred_idx]],  # Combined random effects
+      e = residuals[[pred_idx]],  # Residual error
+      note = if (grepl("^multinomial", pred_type)) {
+        paste0("Multinomial variable with K=", gsub("multinomial", "", pred_type),
+               " requires K-1 latent liabilities (matrix structure)")
+      } else NULL
+    )
 
     # Convert liability to appropriate scale/type
     covars[[pred_name]] <- .liability_to_categories(linear_pred, pred_type, pred_name)
@@ -671,10 +714,45 @@ sim_bace <- function(
   }
 
   # Normalize response liability
-  linear_pred_resp <- scale(linear_pred_resp, center = TRUE, scale = TRUE)[, 1]
+  # For categorical: mean=0, sd=1 (needed for identification)
+  # For gaussian/poisson: only center to mean=0 (preserve variance for parameter recovery)
+  if (response_type %in% c("binary") || grepl("^threshold", response_type) || grepl("^multinomial", response_type)) {
+    # Categorical: normalize to sd=1 (standard for latent variable models)
+    linear_pred_resp <- scale(linear_pred_resp, center = TRUE, scale = TRUE)[, 1]
+  } else {
+    # Gaussian/Poisson: only center, preserve variance
+    linear_pred_resp <- scale(linear_pred_resp, center = TRUE, scale = FALSE)[, 1]
+  }
 
   # Store response liability
   liabilities[[resp_name]] <- linear_pred_resp
+
+  # Determine link function for response
+  link_function_resp <- if (response_type == "gaussian") {
+    "identity"
+  } else if (response_type == "poisson") {
+    "log"
+  } else if (response_type == "binary" || grepl("^threshold", response_type) || grepl("^multinomial", response_type)) {
+    "probit"  # Using probit link for liability threshold models
+  } else {
+    "identity"
+  }
+
+  # Store linear model components for response
+  # Note: For multinomial responses (K>2), the full model involves K-1 latent
+  # liabilities stored as a matrix. Currently we only store scalar model components.
+  linear_models[[resp_name]] <- list(
+    link = link_function_resp,
+    X = X_resp,
+    beta = beta_vec_resp,
+    Z = Z,
+    u = u_phylo[[1]] + u_species[[1]],  # Combined random effects
+    e = residuals[[1]],  # Residual error
+    note = if (grepl("^multinomial", response_type)) {
+      paste0("Multinomial variable with K=", gsub("multinomial", "", response_type),
+             " requires K-1 latent liabilities (matrix structure)")
+    } else NULL
+  )
 
   # Convert liability to appropriate scale/type
   response <- .liability_to_categories(linear_pred_resp, response_type, resp_name)
@@ -739,7 +817,8 @@ sim_bace <- function(
     data = out_data,
     tree = tree,
     params = params,
-    random_effects = random_effects
+    random_effects = random_effects,
+    linear_models = linear_models
   )
 
   class(output) <- c("sim_bace", "list")
@@ -882,4 +961,3 @@ print_sim_bace_summary <- function(sim_output) {
   print.sim_bace(sim_output)
   invisible(sim_output)
 }
-
