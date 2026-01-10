@@ -371,6 +371,77 @@
 }
 
 
+#' @title .pred_cont
+#' @description Posterior mean and posterior SD of fitted values for a Gaussian (identity-link) MCMCglmm model
+#' @param model A MCMCglmm model object
+#' @return A data frame with two columns: post_mean and post_sd (row per observation used in the fit)
+#' @export
+.pred_cont <- function(model) {
+  
+  # 1. Need X and Sol (and Z if you want conditional fitted values)
+  if (is.null(model$X))   stop("model$X is missing: fit with saveX=TRUE.")
+  if (is.null(model$Sol)) stop("model$Sol is missing.")
+  
+  X   <- as.matrix(model$X)
+  Sol <- as.matrix(model$Sol)
+  
+  # Use Z if present (pr=TRUE typically required to have RE columns in Sol)
+  if (!is.null(model$Z)) {
+    W <- cbind(X, as.matrix(model$Z))
+  } else {
+    W <- X
+  }
+  
+  # 2. Align columns (most robust)
+  if (!is.null(colnames(W)) && !is.null(colnames(Sol))) {
+    common <- intersect(colnames(W), colnames(Sol))
+    if (length(common) == 0) {
+      stop("No matching coefficient names between design matrix (X/Z) and Sol.")
+    }
+    W   <- W[, common, drop = FALSE]
+    Sol <- Sol[, common, drop = FALSE]
+  } else {
+    # Fallback: assume ordering matches for first min columns
+    p <- min(ncol(W), ncol(Sol))
+    W   <- W[, seq_len(p), drop = FALSE]
+    Sol <- Sol[, seq_len(p), drop = FALSE]
+  }
+  
+  # 4. eta draws: [n_iter x n_rows_in_model_matrix]
+  eta <- Sol %*% t(W)
+  
+  out <- data.frame(
+    post_mean = as.numeric(colMeans(eta)),
+    post_sd   = as.numeric(apply(eta, 2, sd))
+  )
+  
+  rownames(out) <- paste0("Obs_", seq_len(nrow(out)))
+  return(out)
+}
+
+
+#' @title .pred_count
+#' @description Posterior mean and posterior SD of fitted values for a Poisson (log-link) MCMCglmm model
+#' @param model A MCMCglmm model object
+#' @return A data frame with two columns: post_mean and post_sd (row per observation)
+#' @export
+.pred_count <- function(model) {
+  
+  if (is.null(model$Liab)) stop("model$Liab is missing.")
+  liab <- as.matrix(model$Liab)
+  
+  mu <- exp(liab)
+  
+  out <- data.frame(
+    post_mean = colMeans(mu),
+    post_sd   = apply(mu, 2, sd)
+  )
+  
+  rownames(out) <- paste0("Obs_", seq_len(nrow(out)))
+  return(round(out, 4))
+}
+
+
 #' @title .check_mcmc_diagnostics
 #' @description Function checks MCMC convergence and mixing for all parameters in MCMCglmm models
 #' @param bace_output Output from bace_imp function containing models_last_run
