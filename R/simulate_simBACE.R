@@ -110,7 +110,7 @@
 
 # TODO: Make sure to check all variable types before exporting into the final object
 
-sim_bace <- function(
+simBACE <- function(
     response_type = "gaussian",
     predictor_types = c("gaussian", "gaussian"),
     var_names = NULL,
