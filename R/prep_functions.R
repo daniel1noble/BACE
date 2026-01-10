@@ -250,7 +250,7 @@ return(list = (list(data_i,
 #' @param df A data frame containing the dataset.
 #' @param store_levels A logical indicating whether to store levels for factor and character variables. Default is TRUE.
 #' @param max_levels_store An integer specifying the maximum number of levels to store. Default is 200.
-#' @return A data frame summarizing the types and characteristics of each variable.
+#' @return A data frame summarizing the types and characteristics of each variable, the number of unique levels and whether it has missing data. 
 #' @examples \dontrun{
 #' data <- data.frame(y = c(1,2,3,NA,5), x1 = factor(c("A","B","A","B","A")), x2 = c(10,20,30,NA,50))
 #' summarise_var_types(data)

@@ -14,7 +14,7 @@
 \item{max_levels_store}{An integer specifying the maximum number of levels to store. Default is 200.}
 }
 \value{
-A data frame summarizing the types and characteristics of each variable.
+A data frame summarizing the types and characteristics of each variable, the number of unique levels and whether it has missing data.
 }
 \description{
 Function summarizes the types and characteristics of variables in a dataframe.
