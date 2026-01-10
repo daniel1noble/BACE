@@ -10,10 +10,13 @@ test_that(".get_variables() extracts fixed effects correctly", {
   expect_equal(.get_variables("y ~ x1_1 + x2_2", fix = TRUE)$fix, c("y", "x1_1", "x2_2"))
   
   # Formula with interaction
-  expect_equal(.get_variables("y ~ x1 * x2", fix = TRUE)$fix, c("y", "x1", "x2"))
+  expect_equal(.get_variables("y ~ x1.1 * x2.1", fix = TRUE)$fix, c("y", "x1.1", "x2.1"))
+  expect_equal(.get_variables("y ~ x1_1 * x2_2", fix = TRUE)$fix, c("y", "x1_1", "x2_2"))
   
   # Formula with explicit interaction
   expect_equal(.get_variables("y ~ x1 + x2 + x1:x2", fix = TRUE)$fix, c("y", "x1", "x2"))
+  expect_equal(.get_variables("y ~ x1.1 + x2.2 + x1.1:x2.2", fix = TRUE)$fix, c("y", "x1.1", "x2.2"))
+  expect_equal(.get_variables("y ~ x1_1 + x2_2 + x1_1:x2_2", fix = TRUE)$fix, c("y", "x1_1", "x2_2"))
 })
 
 test_that(".get_variables() extracts random effects correctly", {
