@@ -1,4 +1,4 @@
-simdata <- simBACE(
+simdata <- sim_bace(
     response_type = "gaussian",
     predictor_types = c("gaussian", "binary", "multinomial4", "poisson", "gaussian", "gaussian"),
     beta_resp = c(0.6, 0.4, -0.3, 0.3, 0.1, 0.8),
@@ -8,7 +8,6 @@ simdata <- simBACE(
     n_species = 200,
     missingness = c(0.5, 0.3, 0, 0.1, 0.2, 0.2, 0)
 )
-simdata$data$x3 <- as.factor(simdata$data$x3)
 results <- bace_imp(
     data = simdata$data,
     ran_phylo_form = "~ 1 | species",
