@@ -1,8 +1,8 @@
 ---
 title: "BACE: Bayesian Phylogenetic and Correlated Trait Imputation"
 date: "`r Sys.Date()`"
+author: "Shinichi Nakagawa, Szymek Drobniak, Daniel Noble"
 bibliography: ../bib/BACE.bib
-csl: ../bib/mee.csl
 format:
   html:
     toc: true
