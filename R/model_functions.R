@@ -14,7 +14,7 @@
 
 .model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 6000, thin = 5, burnin = 1000) {
 
-	# Create sparse matrix of phylogeny
+	# Create sparse matrix of phylogeny. Make sure to include all nodes because the algorithm used for nodes = "ALL" is more stable and orders of magnitude faster. Very important for large trees.
 		   A  <- MCMCglmm::inverseA(tree, nodes = "ALL")$Ainv
 	
 	# Name of the column in the data corresponding to the phylogeny
