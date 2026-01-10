@@ -1,9 +1,10 @@
 #' @title sim_bace: Comprehensive simulator of mock data for BACE
-#' @description sim_bace is a function to simulate mock data for BACE.
-#'   The function simulates data with defined phylogenetic structure and
-#'   with multiple dependencies on additional covariates. The data can be
-#'   gaussian, binary, poissonian, multinomial (unordered categories),
-#'   or ordinal (ordered categories coded as integers 1,2,3,...).
+#' @description sim_bace is a function to simulate mock data for BACE with
+#'   deliberate control over all aspects of data generation. The function
+#'   simulates data with phylogenetic structure, between-species variance,
+#'   and complex dependencies between variables. All response types are
+#'   simulated on the liability scale (normalized, mean=0) and then
+#'   transformed as appropriate.
 #' @author Szymek Drobniak
 #' @author Daniel Noble
 #' @author Shinichi Nakagawa
@@ -13,212 +14,217 @@
 #' @importFrom stringi stri_rand_strings
 
 # =============================================================================
-# MAIN SIMULATION FUNCTION
+# MAIN SIMULATION FUNCTION (REWRITTEN)
 # =============================================================================
 
-#' @param response_type Type of response variable: "gaussian", "poisson",
-#'   "binary", "multinomialK" (unordered categories), or "thresholdK"
-#'   (ordered categories coded as integers 1,2,...,K; numerically
-#'   equivalent to an ordinal variable) where K is number of categories. The simulation
-#'   function generates ordered categorical variables (threshold & binary)
-#'   with integers for category names for simplicity, but of course real data
-#'   can come with any character-based coding - refer to the BACE documentation
-#'   for more details on how categories are used (e.g., reference level 
-#'   in multinomial logit models) and how category ordering is inferred
-#'   (for ordinal/threshold-type data).
-#' @param predictor_types Character vector specifying type of each predictor
-#' @param var_names Character vector of variable names (response + predictors).
-#'   If NULL, default names (y, x1, x2, ...) are generated
-#' @param beta_matrix Square matrix of regression coefficients. Entry i,j-th
-#'   indicates effect of predictor j on predictor i. If NULL, a default
-#'   sparse matrix is generated
-#' @param beta_resp Regression coefficients for response on predictors. Can be:
-#'   - A numeric vector of length n_predictors (single values spread automatically
-#'     across levels for multinomial predictors)
-#'   - A named list where each element is either a single value OR a vector of
-#'     K-1 coefficients for multinomialK predictors (direct specification)
-#'   Example: list(x1 = 0.5, x2 = c(-0.3, 0.2, 0.5), x3 = 0.1) for a multinomial4 x2
-#' @param beta_sparsity Proportion of coefficients in beta_matrix to set to zero (default 0.7)
-#' @param ix_matrix Interaction matrix (lower triangular) defining interactions.
-#'   Rows/columns correspond to predictors (x1, x2, ...) with response (y) as last row.
-#'   Integer codes indicate which variables interact: variables sharing the same
-#'   digit in a row will interact. E.g., for row (12, 1, 2, 0):
-#'   - x1 has codes \{1,2\}, x2 has \{1\}, x3 has \{2\}
-#'   - x1:x2 (share code 1), x1:x3 (share code 2)
-#'   Multi-digit numbers encode multiple codes (12 = codes 1 and 2).
-#' @param beta_ix Interaction coefficients. Either NULL (random generation) or
-#'   a nested named list: list(y = list("x1:x2" = 0.3, "x1:x3" = -0.2))
-#' @param intercepts Named list with 'predictors' (vector) and 'response' (scalar)
+#' @param response_type Type of response variable: "gaussian", "poisson" (integer count),
+#'   "binary", "thresholdK" (ordered factor with K categories), or "multinomialK"
+#'   (unordered factor with K categories), where K is number of categories (e.g., "threshold3")
+#' @param predictor_types Character vector specifying type of each predictor.
+#'   Options: "gaussian", "poisson", "binary", "thresholdK", "multinomialK"
+#' @param n_cases Total number of observations (default 200)
+#' @param n_species Number of species for tree simulation (default 75)
 #' @param birth Birth rate for phylogenetic tree simulation (default 0.8)
 #' @param death Death rate for phylogenetic tree simulation (default 0.4)
-#' @param phylo_signal Numeric vector of phylogenetic signals for response and
-#'   each predictor. Values between 0 and 1 (default 0 = no phylogenetic signal)
-#' @param n_cases Total number of observations (default 200)
-#' @param n_species Number of species on the tree (default 75)
-#' @param missingness Numeric vector indicating proportion of missing values
-#'   for response and each predictor (default all 0s = no missing data)
-#' @param sigmas Named list of variance components:
-#'   - sigma_species: variances for non-phylogenetic species effects
-#'   - sigma_residual: residual variances
-#'   Each element is a vector for response + predictors
-#' @param rr Logical, if TRUE allow random slopes (default FALSE)
-#' @param rr_form Named list specifying random slopes. Each element is named
-#'   by random effect and contains character vector of covariate names
+#' @param missingness Numeric vector of missingness proportions for each variable
+#'   (response + predictors). 0 = no missing data. If NULL, defaults to 0 for all.
+#'   Example: c(0, 0.1, 0, 0.05) for 0% missing in y, 10% in x1, 0% in x2, 5% in x3
+#' @param var_names Character vector of variable names (response + predictors).
+#'   If NULL, defaults to c("y", "x1", "x2", ...)
+#' @param random_formula Formula specifying random effects structure.
+#'   Options: "~phylo" (default - phylogenetic random effect only),
+#'   "~species" (non-phylogenetic between-species variance only),
+#'   "~phylo+species" (both phylogenetic and non-phylogenetic species effects).
+#'   Can also be a formula object.
+#' @param rr Logical, whether to include random slopes for numerical/integer
+#'   (gaussian or poisson) predictors (default FALSE)
+#' @param rr_form List specifying which predictors have random slopes for each
+#'   random effect. Format: list(raneffect = c("predictor1", "predictor2")).
+#'   Example: list(phylo = c("x1", "x2"), species = c("x4")).
+#'   Only used if rr = TRUE.
+#' @param raneff Output from make_raneff() function defining random effect
+#'   variance components. If NULL, auto-generated with default parameters
+#'   (0% phylo, 30% species, remainder residual)
+#' @param fixeff Output from make_fixeff() function defining fixed effect
+#'   structure (formulas, betas, interactions, intercepts). If NULL,
+#'   auto-generated based on sparsity parameter with weak to moderate effects.
+#' @param sparsity For auto-generation only: proportion of potential dependencies
+#'   to set to zero (default 0.7 = sparse dependencies)
 #'
 #' @return Named list containing:
-#'   - data: data.frame with simulated data
-#'   - tree: phylogenetic tree
-#'   - params: list of simulation parameters used
-#'   - random_effects: list of simulated random effect coefficients
+#'   - data: data.frame with simulated data (species, response, predictors)
+#'   - tree: phylogenetic tree (ape phylo object)
+#'   - params: list of all simulation parameters used
+#'   - random_effects: list of simulated random effect values
 #'
 #' @examples
-#' # Basic gaussian simulation
+#' # Basic gaussian simulation with defaults
 #' sim <- sim_bace(
 #'   response_type = "gaussian",
-#'   predictor_types = c("gaussian", "gaussian", "binary"),
+#'   predictor_types = c("gaussian", "gaussian"),
 #'   n_cases = 100,
 #'   n_species = 30
 #' )
 #'
-#' # With phylogenetic signal and random slopes
-#' sim <- sim_bace(
-#'   response_type = "poisson",
-#'   predictor_types = c("gaussian", "binary"),
-#'   phylo_signal = c(0.5, 0.3, 0.1),
-#'   rr = TRUE,
-#'   rr_form = list(species = c("x1"))
+#' # Custom fixed and random effects
+#' my_raneff <- make_raneff(
+#'   var_names = c("y", "x1", "x2"),
+#'   phylo_frac = c(0.5, 0.3, 0.1),
+#'   species_frac = c(0.2, 0.3, 0.4)
 #' )
 #'
-#' # With interaction terms
-#' # ix_matrix encoding: rows/cols are x1, x2, x3, y
-#' # Row 4 (y): x1 and x2 share code '1' -> x1:x2 interaction
-#' # Row 4 (y): x1 (code 12) and x3 (code 2) share '2' -> x1:x3 interaction
-#' ix_mat <- matrix(c(
-#'   0, 0, 0, 0,
-#'   0, 0, 0, 0,
-#'   0, 0, 0, 0,
-#'   12, 1, 2, 0
-#' ), nrow = 4, byrow = TRUE)
+#' my_fixeff <- make_fixeff(
+#'   var_names = c("y", "x1", "x2"),
+#'   predictor_types = c("gaussian", "gaussian"),
+#'   formulas = list(y ~ x1 + x2, x2 ~ x1),
+#'   betas = list(y = c(0.5, 0.3), x2 = 0.4)
+#' )
+#'
+#' sim <- sim_bace(
+#'   response_type = "gaussian",
+#'   predictor_types = c("gaussian", "gaussian"),
+#'   raneff = my_raneff,
+#'   fixeff = my_fixeff,
+#'   n_cases = 200,
+#'   n_species = 50
+#' )
+#'
+#' # With interactions
+#' my_fixeff_ix <- make_fixeff(
+#'   var_names = c("y", "x1", "x2", "x3"),
+#'   predictor_types = c("gaussian", "gaussian", "gaussian"),
+#'   formulas = list(y ~ x1 + x2 + x3),
+#'   betas = list(y = c(0.5, 0.3, 0.2)),
+#'   interactions = list(
+#'     formulas = list(y ~ x1:x2 + x1:x3),
+#'     strengths = list(y = c("x1:x2" = 0.5, "x1:x3" = 1.0))
+#'   )
+#' )
+#'
 #' sim <- sim_bace(
 #'   response_type = "gaussian",
 #'   predictor_types = c("gaussian", "gaussian", "gaussian"),
-#'   ix_matrix = ix_mat,
+#'   fixeff = my_fixeff_ix,
 #'   n_cases = 200
+#' )
+#'
+#' # Mixed variable types with random slopes
+#' sim <- sim_bace(
+#'   response_type = "poisson",
+#'   predictor_types = c("gaussian", "binary", "threshold3"),
+#'   random_formula = "~phylo+species",
+#'   rr = TRUE,
+#'   rr_form = list(phylo = c("x1"), species = c("x1")),
+#'   n_cases = 300,
+#'   n_species = 100
 #' )
 #'
 #' @export
 
-
 sim_bace <- function(
     response_type = "gaussian",
     predictor_types = c("gaussian", "gaussian"),
-    var_names = NULL,
-    beta_matrix = NULL,
-    beta_resp = NULL,
-    beta_sparsity = 0.7,
-    ix_matrix = NULL,
-    beta_ix = NULL,
-    intercepts = NULL,
-    birth = 0.8,
-    death = 0.4,
-    phylo_signal = NULL,
     n_cases = 200,
     n_species = 75,
+    birth = 0.8,
+    death = 0.4,
     missingness = NULL,
-    sigmas = NULL,
+    var_names = NULL,
+    random_formula = "~phylo",
     rr = FALSE,
-    rr_form = NULL) {
+    rr_form = NULL,
+    raneff = NULL,
+    fixeff = NULL,
+    sparsity = 0.7) {
 
-  
   # -------------------------------------------------------------------------
   # SETUP AND VALIDATION
   # -------------------------------------------------------------------------
 
   n_predictors <- length(predictor_types)
-  n_vars <- n_predictors + 1 # response + predictors
+  n_vars <- n_predictors + 1  # response + predictors
 
   # Generate default variable names if not provided
   if (is.null(var_names)) {
     var_names <- var_name_gen(n_predictors)
+    message("Generated variable names: ", paste(var_names, collapse = ", "))
   }
   if (length(var_names) != n_vars) {
     stop("var_names must have length equal to number of predictors + 1 (response)")
   }
 
-  # Generate default beta matrix if not provided
-  if (is.null(beta_matrix)) {
-    beta_matrix <- generate_default_beta_matrix(n_predictors, sparsity = beta_sparsity)
-    message("Generated default beta_matrix with pre-set sparsity")
-  }
-  if (!is.matrix(beta_matrix) || nrow(beta_matrix) != n_predictors ||
-    ncol(beta_matrix) != n_predictors) {
-    stop("beta_matrix must be a square matrix with dimensions equal to n_predictors")
-  }
+  # Parse random effect structure
+  random_structure <- .parse_random_formula(random_formula)
 
-  # Name beta_matrix rows and columns according to predictor names
-  predictor_names <- var_names[-1]  # Exclude response name
-  rownames(beta_matrix) <- predictor_names
-  colnames(beta_matrix) <- predictor_names
-
-  # Generate default beta_resp if not provided
-  if (is.null(beta_resp)) {
-    beta_resp <- runif(n_predictors, -0.5, 0.5)
-    names(beta_resp) <- predictor_names
-    message("Generated default beta_resp: ", paste(round(beta_resp, 3), collapse = ", "))
-  }
-
-  # Setup intercepts
-  if (is.null(intercepts)) {
-    intercepts <- list(
-      predictors = rep(0, n_predictors),
-      response = 0
+  # Auto-generate raneff if not provided
+  if (is.null(raneff)) {
+    # First create basic raneff without random slopes
+    phylo_frac_vals <- if (random_structure$has_phylo) rep(0, n_vars) else rep(0, n_vars)
+    species_frac_vals <- if (random_structure$has_species) rep(0.3, n_vars) else rep(0, n_vars)
+    
+    raneff <- make_raneff(
+      var_names = var_names,
+      phylo_frac = phylo_frac_vals,
+      species_frac = species_frac_vals
     )
-  } else if (is.numeric(intercepts) && !is.list(intercepts)) {
-    # Convert numeric vector to list format
-    # Expect: c(response_intercept, predictor1_intercept, predictor2_intercept, ...)
-    if (length(intercepts) != n_vars) {
-      stop("intercepts vector must have length equal to n_vars (response + predictors)")
+    
+    # Now add random slope variances if needed
+    if (rr && !is.null(rr_form)) {
+      rr_var_list <- list()
+      for (re_name in names(rr_form)) {
+        if (re_name %in% c("phylo", "species") && 
+            ((re_name == "phylo" && random_structure$has_phylo) || 
+             (re_name == "species" && random_structure$has_species))) {
+          # Set random slope variance to 0.25 * mean random intercept variance
+          re_vars <- if (re_name == "phylo") raneff$phylo_var else raneff$species_var
+          mean_var <- mean(re_vars[re_vars > 0])
+          if (is.na(mean_var) || mean_var == 0) mean_var <- 0.3 * 0.25  # Default
+          
+          rr_var_list[[re_name]] <- setNames(
+            rep(0.25 * mean_var, length(rr_form[[re_name]])),
+            rr_form[[re_name]]
+          )
+        }
+      }
+      if (length(rr_var_list) > 0) {
+        raneff$rr_var <- rr_var_list
+      }
     }
-    intercepts <- list(
-      response = intercepts[1],
-      predictors = intercepts[-1]
-    )
-    message("Converted intercepts vector to list format")
-  } else if (is.list(intercepts)) {
-    # Validate list structure
-    if (!all(c("response", "predictors") %in% names(intercepts))) {
-      stop("intercepts list must have 'response' and 'predictors' elements")
-    }
-    if (length(intercepts$predictors) != n_predictors) {
-      stop("intercepts$predictors must have length equal to n_predictors")
-    }
-   }
+  }
 
-  # Setup phylogenetic signal (default: no signal)
-  if (is.null(phylo_signal)) {
-    phylo_signal <- rep(0, n_vars)
+  # Validate raneff structure
+  if (!inherits(raneff, "raneff")) {
+    stop("raneff must be output from make_raneff() function")
   }
-  if (length(phylo_signal) != n_vars) {
-    stop("phylo_signal must have length equal to n_vars (response + predictors)")
+  if (!identical(raneff$var_names, var_names)) {
+    stop("raneff$var_names does not match var_names")
   }
-  if (any(phylo_signal < 0) || any(phylo_signal >= 1)) {
-    stop("phylo_signal values must be in [0, 1)")
+
+  # Auto-generate fixeff if not provided
+  if (is.null(fixeff)) {
+    fixeff <- make_fixeff(
+      var_names = var_names,
+      predictor_types = predictor_types,
+      sparsity = sparsity
+    )
+  }
+
+  # Validate fixeff structure
+  if (!inherits(fixeff, "fixeff")) {
+    stop("fixeff must be output from make_fixeff() function")
+  }
+  if (!identical(fixeff$var_names, var_names)) {
+    stop("fixeff$var_names does not match var_names")
   }
 
   # Setup missingness (default: no missing data)
   if (is.null(missingness)) {
     missingness <- rep(0, n_vars)
-  }
-  if (length(missingness) != n_vars) {
+    names(missingness) <- var_names
+  } else if (length(missingness) != n_vars) {
     stop("missingness must have length equal to n_vars (response + predictors)")
-  }
-
-  # Setup variance components (default: all random effect SD = 1)
-  if (is.null(sigmas)) {
-    sigmas <- list(
-      sigma_species = rep(1, n_vars),
-      sigma_residual = rep(1, n_vars)
-    )
+  } else {
+    names(missingness) <- var_names
   }
 
   # Validate random slopes specification
@@ -226,44 +232,23 @@ sim_bace <- function(
     warning("rr=TRUE but rr_form not specified. No random slopes will be generated.")
     rr <- FALSE
   }
-
-  # -------------------------------------------------------------------------
-  # PARSE INTERACTION MATRIX
-  # -------------------------------------------------------------------------
   
-  # ix_matrix should be (n_predictors + 1) x (n_predictors + 1)
-  # with predictors first (x1, x2, ...) and response (y) last
-  ix_var_names <- c(predictor_names, var_names[1])  # x1, x2, ..., y
-  parsed_interactions <- NULL
-  ix_betas <- NULL
-  
-  if (!is.null(ix_matrix)) {
-    # Validate dimensions
-    expected_dim <- n_vars
-    if (!is.matrix(ix_matrix) || nrow(ix_matrix) != expected_dim || 
-        ncol(ix_matrix) != expected_dim) {
-      stop("ix_matrix must be a square matrix with dimensions ", expected_dim, 
-           " (n_predictors + 1 for response)")
-    }
-    
-    # Name the matrix for clarity
-    rownames(ix_matrix) <- ix_var_names
-    colnames(ix_matrix) <- ix_var_names
-    
-    # Parse interactions
-    parsed_interactions <- parse_ix_matrix(ix_matrix, ix_var_names)
-    
-    # Generate or validate interaction coefficients
-    ix_betas <- generate_ix_betas(parsed_interactions, beta_ix)
-    
-    # Report parsed interactions
-    has_ix <- sapply(parsed_interactions, function(x) length(x) > 0)
-    if (any(has_ix)) {
-      message("Interaction terms detected:")
-      for (var_name in names(parsed_interactions)[has_ix]) {
-        ix_names <- names(parsed_interactions[[var_name]])
-        message("  ", var_name, ": ", paste(ix_names, collapse = ", "))
+  # Validate rr_form against random_structure
+  if (rr && !is.null(rr_form)) {
+    for (re_name in names(rr_form)) {
+      if (re_name == "phylo" && !random_structure$has_phylo) {
+        warning("rr_form includes 'phylo' but random_formula does not. Ignoring phylo random slopes.")
+        rr_form[[re_name]] <- NULL
       }
+      if (re_name == "species" && !random_structure$has_species) {
+        warning("rr_form includes 'species' but random_formula does not. Ignoring species random slopes.")
+        rr_form[[re_name]] <- NULL
+      }
+    }
+    # Remove empty elements
+    rr_form <- rr_form[sapply(rr_form, length) > 0]
+    if (length(rr_form) == 0) {
+      rr <- FALSE
     }
   }
 
@@ -277,87 +262,15 @@ sim_bace <- function(
   species_list <- taxa$species
   n_species_actual <- length(species_list)
 
-  # Phylogenetic correlation matrix
-  cor_phylo <- ape::vcv(tree, corr = TRUE)
-
-  # -------------------------------------------------------------------------
-  # CALCULATE VARIANCE COMPONENTS
-  # -------------------------------------------------------------------------
-
-  sigma2_species <- sigmas$sigma_species^2
-  sigma2_residual <- sigmas$sigma_residual^2
-
-  # Calculate phylogenetic variance from heritability
-  # phylo_signal = sigma2_phylo / (sigma2_phylo + sigma2_species + sigma2_residual)
-  sigma2_phylo <- (phylo_signal * (sigma2_species + sigma2_residual)) /
-    pmax(1 - phylo_signal, 1e-6)
-
-  # -------------------------------------------------------------------------
-  # SAMPLE RANDOM EFFECTS
-  # -------------------------------------------------------------------------
-
-  # Species random effects (non-phylogenetic)
-  u_species <- lapply(sigma2_species, function(s2) {
-    sample_random_effects(s2, n_species_actual, cor_matrix = NULL)
-  })
-  names(u_species) <- var_names
-
-  # Phylogenetic random effects
-  u_phylo <- lapply(sigma2_phylo, function(s2) {
-    if (s2 > 0) {
-      sample_random_effects(s2, n_species_actual, cor_matrix = cor_phylo)
-    } else {
-      rep(0, n_species_actual)
-    }
-  })
-  names(u_phylo) <- var_names
-
-  # Residuals
-  residuals <- lapply(sigma2_residual, function(s2) {
-    rnorm(n_cases, mean = 0, sd = sqrt(s2))
-  })
-  names(residuals) <- var_names
-
-  # Random slopes (if specified)
-  u_slopes <- list()
-  ignored_rr_covars <- c()  # Track ignored covariates for warning
-  
-  if (rr && !is.null(rr_form)) {
-    # Identify continuous predictors (gaussian, poisson) - valid for random slopes
-    continuous_predictors <- var_names[-1][predictor_types %in% c("gaussian", "poisson")]
-    
-    for (re_name in names(rr_form)) {
-      covars_with_slopes <- rr_form[[re_name]]
-      u_slopes[[re_name]] <- list()
-
-      for (cov in covars_with_slopes) {
-        # Check if covariate is continuous
-        if (cov %in% continuous_predictors) {
-          if (re_name == "species") {
-            # Random slopes at species level
-            u_slopes[[re_name]][[cov]] <- rnorm(
-              n_species_actual,
-              mean = 0,
-              sd = sqrt(sigma2_species[1] * 0.5) # Half the species variance
-            )
-          }
-        } else {
-          # Track ignored non-continuous covariates
-          ignored_rr_covars <- c(ignored_rr_covars, cov)
-        }
-      }
-    }
-    
-    # Issue warning for ignored covariates
-    if (length(ignored_rr_covars) > 0) {
-      warning("Random slopes ignored for non-continuous covariates: '",
-              paste(unique(ignored_rr_covars), collapse = "', '"), 
-              "'. Random slopes are only applied to gaussian and poisson predictors.")
-    }
+  # Phylogenetic correlation matrix (only if needed)
+  cor_phylo <- if (random_structure$has_phylo) {
+    ape::vcv(tree, corr = TRUE)
+  } else {
+    NULL
   }
 
   # -------------------------------------------------------------------------
-  # CREATE DESIGN MATRICES
+  # SAMPLE RANDOM EFFECTS
   # -------------------------------------------------------------------------
 
   # Z-matrix for species (maps observations to species)
@@ -367,8 +280,104 @@ sim_bace <- function(
   )
   colnames(Z) <- species_list
 
-  # Get design information
-  mydesign <- design_size(predictor_types, beta_matrix)
+  # Sample phylogenetic random effects
+  u_phylo <- if (random_structure$has_phylo) {
+    lapply(raneff$phylo_var, function(var) {
+      if (var > 0) {
+        sample_random_effects(var, n_species_actual, cor_matrix = cor_phylo)
+      } else {
+        rep(0, n_species_actual)
+      }
+    })
+  } else {
+    lapply(seq_len(n_vars), function(i) rep(0, n_species_actual))
+  }
+  names(u_phylo) <- var_names
+
+  # Sample non-phylogenetic species random effects
+  u_species <- if (random_structure$has_species) {
+    lapply(raneff$species_var, function(var) {
+      if (var > 0) {
+        sample_random_effects(var, n_species_actual, cor_matrix = NULL)
+      } else {
+        rep(0, n_species_actual)
+      }
+    })
+  } else {
+    lapply(seq_len(n_vars), function(i) rep(0, n_species_actual))
+  }
+  names(u_species) <- var_names
+
+  # Sample residuals
+  residuals <- lapply(raneff$residual_var, function(var) {
+    rnorm(n_cases, mean = 0, sd = sqrt(var))
+  })
+  names(residuals) <- var_names
+
+  # Sample random slopes (if specified)
+  u_slopes <- list()
+  ignored_rr_covars <- c()
+
+  if (rr && !is.null(rr_form)) {
+    # Identify continuous predictors (gaussian, poisson) - valid for random slopes
+    predictor_names <- var_names[-1]
+    continuous_predictors <- predictor_names[predictor_types %in% c("gaussian", "poisson")]
+
+    for (re_name in names(rr_form)) {
+      covars_with_slopes <- rr_form[[re_name]]
+      u_slopes[[re_name]] <- list()
+
+      for (cov in covars_with_slopes) {
+        # Check if covariate is continuous
+        if (cov %in% continuous_predictors) {
+          # Get variance from raneff$rr_var if available
+          if (!is.null(raneff$rr_var) && !is.null(raneff$rr_var[[re_name]]) &&
+              !is.null(raneff$rr_var[[re_name]][[cov]])) {
+            slope_var <- raneff$rr_var[[re_name]][[cov]]
+          } else {
+            # Default: 0.25 * corresponding random intercept variance
+            if (re_name == "phylo" && random_structure$has_phylo) {
+              slope_var <- 0.25 * mean(raneff$phylo_var[raneff$phylo_var > 0])
+            } else if (re_name == "species" && random_structure$has_species) {
+              slope_var <- 0.25 * mean(raneff$species_var[raneff$species_var > 0])
+            } else {
+              slope_var <- 0
+            }
+          }
+
+          if (slope_var > 0) {
+            if (re_name == "phylo" && random_structure$has_phylo) {
+              u_slopes[[re_name]][[cov]] <- sample_random_effects(
+                slope_var, n_species_actual, cor_matrix = cor_phylo
+              )
+            } else if (re_name == "species" && random_structure$has_species) {
+              u_slopes[[re_name]][[cov]] <- sample_random_effects(
+                slope_var, n_species_actual, cor_matrix = NULL
+              )
+            }
+          }
+        } else {
+          # Track ignored non-continuous covariates
+          ignored_rr_covars <- c(ignored_rr_covars, cov)
+        }
+      }
+    }
+
+    # Issue warning for ignored covariates
+    if (length(ignored_rr_covars) > 0) {
+      warning(
+        "Random slopes ignored for non-continuous covariates: '",
+        paste(unique(ignored_rr_covars), collapse = "', '"),
+        "'. Random slopes are only applied to gaussian and poisson predictors."
+      )
+    }
+  }
+
+  # -------------------------------------------------------------------------
+  # DETERMINE SIMULATION ORDER
+  # -------------------------------------------------------------------------
+
+  sim_order <- .determine_sim_order(fixeff$formulas, var_names, predictor_types)
 
   # -------------------------------------------------------------------------
   # SIMULATE PREDICTORS
@@ -382,105 +391,159 @@ sim_bace <- function(
     dimnames = list(NULL, var_names[-1])
   ))
 
-  # Simulate predictors in dependency order
-  for (vari in mydesign$sim_order) {
-    pred_type <- predictor_types[vari]
-    pred_name <- var_names[vari + 1] # +1 because var_names includes response
-    var_idx <- vari + 1 # Index in full variable list (response = 1)
+  # Store liabilities for categorical variables (needed for subsequent dependencies)
+  liabilities <- list()
 
-    # Get dependencies
-    which_deps <- which(beta_matrix[vari, ] != 0)
+  # Simulate predictors in dependency order
+  for (pred_idx in sim_order) {
+    pred_type <- predictor_types[pred_idx]
+    pred_name <- var_names[pred_idx + 1]  # +1 because var_names includes response
+    var_idx <- pred_idx + 1  # Index in full variable list (response = 1)
+
+    # Find formula for this predictor
+    pred_formula <- NULL
+    for (form in fixeff$formulas) {
+      if (all.vars(form)[1] == pred_name) {
+        pred_formula <- form
+        break
+      }
+    }
 
     # Build linear predictor
-    if (length(which_deps) == 0) {
-      # Independent predictor
-      linear_pred <- intercepts$predictors[vari]
+    if (is.null(pred_formula)) {
+      # Independent predictor (no dependencies)
+      linear_pred <- rep(fixeff$intercepts[pred_name], n_cases)
     } else {
       # Dependent predictor
-      dep_names <- var_names[which_deps + 1]
+      rhs_vars <- all.vars(pred_formula)[-1]  # Predictor variables
 
-      X_formula <- paste("~ 1 +", paste(dep_names, collapse = " + "))
-      X <- model.matrix(as.formula(X_formula), covars[, dep_names, drop = FALSE])
+      # Check if all rhs_vars exist in covars
+      missing_vars <- setdiff(rhs_vars, names(covars))
+      if (length(missing_vars) > 0) {
+        stop("Variables ", paste(missing_vars, collapse = ", "), 
+             " not yet simulated but required for ", pred_name,
+             ". Check simulation order or formula dependencies.")
+      }
 
-      betas <- c(
-        intercepts$predictors[vari],
-        beta_generator(beta_matrix[vari, ], mydesign$ns)
-      )
+      # Build design matrix
+      X_formula_str <- paste("~ 1 +", paste(rhs_vars, collapse = " + "))
+      
+      # Prepare data for model matrix (convert factors properly)
+      covars_for_X <- covars[, rhs_vars, drop = FALSE]
+      for (rv in rhs_vars) {
+        if (is.factor(covars_for_X[[rv]])) {
+          # Already a factor, keep as-is
+        } else {
+          # Check if should be factor based on predictor type
+          rv_idx <- which(var_names[-1] == rv)
+          if (length(rv_idx) > 0) {
+            rv_type <- predictor_types[rv_idx]
+            if (grepl("^multinomial", rv_type)) {
+              covars_for_X[[rv]] <- factor(covars_for_X[[rv]])
+            }
+          }
+        }
+      }
 
-      linear_pred <- as.numeric(X %*% betas)
+      X <- model.matrix(as.formula(X_formula_str), covars_for_X)
+
+      # Get betas for this predictor
+      pred_betas <- fixeff$betas[[pred_name]]
+      
+      # Flatten betas list to vector matching X columns
+      beta_vec <- c(fixeff$intercepts[pred_name])  # Intercept
+      for (rv in rhs_vars) {
+        if (is.list(pred_betas[[rv]])) {
+          beta_vec <- c(beta_vec, unlist(pred_betas[[rv]]))
+        } else if (!is.null(pred_betas[[rv]])) {
+          beta_vec <- c(beta_vec, pred_betas[[rv]])
+        }
+      }
+
+      # Verify dimensions match
+      if (length(beta_vec) != ncol(X)) {
+        warning("Beta length mismatch for ", pred_name, ": expected ", ncol(X),
+                ", got ", length(beta_vec), ". Padding/truncating.")
+        if (length(beta_vec) < ncol(X)) {
+          beta_vec <- c(beta_vec, rep(0, ncol(X) - length(beta_vec)))
+        } else {
+          beta_vec <- beta_vec[seq_len(ncol(X))]
+        }
+      }
+
+      linear_pred <- as.numeric(X %*% beta_vec)
     }
 
     # Add random effects
     linear_pred <- linear_pred +
-      as.numeric(Z %*% u_species[[var_idx]]) +
       as.numeric(Z %*% u_phylo[[var_idx]]) +
+      as.numeric(Z %*% u_species[[var_idx]]) +
       residuals[[var_idx]]
 
     # Add random slopes if applicable
-    if (rr && "species" %in% names(u_slopes)) {
-      for (cov in names(u_slopes$species)) {
-        if (cov %in% names(covars) && !all(covars[[cov]] == 0)) {
-          slope_contribution <- as.numeric(Z %*% u_slopes$species[[cov]]) * covars[[cov]]
-          linear_pred <- linear_pred + slope_contribution
-        }
-      }
-    }
-
-    # Add interaction terms if applicable (for predictors)
-    if (!is.null(parsed_interactions) && pred_name %in% names(parsed_interactions)) {
-      pred_interactions <- parsed_interactions[[pred_name]]
-      if (length(pred_interactions) > 0) {
-        for (ix_name in names(pred_interactions)) {
-          ix_pair <- pred_interactions[[ix_name]]
-          # Only add interaction if both variables have been simulated
-          if (all(ix_pair %in% names(covars)) && 
-              !all(covars[[ix_pair[1]]] == 0) && 
-              !all(covars[[ix_pair[2]]] == 0)) {
-            ix_term <- calculate_ix_term(covars, ix_pair)
-            ix_coef <- ix_betas[[pred_name]][ix_name]
-            linear_pred <- linear_pred + ix_coef * ix_term
+    if (rr && !is.null(u_slopes)) {
+      for (re_name in names(u_slopes)) {
+        if (!is.null(u_slopes[[re_name]])) {
+          for (cov in names(u_slopes[[re_name]])) {
+            if (cov %in% names(covars) && !all(covars[[cov]] == 0)) {
+              cov_vals <- if (is.numeric(covars[[cov]])) covars[[cov]] else as.numeric(covars[[cov]])
+              slope_contribution <- as.numeric(Z %*% u_slopes[[re_name]][[cov]]) * cov_vals
+              linear_pred <- linear_pred + slope_contribution
+            }
           }
         }
       }
     }
 
-    # Generate response based on predictor type
-    if (pred_type == "gaussian") {
-      covars[[pred_name]] <- linear_pred
-    } else if (pred_type == "binary") {
-      probs <- plogis(linear_pred)
-      covars[[pred_name]] <- rbinom(n_cases, 1, probs)
-    } else if (pred_type == "poisson") {
-      rates <- exp(linear_pred)
-      covars[[pred_name]] <- rpois(n_cases, rates)
-    } else if (grepl("^multinomial", pred_type)) {
-      n_cats <- as.numeric(gsub("multinomial", "", pred_type))
-      categories <- LETTERS[1:n_cats]
+    # Add interaction terms if applicable
+    if (!is.null(fixeff$interactions) && !is.null(fixeff$interactions$formulas)) {
+      for (ix_form in fixeff$interactions$formulas) {
+        if (all.vars(ix_form)[1] == pred_name) {
+          # Extract interaction terms from formula
+          ix_terms <- attr(terms(ix_form), "term.labels")
+          ix_terms <- ix_terms[grepl(":", ix_terms)]  # Only interaction terms
 
-      # Generate K-1 liabilities
-      n_liab <- n_cats - 1
-      liabilities <- matrix(0, nrow = n_cases, ncol = n_liab)
+          for (ix_term in ix_terms) {
+            ix_vars <- strsplit(ix_term, ":")[[1]]
+            if (all(ix_vars %in% names(covars)) && !all(covars[[ix_vars[1]]] == 0) &&
+                !all(covars[[ix_vars[2]]] == 0)) {
+              ix_val <- calculate_ix_term(covars, ix_vars)
+              ix_strength <- if (!is.null(fixeff$interactions$strengths) &&
+                                  !is.null(fixeff$interactions$strengths[[pred_name]]) &&
+                                  !is.null(fixeff$interactions$strengths[[pred_name]][[ix_term]])) {
+                fixeff$interactions$strengths[[pred_name]][[ix_term]]
+              } else {
+                0.5  # Default interaction strength
+              }
 
-      for (k in 1:n_liab) {
-        # Each liability has slightly different intercept
-        liab_intercept <- intercepts$predictors[vari] + (k - n_liab / 2) * 0.5
+              # Interaction effect as fraction of main effect
+              # Get numeric beta values
+              beta_vals <- fixeff$betas[[pred_name]]
+              if (is.list(beta_vals)) {
+                beta_nums <- unlist(lapply(beta_vals, function(b) {
+                  if (is.numeric(b)) b else NULL
+                }))
+              } else {
+                beta_nums <- beta_vals
+              }
+              main_effect <- if (length(beta_nums) > 0) mean(abs(beta_nums)) else 0.3
+              ix_coef <- ix_strength * main_effect
 
-        if (length(which_deps) == 0) {
-          liab_linear <- liab_intercept
-        } else {
-          liab_linear <- liab_intercept + linear_pred - intercepts$predictors[vari]
+              linear_pred <- linear_pred + ix_coef * ix_val
+            }
+          }
         }
-
-        liabilities[, k] <- liab_linear
       }
-
-      covars[[pred_name]] <- mnom_liab2cat(liabilities, categories)
-    } else if (grepl("^threshold", pred_type)) {
-      n_cats <- as.numeric(gsub("threshold", "", pred_type))
-      
-      # Threshold type uses single latent variable with thresholds
-      covars[[pred_name]] <- ordinal_liab2cat(linear_pred, n_cats)
     }
+
+    # Normalize liability (mean = 0, sd = 1)
+    linear_pred <- scale(linear_pred, center = TRUE, scale = TRUE)[, 1]
+
+    # Store liability
+    liabilities[[pred_name]] <- linear_pred
+
+    # Convert liability to appropriate scale/type
+    covars[[pred_name]] <- .liability_to_categories(linear_pred, pred_type, pred_name)
   }
 
   # -------------------------------------------------------------------------
@@ -489,119 +552,143 @@ sim_bace <- function(
 
   resp_name <- var_names[1]
 
+  # Find formula for response
+  resp_formula <- NULL
+  for (form in fixeff$formulas) {
+    if (all.vars(form)[1] == resp_name) {
+      resp_formula <- form
+      break
+    }
+  }
+
+  if (is.null(resp_formula)) {
+    stop("No formula found for response variable '", resp_name, 
+         "'. fixeff$formulas must include a formula for the response.")
+  }
+
   # Build design matrix for response
-  X_resp_formula <- paste("~ 1 +", paste(var_names[-1], collapse = " + "))
+  rhs_vars <- all.vars(resp_formula)[-1]
+  X_formula_str <- paste("~ 1 +", paste(rhs_vars, collapse = " + "))
 
-  # Handle factor predictors for model matrix
-  covars_for_X <- covars
-  for (i in seq_len(n_predictors)) {
-    if (grepl("^multinomial", predictor_types[i])) {
-      covars_for_X[[var_names[i + 1]]] <- factor(covars_for_X[[var_names[i + 1]]])
-    }
-    # Note: ordinal predictors are kept as integers (treated as numeric in regression)
-
-    # TODO: Add proper handling of ordinal/threshold predictors (as factors)
-  }
-
-  X_resp <- model.matrix(as.formula(X_resp_formula), covars_for_X)
-
-  # Expand beta_resp to full coefficient vector using helper function
-  # This handles both vector and list formats, with automatic or manual expansion
-  beta_expanded <- expand_beta_resp(
-    beta_resp = beta_resp,
-    predictor_types = predictor_types,
-    var_names = var_names,
-    intercept = intercepts$response
-  )
-  beta_resp_full <- beta_expanded$beta_full
-  beta_resp_stored <- beta_expanded$beta_resp_stored
-
-  # Verify length matches model matrix
-
-  if (length(beta_resp_full) != ncol(X_resp)) {
-    warning("beta_resp_full length (", length(beta_resp_full), 
-            ") doesn't match X_resp columns (", ncol(X_resp), 
-            "). This may indicate a mismatch in categorical levels.")
-    # Fallback: pad or truncate
-    if (length(beta_resp_full) < ncol(X_resp)) {
-      beta_resp_full <- c(beta_resp_full, rep(0, ncol(X_resp) - length(beta_resp_full)))
+  # Prepare data for model matrix
+  covars_for_X_resp <- covars[, rhs_vars, drop = FALSE]
+  for (rv in rhs_vars) {
+    if (is.factor(covars_for_X_resp[[rv]])) {
+      # Already a factor
     } else {
-      beta_resp_full <- beta_resp_full[seq_len(ncol(X_resp))]
+      rv_idx <- which(var_names[-1] == rv)
+      if (length(rv_idx) > 0) {
+        rv_type <- predictor_types[rv_idx]
+        if (grepl("^multinomial", rv_type)) {
+          covars_for_X_resp[[rv]] <- factor(covars_for_X_resp[[rv]])
+        }
+      }
     }
   }
 
-  # Linear predictor for response
-  linear_pred_resp <- as.numeric(X_resp %*% beta_resp_full) +
-    as.numeric(Z %*% u_species[[1]]) +
+  X_resp <- model.matrix(as.formula(X_formula_str), covars_for_X_resp)
+
+  # Get betas for response
+  resp_betas <- fixeff$betas[[resp_name]]
+
+  # Flatten betas to vector
+  beta_vec_resp <- c(fixeff$intercepts[resp_name])
+  for (rv in rhs_vars) {
+    if (is.list(resp_betas[[rv]])) {
+      beta_vec_resp <- c(beta_vec_resp, unlist(resp_betas[[rv]]))
+    } else {
+      beta_vec_resp <- c(beta_vec_resp, resp_betas[[rv]])
+    }
+  }
+
+  # Verify dimensions
+  if (length(beta_vec_resp) != ncol(X_resp)) {
+    warning("Beta length mismatch for response: expected ", ncol(X_resp),
+            ", got ", length(beta_vec_resp), ". Padding/truncating.")
+    if (length(beta_vec_resp) < ncol(X_resp)) {
+      beta_vec_resp <- c(beta_vec_resp, rep(0, ncol(X_resp) - length(beta_vec_resp)))
+    } else {
+      beta_vec_resp <- beta_vec_resp[seq_len(ncol(X_resp))]
+    }
+  }
+
+  linear_pred_resp <- as.numeric(X_resp %*% beta_vec_resp) +
     as.numeric(Z %*% u_phylo[[1]]) +
+    as.numeric(Z %*% u_species[[1]]) +
     residuals[[1]]
 
   # Add random slopes for response
-  if (rr && "species" %in% names(u_slopes)) {
-    for (cov in names(u_slopes$species)) {
-      if (cov %in% names(covars)) {
-        cov_vals <- if (is.numeric(covars[[cov]])) covars[[cov]] else as.numeric(factor(covars[[cov]]))
-        slope_contribution <- as.numeric(Z %*% u_slopes$species[[cov]]) * cov_vals
-        linear_pred_resp <- linear_pred_resp + slope_contribution
+  if (rr && !is.null(u_slopes)) {
+    for (re_name in names(u_slopes)) {
+      if (!is.null(u_slopes[[re_name]])) {
+        for (cov in names(u_slopes[[re_name]])) {
+          if (cov %in% rhs_vars) {
+            cov_vals <- if (is.numeric(covars[[cov]])) covars[[cov]] else as.numeric(covars[[cov]])
+            slope_contribution <- as.numeric(Z %*% u_slopes[[re_name]][[cov]]) * cov_vals
+            linear_pred_resp <- linear_pred_resp + slope_contribution
+          }
+        }
       }
     }
   }
 
   # Add interaction terms for response
-  resp_name_ix <- var_names[1]  # Response name for looking up in parsed_interactions
-  if (!is.null(parsed_interactions) && resp_name_ix %in% names(parsed_interactions)) {
-    resp_interactions <- parsed_interactions[[resp_name_ix]]
-    if (length(resp_interactions) > 0) {
-      for (ix_name in names(resp_interactions)) {
-        ix_pair <- resp_interactions[[ix_name]]
-        ix_term <- calculate_ix_term(covars_for_X, ix_pair)
-        ix_coef <- ix_betas[[resp_name_ix]][ix_name]
-        linear_pred_resp <- linear_pred_resp + ix_coef * ix_term
+  if (!is.null(fixeff$interactions) && !is.null(fixeff$interactions$formulas)) {
+    for (ix_form in fixeff$interactions$formulas) {
+      if (all.vars(ix_form)[1] == resp_name) {
+        ix_terms <- attr(terms(ix_form), "term.labels")
+        ix_terms <- ix_terms[grepl(":", ix_terms)]
+
+        for (ix_term in ix_terms) {
+          ix_vars <- strsplit(ix_term, ":")[[1]]
+          if (all(ix_vars %in% names(covars))) {
+            ix_val <- calculate_ix_term(covars, ix_vars)
+            ix_strength <- if (!is.null(fixeff$interactions$strengths) &&
+                                !is.null(fixeff$interactions$strengths[[resp_name]]) &&
+                                !is.null(fixeff$interactions$strengths[[resp_name]][[ix_term]])) {
+              fixeff$interactions$strengths[[resp_name]][[ix_term]]
+            } else {
+              0.5
+            }
+
+            # Get numeric beta values
+            beta_vals <- fixeff$betas[[resp_name]]
+            if (is.list(beta_vals)) {
+              beta_nums <- unlist(lapply(beta_vals, function(b) {
+                if (is.numeric(b)) b else NULL
+              }))
+            } else {
+              beta_nums <- beta_vals
+            }
+            main_effect <- if (length(beta_nums) > 0) mean(abs(beta_nums)) else 0.3
+            ix_coef <- ix_strength * main_effect
+
+            linear_pred_resp <- linear_pred_resp + ix_coef * ix_val
+          }
+        }
       }
     }
   }
 
-  # Generate response based on type
-  if (response_type == "gaussian") {
-    response <- linear_pred_resp
-  } else if (response_type == "binary") {
-    probs <- plogis(linear_pred_resp)
-    response <- rbinom(n_cases, 1, probs)
-  } else if (response_type == "poisson") {
-    rates <- exp(linear_pred_resp)
-    response <- rpois(n_cases, rates)
-  } else if (grepl("^multinomial", response_type)) {
-    n_cats <- as.numeric(gsub("multinomial", "", response_type))
-    categories <- LETTERS[1:n_cats]
+  # Normalize response liability
+  linear_pred_resp <- scale(linear_pred_resp, center = TRUE, scale = TRUE)[, 1]
 
-    n_liab <- n_cats - 1
-    liabilities <- matrix(0, nrow = n_cases, ncol = n_liab)
+  # Store response liability
+  liabilities[[resp_name]] <- linear_pred_resp
 
-    for (k in 1:n_liab) {
-      liab_intercept <- intercepts$response + (k - n_liab / 2) * 0.5
-      liabilities[, k] <- liab_intercept + linear_pred_resp - intercepts$response
-    }
-
-    response <- mnom_liab2cat(liabilities, categories)
-  } else if (grepl("^threshold", response_type)) {
-    n_cats <- as.numeric(gsub("threshold", "", response_type))
-    
-    # Threshold type uses single latent variable with thresholds
-    response <- ordinal_liab2cat(linear_pred_resp, n_cats)
-  } else {
-    stop("Unknown response_type: ", response_type)
-  }
+  # Convert liability to appropriate scale/type
+  response <- .liability_to_categories(linear_pred_resp, response_type, resp_name)
 
   # -------------------------------------------------------------------------
   # APPLY MISSINGNESS
   # -------------------------------------------------------------------------
 
-  response <- apply_missingness(response, missingness[1])
+  response <- apply_missingness(response, missingness[resp_name])
 
-  for (i in seq_len(n_predictors)) {
-    covars[[var_names[i + 1]]] <- apply_missingness(
-      covars[[var_names[i + 1]]],
-      missingness[i + 1]
+  for (pred_name in var_names[-1]) {
+    covars[[pred_name]] <- apply_missingness(
+      covars[[pred_name]],
+      missingness[pred_name]
     )
   }
 
@@ -623,74 +710,40 @@ sim_bace <- function(
     response_type = response_type,
     predictor_types = predictor_types,
     var_names = var_names,
-    beta_matrix = beta_matrix,
-    beta_resp = beta_resp_stored,  # Store the expanded/validated list format
-    beta_resp_full = beta_resp_full,  # Store full coefficient vector with intercept
-    ix_matrix = ix_matrix,
-    ix_betas = ix_betas,
-    parsed_interactions = parsed_interactions,
-    intercepts = intercepts,
-    phylo_signal = phylo_signal,
-    sigmas = sigmas,
     n_cases = n_cases,
     n_species = n_species,
     n_species_actual = n_species_actual,
     birth = birth,
     death = death,
     missingness = missingness,
+    random_formula = random_formula,
+    random_structure = random_structure,
     rr = rr,
     rr_form = rr_form,
-    design = mydesign
+    raneff = raneff,
+    fixeff = fixeff,
+    sparsity = sparsity,
+    sim_order = sim_order
   )
 
   # Store random effects
   random_effects <- list(
-    u_species = u_species,
     u_phylo = u_phylo,
+    u_species = u_species,
     u_slopes = u_slopes,
-    residuals = residuals
+    residuals = residuals,
+    liabilities = liabilities
   )
 
-  # -------------------------------------------------------------------------
-  # CONVERT VARIABLES TO APPROPRIATE DATA TYPES
-  # -------------------------------------------------------------------------
-  
-  # Convert response variable to appropriate type
-  resp_col <- var_names[1]
-  if (response_type == "poisson") {
-    out_data[[resp_col]] <- as.integer(out_data[[resp_col]])
-  } else if (response_type == "binary") {
-    out_data[[resp_col]] <- factor(out_data[[resp_col]], ordered = TRUE)
-  } else if (grepl("^threshold", response_type)) {
-    out_data[[resp_col]] <- factor(out_data[[resp_col]], ordered = TRUE)
-  } else if (grepl("^multinomial", response_type)) {
-    out_data[[resp_col]] <- factor(out_data[[resp_col]], ordered = FALSE)
-  }
-  # gaussian variables remain numeric (default)
-  
-  # Convert predictor variables to appropriate types
-  for (i in seq_len(n_predictors)) {
-    pred_col <- var_names[i + 1]
-    pred_type <- predictor_types[i]
-    
-    if (pred_type == "poisson") {
-      out_data[[pred_col]] <- as.integer(out_data[[pred_col]])
-    } else if (pred_type == "binary") {
-      out_data[[pred_col]] <- factor(out_data[[pred_col]], ordered = TRUE)
-    } else if (grepl("^threshold", pred_type)) {
-      out_data[[pred_col]] <- factor(out_data[[pred_col]], ordered = TRUE)
-    } else if (grepl("^multinomial", pred_type)) {
-      out_data[[pred_col]] <- factor(out_data[[pred_col]], ordered = FALSE)
-    }
-    # gaussian variables remain numeric (default)
-  }
-
-  return(list(
+  output <- list(
     data = out_data,
     tree = tree,
     params = params,
     random_effects = random_effects
-  ))
+  )
+
+  class(output) <- c("sim_bace", "list")
+  return(output)
 }
 
 
@@ -703,19 +756,17 @@ sim_bace <- function(
 #' @param n_predictors Number of gaussian predictors
 #' @param n_cases Number of observations
 #' @param n_species Number of species
-#' @param phylo_signal Single phylogenetic signal value applied to all variables
-#' @param beta_sparsity Proportion of coefficients in beta_matrix to set to zero (default 0.7)
-#' @return simBACE output list
+#' @param sparsity Proportion of dependencies to set to zero (default 0.7)
+#' @return sim_bace output list
 #' @export
 sim_bace_gaussian <- function(n_predictors = 3, n_cases = 200, n_species = 75,
-                             phylo_signal = 0, beta_sparsity = 0.7) {
+                               sparsity = 0.7) {
   sim_bace(
     response_type = "gaussian",
     predictor_types = rep("gaussian", n_predictors),
-    phylo_signal = rep(phylo_signal, n_predictors + 1),
     n_cases = n_cases,
     n_species = n_species,
-    beta_sparsity = beta_sparsity
+    sparsity = sparsity
   )
 }
 
@@ -724,17 +775,17 @@ sim_bace_gaussian <- function(n_predictors = 3, n_cases = 200, n_species = 75,
 #' @param n_predictors Number of gaussian predictors
 #' @param n_cases Number of observations
 #' @param n_species Number of species
-#' @param phylo_signal Single phylogenetic signal value applied to all variables
-#' @return simBACE output list
+#' @param sparsity Proportion of dependencies to set to zero (default 0.7)
+#' @return sim_bace output list
 #' @export
 sim_bace_poisson <- function(n_predictors = 3, n_cases = 200, n_species = 75,
-                            phylo_signal = 0) {
+                              sparsity = 0.7) {
   sim_bace(
     response_type = "poisson",
     predictor_types = rep("gaussian", n_predictors),
-    phylo_signal = rep(phylo_signal, n_predictors + 1),
     n_cases = n_cases,
-    n_species = n_species
+    n_species = n_species,
+    sparsity = sparsity
   )
 }
 
@@ -743,101 +794,92 @@ sim_bace_poisson <- function(n_predictors = 3, n_cases = 200, n_species = 75,
 #' @param n_predictors Number of gaussian predictors
 #' @param n_cases Number of observations
 #' @param n_species Number of species
-#' @param phylo_signal Single phylogenetic signal value applied to all variables
-#' @return simBACE output list
+#' @param sparsity Proportion of dependencies to set to zero (default 0.7)
+#' @return sim_bace output list
 #' @export
 sim_bace_binary <- function(n_predictors = 3, n_cases = 200, n_species = 75,
-                           phylo_signal = 0) {
+                             sparsity = 0.7) {
   sim_bace(
     response_type = "binary",
     predictor_types = rep("gaussian", n_predictors),
-    phylo_signal = rep(phylo_signal, n_predictors + 1),
     n_cases = n_cases,
-    n_species = n_species
+    n_species = n_species,
+    sparsity = sparsity
   )
 }
 
 #' @title Print summary of sim_bace output
 #' @description Prints a summary of the simulated data
-#' @param sim_output Output from sim_bace function
+#' @param x Output from sim_bace function
+#' @param ... Additional arguments (unused)
 #' @export
-print_sim_bace_summary <- function(sim_output) {
-  cat("=== sim_bace Simulation Summary ===\n\n")
+print.sim_bace <- function(x, ...) {
+  cat("=== sim_bace Simulation Output ===\n\n")
 
-  cat("Response type:", sim_output$params$response_type, "\n")
-  cat("Predictor types:", paste(sim_output$params$predictor_types, collapse = ", "), "\n")
-  cat("Variable names:", paste(sim_output$params$var_names, collapse = ", "), "\n\n")
+  cat("Response type:", x$params$response_type, "\n")
+  cat("Predictor types:", paste(x$params$predictor_types, collapse = ", "), "\n")
+  cat("Variable names:", paste(x$params$var_names, collapse = ", "), "\n\n")
 
-  cat("Sample size:", sim_output$params$n_cases, "observations\n")
-  cat(
-    "Species:", sim_output$params$n_species_actual,
-    "(requested:", sim_output$params$n_species, ")\n"
-  )
-  cat("Tree tips:", ape::Ntip(sim_output$tree), "\n\n")
+  cat("Sample size:", x$params$n_cases, "observations\n")
+  cat("Species:", x$params$n_species_actual, 
+      "(requested:", x$params$n_species, ")\n")
+  cat("Tree tips:", ape::Ntip(x$tree), "\n\n")
 
-  cat("Phylogenetic signal:", paste(round(sim_output$params$phylo_signal, 3),
-    collapse = ", "
-  ), "\n")
-  cat("Missingness:", paste(round(sim_output$params$missingness * 100, 1), "%",
-    collapse = ", "
-  ), "\n\n")
+  cat("Random effects structure:", as.character(x$params$random_formula)[2], "\n")
+  if (x$params$random_structure$has_phylo) {
+    cat("  - Phylogenetic variance fractions:",
+        paste(round(x$params$raneff$phylo_frac, 3), collapse = ", "), "\n")
+  }
+  if (x$params$random_structure$has_species) {
+    cat("  - Species variance fractions:",
+        paste(round(x$params$raneff$species_frac, 3), collapse = ", "), "\n")
+  }
+  cat("  - Residual variance fractions:",
+      paste(round(x$params$raneff$residual_var / x$params$raneff$total_var, 3),
+            collapse = ", "), "\n\n")
 
-  cat("Beta matrix:\n")
-  print(sim_output$params$beta_matrix)
-  cat("\n")
+  cat("Missingness:", paste(round(x$params$missingness * 100, 1), "%",
+                             collapse = ", "), "\n\n")
 
-  cat("\nBeta response coefficients:\n")
-  print(sim_output$params$beta_resp)
-  cat("\n")
-
-  if (sim_output$params$rr) {
+  if (x$params$rr && !is.null(x$params$rr_form) && length(x$params$rr_form) > 0) {
     cat("Random slopes: YES\n")
-    for (re in names(sim_output$params$rr_form)) {
-      cat("  -", re, ":", paste(sim_output$params$rr_form[[re]], collapse = ", "), "\n")
+    for (re in names(x$params$rr_form)) {
+      cat("  -", re, ":", paste(x$params$rr_form[[re]], collapse = ", "), "\n")
     }
   } else {
     cat("Random slopes: NO\n")
   }
 
+  # Display formulas
+  cat("\nFixed effect formulas:\n")
+  for (form in x$params$fixeff$formulas) {
+    cat("  ", deparse(form), "\n")
+  }
+
   # Display interaction terms
-  if (!is.null(sim_output$params$parsed_interactions)) {
-    has_ix <- sapply(sim_output$params$parsed_interactions, function(x) length(x) > 0)
-    if (any(has_ix)) {
-      cat("\nInteraction terms:\n")
-      for (var_name in names(sim_output$params$parsed_interactions)[has_ix]) {
-        ix_names <- names(sim_output$params$parsed_interactions[[var_name]])
-        ix_coefs <- sim_output$params$ix_betas[[var_name]]
-        cat("  ", var_name, ":\n", sep = "")
-        for (ix_n in ix_names) {
-          cat("    ", ix_n, " (beta = ", round(ix_coefs[ix_n], 3), ")\n", sep = "")
-        }
-      }
-    } else {
-      cat("\nInteraction terms: NONE\n")
+  if (!is.null(x$params$fixeff$interactions) && 
+      !is.null(x$params$fixeff$interactions$formulas) &&
+      length(x$params$fixeff$interactions$formulas) > 0) {
+    cat("\nInteraction formulas:\n")
+    for (ix_form in x$params$fixeff$interactions$formulas) {
+      cat("  ", deparse(ix_form), "\n")
     }
   } else {
     cat("\nInteraction terms: NONE\n")
   }
 
   cat("\n--- Data preview ---\n")
-  print(head(sim_output$data))
+  print(head(x$data))
 
-  cat("\n--- Data summary ---\n")
-  print(summary(sim_output$data))
+  invisible(x)
+}
 
-  # Report on variable types in the output
-  cat("\n*** Variable Types ***\n")
-  cat("Response (", sim_output$params$var_names[1], "): ", 
-      sim_output$params$response_type, " -> ", 
-      class(sim_output$data[[sim_output$params$var_names[1]]])[1], "\n", sep = "")
-  
-  for (i in seq_along(sim_output$params$predictor_types)) {
-    pred_name <- sim_output$params$var_names[i + 1]
-    pred_type <- sim_output$params$predictor_types[i]
-    pred_class <- class(sim_output$data[[pred_name]])[1]
-    cat("Predictor (", pred_name, "): ", pred_type, " -> ", pred_class, "\n", sep = "")
-  }
-
+#' @title Print summary of sim_bace output (alternative name)
+#' @description Prints a summary of the simulated data
+#' @param sim_output Output from sim_bace function
+#' @export
+print_sim_bace_summary <- function(sim_output) {
+  print.sim_bace(sim_output)
   invisible(sim_output)
 }
 

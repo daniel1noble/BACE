@@ -10,6 +10,412 @@ var_name_gen <- function(n_predictors) {
   c("y", paste0("x", seq_len(n_predictors)))
 }
 
+#' @title Create random effect specification
+#' @description Defines random effect variance components for simulation.
+#'   Specifies fractions of variance explained by phylogenetic effect,
+#'   non-phylogenetic species effect, and residual. Also handles random slopes.
+#' @param var_names Character vector of variable names (response + predictors).
+#'   If NULL, auto-generation requires n_vars to be specified.
+#' @param n_vars Total number of variables (response + predictors). Only used
+#'   if var_names is NULL.
+#' @param phylo_frac Numeric vector of fractions of variance explained by
+#'   phylogenetic effect for each variable. Values between 0 and 1.
+#'   Default is 0 (no phylogenetic signal).
+#' @param species_frac Numeric vector of fractions of variance explained by
+#'   non-phylogenetic species random effect. Values between 0 and 1.
+#'   Default is 0.3 (30% between-species variance).
+#' @param total_var Numeric vector of total variance for each variable.
+#'   Residual variance = total_var * (1 - phylo_frac - species_frac).
+#'   Default is 1 for all variables.
+#' @param rr_var Named list specifying random slope variances. Each element
+#'   is named by the random effect type (e.g., "phylo", "species") and contains
+#'   a named vector of variances for each covariate with random slopes.
+#'   Default is 0.25 * corresponding random intercept variance.
+#'   Example: list(phylo = c(x1 = 0.15, x2 = 0.20), species = c(x4 = 0.10))
+#' @return List with class "raneff" containing:
+#'   - var_names: variable names
+#'   - phylo_frac: phylogenetic variance fractions
+#'   - species_frac: species variance fractions
+#'   - total_var: total variances
+#'   - phylo_var: phylogenetic variances (phylo_frac * total_var)
+#'   - species_var: species variances (species_frac * total_var)
+#'   - residual_var: residual variances
+#'   - rr_var: random slope variances (if provided)
+#' @examples
+#' # Auto-generate with defaults
+#' raneff <- make_raneff(n_vars = 4)
+#'
+#' # Custom specification
+#' raneff <- make_raneff(
+#'   var_names = c("y", "x1", "x2", "x3"),
+#'   phylo_frac = c(0.5, 0.3, 0.1, 0.0),
+#'   species_frac = c(0.2, 0.3, 0.4, 0.3),
+#'   total_var = c(1, 1, 1, 1)
+#' )
+#'
+#' # With random slopes
+#' raneff <- make_raneff(
+#'   var_names = c("y", "x1", "x2"),
+#'   phylo_frac = c(0.5, 0.3, 0.0),
+#'   species_frac = c(0.2, 0.3, 0.3),
+#'   rr_var = list(phylo = c(x1 = 0.15), species = c(x1 = 0.10))
+#' )
+#' @export
+make_raneff <- function(var_names = NULL, n_vars = NULL,
+                        phylo_frac = NULL, species_frac = NULL,
+                        total_var = NULL, rr_var = NULL) {
+  
+  # Determine number of variables
+  if (!is.null(var_names)) {
+    n_vars <- length(var_names)
+  } else if (!is.null(n_vars)) {
+    var_names <- var_name_gen(n_vars - 1)
+  } else {
+    stop("Either var_names or n_vars must be provided")
+  }
+  
+  # Set defaults
+  if (is.null(phylo_frac)) {
+    phylo_frac <- rep(0, n_vars)
+    message("Using default phylo_frac: 0 (no phylogenetic signal)")
+  }
+  if (is.null(species_frac)) {
+    species_frac <- rep(0.3, n_vars)
+    message("Using default species_frac: 0.3 (30% between-species variance)")
+  }
+  if (is.null(total_var)) {
+    total_var <- rep(1, n_vars)
+  }
+  
+  # Validate inputs
+  if (length(phylo_frac) != n_vars) {
+    stop("phylo_frac must have length equal to n_vars")
+  }
+  if (length(species_frac) != n_vars) {
+    stop("species_frac must have length equal to n_vars")
+  }
+  if (length(total_var) != n_vars) {
+    stop("total_var must have length equal to n_vars")
+  }
+  
+  # Check bounds
+  if (any(phylo_frac < 0) || any(phylo_frac >= 1)) {
+    stop("phylo_frac values must be in [0, 1)")
+  }
+  if (any(species_frac < 0) || any(species_frac >= 1)) {
+    stop("species_frac values must be in [0, 1)")
+  }
+  if (any(phylo_frac + species_frac >= 1)) {
+    stop("phylo_frac + species_frac must be < 1 to leave room for residual variance")
+  }
+  if (any(total_var <= 0)) {
+    stop("total_var values must be positive")
+  }
+  
+  # Calculate variance components
+  phylo_var <- phylo_frac * total_var
+  species_var <- species_frac * total_var
+  residual_var <- total_var * (1 - phylo_frac - species_frac)
+  
+  # Name vectors
+  names(phylo_frac) <- var_names
+  names(species_frac) <- var_names
+  names(total_var) <- var_names
+  names(phylo_var) <- var_names
+  names(species_var) <- var_names
+  names(residual_var) <- var_names
+  
+  # Create output structure
+  out <- list(
+    var_names = var_names,
+    phylo_frac = phylo_frac,
+    species_frac = species_frac,
+    total_var = total_var,
+    phylo_var = phylo_var,
+    species_var = species_var,
+    residual_var = residual_var,
+    rr_var = rr_var
+  )
+  
+  class(out) <- c("raneff", "list")
+  return(out)
+}
+
+#' @title Create fixed effect specification
+#' @description Defines fixed effect structure for simulation including
+#'   dependency formulas, beta coefficients, interaction terms, and intercepts.
+#' @param var_names Character vector of variable names (response + predictors).
+#'   Required unless using auto-generation.
+#' @param predictor_types Character vector of predictor types.
+#'   Required for proper handling of categorical variables.
+#' @param formulas List of formulas or single formula defining dependencies.
+#'   If single formula (e.g., y ~ x1 + x2), assumes all variables depend on
+#'   all other variables. If list, each element defines dependencies for one
+#'   variable (e.g., list(y ~ x1 + x2, x2 ~ x1)).
+#'   If NULL, auto-generated based on sparsity parameter.
+#' @param betas Named list of beta coefficients. Each element corresponds to
+#'   a variable (e.g., y, x1, x2) and contains either:
+#'   - A numeric vector of coefficients (one per predictor in formula)
+#'   - For categorical predictors: K-1 coefficients for multinomialK, or
+#'     single coefficient that will be spread across K-1 levels
+#'   If NULL, auto-generated with weak to moderate effects.
+#' @param interactions List with two elements:
+#'   - formulas: List of formulas specifying interactions (e.g., y ~ x1:x2 + x1:x3)
+#'   - strengths: Named list of interaction strengths as relative to main effects
+#'     (e.g., list(y = c("x1:x2" = 0.5, "x1:x3" = 1.0)))
+#'     0 = no interaction, 1 = interaction as strong as main effect
+#'   If NULL, no interactions are added.
+#' @param intercepts Named numeric vector of intercepts for each variable.
+#'   Warnings issued if intercepts are large relative to variance or on
+#'   inappropriate scales (should be: identity for gaussian, log for poisson,
+#'   logit for categorical). Default is 0 for all variables.
+#' @param sparsity Proportion of potential dependencies to set to zero when
+#'   auto-generating formulas. Default is 0.7 (70% of edges removed).
+#' @param n_vars Total number of variables. Only used for auto-generation when
+#'   var_names is NULL.
+#' @return List with class "fixeff" containing:
+#'   - var_names: variable names
+#'   - predictor_types: predictor types
+#'   - formulas: dependency formulas
+#'   - betas: beta coefficients (expanded for categorical variables)
+#'   - interactions: interaction specification
+#'   - intercepts: intercept values
+#' @examples
+#' # Manual specification
+#' fixeff <- make_fixeff(
+#'   var_names = c("y", "x1", "x2", "x3"),
+#'   predictor_types = c("gaussian", "gaussian", "multinomial3"),
+#'   formulas = list(
+#'     y ~ x1 + x2 + x3,
+#'     x2 ~ x1,
+#'     x3 ~ x1 + x2
+#'   ),
+#'   betas = list(
+#'     y = c(0.5, 0.3, 0.4),      # One per predictor
+#'     x2 = 0.4,
+#'     x3 = c(0.3, 0.2)            # Two for multinomial3: K-1 = 2
+#'   ),
+#'   intercepts = c(y = 0, x1 = 0, x2 = 0, x3 = 0)
+#' )
+#'
+#' # Auto-generation
+#' fixeff <- make_fixeff(
+#'   var_names = c("y", "x1", "x2"),
+#'   predictor_types = c("gaussian", "gaussian"),
+#'   sparsity = 0.5
+#' )
+#'
+#' # With interactions
+#' fixeff <- make_fixeff(
+#'   var_names = c("y", "x1", "x2", "x3"),
+#'   predictor_types = c("gaussian", "gaussian", "gaussian"),
+#'   formulas = list(y ~ x1 + x2 + x3),
+#'   betas = list(y = c(0.5, 0.3, 0.2)),
+#'   interactions = list(
+#'     formulas = list(y ~ x1:x2),
+#'     strengths = list(y = c("x1:x2" = 0.5))
+#'   )
+#' )
+#' @export
+make_fixeff <- function(var_names = NULL, predictor_types = NULL,
+                        formulas = NULL, betas = NULL,
+                        interactions = NULL, intercepts = NULL,
+                        sparsity = 0.7, n_vars = NULL) {
+  
+  # Determine number of variables
+  if (!is.null(var_names)) {
+    n_vars <- length(var_names)
+    n_predictors <- n_vars - 1
+  } else if (!is.null(n_vars)) {
+    n_predictors <- n_vars - 1
+    var_names <- var_name_gen(n_predictors)
+  } else {
+    stop("Either var_names or n_vars must be provided")
+  }
+  
+  # Validate predictor_types
+  if (!is.null(predictor_types)) {
+    if (length(predictor_types) != n_predictors) {
+      stop("predictor_types must have length equal to n_predictors")
+    }
+  } else {
+    # Default to all gaussian
+    predictor_types <- rep("gaussian", n_predictors)
+    message("Using default predictor_types: all gaussian")
+  }
+  
+  # Auto-generate formulas if not provided
+  if (is.null(formulas)) {
+    formulas <- .auto_generate_formulas(var_names, sparsity)
+    message("Auto-generated formulas with sparsity = ", sparsity)
+  }
+  
+  # Normalize formulas to list format
+  if (!is.list(formulas)) {
+    formulas <- list(formulas)
+  }
+  
+  # Auto-generate betas if not provided
+  if (is.null(betas)) {
+    betas <- .auto_generate_betas(formulas, var_names, predictor_types)
+    message("Auto-generated betas with weak to moderate effects")
+  }
+  
+  # Expand betas for categorical variables
+  betas <- .expand_categorical_betas(betas, formulas, var_names, predictor_types)
+  
+  # Set default intercepts
+  if (is.null(intercepts)) {
+    intercepts <- rep(0, n_vars)
+    names(intercepts) <- var_names
+  } else {
+    if (is.null(names(intercepts))) {
+      names(intercepts) <- var_names
+    }
+    # Validate intercepts
+    .validate_intercepts(intercepts, var_names, predictor_types)
+  }
+  
+  # Create output structure
+  out <- list(
+    var_names = var_names,
+    predictor_types = predictor_types,
+    formulas = formulas,
+    betas = betas,
+    interactions = interactions,
+    intercepts = intercepts
+  )
+  
+  class(out) <- c("fixeff", "list")
+  return(out)
+}
+
+# Internal helper functions for make_fixeff
+
+.auto_generate_formulas <- function(var_names, sparsity) {
+  n_vars <- length(var_names)
+  formulas <- list()
+  
+  # First variable (response 'y') should depend on predictors
+  # Predictors depend on each other based on sparsity
+  
+  for (i in seq_len(n_vars)) {
+    focal_var <- var_names[i]
+    
+    if (i == 1) {
+      # Response variable - depends on all predictors
+      if (n_vars > 1) {
+        all_preds <- var_names[2:n_vars]
+        formula_string <- paste(focal_var, "~", paste(all_preds, collapse = " + "))
+        formulas[[length(formulas) + 1]] <- as.formula(formula_string)
+      }
+    } else if (i == 2) {
+      # First predictor - no dependencies (independent)
+      next
+    } else {
+      # Other predictors - can depend on earlier predictors (not response)
+      potential_preds <- var_names[2:(i - 1)]  # Exclude response (var 1)
+      
+      # Randomly select predictors based on sparsity
+      keep <- runif(length(potential_preds)) > sparsity
+      if (!any(keep)) {
+        # Ensure at least one predictor
+        keep[sample(length(potential_preds), 1)] <- TRUE
+      }
+      
+      selected_preds <- potential_preds[keep]
+      
+      # Create formula
+      formula_string <- paste(focal_var, "~", paste(selected_preds, collapse = " + "))
+      formulas[[length(formulas) + 1]] <- as.formula(formula_string)
+    }
+  }
+  
+  return(formulas)
+}
+
+.auto_generate_betas <- function(formulas, var_names, predictor_types) {
+  betas <- list()
+  
+  for (form in formulas) {
+    lhs <- all.vars(form)[1]  # Response variable
+    rhs <- all.vars(form)[-1] # Predictor variables
+    
+    # Generate weak to moderate effects: uniform(-0.5, 0.5)
+    beta_vals <- runif(length(rhs), -0.5, 0.5)
+    names(beta_vals) <- rhs
+    
+    betas[[lhs]] <- beta_vals
+  }
+  
+  return(betas)
+}
+
+.expand_categorical_betas <- function(betas, formulas, var_names, predictor_types) {
+  predictor_names <- var_names[-1]
+  
+  for (form in formulas) {
+    lhs <- all.vars(form)[1]
+    rhs <- all.vars(form)[-1]
+    
+    if (is.null(betas[[lhs]])) next
+    
+    beta_vals <- betas[[lhs]]
+    expanded_betas <- list()
+    
+    for (pred_name in rhs) {
+      # Find predictor index
+      pred_idx <- which(predictor_names == pred_name)
+      if (length(pred_idx) == 0) next
+      
+      pred_type <- predictor_types[pred_idx]
+      beta_val <- beta_vals[pred_name]
+      
+      if (is.na(beta_val)) next
+      
+      # Check if categorical
+      if (grepl("^multinomial", pred_type)) {
+        n_cats <- as.numeric(gsub("multinomial", "", pred_type))
+        n_params <- n_cats - 1
+        
+        # If single beta provided, spread across levels
+        if (length(beta_val) == 1) {
+          expanded <- seq(-abs(beta_val) / 2, abs(beta_val) / 2, 
+                          length.out = n_params) * sign(beta_val)
+          expanded_betas[[pred_name]] <- expanded
+        } else if (length(beta_val) == n_params) {
+          expanded_betas[[pred_name]] <- beta_val
+        } else {
+          stop("Beta for ", pred_name, " (multinomial", n_cats, 
+               ") should be length 1 or ", n_params)
+        }
+      } else {
+        # Gaussian, poisson, binary, thresholdK all use single beta
+        expanded_betas[[pred_name]] <- beta_val
+      }
+    }
+    
+    betas[[lhs]] <- expanded_betas
+  }
+  
+  return(betas)
+}
+
+.validate_intercepts <- function(intercepts, var_names, predictor_types) {
+  # Check for large intercepts (warning if |intercept| > 5)
+  large_intercepts <- abs(intercepts) > 5
+  if (any(large_intercepts)) {
+    warning("Large intercepts detected (|value| > 5) for: ",
+            paste(names(intercepts)[large_intercepts], collapse = ", "),
+            "\nEnsure intercepts are on appropriate scales:",
+            "\n  - Identity for gaussian",
+            "\n  - Log for poisson (e.g., log(5) ≈ 1.6 for mean count of 5)",
+            "\n  - Logit for categorical (e.g., logit(0.7) ≈ 0.85 for 70% probability)")
+  }
+  
+  return(invisible(NULL))
+}
+
 #' @title Simulate phylogenetic tree and assign cases to species
 #' @description Simulates a phylogenetic tree using birth-death process
 #'   and assigns observations to species
@@ -470,4 +876,177 @@ if (is.numeric(beta_resp) && !is.list(beta_resp)) {
     beta_full = beta_full,
     beta_resp_stored = beta_resp_stored
   ))
+}
+
+#' @title Build dependency matrix from formulas
+#' @description Converts formula-based dependency specification to a beta matrix
+#'   structure for simulation order determination.
+#' @param formulas List of formulas defining dependencies
+#' @param var_names Character vector of variable names
+#' @param betas Named list of beta coefficients
+#' @return Square matrix (n_predictors x n_predictors) with dependency structure
+.build_dep_matrix_from_formulas <- function(formulas, var_names, betas) {
+  predictor_names <- var_names[-1]  # Exclude response
+  n_predictors <- length(predictor_names)
+  
+  # Initialize zero matrix
+  dep_matrix <- matrix(0, nrow = n_predictors, ncol = n_predictors)
+  rownames(dep_matrix) <- predictor_names
+  colnames(dep_matrix) <- predictor_names
+  
+  for (form in formulas) {
+    lhs <- all.vars(form)[1]  # Response variable
+    rhs <- all.vars(form)[-1] # Predictor variables
+    
+    # Find indices in predictor matrix (skip if lhs is response 'y')
+    lhs_idx <- which(predictor_names == lhs)
+    if (length(lhs_idx) == 0) next  # Response variable, not a predictor
+    
+    for (pred in rhs) {
+      pred_idx <- which(predictor_names == pred)
+      if (length(pred_idx) > 0) {
+        # Get beta value (use first element if it's a vector for categorical)
+        beta_val <- betas[[lhs]][[pred]]
+        if (is.null(beta_val)) beta_val <- betas[[lhs]][pred]
+        if (!is.null(beta_val) && length(beta_val) > 0) {
+          # Use first beta if it's a vector
+          dep_matrix[lhs_idx, pred_idx] <- beta_val[1]
+        }
+      }
+    }
+  }
+  
+  return(dep_matrix)
+}
+
+#' @title Determine simulation order from formulas
+#' @description Determines the order in which variables should be simulated
+#'   based on their dependencies specified in formulas. Uses topological sort.
+#' @param formulas List of formulas
+#' @param var_names Character vector of variable names
+#' @param predictor_types Character vector of predictor types
+#' @return Integer vector of simulation order (indices into predictor_types)
+.determine_sim_order <- function(formulas, var_names, predictor_types) {
+  predictor_names <- var_names[-1]
+  n_predictors <- length(predictor_names)
+  
+  # Build dependency graph
+  depends_on <- vector("list", n_predictors)
+  names(depends_on) <- predictor_names
+  
+  for (i in seq_len(n_predictors)) {
+    depends_on[[i]] <- character(0)
+  }
+  
+  for (form in formulas) {
+    lhs <- all.vars(form)[1]
+    rhs <- all.vars(form)[-1]
+    
+    # Find lhs in predictor_names
+    lhs_idx <- which(predictor_names == lhs)
+    if (length(lhs_idx) == 0) next  # Response variable
+    
+    # Add dependencies
+    for (pred in rhs) {
+      if (pred %in% predictor_names) {
+        depends_on[[lhs_idx]] <- unique(c(depends_on[[lhs_idx]], pred))
+      }
+    }
+  }
+  
+  # Topological sort
+  sim_order <- integer(0)
+  remaining <- seq_len(n_predictors)
+  
+  while (length(remaining) > 0) {
+    # Find variables with all dependencies satisfied
+    ready <- sapply(remaining, function(idx) {
+      deps <- depends_on[[idx]]
+      all(deps %in% predictor_names[sim_order])
+    })
+    
+    if (!any(ready)) {
+      stop("Circular dependency detected in formulas")
+    }
+    
+    # Add ready variables to sim_order
+    new_vars <- remaining[ready]
+    sim_order <- c(sim_order, new_vars)
+    remaining <- remaining[!ready]
+  }
+  
+  # Check first predictor is gaussian
+  if (predictor_types[sim_order[1]] != "gaussian") {
+    warning("First independent predictor should ideally be gaussian for numerical stability")
+  }
+  
+  return(sim_order)
+}
+
+#' @title Convert categorical liability to actual categories
+#' @description After simulating liability for categorical variables, converts
+#'   them to actual factor levels so they can be used as categorical predictors
+#'   in subsequent simulations.
+#' @param liability Vector or matrix of liabilities
+#' @param var_type Character string indicating variable type
+#' @param var_name Variable name (for error messages)
+#' @return Factor or integer vector of categories
+.liability_to_categories <- function(liability, var_type, var_name) {
+  if (var_type == "binary") {
+    # Binary: threshold at 0
+    categories <- as.integer(liability > 0)
+    return(factor(categories, levels = c(0, 1)))
+  } else if (grepl("^threshold", var_type)) {
+    # Ordered categorical
+    n_cats <- as.numeric(gsub("threshold", "", var_type))
+    categories <- ordinal_liab2cat(liability, n_cats)
+    return(factor(categories, levels = seq_len(n_cats), ordered = TRUE))
+  } else if (grepl("^multinomial", var_type)) {
+    # Unordered categorical (multinomial)
+    n_cats <- as.numeric(gsub("multinomial", "", var_type))
+    # liability should be a matrix with K-1 columns
+    if (!is.matrix(liability)) {
+      stop("For multinomial variables, liability must be a matrix")
+    }
+    cat_labels <- paste0("cat", seq_len(n_cats))
+    categories <- mnom_liab2cat(liability, cat_labels)
+    return(factor(categories, levels = cat_labels))
+  } else {
+    # For gaussian/poisson, return as-is
+    return(liability)
+  }
+}
+
+#' @title Parse random effect formula
+#' @description Parses random effect specification (e.g., "~phylo", "~species",
+#'   "~phylo+species") to determine which random effects to include.
+#' @param random_formula Formula or character string specifying random effects
+#' @return List with logical flags: has_phylo, has_species
+.parse_random_formula <- function(random_formula) {
+  if (is.null(random_formula)) {
+    random_formula <- "~phylo"
+  }
+  
+  if (is.character(random_formula)) {
+    random_formula <- as.formula(random_formula)
+  }
+  
+  if (!inherits(random_formula, "formula")) {
+    stop("random_formula must be a formula or character string")
+  }
+  
+  # Extract terms
+  terms_str <- as.character(random_formula)[2]  # RHS of formula
+  terms_vec <- strsplit(terms_str, "\\+")[[1]]
+  terms_vec <- trimws(terms_vec)
+  
+  has_phylo <- "phylo" %in% terms_vec
+  has_species <- "species" %in% terms_vec
+  
+  if (!has_phylo && !has_species) {
+    warning("random_formula contains neither 'phylo' nor 'species'. Using ~phylo as default.")
+    has_phylo <- TRUE
+  }
+  
+  return(list(has_phylo = has_phylo, has_species = has_species))
 }
