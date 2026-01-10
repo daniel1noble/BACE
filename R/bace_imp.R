@@ -89,6 +89,15 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 	# Get a summary of the data types, classes etc
 	   data_summary <- .summarise_var_types(data_sub)
 	
+	# If providing a list of formulas, check that all variables with missing data have a formula specified
+	   if(is.list(fixformula)){
+	   vars_with_na <- data_summary$variable[data_summary$has_na]
+	
+		if(!all(vars_with_na %in% fix)){
+			missing_form_vars <- vars_with_na[!vars_with_na %in% fix]
+			stop(paste("The following variables have missing data but no formula specified in fixformula: ", paste(missing_form_vars, collapse = ", ")))
+		}}
+
 	#---------------------------------------------#
 	# Build formulas if needed otherwise user specified
 	#---------------------------------------------#
