@@ -110,7 +110,7 @@
 
 # TODO: Make sure to check all variable types before exporting into the final object
 
-simBACE <- function(
+sim_bace <- function(
     response_type = "gaussian",
     predictor_types = c("gaussian", "gaussian"),
     var_names = NULL,
@@ -193,7 +193,7 @@ simBACE <- function(
     if (length(intercepts$predictors) != n_predictors) {
       stop("intercepts$predictors must have length equal to n_predictors")
     }
-  }
+   }
 
   # Setup phylogenetic signal (default: no signal)
   if (is.null(phylo_signal)) {
@@ -811,12 +811,12 @@ print_simBACE_summary <- function(sim_output) {
   # Warn about integer representation of categorical variables
   int_vars <- c()
   if (sim_output$params$response_type == "binary" || 
-      grepl("^ordinal", sim_output$params$response_type)) {
+      grepl("^threshold", sim_output$params$response_type)) {
     int_vars <- c(int_vars, sim_output$params$var_names[1])
   }
   for (i in seq_along(sim_output$params$predictor_types)) {
     ptype <- sim_output$params$predictor_types[i]
-    if (ptype == "binary" || grepl("^ordinal", ptype)) {
+    if (ptype == "binary" || grepl("^threshold", ptype)) {
       int_vars <- c(int_vars, sim_output$params$var_names[i + 1])
     }
   }
