@@ -10,8 +10,8 @@ c(
     year = format(Sys.Date(), "%Y"),
     note = sprintf("R package version %s", meta$Version),
     url = "https://github.com/daniel1noble/BACE",
-    textVersion = paste(
-      "Nakagawa, S., Drobniak, S., and Noble, D.",
+    textVersion = paste0(
+      "Nakagawa, S., Drobniak, S., and Noble, D.W.A.",
       sprintf("(%s).", format(Sys.Date(), "%Y")),
       "BACE: Bayesian Augmentation using Chained Equations.",
       sprintf("R package version %s.", meta$Version),
@@ -29,7 +29,7 @@ c(
     number = "2",
     pages = "1--22",
     doi = "10.18637/jss.v033.i02",
-    textVersion = paste(
+    textVersion = paste0(
       "Hadfield, J. D. (2010).",
       "MCMC methods for multi-response generalized linear mixed models: the MCMCglmm R package.",
       "Journal of Statistical Software, 33(2), 1-22.",

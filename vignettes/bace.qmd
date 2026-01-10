@@ -39,7 +39,7 @@ You can install the BACE package from GitHub using the following command:
 #| ehcho: true
 
 # Install from github and load
-install.packages("pacman")
+#install.packages("pacman")
   pacman::p_load(devtools)
 devtools::install_github("daniel1noble/BACE")
   pacman::p_load(BACE, ape, phytools, MCMCglmm, dplyr, magrittr)
@@ -59,7 +59,7 @@ As you will see, the function allows you to specify fixed effects, random effect
 
 # Example Usage
 
-We'll first simulate a dataset with missing values and a phylogenetic tree. We can do this using the `simBACE()` function.
+We'll first simulate a dataset with missing values and a phylogenetic tree. We can do this using the `sim_bace()` function.
 
 ```{r}
 #| label: simulate_data
@@ -67,15 +67,15 @@ We'll first simulate a dataset with missing values and a phylogenetic tree. We c
 
 set.seed(123)
 # Simulate data. Note that threshold4 indicates an ordinal variable with 4 levels, and multinomial3 indicates a categorical variable with 3 levels. You can replace the numbers 
-sim_data <- simBACE(response_type = "poisson",
-                  predictor_types = c("gaussian", "binary", "threshold4", "multinomial3"),
-                     phylo_signal = c(0.5, 0.3, 0.1, 0.7, 0.7),
-                      missingness = c(0.2, 0.3, 0.4, 0.2, 0.5),
-                               rr = TRUE,
-                          rr_form = list(species = c("x1")))
+sim_data <- sim_bace(response_type = "poisson",
+                   predictor_types = c("gaussian", "binary", "threshold4", "multinomial3"),
+                      phylo_signal = c(0.5, 0.3, 0.1, 0.7, 0.7),
+                       missingness = c(0.2, 0.3, 0.4, 0.2, 0.5),
+                                rr = TRUE,
+                           rr_form = list(species = c("x1")))
 ```
 
-We can then view the simulated data and phylogenetic tree because the `simBACE()` function returns a list containing both objects. It also has a lot of other useful information about the simulation users can explore.
+We can then view the simulated data and phylogenetic tree because the `sim_bace()` function returns a list containing both objects. It also has a lot of other useful information about the simulation users can explore.
 
 ```{r}
 #| label: view_simulated_data
@@ -108,7 +108,7 @@ Now that we have the data we can now use the `bace_imp()` function to impute the
        data$x3 <- factor(data$x3, ordered = TRUE)
        data$x4 <- as.factor(data$x4)
 
-# Perform BACE imputation. NOTE: YOU MUST HAVE A MODEL FOR EACH MISSING VARIABLE IF YOU PROVIDE A LIST
+# Perform BACE imputation. NOTE: YOU MUST HAVE A MODEL FOR EACH MISSING VARIABLE IN THE DATA IF YOU PROVIDE A LIST. This is not the case if you provide a single formula because BACE will internally build models for the other variables based on their types.
 bace_impute <- bace_imp(fixformula = list("y ~ x1 + x2",
                                           "x1 ~ x2",
                                           "x2 ~ x4",
@@ -129,8 +129,8 @@ If you want to just model your main variables and ignore others you can also sim
 
 # Fit BACE with a single formula
 bace_impute2 <- bace_imp(fixformula = "y ~ x1 + x2",
-                    ran_phylo_form = "~ 1 |species",
-                             phylo = tree,
-                              data = data,
-                              runs = 5)     
+                     ran_phylo_form = "~ 1 |species",
+                              phylo = tree,
+                               data = data,
+                               runs = 5)     
 ```

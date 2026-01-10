@@ -131,7 +131,8 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 	# How we need to use the data, type of variable class to fit the models
 	
 		# List to hold runs. 
-		pred_missing_run <- list()
+		   pred_missing_run <- list()
+		    models_last_run <- list()
 
 		# Store initial data as first run
 		     pred_missing_run[[1]] <- data_sub
@@ -207,6 +208,11 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 								   thin = thin, 
 								 burnin = burnin)         # Prior Not working for all types yet
 
+			# If last run, store the model for evaluation later
+				if(r == (runs + 1)){
+					models_last_run[[response_var]] <- model
+				}
+
 			# Predict missing data and store in list to keep track across runs, if the variable was z-transformed then transform back using the attributes from data_i preparation which is done automatically for gaussian variables
 				pred_values <- .predict_bace(model, dat_prep, response_var = response_var, type = types[[response_var]])
 			 
@@ -231,6 +237,7 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 	   				forms = formulas,
 	   				types = types,
 	   			phylo_ran = phylo_ran,
+		  models_last_run = models_last_run,
 	   				 call = match.call())
 class(out) <- "bace"
 
