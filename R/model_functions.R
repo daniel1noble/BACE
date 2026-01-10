@@ -293,7 +293,7 @@
   clean_names <- gsub("^trait.*?\\.", "", raw_names)
   
   # 6. Final Data Frame Assembly
-  df_final <- as.data.frame(do.call(cbind, prob_results))
+  df_final <- as.data.frame(do.call(cbind, prop_results))
   colnames(df_final) <- c(clean_names, baseline_name)
   
   # Rearrange columns alphabetically (Aquatic, Insessorial, Terrestrial)
