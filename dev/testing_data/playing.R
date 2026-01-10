@@ -8,9 +8,9 @@ library(magrittr)
 set.seed(1)
 
 ## --- 1) Simulate data with missingness ---
-sim <- simBACE(
+sim <- sim_bace(
   response_type   = "gaussian",
-  predictor_types = c("gaussian", "binary", "multinomial4"),
+  predictor_types = c("gaussian", "binary", "multinomial4", "threshold3"),
   n_cases         = 120,
   n_species       = 40,
   phylo_signal    = c(0.4, 0.2, 0.1, 0.1),   # y + 4 predictors
@@ -32,7 +32,7 @@ dat$x2 <- factor(dat$x2, levels = sort(unique(dat$x2[!is.na(dat$x2)])))
 dat$x3 <- factor(dat$x3)
 
 # threshold3 predictor here is x4 (integers 1/2/3) -> ordered factor
-#dat$x4 <- ordered(dat$x4, levels = sort(unique(dat$x4[!is.na(dat$x4)])))
+dat$x4 <- ordered(dat$x4, levels = sort(unique(dat$x4[!is.na(dat$x4)])))
 
 ## If you ever simulate binary/threshold RESPONSE, do the same to dat$y.
 
