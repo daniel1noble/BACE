@@ -379,21 +379,21 @@
 #'         (one row per observation used in the fit)
 #' @export
 .pred_cont <- function(model) {
-  
+
   # Need X and Sol (and Z if you want conditional fitted values)
   if (is.null(model$X))   stop("model$X is missing: fit with saveX=TRUE.")
   if (is.null(model$Sol)) stop("model$Sol is missing.")
-  
+
   X   <- as.matrix(model$X)
   Sol <- as.matrix(model$Sol)
-  
+
   # Use Z if present (pr=TRUE typically required to have RE columns in Sol)
   if (!is.null(model$Z)) {
     W <- cbind(X, as.matrix(model$Z))
   } else {
     W <- X
   }
-  
+
   # Align columns (most robust)
   if (!is.null(colnames(W)) && !is.null(colnames(Sol))) {
     common <- intersect(colnames(W), colnames(Sol))
@@ -408,19 +408,19 @@
     W   <- W[, seq_len(p), drop = FALSE]
     Sol <- Sol[, seq_len(p), drop = FALSE]
   }
-  
+
   # eta draws: [n_iter x n_obs]
   eta <- Sol %*% t(W)
-  
+
   ci <- t(apply(eta, 2, stats::quantile, probs = c(0.025, 0.975), na.rm = TRUE))
-  
+
   out <- data.frame(
     post_mean = as.numeric(colMeans(eta, na.rm = TRUE)),
     post_sd   = as.numeric(apply(eta, 2, stats::sd, na.rm = TRUE)),
     ci_lower  = as.numeric(ci[, 1]),
     ci_upper  = as.numeric(ci[, 2])
   )
-  
+
   rownames(out) <- paste0("Obs_", seq_len(nrow(out)))
   return(out)
 }
@@ -434,21 +434,21 @@
 #'         (one row per observation)
 #' @export
 .pred_count <- function(model) {
-  
+
   if (is.null(model$Liab)) stop("model$Liab is missing.")
   liab <- as.matrix(model$Liab)
-  
+
   mu <- exp(liab)
-  
+
   ci <- t(apply(mu, 2, stats::quantile, probs = c(0.025, 0.975), na.rm = TRUE))
-  
+
   out <- data.frame(
     post_mean = as.numeric(colMeans(mu, na.rm = TRUE)),
     post_sd   = as.numeric(apply(mu, 2, stats::sd, na.rm = TRUE)),
     ci_lower  = as.numeric(ci[, 1]),
     ci_upper  = as.numeric(ci[, 2])
   )
-  
+
   rownames(out) <- paste0("Obs_", seq_len(nrow(out)))
   return(out)
 }
