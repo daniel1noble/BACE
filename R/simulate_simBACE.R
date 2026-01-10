@@ -108,7 +108,6 @@
 #'
 #' @export
 
-# TODO: Make sure to check all variable types before exporting into the final object
 
 sim_bace <- function(
     response_type = "gaussian",
@@ -652,20 +651,38 @@ sim_bace <- function(
     residuals = residuals
   )
 
-  # Warn about integer representation of categorical variables
-  int_vars <- c()
-  if (response_type == "binary" || grepl("^threshold", response_type)) {
-    int_vars <- c(int_vars, var_names[1])
+  # -------------------------------------------------------------------------
+  # CONVERT VARIABLES TO APPROPRIATE DATA TYPES
+  # -------------------------------------------------------------------------
+  
+  # Convert response variable to appropriate type
+  resp_col <- var_names[1]
+  if (response_type == "poisson") {
+    out_data[[resp_col]] <- as.integer(out_data[[resp_col]])
+  } else if (response_type == "binary") {
+    out_data[[resp_col]] <- factor(out_data[[resp_col]], ordered = TRUE)
+  } else if (grepl("^threshold", response_type)) {
+    out_data[[resp_col]] <- factor(out_data[[resp_col]], ordered = TRUE)
+  } else if (grepl("^multinomial", response_type)) {
+    out_data[[resp_col]] <- factor(out_data[[resp_col]], ordered = FALSE)
   }
+  # gaussian variables remain numeric (default)
+  
+  # Convert predictor variables to appropriate types
   for (i in seq_len(n_predictors)) {
-    if (predictor_types[i] == "binary" || grepl("^threshold", predictor_types[i])) {
-      int_vars <- c(int_vars, var_names[i + 1])
+    pred_col <- var_names[i + 1]
+    pred_type <- predictor_types[i]
+    
+    if (pred_type == "poisson") {
+      out_data[[pred_col]] <- as.integer(out_data[[pred_col]])
+    } else if (pred_type == "binary") {
+      out_data[[pred_col]] <- factor(out_data[[pred_col]], ordered = TRUE)
+    } else if (grepl("^threshold", pred_type)) {
+      out_data[[pred_col]] <- factor(out_data[[pred_col]], ordered = TRUE)
+    } else if (grepl("^multinomial", pred_type)) {
+      out_data[[pred_col]] <- factor(out_data[[pred_col]], ordered = FALSE)
     }
-  }
-  if (length(int_vars) > 0) {
-    message("Note: Variables '", paste(int_vars, collapse = "', '"), 
-            "' are categorical but represented as integers. ",
-            "Consider converting to factor before analysis.")
+    # gaussian variables remain numeric (default)
   }
 
   return(list(
@@ -690,9 +707,9 @@ sim_bace <- function(
 #' @param beta_sparsity Proportion of coefficients in beta_matrix to set to zero (default 0.7)
 #' @return simBACE output list
 #' @export
-simBACE_gaussian <- function(n_predictors = 3, n_cases = 200, n_species = 75,
+sim_bace_gaussian <- function(n_predictors = 3, n_cases = 200, n_species = 75,
                              phylo_signal = 0, beta_sparsity = 0.7) {
-  simBACE(
+  sim_bace(
     response_type = "gaussian",
     predictor_types = rep("gaussian", n_predictors),
     phylo_signal = rep(phylo_signal, n_predictors + 1),
@@ -710,9 +727,9 @@ simBACE_gaussian <- function(n_predictors = 3, n_cases = 200, n_species = 75,
 #' @param phylo_signal Single phylogenetic signal value applied to all variables
 #' @return simBACE output list
 #' @export
-simBACE_poisson <- function(n_predictors = 3, n_cases = 200, n_species = 75,
+sim_bace_poisson <- function(n_predictors = 3, n_cases = 200, n_species = 75,
                             phylo_signal = 0) {
-  simBACE(
+  sim_bace(
     response_type = "poisson",
     predictor_types = rep("gaussian", n_predictors),
     phylo_signal = rep(phylo_signal, n_predictors + 1),
@@ -729,9 +746,9 @@ simBACE_poisson <- function(n_predictors = 3, n_cases = 200, n_species = 75,
 #' @param phylo_signal Single phylogenetic signal value applied to all variables
 #' @return simBACE output list
 #' @export
-simBACE_binary <- function(n_predictors = 3, n_cases = 200, n_species = 75,
+sim_bace_binary <- function(n_predictors = 3, n_cases = 200, n_species = 75,
                            phylo_signal = 0) {
-  simBACE(
+  sim_bace(
     response_type = "binary",
     predictor_types = rep("gaussian", n_predictors),
     phylo_signal = rep(phylo_signal, n_predictors + 1),
@@ -740,12 +757,12 @@ simBACE_binary <- function(n_predictors = 3, n_cases = 200, n_species = 75,
   )
 }
 
-#' @title Print summary of simBACE output
+#' @title Print summary of sim_bace output
 #' @description Prints a summary of the simulated data
-#' @param sim_output Output from simBACE function
+#' @param sim_output Output from sim_bace function
 #' @export
-print_simBACE_summary <- function(sim_output) {
-  cat("=== simBACE Simulation Summary ===\n\n")
+print_sim_bace_summary <- function(sim_output) {
+  cat("=== sim_bace Simulation Summary ===\n\n")
 
   cat("Response type:", sim_output$params$response_type, "\n")
   cat("Predictor types:", paste(sim_output$params$predictor_types, collapse = ", "), "\n")
@@ -808,23 +825,17 @@ print_simBACE_summary <- function(sim_output) {
   cat("\n--- Data summary ---\n")
   print(summary(sim_output$data))
 
-  # Warn about integer representation of categorical variables
-  int_vars <- c()
-  if (sim_output$params$response_type == "binary" || 
-      grepl("^threshold", sim_output$params$response_type)) {
-    int_vars <- c(int_vars, sim_output$params$var_names[1])
-  }
+  # Report on variable types in the output
+  cat("\n*** Variable Types ***\n")
+  cat("Response (", sim_output$params$var_names[1], "): ", 
+      sim_output$params$response_type, " -> ", 
+      class(sim_output$data[[sim_output$params$var_names[1]]])[1], "\n", sep = "")
+  
   for (i in seq_along(sim_output$params$predictor_types)) {
-    ptype <- sim_output$params$predictor_types[i]
-    if (ptype == "binary" || grepl("^threshold", ptype)) {
-      int_vars <- c(int_vars, sim_output$params$var_names[i + 1])
-    }
-  }
-  if (length(int_vars) > 0) {
-    cat("\n*** NOTE ***\n")
-    cat("Variables '", paste(int_vars, collapse = "', '"), 
-        "' are categorical but represented as integers.\n", sep = "")
-    cat("Consider converting to factor if needed for analysis.\n")
+    pred_name <- sim_output$params$var_names[i + 1]
+    pred_type <- sim_output$params$predictor_types[i]
+    pred_class <- class(sim_output$data[[pred_name]])[1]
+    cat("Predictor (", pred_name, "): ", pred_type, " -> ", pred_class, "\n", sep = "")
   }
 
   invisible(sim_output)
