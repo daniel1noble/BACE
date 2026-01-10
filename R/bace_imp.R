@@ -211,6 +211,8 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 			# If last run, store the model for evaluation later
 				if(r == (runs + 1)){
 					models_last_run[[response_var]] <- model
+
+					# TO DO: Add predictions from last set of models to output as well
 				}
 
 			# Predict missing data and store in list to keep track across runs, if the variable was z-transformed then transform back using the attributes from data_i preparation which is done automatically for gaussian variables
@@ -240,6 +242,24 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 		  models_last_run = models_last_run,
 	   				 call = match.call())
 class(out) <- "bace"
+
+#---------------------------------------------#
+# MCMC Diagnostics
+#---------------------------------------------#
+if(verbose){
+	# Run diagnostics
+	    diagnostics <- .check_mcmc_diagnostics(out)
+	
+	# Store diagnostics in output
+	out$diagnostics <- diagnostics
+	
+	# Print diagnostics summary
+	print(diagnostics)
+} else {
+	# Still compute diagnostics but don't print
+	    diagnostics <- .check_mcmc_diagnostics(out)
+	out$diagnostics <- diagnostics
+}
 
 return(out)
 }	

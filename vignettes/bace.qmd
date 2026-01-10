@@ -69,7 +69,7 @@ set.seed(123)
 # Simulate data. Note that threshold4 indicates an ordinal variable with 4 levels, and multinomial3 indicates a categorical variable with 3 levels. You can replace the numbers 
 sim_data <- sim_bace(response_type = "poisson",
                    predictor_types = c("gaussian", "binary", "threshold4", "multinomial3"),
-                      phylo_signal = c(0.5, 0.3, 0.1, 0.7, 0.7),
+                      phylo_signal = c(0.55, 0.75, 0.8, 0.7, 0.7),
                        missingness = c(0.2, 0.3, 0.4, 0.2, 0.5),
                                 rr = TRUE,
                            rr_form = list(species = c("x1")))
@@ -99,14 +99,8 @@ Now that we have the data we can now use the `bace_imp()` function to impute the
 #| label: bace_imputation
 #| echo: true 
 
-# First check that all variables are correctly classified
+# First check that all variables are correctly classified. Correctly. If using sim_bace() this is done automatically, but always worth checking.
   str(data)
-
-# Convert them tothe correct class if needed
-  data$species <- as.character(data$species)
-       data$x2 <- as.numeric(data$x2)
-       data$x3 <- factor(data$x3, ordered = TRUE)
-       data$x4 <- as.factor(data$x4)
 
 # Perform BACE imputation. NOTE: YOU MUST HAVE A MODEL FOR EACH MISSING VARIABLE IN THE DATA IF YOU PROVIDE A LIST. This is not the case if you provide a single formula because BACE will internally build models for the other variables based on their types.
 bace_impute <- bace_imp(fixformula = list("y ~ x1 + x2",
@@ -132,5 +126,5 @@ bace_impute2 <- bace_imp(fixformula = "y ~ x1 + x2",
                      ran_phylo_form = "~ 1 |species",
                               phylo = tree,
                                data = data,
-                               runs = 5)     
+                               runs = 5, nitt = 20000, burnin = 5000, thin = 10)     
 ```
