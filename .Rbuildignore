@@ -11,3 +11,4 @@ dev/
 ms/
 .vscode/
 ^\.Rhistory$
+^vignettes/.*\.qmd$
