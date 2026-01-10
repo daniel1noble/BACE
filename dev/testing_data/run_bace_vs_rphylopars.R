@@ -10,12 +10,12 @@
 ##  - compare_metrics_by_trait.csv, compare_predictions_long.csv
 
 ## ---- 0) Packages ----
-pkgs <- c("ape", "dplyr", "tidyr", "readr", "MCMCglmm", "Rphylopars")
-to_install <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
-if (length(to_install)) {
-  stop("Missing packages: ", paste(to_install, collapse=", "),
-       "\nInstall them first, e.g. install.packages(c(", paste0('"', to_install, '"', collapse=", "), ")).")
-}
+#pkgs <- c("ape", "dplyr", "tidyr", "readr", "MCMCglmm", "Rphylopars")
+#to_install <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
+#if (length(to_install)) {
+#  stop("Missing packages: ", paste(to_install, collapse=", "),
+#       "\nInstall them first, e.g. install.packages(c(", paste0('"', to_install, '"', collapse=", "), ")).")
+#}
 
 library(ape)
 library(dplyr)
@@ -48,6 +48,8 @@ traits <- setdiff(names(dat), "species")
 
 ## ---- 3) Run BACE imputation ----
 set.seed(1)
+
+tree <- ape::compute.brlen(tree, method = "Grafen")
 
 ## Use any variable as the LHS; bace_imp will generate chained formulas for all vars in the formula
 fixformula <- paste0("Mass ~ ", paste(setdiff(traits, "Mass"), collapse = " + "))
