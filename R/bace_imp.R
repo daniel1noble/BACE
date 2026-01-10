@@ -92,11 +92,15 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 	# If providing a list of formulas, check that all variables with missing data have a formula specified
 	   if(is.list(fixformula)){
 	   vars_with_na <- data_summary$variable[data_summary$has_na]
-	
-		if(!all(vars_with_na %in% fix)){
-			missing_form_vars <- vars_with_na[!vars_with_na %in% fix]
-			stop(paste("The following variables have missing data but no formula specified in fixformula: ", paste(missing_form_vars, collapse = ", ")))
-		}}
+
+	   # Now check that all these variables are in the list of formulas
+	       formula_vars <- unique(unlist(lapply(fixformula, function(f) all.vars(as.formula(f)[[2]]))))	
+	   missing_formulas <- setdiff(vars_with_na, formula_vars)
+	   
+	   if(length(missing_formulas) > 0){
+		stop(paste("The following variables have missing data but no formula specified in fixformula:", paste(missing_formulas, collapse = ", ")))
+	   }
+	}
 
 	#---------------------------------------------#
 	# Build formulas if needed otherwise user specified
