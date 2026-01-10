@@ -16,7 +16,6 @@ format:
     code-tools: true
     number-sections: true
     fontsize: "12"
-    max-width: "10"
     code-overflow: wrap
 crossref: 
   fig-title: Figure     # (default is "Figure")
@@ -29,14 +28,17 @@ editor_options:
 ---
 
 # Introduction
-We provide a brief introduction to the BACE package for Bayesian phylogenetic and correlated trait imputation. The BACE package allows users to impute missing data in comparative datasets using Bayesian methods that account for phylogenetic relationships among species.
+We provide a brief introduction to the *BACE* package for Bayesian phylogenetic and correlated trait imputation. The *BACE* package allows users to impute missing data in comparative datasets using Bayesian methods that account for phylogenetic relationships among species.
 
 # Installation
-You can install the BACE package from GitHub using the following command:
+You can install the *BACE* package from GitHub using the following command:
 
 ```{r}
 #| label: install_bace
-#| ehcho: true
+#| echo: true
+#| message: false
+#| warning: false
+#| eval: true
 
 # Install from github and load
 #install.packages("pacman")
@@ -48,24 +50,28 @@ devtools::install_github("daniel1noble/BACE")
 If you encounter any issues during installation, please ensure that you have the required dependencies installed.
 
 # Documentation
-The main function in the BACE package is `bace_imp()`, which performs Bayesian imputation using chained equations. You can access the documentation for this function using the following command:
+
+The main function in the *BACE* package is `bace_imp()`, which performs Bayesian imputation using chained equations. You can access the documentation for this function using the following command:
 ```{r}
 #| label: bace_imp_doc
 #| echo: true
 ?bace_imp
 ```
 
-As you will see, the function allows you to specify fixed effects, random effects, phylogenetic trees, and other parameters for the imputation process. At the bare minimum, you need to provide a formula for the fixed effects, a formula for the random effects (including phylogeny), a phylogenetic tree, and the dataset with missing values.
+As you will see, the function allows you to specify fixed effects, random effects, phylogenetic tree, and other parameters for the imputation process. At the bare minimum, you need to provide a formula for the fixed effects, a formula for the random effects (including phylogeny), a phylogenetic tree, and the dataset with missing values.
 
 # Example Usage
 
+## Simulating Data
 We'll first simulate a dataset with missing values and a phylogenetic tree. We can do this using the `sim_bace()` function.
 
 ```{r}
 #| label: simulate_data
 #| echo: true
 
+# Set seed for reproducibility
 set.seed(123)
+
 # Simulate data. Note that threshold4 indicates an ordinal variable with 4 levels, and multinomial3 indicates a categorical variable with 3 levels. You can replace the numbers 
 sim_data <- sim_bace(response_type = "poisson",
                    predictor_types = c("gaussian", "binary", "threshold4", "multinomial3"),
@@ -89,20 +95,40 @@ We can then view the simulated data and phylogenetic tree because the `sim_bace(
 head(data)
 ```
 
+Here, we can see that the dataset contains lots of missing values across different variable types. Of course, with normal modelling, we would need to exclude these cases to use a complete dataset. However, with *BACE* we simply feed in the entire dataset, specify the models we want to use for imputation (or the real model of interest), and impute the missing data. 
 
-Here, we can see that the dataset contains lots of missing values across different variable types. Of course, with normal modelling, we would need to exclude these cases to use a complete datset. However, with BACE we simply feed in the entire dataset, specify the models we want to use for imputation (or the real model of interest), and impute the missing data. 
+## Using *BACE* for Imputation
+Now that we have the data and the phylogenetic tree we can use the `bace_imp()` function to impute the missing data. 
 
-# Using BACE for Imputation
-Now that we have the data we can now use the `bace_imp()` function to impute the missing data.
+:::::: {.callout-caution}
+It's very important to ensure that all variables are correctly classified in the dataset (e.g., factors for categorical variables, numeric for continuous variables, etc.) before running the imputation. *BACE* will fit different models for different variable types, and so, if they have not been correctly classified you will be modeling the variable incorrectly. 
+
+If you want to see what *BACE* has classified each variable as, you can use the extract the types using the following command:
+
+```{r}
+#| label: check_variable_types
+#| echo: true 
+#| eval: false
+
+bace_types <- bace_impute$types
+```
+
+Importantly, users also need to think carefully about the distributions of the variables themselves and transform them if necessary prior to running `bace_imp` (e.g., log-transforming skewed continuous variables).
+:::
+
+
+There are two ways you can use `bace_imp`. The first is to specify a list of all the formulas for each variable you would like to fit. It is important here that, if you provide a list, that any variable with missing data is found as a response variable. This must be the case because *BACE* will not automatically build models for other variables if you provide a list of formulas (but see below). For example, we can run *BACE* as follows. Note that we specify a formula for each variable in the dataset that has missing data.
+
+
 
 ```{r}
 #| label: bace_imputation
 #| echo: true 
 
-# First check that all variables are correctly classified. Correctly. If using sim_bace() this is done automatically, but always worth checking.
+# First check that all variables are correctly classified. If using sim_bace() this is done automatically, but always worth checking.
   str(data)
 
-# Perform BACE imputation. NOTE: YOU MUST HAVE A MODEL FOR EACH MISSING VARIABLE IN THE DATA IF YOU PROVIDE A LIST. This is not the case if you provide a single formula because BACE will internally build models for the other variables based on their types.
+# Perform BACE imputation. Here we specify models for each variable in the dataset.
 bace_impute <- bace_imp(fixformula = list("y ~ x1 + x2",
                                           "x1 ~ x2",
                                           "x2 ~ x4",
@@ -111,11 +137,15 @@ bace_impute <- bace_imp(fixformula = list("y ~ x1 + x2",
                     ran_phylo_form = "~ 1 |species",
                              phylo = tree,
                               data = data,
-                              runs = 5)
+                              runs = 5, verbose = FALSE)
                        
 ```
 
-If you want to just model your main variables and ignore others you can also simply feed in a single formula as below. Here, BACE will automatically build models for the other variables based on their types and the variables present in the dataset.
+What *BACE* will do here is fit a `MCMCglmm` model for each of the response variables specified in the formula list. At the first iteration, it will fill in missing values for any predictors using either their mean (for continuous variables) or randomly sampled values (for categorical variables). Models will then be fit using this complete predictor set and predictions will be made for missing values of the response variable. In the next run, those predictions will be used to 'fill' in missing values in any predictors instead. This cycle will continue until the predicted values converge. This process is repeated for the number of iterations specified by the `runs` argument. All the models will include the phylogenetic random effect specified in the `ran_phylo_form` argument.
+
+
+
+The second way to use *BACE* is to just provide a model with your main variables. This may be because you have an *a priori* model in mind, as such, you can also use `bace_imp` by simply feeding in a single formula as below. Here, *BACE* will automatically build models for the other variables based on their types and the variables present in the dataset. It will impute missing values in the same way as described above, but using all other variables as predictors. You can also specify interactions if you wish. We can run *BACE* in this way as follows (this time using verbose = TRUE to see more output during the imputation process):
 
 ```{r}
 #| label: bace_imputation_simple
@@ -128,3 +158,25 @@ bace_impute2 <- bace_imp(fixformula = "y ~ x1 + x2",
                                data = data,
                                runs = 5, nitt = 20000, burnin = 5000, thin = 10)     
 ```
+
+As you can see from the printout above, *BACE* provides a summary of the imputation process, including the number of models fitted, parameters estimated, and effective sample sizes which evaluate how well the MCMC chains for parameters are mixing. This is important to check to ensure that the imputation is performing well.
+
+## Evaluating Final Models
+
+*BACE* returns a list of models for each variable that was imputed. You can access these models and evaluate them as you would any `MCMCglmm` model. This is important for  checking model fit and convergence along with downstream inference. For example, you can check the summary of the model for the response variable `y` as follows:
+
+```{r}
+#| label: evaluate_models
+#| echo: true
+
+# Access the model for the response variable 'y'
+model_y <- bace_impute2$models[["y"]] 
+
+# View summary of the model
+summary(model_y)
+
+# Plot trace and density plots for model parameters
+plot(model_y)
+```
+
+We can see here that the phylogenetic variance estimate (i.e., `species` random effect) is mixing poorly. We should go back and re-run the imputation with more iterations or possibly adjust our prior to ensure better mixing for this parameter.

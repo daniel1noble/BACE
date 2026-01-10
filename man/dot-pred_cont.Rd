@@ -10,8 +10,10 @@
 \item{model}{A MCMCglmm model object}
 }
 \value{
-A data frame with two columns: post_mean and post_sd (row per observation used in the fit)
+A data frame with columns: post_mean, post_sd, ci_lower, ci_upper
+(one row per observation used in the fit)
 }
 \description{
-Posterior mean and posterior SD of fitted values for a Gaussian (identity-link) MCMCglmm model
+Posterior mean, posterior SD, and 95\% credible interval (2.5\%, 97.5\%)
+of fitted values for a Gaussian (identity-link) MCMCglmm model
 }

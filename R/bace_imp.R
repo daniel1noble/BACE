@@ -133,6 +133,7 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 		# List to hold runs. 
 		   pred_missing_run <- list()
 		    models_last_run <- list()
+		 pred_list_last_run <- list()
 
 		# Store initial data as first run
 		     pred_missing_run[[1]] <- data_sub
@@ -210,27 +211,33 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 
 			# If last run, store the model for evaluation later
 				if(r == (runs + 1)){
-					models_last_run[[response_var]] <- model
-
-					# TO DO: Add predictions from last set of models to output as well
+					models_last_run[[response_var]] <- model					
 				}
 
 			# Predict missing data and store in list to keep track across runs, if the variable was z-transformed then transform back using the attributes from data_i preparation which is done automatically for gaussian variables
-				pred_values <- .predict_bace(model, dat_prep, response_var = response_var, type = types[[response_var]])
+				predictions <- .predict_bace(model, dat_prep, response_var = response_var, type = types[[response_var]])
+
+				# If last run, store the model for evaluation later
+				if(r == (runs + 1)){
+					pred_list_last_run[[response_var]] <- predictions[["full_prediction"]]					
+				}
 			 
 			# Store predicted values for only the missing data points
 			                         id <- missing_matrix[with(missing_matrix, colname == response_var), "row"]
-							    data_id <- which(colnames(data_sub2) == response_var)
-			     data_sub2[id, data_id]  <- pred_values[id]
+							     data_id <- which(colnames(data_sub2) == response_var)
+			     data_sub2[id, data_id]  <- predictions[["pred_values"]][id]
 			 
 			 if(verbose){
 				cat(paste0("Run ", r-1, ", Imputed variable: ", response_var, "\n"))
 			 } 
 
 		} # End of formula loop		
-		     pred_missing_run[[r]] <- data_sub2
+		    
+			 pred_missing_run[[r]] <- data_sub2
 		names(pred_missing_run)[r] <- paste0("Iter_", r-1)
 }
+
+
 #---------------------------------------------#
 # Return the output
 #---------------------------------------------#
@@ -240,6 +247,7 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 	   				types = types,
 	   			phylo_ran = phylo_ran,
 		  models_last_run = models_last_run,
+	   pred_list_last_run = pred_list_last_run,
 	   				 call = match.call())
 class(out) <- "bace"
 

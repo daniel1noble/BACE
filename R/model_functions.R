@@ -221,12 +221,14 @@
 					sd_val   <- dat_prep[[2]][[response_var]]$sd
 					
 					# Predict from model and back-transform
-				 		pred_values <- .pred_cont(model)[,1] * sd_val + mean_val
+				 		  pred_prob <- .pred_cont(model) * sd_val + mean_val # Full prediction
+            pred_values <- pred_prob[,1]          # Extract posterior mean
 			     }
 
 				 if(type == "poisson"){  
 					# Predict from model and round to nearest integer to retain count data
-						pred_values <- round(.pred_count(model)[,1], digits = 0)
+              pred_prob <- .pred_count(model)           # Full prediction
+						pred_values <- round(pred_prob[,1], digits = 0) # Extract posterior mean and round
 				 }
 
 				 if(type == "threshold" || type == "ordinal"){
@@ -234,7 +236,7 @@
 			      	     lv  <- dat_prep[[1]][[response_var]]
 				  levels_var <- sort(unique(as.character(lv)))
 				  
-				   # Predicts probabilities for each category
+				   # Predicts probabilities for each category. Full prediction
 				 pred_prob <- .pred_threshold(model, level_names = levels_var)
 
 				   # For each observation, sample from the categorical distribution based on the predicted probabilities. TO DO: Note we could also just take the max probability for baseline level
@@ -247,14 +249,15 @@
 			      	     lv  <- dat_prep[[1]][[response_var]]
 				  levels_var <- sort(unique(as.character(lv)))
 					
-					# Predict category probabilities
+					# Predict category probabilities. Full prediction
 					pred_prob <- .pred_cat(model, baseline_name = levels_var[1])
 
 					# For each observation, sample from the categorical distribution based on the predicted probabilities
 				   pred_values <- .impute_levels(pred_prob, levels_var, sample = sample)
 				 }
 
-	return(pred_values)
+	return(list(full_prediction = pred_prob, 
+                  pred_values = pred_values))
 }
 
 #' @title .impute_levels
@@ -414,27 +417,29 @@
 
 
 #' @title .pred_cont
-#' @description Posterior mean and posterior SD of fitted values for a Gaussian (identity-link) MCMCglmm model
+#' @description Posterior mean, posterior SD, and 95% credible interval (2.5%, 97.5%)
+#'              of fitted values for a Gaussian (identity-link) MCMCglmm model
 #' @param model A MCMCglmm model object
-#' @return A data frame with two columns: post_mean and post_sd (row per observation used in the fit)
+#' @return A data frame with columns: post_mean, post_sd, ci_lower, ci_upper
+#'         (one row per observation used in the fit)
 #' @export
 .pred_cont <- function(model) {
-  
-  # 1. Need X and Sol (and Z if you want conditional fitted values)
+
+  # Need X and Sol (and Z if you want conditional fitted values)
   if (is.null(model$X))   stop("model$X is missing: fit with saveX=TRUE.")
   if (is.null(model$Sol)) stop("model$Sol is missing.")
-  
+
   X   <- as.matrix(model$X)
   Sol <- as.matrix(model$Sol)
-  
+
   # Use Z if present (pr=TRUE typically required to have RE columns in Sol)
   if (!is.null(model$Z)) {
     W <- cbind(X, as.matrix(model$Z))
   } else {
     W <- X
   }
-  
-  # 2. Align columns (most robust)
+
+  # Align columns (most robust)
   if (!is.null(colnames(W)) && !is.null(colnames(Sol))) {
     common <- intersect(colnames(W), colnames(Sol))
     if (length(common) == 0) {
@@ -444,43 +449,53 @@
     Sol <- Sol[, common, drop = FALSE]
   } else {
     # Fallback: assume ordering matches for first min columns
-      p <- min(ncol(W), ncol(Sol))
+    p <- min(ncol(W), ncol(Sol))
     W   <- W[, seq_len(p), drop = FALSE]
     Sol <- Sol[, seq_len(p), drop = FALSE]
   }
-  
-  # 4. eta draws: [n_iter x n_rows_in_model_matrix]
+
+  # eta draws: [n_iter x n_obs]
   eta <- Sol %*% t(W)
-  
+
+  ci <- t(apply(eta, 2, stats::quantile, probs = c(0.025, 0.975), na.rm = TRUE))
+
   out <- data.frame(
-    post_mean = as.numeric(colMeans(eta)),
-    post_sd   = as.numeric(apply(eta, 2, sd))
+    post_mean = as.numeric(colMeans(eta, na.rm = TRUE)),
+    post_sd   = as.numeric(apply(eta, 2, stats::sd, na.rm = TRUE)),
+    ci_lower  = as.numeric(ci[, 1]),
+    ci_upper  = as.numeric(ci[, 2])
   )
-  
+
   rownames(out) <- paste0("Obs_", seq_len(nrow(out)))
   return(out)
 }
 
 
 #' @title .pred_count
-#' @description Posterior mean and posterior SD of fitted values for a Poisson (log-link) MCMCglmm model
+#' @description Posterior mean, posterior SD, and 95% credible interval (2.5%, 97.5%)
+#'              of fitted values for a Poisson (log-link) MCMCglmm model
 #' @param model A MCMCglmm model object
-#' @return A data frame with two columns: post_mean and post_sd (row per observation)
+#' @return A data frame with columns: post_mean, post_sd, ci_lower, ci_upper
+#'         (one row per observation)
 #' @export
 .pred_count <- function(model) {
-  
+
   if (is.null(model$Liab)) stop("model$Liab is missing.")
   liab <- as.matrix(model$Liab)
-  
+
   mu <- exp(liab)
-  
+
+  ci <- t(apply(mu, 2, stats::quantile, probs = c(0.025, 0.975), na.rm = TRUE))
+
   out <- data.frame(
-    post_mean = colMeans(mu),
-    post_sd   = apply(mu, 2, sd)
+    post_mean = as.numeric(colMeans(mu, na.rm = TRUE)),
+    post_sd   = as.numeric(apply(mu, 2, stats::sd, na.rm = TRUE)),
+    ci_lower  = as.numeric(ci[, 1]),
+    ci_upper  = as.numeric(ci[, 2])
   )
-  
+
   rownames(out) <- paste0("Obs_", seq_len(nrow(out)))
-  return(round(out, 4))
+  return(out)
 }
 
 
