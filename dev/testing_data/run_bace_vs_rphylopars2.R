@@ -132,4 +132,82 @@ rp_recon <- rp_recon %>% dplyr::select(species, all_of(traits))
 
 ## ---- 4b) Rphylopars SE + CI (normal approx) ----
 rp_var <- as.data.frame(rp_tip_var)
-rp_var
+rp_var$species <- rownames(rp_tip_var)
+rp_var <- rp_var %>% dplyr::select(species, all_of(traits))
+
+rp_long <- rp_recon %>%
+  tidyr::pivot_longer(cols = all_of(traits), names_to = "trait", values_to = "rphy_mean")
+
+rpv_long <- rp_var %>%
+  tidyr::pivot_longer(cols = all_of(traits), names_to = "trait", values_to = "rphy_var")
+
+rp_long <- rp_long %>%
+  dplyr::left_join(rpv_long, by = c("species", "trait")) %>%
+  dplyr::mutate(
+    rphy_se  = sqrt(pmax(rphy_var, 0)),
+    rphy_lwr = rphy_mean - 1.96 * rphy_se,
+    rphy_upr = rphy_mean + 1.96 * rphy_se
+  )
+
+## ---- 5) Compare on held-out (masked) entries + COVERAGE ----
+
+## BACE: extract per-trait fitted summaries (mean/sd/CI) from last run
+bace_sum_long <- do.call(rbind, lapply(traits, function(tr) {
+  s <- fit_bace$pred_list_last_run[[tr]]
+  if (is.null(s)) stop("Missing fit_bace$pred_list_last_run[[", tr, "]]")
+  
+  data.frame(
+    species   = dat$species,
+    trait     = tr,
+    bace_mean = s$post_mean,
+    bace_sd   = s$post_sd,
+    bace_lwr  = s$ci_lower,
+    bace_upr  = s$ci_upper
+  )
+}))
+
+## BACE point-imputed values (optional, for point accuracy metrics)
+bace_point_long <- bace_last %>%
+  dplyr::select(species, all_of(traits)) %>%
+  tidyr::pivot_longer(cols = all_of(traits), names_to = "trait", values_to = "bace_pred")
+
+preds <- truth %>%
+  dplyr::rename(species = species_tip) %>%
+  dplyr::left_join(bace_point_long, by = c("species", "trait")) %>%
+  dplyr::left_join(bace_sum_long,   by = c("species", "trait")) %>%
+  dplyr::left_join(rp_long,         by = c("species", "trait"))
+
+metrics <- preds %>%
+  dplyr::group_by(trait) %>%
+  dplyr::summarise(
+    n = dplyr::n(),
+    
+    ## Accuracy (point)
+    cor_bace  = cor(true_value, bace_pred, use = "complete.obs"),
+    rmse_bace = sqrt(mean((bace_pred - true_value)^2, na.rm = TRUE)),
+    mae_bace  = mean(abs(bace_pred - true_value), na.rm = TRUE),
+    
+    cor_rphy  = cor(true_value, rphy_mean, use = "complete.obs"),
+    rmse_rphy = sqrt(mean((rphy_mean - true_value)^2, na.rm = TRUE)),
+    mae_rphy  = mean(abs(rphy_mean - true_value), na.rm = TRUE),
+    
+    ## Coverage (95% intervals)
+    cov_bace = mean(true_value >= bace_lwr & true_value <= bace_upr, na.rm = TRUE),
+    cov_rphy = mean(true_value >= rphy_lwr & true_value <= rphy_upr, na.rm = TRUE),
+    
+    ## Interval width (sharpness)
+    width_bace = mean(bace_upr - bace_lwr, na.rm = TRUE),
+    width_rphy = mean(rphy_upr - rphy_lwr, na.rm = TRUE),
+    
+    ## Agreement between methods on held-out cells
+    cor_methods = cor(bace_pred, rphy_mean, use = "complete.obs"),
+    
+    .groups = "drop"
+  ) %>%
+  dplyr::arrange(trait)
+
+print(metrics)
+
+## Optional: save outputs
+# readr::write_csv(metrics, "compare_metrics_by_trait_with_coverage.csv")
+# readr::write_csv(preds,   "compare_predictions_long_with_intervals.csv")
