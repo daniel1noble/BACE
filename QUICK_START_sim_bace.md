@@ -1,18 +1,5 @@
 # sim_bace Quick Start Guide
 
-## Installation
-
-```r
-# Source the functions
-source("R/simulate_auxiliary.r")
-source("R/simulate_simBACE.R")
-
-# Load required packages
-library(ape)
-library(MASS)
-library(stringi)
-```
-
 ## Basic Examples
 
 ### 1. Simplest Simulation (All Defaults)
