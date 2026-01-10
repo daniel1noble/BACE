@@ -277,7 +277,7 @@
   }
   
   # 4. Calculate Mean Probabilities (%)
-  prob_results <- list()
+  prop_results <- list()
   for (i in 1:n_traits) {
     prop_results[[i]] <- colMeans(exp_liab_list[[i]] / exp_sum)
   }
@@ -300,7 +300,7 @@
   df_ordered <- df_final[, order(colnames(df_final))]
   rownames(df_ordered) <- paste0("Obs_", 1:n_obs)
   
-  return(df_ordered, 4)
+  return(df_ordered)
 }
 
 
