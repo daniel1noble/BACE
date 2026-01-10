@@ -15,7 +15,7 @@
 .model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 6000, thin = 5, burnin = 1000) {
 
 	# Create sparse matrix of phylogeny
-		   A  <- MCMCglmm::inverseA(tree, nodes = "TIPS")$Ainv
+		   A  <- MCMCglmm::inverseA(tree, nodes = "ALL")$Ainv
 	
 	# Name of the column in the data corresponding to the phylogeny
 		name  <- all.vars(randformula)
@@ -465,10 +465,14 @@
   }
   
   models <- bace_output$models_last_run
+  var_types <- bace_output$types
   diagnostics <- list()
   
   for (var_name in names(models)) {
     model <- models[[var_name]]
+    
+    # Get variable type for this model
+    var_type <- var_types[[var_name]]
     
     # Extract ONLY fixed effects and variance components (exclude BLUPs)
     # Fixed effects: First nfl columns of Sol (number of fixed effects levels)
@@ -498,38 +502,53 @@
     # Calculate diagnostics for each parameter
     for (i in seq_along(param_names)) {
       param <- all_params[, i]
+      param_name <- param_names[i]
+      
+      # Check if this is a "units" parameter for threshold or categorical models
+      # For these models, units variance is fixed and doesn't need convergence testing
+      is_fixed_units <- (var_type %in% c("threshold", "categorical")) && 
+                        grepl("units", param_name, ignore.case = TRUE)
       
       # Basic statistics
       var_diagnostics$mean[i] <- mean(param)
       var_diagnostics$sd[i] <- sd(param)
       
-      # Effective Sample Size
-      var_diagnostics$ess[i] <- coda::effectiveSize(param)
-      
-      # Geweke diagnostic (tests for equality of means in first 10% and last 50% of chain)
-      geweke_result <- coda::geweke.diag(param)
-      var_diagnostics$geweke_z[i] <- geweke_result$z
-      var_diagnostics$geweke_pval[i] <- 2 * pnorm(-abs(geweke_result$z))
-      
-      # Autocorrelation at lag 1
-      acf_result <- stats::acf(param, lag.max = 1, plot = FALSE)
-      var_diagnostics$autocorr_lag1[i] <- acf_result$acf[2]
-      
-      # Convergence assessment
-      # ESS > 200 is generally considered adequate
-      # Geweke p-value > 0.05 suggests convergence
-      # Low autocorrelation (< 0.4) suggests good mixing
-      
-      ess_ok <- var_diagnostics$ess[i] > 200
-      geweke_ok <- var_diagnostics$geweke_pval[i] > 0.05
-      autocorr_ok <- abs(var_diagnostics$autocorr_lag1[i]) < 0.4
-      
-      if (ess_ok && geweke_ok && autocorr_ok) {
-        var_diagnostics$convergence[i] <- "Good"
-      } else if (ess_ok && geweke_ok) {
-        var_diagnostics$convergence[i] <- "Acceptable"
+      if (is_fixed_units) {
+        # For fixed units parameters, skip convergence tests
+        var_diagnostics$ess[i] <- NA
+        var_diagnostics$geweke_z[i] <- NA
+        var_diagnostics$geweke_pval[i] <- NA
+        var_diagnostics$autocorr_lag1[i] <- NA
+        var_diagnostics$convergence[i] <- "Fixed"
       } else {
-        var_diagnostics$convergence[i] <- "Poor"
+        # Effective Sample Size
+        var_diagnostics$ess[i] <- coda::effectiveSize(param)
+        
+        # Geweke diagnostic (tests for equality of means in first 10% and last 50% of chain)
+        geweke_result <- coda::geweke.diag(param)
+        var_diagnostics$geweke_z[i] <- geweke_result$z
+        var_diagnostics$geweke_pval[i] <- 2 * pnorm(-abs(geweke_result$z))
+        
+        # Autocorrelation at lag 1
+        acf_result <- stats::acf(param, lag.max = 1, plot = FALSE)
+        var_diagnostics$autocorr_lag1[i] <- acf_result$acf[2]
+        
+        # Convergence assessment
+        # ESS > 200 is generally considered adequate
+        # Geweke p-value > 0.05 suggests convergence
+        # Low autocorrelation (< 0.4) suggests good mixing
+        
+        ess_ok <- var_diagnostics$ess[i] > 200
+        geweke_ok <- var_diagnostics$geweke_pval[i] > 0.05
+        autocorr_ok <- abs(var_diagnostics$autocorr_lag1[i]) < 0.4
+        
+        if (ess_ok && geweke_ok && autocorr_ok) {
+          var_diagnostics$convergence[i] <- "Good"
+        } else if (ess_ok && geweke_ok) {
+          var_diagnostics$convergence[i] <- "Acceptable"
+        } else {
+          var_diagnostics$convergence[i] <- "Check"
+        }
       }
     }
     
@@ -551,17 +570,19 @@
     df
   }))
   
-  # Summary statistics
+  # Summary statistics (excluding Fixed units from convergence calculations)
+  not_fixed <- all_diagnostics$convergence != "Fixed"
   summary_stats <- list(
     n_models = length(models),
     n_parameters_total = nrow(all_diagnostics),
     n_fixed_effects = sum(all_diagnostics$effect_type == "Fixed"),
     n_variance_components = sum(all_diagnostics$effect_type == "Variance"),
+    n_fixed_units = sum(all_diagnostics$convergence == "Fixed"),
     convergence_summary = table(all_diagnostics$convergence),
-    mean_ess_fixed = mean(all_diagnostics$ess[all_diagnostics$effect_type == "Fixed"]),
-    mean_ess_variance = mean(all_diagnostics$ess[all_diagnostics$effect_type == "Variance"]),
-    prop_good_convergence = mean(all_diagnostics$convergence == "Good"),
-    prop_poor_convergence = mean(all_diagnostics$convergence == "Poor")
+    mean_ess_fixed = mean(all_diagnostics$ess[all_diagnostics$effect_type == "Fixed" & not_fixed], na.rm = TRUE),
+    mean_ess_variance = mean(all_diagnostics$ess[all_diagnostics$effect_type == "Variance" & not_fixed], na.rm = TRUE),
+    prop_good_convergence = mean(all_diagnostics$convergence[not_fixed] == "Good"),
+    prop_poor_convergence = mean(all_diagnostics$convergence[not_fixed] == "Check")
   )
   
   result <- list(
@@ -590,7 +611,11 @@ print.bace_diagnostics <- function(x, ...) {
   cat("Number of models:", x$summary$n_models, "\n")
   cat("Total parameters:", x$summary$n_parameters_total, "\n")
   cat("  Fixed effects:", x$summary$n_fixed_effects, "\n")
-  cat("  Variance components:", x$summary$n_variance_components, "\n\n")
+  cat("  Variance components:", x$summary$n_variance_components, "\n")
+  if (x$summary$n_fixed_units > 0) {
+    cat("  Fixed units (threshold/categorical):", x$summary$n_fixed_units, "\n")
+  }
+  cat("\n")
   
   # Effective Sample Size
   cat("Mean Effective Sample Size:\n")
@@ -614,7 +639,7 @@ print.bace_diagnostics <- function(x, ...) {
   } else if (x$summary$prop_poor_convergence <= 0.2) {
     cat("Overall: ACCEPTABLE - Most parameters converged adequately\n")
   } else {
-    cat("Overall: POOR - Many parameters show convergence issues\n")
+    cat("Overall: CHECK - Many parameters show convergence issues\n")
     cat("  Consider increasing nitt, adjusting priors, or checking model specification\n")
   }
   cat("\n")
@@ -626,19 +651,33 @@ print.bace_diagnostics <- function(x, ...) {
   for (var_name in names(x$diagnostics_by_model)) {
     diag <- x$diagnostics_by_model[[var_name]]
     
+    # Exclude Fixed units from convergence counts
+    not_fixed <- diag$convergence != "Fixed"
     n_good <- sum(diag$convergence == "Good")
-    n_poor <- sum(diag$convergence == "Poor")
-    n_total <- nrow(diag)
+    n_poor <- sum(diag$convergence == "Check")
+    n_fixed_units <- sum(diag$convergence == "Fixed")
+    n_total <- sum(not_fixed)  # Total excluding fixed units
+    n_total_all <- nrow(diag)  # Including fixed units
     
-    status_symbol <- if (n_good / n_total >= 0.8) "[OK]" else if (n_poor / n_total > 0.3) "[X]" else "[~]"
+    # Calculate status based on non-fixed parameters
+    if (n_total > 0) {
+      status_symbol <- if (n_good / n_total >= 0.8) "[OK]" else if (n_poor / n_total > 0.3) "[CH]" else "[~]"
+    } else {
+      status_symbol <- "[--]"  # No testable parameters
+    }
     
-    cat(sprintf("%s %-15s: %2d/%2d parameters good\n", 
-                status_symbol, var_name, n_good, n_total))
+    if (n_fixed_units > 0) {
+      cat(sprintf("%s %-15s: %2d/%2d parameters good (%d fixed)\n", 
+                  status_symbol, var_name, n_good, n_total, n_fixed_units))
+    } else {
+      cat(sprintf("%s %-15s: %2d/%2d parameters good\n", 
+                  status_symbol, var_name, n_good, n_total))
+    }
     
     # Highlight poorly converged parameters
-    poor_params <- diag$parameter[diag$convergence == "Poor"]
+    poor_params <- diag$parameter[diag$convergence == "Check"]
     if (length(poor_params) > 0) {
-      cat(sprintf("    Poor convergence: %s\n", 
+      cat(sprintf("    Check convergence: %s\n", 
                   paste(poor_params, collapse=", ")))
     }
   }
