@@ -4,7 +4,16 @@
 \alias{.make_prior}
 \title{.make_prior}
 \usage{
-.make_prior(n_rand, type, nu = NULL, n_levels = NULL, par_expand = FALSE)
+.make_prior(
+  n_rand,
+  type,
+  nu = NULL,
+  n_levels = NULL,
+  par_expand = FALSE,
+  fixform = NULL,
+  data = NULL,
+  gelman = TRUE
+)
 }
 \arguments{
 \item{n_rand}{An integer specifying the number of random effects in the model.}
@@ -16,6 +25,12 @@
 \item{n_levels}{An integer specifying the number of levels for categorical or ordinal data.}
 
 \item{par_expand}{A logical indicating whether to use parameter expansion.}
+
+\item{fixform}{A formula object specifying the fixed effects structure (required for categorical models with Gelman prior).}
+
+\item{data}{A data frame containing the data (required for categorical models with Gelman prior).}
+
+\item{gelman}{A logical indicating whether to use Gelman prior for fixed effects in categorical models. Default is TRUE.}
 }
 \value{
 A list of priors for the MCMCglmm model.

@@ -92,7 +92,11 @@
 #' @param nu A numeric specifying the nu parameter for the prior.
 #' @param n_levels An integer specifying the number of levels for categorical or ordinal data.
 #' @param par_expand A logical indicating whether to use parameter expansion.
+#' @param fixform A formula object specifying the fixed effects structure (required for categorical models with Gelman prior).
+#' @param data A data frame containing the data (required for categorical models with Gelman prior).
+#' @param gelman A logical indicating whether to use Gelman prior for fixed effects in categorical models. Default is TRUE.
 #' @return A list of priors for the MCMCglmm model.
+#' @importFrom stats complete.cases
 #' @export
 
 .make_prior <- function(
