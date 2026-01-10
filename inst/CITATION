@@ -1,0 +1,39 @@
+c(
+  bibentry(
+    bibtype = "Manual",
+    title = "BACE: Bayesian Augmentation using Chained Equations",
+    author = c(
+      person("Shinichi", "Nakagawa"),
+      person("Szymek", "Drobniak"),
+      person("Daniel", "Noble")
+    ),
+    year = format(Sys.Date(), "%Y"),
+    note = sprintf("R package version %s", meta$Version),
+    url = "https://github.com/daniel1noble/BACE",
+    textVersion = paste(
+      "Nakagawa, S., Drobniak, S., and Noble, D.",
+      sprintf("(%s).", format(Sys.Date(), "%Y")),
+      "BACE: Bayesian Augmentation using Chained Equations.",
+      sprintf("R package version %s.", meta$Version),
+      "https://github.com/daniel1noble/BACE"
+    )
+  ),
+  
+  bibentry(
+    bibtype = "Article",
+    title = "MCMC methods for multi-response generalized linear mixed models: the MCMCglmm R package",
+    author = person("Jarrod D.", "Hadfield"),
+    journal = "Journal of Statistical Software",
+    year = "2010",
+    volume = "33",
+    number = "2",
+    pages = "1--22",
+    doi = "10.18637/jss.v033.i02",
+    textVersion = paste(
+      "Hadfield, J. D. (2010).",
+      "MCMC methods for multi-response generalized linear mixed models: the MCMCglmm R package.",
+      "Journal of Statistical Software, 33(2), 1-22.",
+      "doi:10.18637/jss.v033.i02"
+    )
+  )
+)
