@@ -1,5 +1,5 @@
-#' @title simBACE: Comprehensive simulator of mock data for BACE
-#' @description simBACE is a function to simulate mock data for BACE.
+#' @title sim_bace: Comprehensive simulator of mock data for BACE
+#' @description sim_bace is a function to simulate mock data for BACE.
 #'   The function simulates data with defined phylogenetic structure and
 #'   with multiple dependencies on additional covariates. The data can be
 #'   gaussian, binary, poissonian, multinomial (unordered categories),
@@ -73,7 +73,7 @@
 #'
 #' @examples
 #' # Basic gaussian simulation
-#' sim <- simBACE(
+#' sim <- sim_bace(
 #'   response_type = "gaussian",
 #'   predictor_types = c("gaussian", "gaussian", "binary"),
 #'   n_cases = 100,
@@ -81,7 +81,7 @@
 #' )
 #'
 #' # With phylogenetic signal and random slopes
-#' sim <- simBACE(
+#' sim <- sim_bace(
 #'   response_type = "poisson",
 #'   predictor_types = c("gaussian", "binary"),
 #'   phylo_signal = c(0.5, 0.3, 0.1),
@@ -99,7 +99,7 @@
 #'   0, 0, 0, 0,
 #'   12, 1, 2, 0
 #' ), nrow = 4, byrow = TRUE)
-#' sim <- simBACE(
+#' sim <- sim_bace(
 #'   response_type = "gaussian",
 #'   predictor_types = c("gaussian", "gaussian", "gaussian"),
 #'   ix_matrix = ix_mat,
@@ -110,7 +110,7 @@
 
 # TODO: Make sure to check all variable types before exporting into the final object
 
-simBACE <- function(
+sim_bace <- function(
     response_type = "gaussian",
     predictor_types = c("gaussian", "gaussian"),
     var_names = NULL,
@@ -692,7 +692,7 @@ simBACE <- function(
 #' @export
 simBACE_gaussian <- function(n_predictors = 3, n_cases = 200, n_species = 75,
                              phylo_signal = 0, beta_sparsity = 0.7) {
-  simBACE(
+  sim_bace(
     response_type = "gaussian",
     predictor_types = rep("gaussian", n_predictors),
     phylo_signal = rep(phylo_signal, n_predictors + 1),
@@ -712,7 +712,7 @@ simBACE_gaussian <- function(n_predictors = 3, n_cases = 200, n_species = 75,
 #' @export
 simBACE_poisson <- function(n_predictors = 3, n_cases = 200, n_species = 75,
                             phylo_signal = 0) {
-  simBACE(
+  sim_bace(
     response_type = "poisson",
     predictor_types = rep("gaussian", n_predictors),
     phylo_signal = rep(phylo_signal, n_predictors + 1),
@@ -731,7 +731,7 @@ simBACE_poisson <- function(n_predictors = 3, n_cases = 200, n_species = 75,
 #' @export
 simBACE_binary <- function(n_predictors = 3, n_cases = 200, n_species = 75,
                            phylo_signal = 0) {
-  simBACE(
+  sim_bace(
     response_type = "binary",
     predictor_types = rep("gaussian", n_predictors),
     phylo_signal = rep(phylo_signal, n_predictors + 1),
