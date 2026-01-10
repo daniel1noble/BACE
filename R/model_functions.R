@@ -36,7 +36,7 @@
         } else {
 
       # Categorical model needs special treatment. Append -1 to the right size of ~ formula to remove intercept
-      fixformula_cat <- as.formula(paste0(as.character(fixformula)[2], "~ -1 + ", as.character(fixformula)[3]))
+      fixformula_cat <- as.formula(paste0(as.character(fixformula)[2], "~ trait:(", as.character(fixformula)[3], ") - 1"))
       ranformula_cat <- as.formula(paste0("~", "idh(trait):",as.character(randformula)[2]))
 
       model <- MCMCglmm::MCMCglmm(fixed = fixformula_cat,
@@ -95,7 +95,15 @@
 #' @return A list of priors for the MCMCglmm model.
 #' @export
 
-.make_prior <- function(n_rand, type, nu = NULL, n_levels = NULL, par_expand = FALSE) {
+.make_prior <- function(
+    n_rand,
+    type,
+    nu = NULL,
+    n_levels = NULL,
+    par_expand = FALSE,
+    fixform = NULL,
+    data = NULL,
+    gelman = TRUE) {
   if (type == "gaussian") {
     if (is.null(nu)) {
       nu <- 0.002
@@ -119,22 +127,56 @@
     )
   }
 
-  if (type  == "categorical") {
-
+  if (type == "categorical") {
     stopifnot(!is.null(n_levels))
+
+    stopifnot(!is.null(data) & !is.null(fixform) & gelman)
 
     J <- n_levels - 1
 
     J_matrix <- array(1, dim = c(J, J)) # matrix of ones
     I_matrix <- diag(J) # identity matrix
-
     IJ <- (I_matrix + J_matrix) / n_levels # see Hadfield's Course notes p. 97
-
     prior_G <- .list_of_G(n_rand, nu = nu, par_expand, diag = J)
+
     prior <- list(
       R = list(V = IJ, fix = 1),
       G = prior_G
     )
+
+    if(gelman) {
+      # Gelman prior for fixed effects
+      # For categorical models, MCMCglmm expands the formula internally to J traits
+      # So we need J times the number of fixed effects (including intercept terms per trait)
+      
+      # Remove rows with NA in variables used in the formula
+      formula_vars <- all.vars(fixform)
+      complete_data <- data[complete.cases(data[, formula_vars, drop = FALSE]), ]
+      
+      # Check if we have enough complete cases
+      if(nrow(complete_data) < 2) {
+        warning("Not enough complete cases to compute Gelman prior. Using default B prior.")
+        # For categorical with J traits: need J columns of fixed effects
+        # Extract number of predictors from formula
+        X_temp <- model.matrix(fixform, data = complete_data[1:min(2, nrow(complete_data)), , drop = FALSE])
+        n_fixef <- ncol(X_temp)
+        prior_B <- list(mu = rep(0, J * n_fixef), V = diag(J * n_fixef) * (1 + pi^2 / 3))
+      } else {
+        # Compute Gelman prior with complete data
+        # Note: gelman.prior returns only V (variance-covariance matrix), not mu
+        # For categorical with J traits, we need to expand this
+        gelman_V <- MCMCglmm::gelman.prior(fixform, data = complete_data, scale = 1 + pi^2 / 3)
+        
+        # Expand to J traits: block diagonal structure
+        # Each trait gets the same prior structure
+        n_fixef <- nrow(gelman_V)  # gelman.prior returns a matrix V
+        prior_B <- list(
+          mu = rep(0, J * n_fixef),  # mu is always 0 (centered prior)
+          V = kronecker(diag(J), gelman_V)  # Block diagonal for J traits
+        )
+      }
+      prior$B <- prior_B
+    }
   }
 
   if (type == "threshold" || type == "ordinal") {
