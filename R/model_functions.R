@@ -55,6 +55,54 @@
   	return(model)
 }
 
+#' @title .count_categorical_fixef
+#' @description Helper function to count the number of fixed effect coefficients 
+#'              in a categorical MCMCglmm model with trait expansion
+#' @param fixform Formula for fixed effects (without trait expansion)
+#' @param data Data frame containing predictor variables (but not 'trait')
+#' @param n_levels Number of levels in the categorical response variable
+#' @return Integer giving the total number of beta coefficients after trait expansion
+#' @details For categorical models, MCMCglmm internally expands the formula to 
+#'          J = n_levels - 1 traits. This function creates a temporary 'trait' variable,
+#'          builds the expanded formula, and counts resulting coefficients.
+#' @export
+.count_categorical_fixef <- function(fixform, data, n_levels) {
+  
+  J <- n_levels - 1  # Number of traits
+  
+  # Create the trait-expanded formula as MCMCglmm does
+  # Original: y ~ x1 + x2
+  # Expanded: y ~ trait:(x1 + x2) - 1
+  fixformula_cat <- as.formula(paste0(
+    as.character(fixform)[2], 
+    "~ trait:(", 
+    as.character(fixform)[3], 
+    ") - 1"
+  ))
+  
+  # Add a dummy 'trait' variable to the data with J levels
+  data_with_trait <- data
+  data_with_trait$trait <- factor(rep(paste0("trait", 1:J), length.out = nrow(data)))
+  
+  # Build the model matrix to count coefficients
+  # Use only complete cases for the predictor variables
+  formula_vars <- all.vars(fixform)
+  complete_rows <- complete.cases(data_with_trait[, formula_vars, drop = FALSE])
+  
+  if (sum(complete_rows) < J) {
+    # If we don't have enough complete rows, use a minimal dataset
+    # Just need enough rows to get the structure
+    minimal_data <- data_with_trait[rep(1, J), , drop = FALSE]
+    minimal_data$trait <- factor(paste0("trait", 1:J), levels = paste0("trait", 1:J))
+    X_temp <- model.matrix(fixformula_cat, data = minimal_data)
+  } else {
+    X_temp <- model.matrix(fixformula_cat, data = data_with_trait[complete_rows, , drop = FALSE])
+  }
+  
+  # Return the number of columns in the design matrix
+  return(ncol(X_temp))
+}
+
 #' @title .list_of_G
 #' @description Function creates a list of G priors for the MCMCglmm model
 #' @param n_rand An integer specifying the number of random effects in the model.
@@ -93,19 +141,21 @@
 #' @param n_levels An integer specifying the number of levels for categorical or ordinal data.
 #' @param par_expand A logical indicating whether to use parameter expansion.
 #' @param fixform A formula object specifying the fixed effects structure (required for categorical models with Gelman prior).
+#'    This is formula without trait expansion.
 #' @param data A data frame containing the data (required for categorical models with Gelman prior).
 #' @param gelman A logical indicating whether to use Gelman prior for fixed effects in categorical models. Default is TRUE.
 #' @return A list of priors for the MCMCglmm model.
 #' @importFrom stats complete.cases
 #' @export
 
+# TODO: Fix the gelamn prior definition for categorical models
 .make_prior <- function(
     n_rand,
     type,
     nu = NULL,
     n_levels = NULL,
     par_expand = FALSE,
-    fixform = NULL,
+    fixform = NULL, # formula without trait expansion!
     data = NULL,
     gelman = TRUE) {
   if (type == "gaussian") {
@@ -160,11 +210,9 @@
       # Check if we have enough complete cases
       if(nrow(complete_data) < 2) {
         warning("Not enough complete cases to compute Gelman prior. Using default B prior.")
-        # For categorical with J traits: need J columns of fixed effects
-        # Extract number of predictors from formula
-        X_temp <- model.matrix(fixform, data = complete_data[1:min(2, nrow(complete_data)), , drop = FALSE])
-        n_fixef <- ncol(X_temp)
-        prior_B <- list(mu = rep(0, J * n_fixef), V = diag(J * n_fixef) * (1 + pi^2 / 3))
+        # Count expected number of beta coefficients using helper function
+        n_fixef <- .count_categorical_fixef(fixform, data, n_levels)
+        prior_B <- list(mu = rep(0, n_fixef), V = diag(n_fixef) * (1 + pi^2 / 3))
       } else {
         # Compute Gelman prior with complete data
         # Note: gelman.prior returns only V (variance-covariance matrix), not mu
@@ -173,9 +221,9 @@
         
         # Expand to J traits: block diagonal structure
         # Each trait gets the same prior structure
-        n_fixef <- nrow(gelman_V)  # gelman.prior returns a matrix V
+        n_fixef_single <- nrow(gelman_V)  # Number of coefficients per trait
         prior_B <- list(
-          mu = rep(0, J * n_fixef),  # mu is always 0 (centered prior)
+          mu = rep(0, J * n_fixef_single),  # mu is always 0 (centered prior)
           V = kronecker(diag(J), gelman_V)  # Block diagonal for J traits
         )
       }
