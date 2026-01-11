@@ -157,7 +157,7 @@
     par_expand = FALSE,
     fixform = NULL, # formula without trait expansion!
     data = NULL,
-    gelman = TRUE) {
+    gelman = FALSE) {
   if (type == "gaussian") {
     if (is.null(nu)) {
       nu <- 0.002
@@ -184,7 +184,7 @@
   if (type == "categorical") {
     stopifnot(!is.null(n_levels))
 
-    stopifnot(!is.null(data) & !is.null(fixform) & gelman)
+    
 
     J <- n_levels - 1
 
@@ -202,17 +202,32 @@
       # Gelman prior for fixed effects
       # For categorical models, MCMCglmm expands the formula internally to J traits
       # So we need J times the number of fixed effects (including intercept terms per trait)
-      
+      stopifnot(!is.null(fixform))
       # Remove rows with NA in variables used in the formula
       formula_vars <- all.vars(fixform)
-      complete_data <- data[complete.cases(data[, formula_vars, drop = FALSE]), ]
+
+      if (!is.null(data)) {
+        complete_data <- data[complete.cases(data[, formula_vars, drop = FALSE]), ]
+        no_data <- FALSE
+
+        if (nrow(complete_data) < 2) {
+          no_data <- TRUE
+        }
+      }
+
+      if (is.null(data)) {
+        no_data <- TRUE
+      }
       
       # Check if we have enough complete cases
-      if(nrow(complete_data) < 2) {
-        warning("Not enough complete cases to compute Gelman prior. Using default B prior.")
-        # Count expected number of beta coefficients using helper function
-        n_fixef <- .count_categorical_fixef(fixform, data, n_levels)
-        prior_B <- list(mu = rep(0, n_fixef), V = diag(n_fixef) * (1 + pi^2 / 3))
+      if(no_data) {
+        warning("Not enough complete cases to compute Gelman prior. Using pseudo-Gelman prior.")
+        n_fixef_total <- .count_categorical_fixef(fixform, data, n_levels)
+        prior_B <- list(
+          mu = rep(0, n_fixef_total),
+          V = diag(n_fixef_total) * (1 + pi^2 / 3)
+        )
+        
       } else {
         # Compute Gelman prior with complete data
         # Note: gelman.prior returns only V (variance-covariance matrix), not mu
