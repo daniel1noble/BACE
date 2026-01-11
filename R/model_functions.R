@@ -157,7 +157,7 @@
     par_expand = FALSE,
     fixform = NULL, # formula without trait expansion!
     data = NULL,
-    gelman = FALSE) {
+    gelman = 0) {
   if (type == "gaussian") {
     if (is.null(nu)) {
       nu <- 0.002
@@ -202,26 +202,15 @@
       # Gelman prior for fixed effects
       # For categorical models, MCMCglmm expands the formula internally to J traits
       # So we need J times the number of fixed effects (including intercept terms per trait)
-      stopifnot(!is.null(fixform))
+      stopifnot(!is.null(fixform) | !is.null(data))
       # Remove rows with NA in variables used in the formula
       formula_vars <- all.vars(fixform)
 
-      if (!is.null(data)) {
-        complete_data <- data[complete.cases(data[, formula_vars, drop = FALSE]), ]
-        no_data <- FALSE
-
-        if (nrow(complete_data) < 2) {
-          no_data <- TRUE
-        }
-      }
-
-      if (is.null(data)) {
-        no_data <- TRUE
-      }
+      complete_data <- data[complete.cases(data[, formula_vars, drop = FALSE]), ]
       
       # Check if we have enough complete cases
-      if(no_data) {
-        warning("Not enough complete cases to compute Gelman prior. Using pseudo-Gelman prior.")
+      if(nrow(complete_data) < J | gelman == 2) {
+        warning("Not enough complete cases to compute Gelman prior or gelman=2. Using pseudo-Gelman prior.")
         n_fixef_total <- .count_categorical_fixef(fixform, data, n_levels)
         prior_B <- list(
           mu = rep(0, n_fixef_total),
@@ -232,14 +221,21 @@
         # Compute Gelman prior with complete data
         # Note: gelman.prior returns only V (variance-covariance matrix), not mu
         # For categorical with J traits, we need to expand this
-        gelman_V <- MCMCglmm::gelman.prior(fixform, data = complete_data, scale = 1 + pi^2 / 3)
+        complete_data$trait <- factor(rep(1:J, length.out = nrow(complete_data)))
+        fixform_cat <- as.formula(paste0(
+          as.character(fixform)[2], 
+          "~ trait:(", 
+          as.character(fixform)[3], 
+          ") - 1"
+        ))
+        gelman_V <- MCMCglmm::gelman.prior(fixform_cat, data = complete_data, scale = 1 + pi^2 / 3)
         
         # Expand to J traits: block diagonal structure
         # Each trait gets the same prior structure
-        n_fixef_single <- nrow(gelman_V)  # Number of coefficients per trait
+        gelman_size <- nrow(gelman_V)  # Number of coefficients per trait
         prior_B <- list(
-          mu = rep(0, J * n_fixef_single),  # mu is always 0 (centered prior)
-          V = kronecker(diag(J), gelman_V)  # Block diagonal for J traits
+          mu = rep(0, gelman_size),  # mu is always 0 (centered prior)
+          V = gelman_V  # Block diagonal for J traits
         )
       }
       prior$B <- prior_B
