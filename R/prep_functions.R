@@ -105,6 +105,12 @@
   # Return intercept + slopes; intercept always included for random term
   list(ran = c(1, ran_vars), cluster = clusters)
 }
+# thoughts on how we could handle more complex random effects structures in the future:
+#ran <- list("~1|phylo + ~1 + x1|species", "~1|species")
+#objects <- lapply(ran, function(x) .get_variables(x, fix = FALSE))
+#lapply(ran, function(x) .build_formula_string_random(x))
+# good but probably is $ran doesn't capture the differences between different random effect terms if that is given, but will work for random intercepts only
+
 
 #' @title .get_type
 #' @description Function takes a variable in a dataframe and checks / classifies what type of variable it is (binary, continuous, count, categorical, ordered_categorical) so that it can be modeled appropriately.

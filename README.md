@@ -26,4 +26,13 @@ devtools::install_github("daniel1noble/BACE")
 A tutorial for using BACE can be found at: https://daniel1noble.github.io/BACE/
 
 ## Future Development
-- multiple random effect levels (phylogeny and species) to be used to imputing missing data, including random slopes. 
+- [ ] multiple random effect levels (phylogeny and species) to be used to imputing missing data, including random slopes. 
+- [ ] more flexibility in the random effect structure for different variables. Feed list in the `ran_phylo_form` and evaluate it differently. Probably easier to re-construct function as a list with length based on types. Then, if only one formula provided, all elements get the same, if a list, they are all unique. Name by `response_var` then add within functions and loops a call to `ran_phylo`. Then, turn off `ginverse` or evaluate so it is an identity matrix so that argument can remain consistent in `MCMCglmm`. 
+- [ ] `nitt`, `burnin`, and `thin` arguments to be variable for different variable types. Probably provide a list or vector. Need checks to ensure these are the same length as the number of variable types.
+- [ ] end model simulations to account for imputation uncertainty - sampling from the posterior
+- [ ] options for parallelization of imputation of variables during each run.
+- [ ] Prior B options for categorical variables - Gelman prior or flat prior. Improve mixing.
+- [ ] Convergence checks across runs - need to store full predictions for each run, much like data.
+- [ ] auto-restart if convergence not reached or, user can specify number of runs.
+
+list("~1|phylo + ~1 + x1|species", "~1|species")
