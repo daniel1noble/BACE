@@ -13,3 +13,4 @@ ms/
 ^\.Rhistory$
 ^vignettes/.*\.qmd$
 ^index.html
+testing.R
