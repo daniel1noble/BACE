@@ -196,9 +196,15 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 			# Set up prior for the specific variable type
 			   levels_cat <- data_summary$n_levels[which(data_summary$variable == response_var)]
       			levels <- if (anyNA(levels_cat)) NULL else levels_cat
-      
+
+    			if (is.null(getOption("BACE.gelman"))) {
+					cat_gelman <- bace_option_defaults()$gelman
+				} else {
+					cat_gelman <- getOption("BACE.gelman")
+				}
+				
 				if (types[[response_var]] == "categorcial") {
-					gelman <- 1
+					gelman <- cat_gelman
 					fixform <- formulas[[i]]
 					data <- data_i
 				} else {

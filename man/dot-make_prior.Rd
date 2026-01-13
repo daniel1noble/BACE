@@ -12,7 +12,7 @@
   par_expand = FALSE,
   fixform = NULL,
   data = NULL,
-  gelman = TRUE
+  gelman = 0
 )
 }
 \arguments{
@@ -26,7 +26,8 @@
 
 \item{par_expand}{A logical indicating whether to use parameter expansion.}
 
-\item{fixform}{A formula object specifying the fixed effects structure (required for categorical models with Gelman prior).}
+\item{fixform}{A formula object specifying the fixed effects structure (required for categorical models with Gelman prior).
+This is formula without trait expansion.}
 
 \item{data}{A data frame containing the data (required for categorical models with Gelman prior).}
 
