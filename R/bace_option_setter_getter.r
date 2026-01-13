@@ -53,7 +53,7 @@ bace_options <- function(..., .reset = FALSE) {
 #' @export
 bace_option_defaults <- function() {
   list(
-    verbose = FALSE,
+    verbose = TRUE,
     digits = 3L,
     gelman = 1
   )
