@@ -4,14 +4,14 @@ c(
     title = "BACE: Bayesian Augmentation using Chained Equations",
     author = c(
       person("Shinichi", "Nakagawa"),
-      person("Szymek", "Drobniak"),
+      person("Szymon M.", "Drobniak"),
       person("Daniel", "Noble")
     ),
     year = format(Sys.Date(), "%Y"),
     note = sprintf("R package version %s", meta$Version),
     url = "https://github.com/daniel1noble/BACE",
     textVersion = paste0(
-      "Nakagawa, S., Drobniak, S., and Noble, D.W.A.",
+      "Nakagawa, S., Drobniak, S.M., and Noble, D.W.A.",
       sprintf("(%s).", format(Sys.Date(), "%Y")),
       "BACE: Bayesian Augmentation using Chained Equations.",
       sprintf("R package version %s.", meta$Version),
