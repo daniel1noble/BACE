@@ -37,18 +37,29 @@
 #' data$x3[sample(1:30, 5)] <- NA
 #' data$x4[sample(1:30, 5)] <- NA	
 #' # Run BACE imputation
-#' bace_imp(
+#' bace1 <- bace_imp(
 #'   fixformula = "y ~ x1 + x2",
 #'   ran_phylo_form = "~ 1 |Species",
 #'   phylo = phylo,
 #'   data = data
 #' )
-#' bace_imp(
+#' bace2 <- bace_imp(
 #'   fixformula = list(
 #'     "y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2",
 #'     "x3 ~ x1 + x2", "x4 ~ x1 + x2"
 #'   ),
 #'   ran_phylo_form = "~ 1 |Species",
+#'   phylo = phylo,
+#'   data = data,
+#'   runs = 5
+#' )
+#' data$phylo <- phylo$tip.label
+#' bace3 <- bace_imp(
+#'   fixformula = list(
+#'     "y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2",
+#'     "x3 ~ x1 + x2", "x4 ~ x1 + x2"
+#'   ),
+#'   ran_phylo_form = "~ 1 |Species + 1 |phylo",
 #'   phylo = phylo,
 #'   data = data,
 #'   runs = 5
@@ -67,8 +78,13 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 		fix <- unique(as.vector(unlist(lapply(fixformula, .get_variables))))
 	}
 	
-	# Get the random effect and phylogenetic variables
-		phylo_ran <- .get_variables(ran_phylo_form, fix = FALSE)
+	# Parse random effects formula and get cluster variable(s)
+		phylo_ran_parsed <- .build_formula_string_random(ran_phylo_form, return_list = TRUE)
+		ran_phylo_form <- phylo_ran_parsed$formula
+		phylo_ran <- list(
+			cluster = phylo_ran_parsed$clusters,
+			ran = lapply(phylo_ran_parsed$terms, function(x) x$variables)
+		)
 
 	# Check that all variable names are in the dataframe and if not stop
 		all_vars <- c(fix, phylo_ran[["cluster"]])
@@ -111,9 +127,6 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 	} else {
 		formulas <- lapply(fixformula, as.formula)
 	}
-	
-	# Random effect formula. TO DO: Need to be more sophisticated here to allow for multiple random effects
-	   ran_phylo_form <- .build_formula_string_random(ran_phylo_form)
 
 	#---------------------------------------------#
 	# Create indicators for where missing data are
@@ -214,7 +227,7 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 				}
 				
 				prior_i <- .make_prior(
-					n_rand = length(phylo_ran$ran), n_levels = levels,
+					n_rand = length(phylo_ran$cluster), n_levels = levels,
 					type = types[[response_var]], fixform = fixform, data = data_i, gelman = gelman
 				)
 			

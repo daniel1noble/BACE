@@ -9,6 +9,17 @@
 #' @param thin An integer specifying the thinning rate for the MCMC algorithm. Default is 5.
 #' @param burnin An integer specifying the number of iterations to discard as burnin. Default is 1000.
 #' @param prior A list specifying the prior distributions for the MCMCglmm model.
+#' @details 
+#' IMPORTANT: Phylogenetic random effects are specified using the cluster variable name "phylo".
+#' Any random effect with the cluster variable named "phylo" will receive the phylogenetic 
+#' inverse-relatedness matrix (ginverse). Other random effects (e.g., Species, Site, Family) 
+#' are treated as standard random effects with identity variance structure.
+#' 
+#' For example:
+#' - `~ 1|phylo` creates a phylogenetic random effect with ginverse
+#' - `~ 1|Species` creates a non-phylogenetic random effect (identity matrix)
+#' - `~ 1|phylo + 1|Species` creates both phylogenetic and non-phylogenetic random effects
+#' 
 #' @return A list of draws from the posterior distribution of the model parameters.
 #' @export
 
@@ -17,8 +28,19 @@
 	# Create sparse matrix of phylogeny. Make sure to include all nodes because the algorithm used for nodes = "ALL" is more stable and orders of magnitude faster. Very important for large trees.
 		   A  <- MCMCglmm::inverseA(tree, nodes = "ALL")$Ainv
 	
-	# Name of the column in the data corresponding to the phylogeny
-		name  <- all.vars(randformula)
+	# Names of the columns in the data corresponding to random effects
+		cluster_names  <- all.vars(randformula)
+		
+	# Identify which cluster variables should get phylogenetic inverse matrix
+	# Convention: cluster variables named "phylo" receive the phylogenetic inverse matrix
+		phylo_clusters <- cluster_names[cluster_names == "phylo"]
+		
+	# Create ginverse list - only for cluster variables named "phylo"
+		if (length(phylo_clusters) > 0) {
+			ginv_list <- setNames(rep(list(A), length(phylo_clusters)), phylo_clusters)
+		} else {
+			ginv_list <- NULL
+		}
 		
 	# Fit the model using MCMCglmm
   if(type != "categorical"){
@@ -26,7 +48,7 @@
                                random = randformula,
                                  data = data,
                                family = type,
-							               ginverse = setNames(list(A), name),
+					               ginverse = ginv_list,
                               verbose = FALSE, pr = TRUE, pl = TRUE,
                                 saveX = TRUE, saveZ = TRUE,
                                  nitt = nitt,
@@ -37,14 +59,31 @@
 
       # Categorical model needs special treatment. Append -1 to the right size of ~ formula to remove intercept
       fixformula_cat <- as.formula(paste0(as.character(fixformula)[2], "~ trait:(", as.character(fixformula)[3], ") - 1"))
-      ranformula_cat <- as.formula(paste0("~", "idh(trait):",as.character(randformula)[2]))
+      
+      # For categorical models with phylogeny, extract all cluster names
+      cluster_names <- all.vars(randformula)
+      
+      # Build random formula with idh(trait): for each cluster
+      ranformula_terms <- paste0("idh(trait):", cluster_names)
+      ranformula_cat <- as.formula(paste0("~", paste(ranformula_terms, collapse = " + ")))
+      Identify which cluster variables should get phylogenetic inverse matrix
+      # Convention: cluster variables named "phylo" receive the phylogenetic inverse matrix
+      phylo_clusters <- cluster_names[cluster_names == "phylo"]
+      
+      # Create ginverse list - only for cluster variables named "phylo"
+      if (length(phylo_clusters) > 0) {
+        ginv_list <- setNames(rep(list(A), length(phylo_clusters)), phylo_clusters
+        ginv_list <- setNames(list(A), phylo_cluster)
+      } else {
+        ginv_list <- NULL
+      }
 
       model <- MCMCglmm::MCMCglmm(fixed = fixformula_cat,
                                  random = ranformula_cat,
                                  data = data,
                                family = type,
                                rcov = ~us(trait):units,
-							               ginverse = setNames(list(A), name),
+							               ginverse = ginv_list,
                               verbose = FALSE, pr = TRUE, pl = TRUE,
                                 saveX = TRUE, saveZ = TRUE,
                                  nitt = nitt,

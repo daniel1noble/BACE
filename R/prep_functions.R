@@ -202,10 +202,10 @@
 		}
 			
 			# Create the data frame for the model fitting
-			  data_i <- data.frame(data[, response_var],
+			  data_i <- data.frame(data[, response_var, drop = FALSE],
 			                       predictor_data,
 			                       data[, ran_cluster, drop = FALSE])
-			colnames(data_i)[1] <- response_var
+			# First column name is already set correctly from drop=FALSE
 
 			# z-transform all gaussian variables for better mixing and store attributes to revert later name the slots with variable names
 
