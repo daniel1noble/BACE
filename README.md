@@ -31,7 +31,7 @@ A tutorial for using BACE can be found at: https://daniel1noble.github.io/BACE/
 - [ ] `nitt`, `burnin`, and `thin` arguments to be variable for different variable types. Probably provide a list or vector. Need checks to ensure these are the same length as the number of variable types.
 - [ ] end model simulations to account for imputation uncertainty - sampling from the posterior
 - [ ] options for parallelization of imputation of variables during each run.
-- [ ] Prior B options for categorical variables - Gelman prior or flat prior. Improve mixing.
+- [X] Prior B options for categorical variables - Gelman prior or flat prior. Improve mixing.
 - [ ] Convergence checks across runs - need to store full predictions for each run, much like data.
 - [ ] auto-restart if convergence not reached or, user can specify number of runs.
 

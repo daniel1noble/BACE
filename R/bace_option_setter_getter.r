@@ -17,7 +17,7 @@
 #' }
 #' @export
 bace_options <- function(..., .reset = FALSE) {
-  defaults <- BACE:::bace_option_defaults()
+  defaults <- bace_option_defaults()
 
   if (.reset) {
     # remove any user overrides; do NOT set defaults into options()
@@ -31,13 +31,13 @@ bace_options <- function(..., .reset = FALSE) {
   dots <- list(...)
   if (length(dots) == 0L) {
     # effective options = user overrides in options() + defaults
-    user <- BACE:::bace_option_get_raw(names(defaults))
+    user <- bace_option_get_raw(names(defaults))
     eff <- utils::modifyList(defaults, user)
     return(eff)
   }
 
   # set path
-  BACE:::bace_option_set(dots, defaults = defaults)
+  bace_option_set(dots, defaults = defaults)
   invisible(bace_options())
 }
 
@@ -87,7 +87,7 @@ bace_option_set <- function(dots, defaults) {
     stop("Unknown BACE option(s): ", paste(unknown, collapse = ", "), call. = FALSE)
   }
 
-  validated <- Map(function(key, val) BACE:::bace_option_validate(key, val),
+  validated <- Map(function(key, val) bace_option_validate(key, val),
                    names(dots), dots)
   opt_names <- paste0("BACE.", names(validated))
   options(structure(validated, names = opt_names))
