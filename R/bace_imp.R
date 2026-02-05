@@ -9,6 +9,7 @@
 #' @param nitt An integer specifying the number of iterations to run the MCMC algorithm. Default is 6000.
 #' @param thin An integer specifying the thinning rate for the MCMC algorithm. Default is 5.
 #' @param burnin An integer specifying the number of iterations to discard as burnin. Default is 1000.
+#' @param species A logical indicating whether to decompose phylogenetic and non-phylogenetic species effects. Default is FALSE. When TRUE, the random effects structure is modified to include both a phylogenetic effect and a non-phylogenetic species effect (with identity matrix in ginverse). This requires sufficient replicated observations per species.
 #' @param verbose A logical indicating whether to print progress messages. Default is TRUE.
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
 #' @return A list containing imputed datasets and model summaries.
@@ -55,7 +56,7 @@
 #' )
 #' }
 #' @export
-bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, verbose = TRUE, ...){
+bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, species = FALSE, verbose = TRUE, ...){
 	#---------------------------------------------#
 	# Preparation steps & Checks
 	#---------------------------------------------#
@@ -81,6 +82,27 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 		if(any(is.na(data[, phylo_ran[["cluster"]]]))){
 			stop(paste("There are missing data in the random effect cluster variable:", phylo_ran[["cluster"]], ". This variable must be complete. Please remove missing data from this variable before proceeding."))
 		}
+
+	# Validate replicated species when species=TRUE
+	if(species){
+		# Check for replicated observations per species
+		species_counts <- table(data[, phylo_ran[["cluster"]]])
+		n_replicated <- sum(species_counts > 1)
+		n_total <- length(species_counts)
+		prop_replicated <- n_replicated / n_total
+		
+		if(n_replicated < 2){
+			stop("Cannot decompose phylogenetic and non-phylogenetic species effects (species=TRUE) with fewer than 2 species having replicated observations. Current data has only ", n_replicated, " replicated species.")
+		}
+		
+		if(prop_replicated < 0.3){
+			warning("Only ", round(prop_replicated * 100, 1), "% of species have replicated observations. Decomposing phylogenetic and non-phylogenetic effects may be unreliable with limited replication. Consider setting species=FALSE unless you have strong justification and adequate replication.")
+		}
+		
+		if(verbose){
+			message("Species effect decomposition enabled: ", n_replicated, " out of ", n_total, " species (", round(prop_replicated * 100, 1), "%) have replicated observations.")
+		}
+	}
 
 	# Subset the data for fixed and random effects to keep data focused. Need to clean up column names for randdata
 		 data_sub <- data[, c(fix, phylo_ran[["cluster"]])]
@@ -112,8 +134,8 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 		formulas <- lapply(fixformula, as.formula)
 	}
 	
-	# Random effect formula. TO DO: Need to be more sophisticated here to allow for multiple random effects
-	   ran_phylo_form <- .build_formula_string_random(ran_phylo_form)
+	# Random effect formula. Pass species parameter to enable decomposition if requested
+	   ran_phylo_form <- .build_formula_string_random(ran_phylo_form, species = species)
 
 	#---------------------------------------------#
 	# Create indicators for where missing data are
@@ -203,6 +225,14 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 					cat_gelman <- getOption("BACE.gelman")
 				}
 				
+			# If species decomposition is enabled, add a second copy of the species column
+			# This is needed for MCMCglmm to distinguish between phylo and non-phylo effects
+			# MUST happen BEFORE prior creation
+			if (species) {
+				species_col_name <- phylo_ran[["cluster"]]
+				data_i[[paste0(species_col_name, "2")]] <- data_i[[species_col_name]]
+			}
+				
 				if (types[[response_var]] == "categorcial") {
 					gelman <- cat_gelman
 					fixform <- formulas[[i]]
@@ -213,21 +243,24 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 					data <- NULL
 				}
 				
+				# Determine number of random effects based on species parameter
+				n_rand_eff <- if (species) 2 else 1
+				
 				prior_i <- .make_prior(
-					n_rand = length(phylo_ran$ran), n_levels = levels,
+					n_rand = n_rand_eff, n_levels = levels,
 					type = types[[response_var]], fixform = fixform, data = data_i, gelman = gelman
 				)
 			
 			# Fit the model and predict missing data
 			  model <-  .model_fit(data = data_i, 
 			                       tree = phylo,
-			                 fixformula = formulas[[i]],  # Only simple structure for now
-						    randformula = ran_phylo_form, # Only phylogeny, but need to add species too
+			                 fixformula = formulas[[i]],
+						    randformula = ran_phylo_form, # phylo only or phylo + species depending on species parameter
 					 		       type = types[[response_var]], 
 							      prior = prior_i, 
 								   nitt = nitt, 
 								   thin = thin, 
-								 burnin = burnin)         # Prior Not working for all types yet
+								 burnin = burnin)
 
 			# If last run, store the model for evaluation later
 				if(r == (runs + 1)){
