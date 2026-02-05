@@ -23,7 +23,7 @@
 
 \item{fixformula}{A string that specifies the fixed effect structure in the model.}
 
-\item{randformula}{A string that specifies the random effect structure in the model.}
+\item{randformula}{A formula or list of formulas that specifies the random effect structure in the model. If a list, should have elements named 'phylo' and 'species'.}
 
 \item{type}{A string that specifies the type of model to fit. Options are "normal", "binary", "count", "categorical", "ordinal" and the appropriate family will be used in MCMCglmm.}
 

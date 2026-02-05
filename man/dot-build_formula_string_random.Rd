@@ -4,19 +4,23 @@
 \alias{.build_formula_string_random}
 \title{.build_formula_string_random}
 \usage{
-.build_formula_string_random(ran_phylo_form)
+.build_formula_string_random(ran_phylo_form, species = FALSE)
 }
 \arguments{
 \item{ran_phylo_form}{A character string specifying the random effects and phylogenetic structure formula used in the model.}
+
+\item{species}{A logical indicating whether to decompose into phylogenetic and non-phylogenetic species effects. Default is FALSE.}
 }
 \value{
-A formula	 object
+A formula object (or a list of two formula objects when species=TRUE)
 }
 \description{
-Function takes a string specifying a random effects formula and converts this to a formula object to be used in the models.
+Function takes a string specifying a random effects formula and converts this to a formula object to be used in the models. Optionally decomposes into phylogenetic and non-phylogenetic species effects.
 }
 \examples{
 \dontrun{
 .build_formula_string_random("~ 1 | Species")
+.build_formula_string_random("~ 1 | Species", species = TRUE)
+.build_formula_string_random("~ us(1 + x):Species", species = FALSE)
 }
 }

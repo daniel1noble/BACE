@@ -13,6 +13,7 @@ bace_imp(
   thin = 5,
   burnin = 1000,
   runs = 10,
+  species = FALSE,
   verbose = TRUE,
   ...
 )
@@ -33,6 +34,8 @@ bace_imp(
 \item{burnin}{An integer specifying the number of iterations to discard as burnin. Default is 1000.}
 
 \item{runs}{An integer specifying the number of imputation iterations to perform. Default is 10.}
+
+\item{species}{A logical indicating whether to decompose phylogenetic and non-phylogenetic species effects. Default is FALSE. When TRUE, the random effects structure is modified to include both a phylogenetic effect and a non-phylogenetic species effect (with identity matrix in ginverse). This requires sufficient replicated observations per species.}
 
 \item{verbose}{A logical indicating whether to print progress messages. Default is TRUE.}
 
