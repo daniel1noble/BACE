@@ -10,6 +10,7 @@
 #' @param burnin An integer specifying the number of iterations to discard as burnin. Default is 1000.
 #' @param prior A list specifying the prior distributions for the MCMCglmm model.
 #' @return A list of draws from the posterior distribution of the model parameters.
+#' @importFrom methods as
 #' @export
 
 .model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 6000, thin = 5, burnin = 1000) {

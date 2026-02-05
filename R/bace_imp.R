@@ -38,13 +38,13 @@
 #' data$x3[sample(1:30, 5)] <- NA
 #' data$x4[sample(1:30, 5)] <- NA	
 #' # Run BACE imputation
-#' bace_imp(
+#' mod1 <- bace_imp(
 #'   fixformula = "y ~ x1 + x2",
 #'   ran_phylo_form = "~ 1 |Species",
 #'   phylo = phylo,
 #'   data = data
 #' )
-#' bace_imp(
+#' mod2 <- bace_imp(
 #'   fixformula = list(
 #'     "y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2",
 #'     "x3 ~ x1 + x2", "x4 ~ x1 + x2"
