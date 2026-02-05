@@ -44,3 +44,13 @@ R/Untitled-2
 testing.R
 USAGE_EXAMPLES_RANDOM_EFFECTS.md
 test.R
+dev/test_prior.R
+.gitignore
+.gitignore
+dev/test_L74.R
+dev/test_species_effects.R
+dev/species_effects_examples.R
+SPECIES_EFFECTS_QUICKREF.md
+.gitignore
+SPECIES_EFFECTS_IMPLEMENTATION.md
+SPECIES_EFFECTS_PRIOR_FIXES.md
