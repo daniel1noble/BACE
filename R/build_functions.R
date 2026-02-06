@@ -105,15 +105,18 @@
 }
 
 #' @title .build_formula_string_random
-#' @description Function takes a string specifying a random effects formula and converts this to a formula object to be used in the models.
+#' @description Function takes a string specifying a random effects formula and converts this to a formula object to be used in the models. Optionally decomposes into phylogenetic and non-phylogenetic species effects.
 #' @param ran_phylo_form A character string specifying the random effects and phylogenetic structure formula used in the model.
-#' @return A formula	 object
+#' @param species A logical indicating whether to decompose into phylogenetic and non-phylogenetic species effects. Default is FALSE.
+#' @return A formula object (or a list of two formula objects when species=TRUE)
 #' @examples
 #' \dontrun{
 #' .build_formula_string_random("~ 1 | Species")
+#' .build_formula_string_random("~ 1 | Species", species = TRUE)
+#' .build_formula_string_random("~ us(1 + x):Species", species = FALSE)
 #' }
 #' @export	
-.build_formula_string_random <- function(ran_phylo_form) {
+.build_formula_string_random <- function(ran_phylo_form, species = FALSE) {
 
   f <- if (inherits(ran_phylo_form, "formula")) {
     ran_phylo_form
@@ -124,19 +127,39 @@
   # Extract RHS as character
   rhs <- as.character(f)[length(as.character(f))]
 
-  # Remove parentheses
-  rhs <- gsub("[()]", "", rhs)
-
   # Split on pipe with optional whitespace
+  # Don't remove parentheses yet - need to preserve function calls like us(1 + x)
   parts <- strsplit(rhs, "\\s*\\|\\s*", perl = TRUE)[[1]]
 
   if (length(parts) < 2L) {
     stop("No random-effects structure detected (missing '|').")
   }
 
+  lhs <- trimws(parts[1])  # The left side (e.g., "1" or "us(1 + x)")
   cluster <- trimws(parts[2])
 
-  # Return formula of the form: ~ Species
-  stats::as.formula(paste("~", cluster))
+  if (!species) {
+    # Original behavior: return simple phylo formula
+    return(stats::as.formula(paste("~", cluster)))
+  } else {
+    # Decompose into phylo + species effects
+    # phylo gets the random slope structure if specified
+    # species only gets random intercept (identity matrix)
+    
+    # Check if random slope is specified (anything other than "1")
+    if (grepl("us\\(", lhs, ignore.case = TRUE) || grepl("idh\\(", lhs, ignore.case = TRUE) || 
+        grepl("\\+", lhs) || (lhs != "1" && lhs != "")) {
+      # Has random slope structure - only apply to phylo
+      # Keep the function call intact (e.g., "us(1 + temperature)")
+      phylo_formula <- stats::as.formula(paste("~", lhs, ":", cluster))
+      species_formula <- stats::as.formula(paste("~", cluster))
+    } else {
+      # Random intercept only for both
+      phylo_formula <- stats::as.formula(paste("~", cluster))
+      species_formula <- stats::as.formula(paste("~", cluster))
+    }
+    
+    # Return as a list with named elements
+    return(list(phylo = phylo_formula, species = species_formula))
+  }
 }
-

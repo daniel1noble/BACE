@@ -3,13 +3,14 @@
 #' @param data A dataframe containing missing data.
 #' @param tree A phylogenetic tree of class 'phylo' from the ape package.
 #' @param fixformula A string that specifies the fixed effect structure in the model.
-#' @param randformula A string that specifies the random effect structure in the model.
+#' @param randformula A formula or list of formulas that specifies the random effect structure in the model. If a list, should have elements named 'phylo' and 'species'.
 #' @param type A string that specifies the type of model to fit. Options are "normal", "binary", "count", "categorical", "ordinal" and the appropriate family will be used in MCMCglmm.
 #' @param nitt An integer specifying the number of iterations to run the MCMC algorithm. Default is 6000
 #' @param thin An integer specifying the thinning rate for the MCMC algorithm. Default is 5.
 #' @param burnin An integer specifying the number of iterations to discard as burnin. Default is 1000.
 #' @param prior A list specifying the prior distributions for the MCMCglmm model.
 #' @return A list of draws from the posterior distribution of the model parameters.
+#' @importFrom methods as
 #' @export
 
 .model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 6000, thin = 5, burnin = 1000) {
@@ -17,16 +18,111 @@
 	# Create sparse matrix of phylogeny. Make sure to include all nodes because the algorithm used for nodes = "ALL" is more stable and orders of magnitude faster. Very important for large trees.
 		   A  <- MCMCglmm::inverseA(tree, nodes = "ALL")$Ainv
 	
-	# Name of the column in the data corresponding to the phylogeny
-		name  <- all.vars(randformula)
+	# Handle random formula structure - can be a single formula or a list with phylo and species
+	if (is.list(randformula) && !inherits(randformula, "formula")) {
+		# Dual random effects: phylo + species
+		if (!all(c("phylo", "species") %in% names(randformula))) {
+			stop("When randformula is a list, it must have elements named 'phylo' and 'species'")
+		}
 		
+		# Extract grouping variable from formulas
+		# For formulas like ~Species or ~us(1 + x):Species, need to get the grouping variable
+		phylo_vars <- all.vars(randformula$phylo)
+		species_vars <- all.vars(randformula$species)
+		
+		# The grouping variable is the last variable in the formula
+		# For ~Species, it's Species
+		# For ~us(1 + x):Species, it's Species (last in all.vars)
+		phylo_name <- phylo_vars[length(phylo_vars)]
+		species_name <- species_vars[length(species_vars)]
+		
+		# The second copy of the species column should already exist in data (added by bace_imp)
+		species2_name <- paste0(species_name, "2")
+		if (!species2_name %in% colnames(data)) {
+			stop("When using dual random effects, data must contain a column named '", species2_name, "'")
+		}
+		
+		# Create identity matrix for non-phylogenetic species effect
+		# Use tree tip labels to ensure matrix dimensions match phylogeny
+		species_levels <- tree$tip.label
+		n_species <- length(species_levels)
+		I_species <- diag(n_species)
+		rownames(I_species) <- colnames(I_species) <- species_levels
+		
+		# Convert to sparse matrix format (dgCMatrix) as required by MCMCglmm
+		I_species_sparse <- as(I_species, "dgCMatrix")
+		
+		# Combine random formulas
+		# Need to handle different cases: intercept only vs random slopes
+		phylo_formula_char <- deparse(randformula$phylo)
+		species_formula_char <- deparse(randformula$species)
+		
+		# Check if phylo has random slopes (contains : or us() or idh())
+		has_slopes <- grepl(":", phylo_formula_char) || grepl("us\\(", phylo_formula_char) || grepl("idh\\(", phylo_formula_char)
+		
+		if (has_slopes) {
+			# Phylo has random slopes, species only intercept
+			# Use original name for phylo, species2_name for non-phylo
+			combined_formula <- stats::as.formula(paste(phylo_formula_char, "+", species2_name))
+		} else {
+			# Both are random intercepts only
+			# Use original name for phylo, species2_name for non-phylo
+			combined_formula <- stats::as.formula(paste("~", phylo_name, "+", species2_name))
+		}
+		
+		# Set up ginverse with both matrices
+		ginv_list <- list()
+		ginv_list[[phylo_name]] <- A
+		ginv_list[[species2_name]] <- I_species_sparse
+		
+		# Check if phylo has random slopes that need wider prior matrices
+		# For us(1 + x):Species, we need a 2x2 matrix, for us(1 + x + y):Species, 3x3, etc.
+		phylo_formula_char <- deparse(randformula$phylo)
+		if (has_slopes) {
+			# Extract the number of random effects from the formula
+			# For us(1 + x):Species, we have intercept (1) + slope (x) = 2 dimensions
+			# Extract variables inside us()
+			us_match <- regexpr("us\\(([^)]+)\\)", phylo_formula_char, perl = TRUE)
+			if (us_match > 0) {
+				us_content <- regmatches(phylo_formula_char, us_match)
+				# Extract content between us( and )
+				us_vars <- gsub("us\\(|\\)", "", us_content)
+				# Count terms: "1 + x" has 2 terms, "1 + x + y" has 3, etc.
+				# Split by + and count
+				terms <- strsplit(us_vars, "\\s*\\+\\s*")[[1]]
+				n_phylo_dims <- length(terms)
+			} else {
+				# Fallback: assume 2 dimensions (intercept + 1 slope)
+				n_phylo_dims <- 2
+			}
+			
+			# Adjust the prior for the phylo random effect (first G element)
+			# Need to expand V to n_phylo_dims x n_phylo_dims
+			if (length(prior$G) >= 1 && nrow(prior$G[[1]]$V) == 1) {
+				prior$G[[1]]$V <- diag(n_phylo_dims)
+				if (!is.null(prior$G[[1]]$alpha.mu)) {
+					# Parameter expansion case
+					prior$G[[1]]$alpha.mu <- rep(0, n_phylo_dims)
+					prior$G[[1]]$alpha.V <- 1e4 * diag(n_phylo_dims)
+				}
+			}
+		}
+		
+		
+	} else{
+		# Single random effect (phylo only)
+		combined_formula <- randformula
+		phylo_name <- all.vars(randformula)[1]
+		ginv_list <- setNames(list(A), phylo_name)
+	}
+	
 	# Fit the model using MCMCglmm
   if(type != "categorical"){
   	model <- MCMCglmm::MCMCglmm(fixed = fixformula,
-                               random = randformula,
+                               random = combined_formula,
                                  data = data,
                                family = type,
-							               ginverse = setNames(list(A), name),
+							               ginverse = ginv_list,
                               verbose = FALSE, pr = TRUE, pl = TRUE,
                                 saveX = TRUE, saveZ = TRUE,
                                  nitt = nitt,
@@ -35,16 +131,72 @@
 							    prior = prior, singular.ok=TRUE)	
         } else {
 
-      # Categorical model needs special treatment. Append -1 to the right size of ~ formula to remove intercept
+      # Categorical model needs special treatment. Append -1 to the right side of ~ formula to remove intercept
       fixformula_cat <- as.formula(paste0(as.character(fixformula)[2], "~ trait:(", as.character(fixformula)[3], ") - 1"))
-      ranformula_cat <- as.formula(paste0("~", "idh(trait):",as.character(randformula)[2]))
+      
+      # Handle random formula for categorical models
+      # For categorical models, each random effect needs idh(trait): prefix
+      if (is.list(randformula) && !inherits(randformula, "formula")) {
+      	# Dual random effects: both need idh(trait) expansion
+      	
+      	# Check if phylo has random slopes - not supported for categorical with dual random effects
+      	phylo_formula_char <- deparse(randformula$phylo)
+      	has_slopes_cat <- grepl("us\\(", phylo_formula_char) || grepl("idh\\(", phylo_formula_char) || grepl("\\+", phylo_formula_char)
+      	if (has_slopes_cat) {
+      		stop("Categorical models with random slopes and dual random effects (species=TRUE) are not currently supported. Please use either:\n",
+      		     "  1. Categorical model with phylo + species random intercepts (no random slopes), OR\n",
+      		     "  2. Categorical model with phylo random slopes only (species=FALSE)")
+      	}
+      	
+      	# Extract the random effect terms from combined_formula
+      	combined_rhs <- as.character(combined_formula)[2]
+      	
+      	# Smart split: only split on + that are NOT inside parentheses
+      	# Use a simple approach: identify the main grouping variables
+      	# For "us(1 + x):Species + Species2", we want ["us(1 + x):Species", "Species2"]
+      	# For "Species + Species2", we want ["Species", "Species2"]
+      	
+      	# Count parentheses to track depth
+      	re_terms <- character()
+      	current_term <- ""
+      	paren_depth <- 0
+      	
+      	for (i in seq_len(nchar(combined_rhs))) {
+      		char <- substr(combined_rhs, i, i)
+      		if (char == "(") {
+      			paren_depth <- paren_depth + 1
+      			current_term <- paste0(current_term, char)
+      		} else if (char == ")") {
+      			paren_depth <- paren_depth - 1
+      			current_term <- paste0(current_term, char)
+      		} else if (char == "+" && paren_depth == 0) {
+      			# This is a top-level +, so split here
+      			re_terms <- c(re_terms, trimws(current_term))
+      			current_term <- ""
+      		} else {
+      			current_term <- paste0(current_term, char)
+      		}
+      	}
+      	# Add the last term
+      	if (nchar(trimws(current_term)) > 0) {
+      		re_terms <- c(re_terms, trimws(current_term))
+      	}
+      	
+      	# Add idh(trait): to each term
+      	re_terms_expanded <- paste0("idh(trait):", re_terms)
+      	# Combine back
+      	ranformula_cat <- as.formula(paste0("~", paste(re_terms_expanded, collapse = " + ")))
+      } else {
+      	# Single random effect: original behavior
+      	ranformula_cat <- as.formula(paste0("~", "idh(trait):",as.character(combined_formula)[2]))
+      }
 
       model <- MCMCglmm::MCMCglmm(fixed = fixformula_cat,
                                  random = ranformula_cat,
                                  data = data,
                                family = type,
                                rcov = ~us(trait):units,
-							               ginverse = setNames(list(A), name),
+							               ginverse = ginv_list,
                               verbose = FALSE, pr = TRUE, pl = TRUE,
                                 saveX = TRUE, saveZ = TRUE,
                                  nitt = nitt,
@@ -119,14 +271,14 @@
 
   if (par_expand) {
     for (i in 1:n_rand) {
-      prior_G[[paste0("G", i)]] <- list(
+      prior_G[[i]] <- list(
         V = diag(diag), nu = nu,
         alpha.mu = rep(0, diag), alpha.V = 1e4 * diag(diag)
       )
     }
   } else {
     for (i in 1:n_rand) {
-      prior_G[[paste0("G", i)]] <- list(V = diag(diag), nu = nu)
+      prior_G[[i]] <- list(V = diag(diag), nu = nu)
     }
   }
   
@@ -135,7 +287,7 @@
 
 #' @title .make_prior
 #' @description Function creates the prior for the MCMCglmm model
-#' @param n_rand An integer specifying the number of random effects in the model.
+#' @param n_rand An integer specifying the number of random effects in the model (1 for phylo only, 2 for phylo + species).
 #' @param type A string that specifies the type of model to fit.
 #' @param nu A numeric specifying the nu parameter for the prior.
 #' @param n_levels An integer specifying the number of levels for categorical or ordinal data.
@@ -158,6 +310,12 @@
     fixform = NULL, # formula without trait expansion!
     data = NULL,
     gelman = 0) {
+  
+  # Validate n_rand
+  if (!n_rand %in% c(1, 2)) {
+    stop("n_rand must be 1 (phylo only) or 2 (phylo + species)")
+  }
+  
   if (type == "gaussian") {
     if (is.null(nu)) {
       nu <- 0.002

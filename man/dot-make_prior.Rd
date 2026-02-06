@@ -16,7 +16,7 @@
 )
 }
 \arguments{
-\item{n_rand}{An integer specifying the number of random effects in the model.}
+\item{n_rand}{An integer specifying the number of random effects in the model (1 for phylo only, 2 for phylo + species).}
 
 \item{type}{A string that specifies the type of model to fit.}
 
