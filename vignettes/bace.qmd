@@ -77,10 +77,9 @@ sim_data <- sim_bace(response_type = "poisson",
                    predictor_types = c("gaussian", "binary", "threshold4", "multinomial3"),
                       phylo_signal = c(0.55, 0.75, 0.8, 0.7, 0.7),
                        missingness = c(0.2, 0.3, 0.4, 0.2, 0.5),
-                                rr = TRUE,
-                                n_cases = 100,
-                                 n_species = 100,
-                           rr_form = list(species = c("x1")))
+                           n_cases = 100,
+                         n_species = 100)
+
 ```
 
 We can then view the simulated data and phylogenetic tree because the `sim_bace()` function returns a list containing both objects. It also has a lot of other useful information about the simulation users can explore.
@@ -94,7 +93,7 @@ We can then view the simulated data and phylogenetic tree because the `sim_bace(
     tree <- sim_data$tree
 
 # View first few rows of the data
-head(data)
+    head(data)
 ```
 
 Here, we can see that the dataset contains lots of missing values across different variable types. Of course, with normal modelling, we would need to exclude these cases to use a complete dataset. However, with *BACE* we simply feed in the entire dataset, specify the models we want to use for imputation (or the real model of interest), and impute the missing data. 
@@ -201,16 +200,20 @@ sim_data2 <- sim_bace(response_type = "poisson",
                       phylo_signal = c(0.55, 0.75, 0.8, 0.7, 0.7),
                        missingness = c(0.2, 0.3, 0.4, 0.2, 0.5),
                                 rr = TRUE,
-                                n_cases = 100,
-                                 n_species = 20,
+                           n_cases = 100,
+                         n_species = 20,
                            rr_form = list(species = c("x1")))
 
- Object contains both the simulated data and phylogeny
+# Object contains both the simulated data and phylogeny
     data2 <- sim_data2$data
     tree2 <- sim_data2$tree
 
 # View first few rows of the data
-head(data2)                          
+    head(data2)         
+
+# We can also make a table of the number of cases per species to confirm that there are multiple replicates per species
+    dim(data2)
+    length(unique(data2$species))
 ```                           
 
 We now have a dataset with 100 cases but only 20 species, meaning that there are multiple replicates per species. We can run *BACE* on this dataset while including a non-phylogenetic random effect for species identity as follows:
@@ -224,7 +227,12 @@ bace_impute3 <- bace_imp(fixformula = "y ~ x1 + x2",
                      ran_phylo_form = "~ 1 |species",
                               phylo = tree2,
                                data = data2,
-                               runs = 5, nitt = 20000, burnin = 5000, thin = 10, species = TRUE)   
+                               runs = 5, nitt = 20000, burnin = 5000, thin = 10, species = TRUE) 
+
+
+# We can view the final model for y to check that both random effects are included
+model_y2 <- bace_impute3$models[["y"]]
+summary(model_y2)                                
 ```
 
 Note that in this case we get a message indicating that both phylogenetic and non-phylogenetic random effects are being included in the models because we probably can decompose the variances. If you try and fit a dataset without multiple replicates per species while setting `species = TRUE` you will get an error because the model cannot be fit.
