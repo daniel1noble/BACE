@@ -25,7 +25,12 @@ sim_tree <- function(n_species, birth, death, n_cases, str_len = 5) {
   mock_names <- sort(stringi::stri_rand_strings(n_species, str_len))
 
   # Assign cases to species (with replacement if n_cases > n_species)
-  case_species <- sample(mock_names, n_cases, replace = TRUE)
+  
+  if (n_cases > n_species) {
+    case_species <- sample(mock_names, n_cases, replace = TRUE)
+  } else {
+    case_species <- sample(mock_names, n_cases, replace = FALSE)
+  }
   species_in_data <- sort(unique(case_species))
 
 
