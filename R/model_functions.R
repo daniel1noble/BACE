@@ -5,9 +5,9 @@
 #' @param fixformula A string that specifies the fixed effect structure in the model.
 #' @param randformula A formula or list of formulas that specifies the random effect structure in the model. If a list, should have elements named 'phylo' and 'species'.
 #' @param type A string that specifies the type of model to fit. Options are "normal", "binary", "count", "categorical", "ordinal" and the appropriate family will be used in MCMCglmm.
-#' @param nitt An integer specifying the number of iterations to run the MCMC algorithm. Default is 6000
-#' @param thin An integer specifying the thinning rate for the MCMC algorithm. Default is 5.
-#' @param burnin An integer specifying the number of iterations to discard as burnin. Default is 1000.
+#' @param nitt An integer specifying the number of iterations to run the MCMC algorithm for this specific model. Default is 6000. Note: when called from bace_imp, this can be model-specific if a list was provided.
+#' @param thin An integer specifying the thinning rate for the MCMC algorithm for this specific model. Default is 5. Note: when called from bace_imp, this can be model-specific if a list was provided.
+#' @param burnin An integer specifying the number of iterations to discard as burnin for this specific model. Default is 1000. Note: when called from bace_imp, this can be model-specific if a list was provided.
 #' @param prior A list specifying the prior distributions for the MCMCglmm model.
 #' @return A list of draws from the posterior distribution of the model parameters.
 #' @importFrom methods as

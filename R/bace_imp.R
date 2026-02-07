@@ -1,4 +1,33 @@
 
+#' @title .standardize_mcmc_params
+#' @description Helper function to standardize MCMC parameters (nitt, thin, burnin) to lists
+#' @param param The parameter value (either a single value or a list)
+#' @param n_models The number of models/formulas
+#' @param param_name The name of the parameter (for error messages)
+#' @return A list of length n_models with the parameter values
+.standardize_mcmc_params <- function(param, n_models, param_name) {
+	if (is.list(param)) {
+		if (length(param) != n_models) {
+			stop(paste0(param_name, " is a list but its length (", length(param), 
+			           ") does not match the number of formulas (", n_models, ")"))
+		}
+		# Validate all elements are numeric and unwrap them properly
+		numeric_values <- lapply(param, function(x) {
+			if (!is.numeric(x)) {
+				stop(paste0("All elements of ", param_name, " list must be numeric"))
+			}
+			# Ensure we return the numeric value, not a nested list
+			as.numeric(x)
+		})
+		return(numeric_values)
+	} else if (is.numeric(param) && length(param) == 1) {
+		# Single value: replicate for all models
+		return(as.list(rep(param, n_models)))
+	} else {
+		stop(paste0(param_name, " must be either a single numeric value or a list of numeric values"))
+	}
+}
+
 #' @title bace_imp
 #' @description Function to perform Bayesian imputation using BACE for missing data in a dataset
 #' @param fixformula A character string specifying the fixed effects formula that is of major interest or a list of formulas that one wishes to estimate. This should be of the form: y ~ x. Providing a list gives users complex flexibility in the types of models fit for the different variables. Note that users can also include interaction terms using the standard R formula syntax (e.g., x1*x2). 
@@ -6,9 +35,9 @@
 #' @param phylo A phylogenetic tree of class 'phylo' from the ape package.
 #' @param data A data frame containing the dataset with missing values to be imputed.
 #' @param runs An integer specifying the number of imputation iterations to perform. Default is 10.
-#' @param nitt An integer specifying the number of iterations to run the MCMC algorithm. Default is 6000.
-#' @param thin An integer specifying the thinning rate for the MCMC algorithm. Default is 5.
-#' @param burnin An integer specifying the number of iterations to discard as burnin. Default is 1000.
+#' @param nitt An integer or list specifying the number of iterations to run the MCMC algorithm. Can be a single value (applied to all models) or a list of values (one per formula). Default is 6000.
+#' @param thin An integer or list specifying the thinning rate for the MCMC algorithm. Can be a single value (applied to all models) or a list of values (one per formula). Default is 5.
+#' @param burnin An integer or list specifying the number of iterations to discard as burnin. Can be a single value (applied to all models) or a list of values (one per formula). Default is 1000.
 #' @param species A logical indicating whether to decompose phylogenetic and non-phylogenetic species effects. Default is FALSE. When TRUE, the random effects structure is modified to include both a phylogenetic effect and a non-phylogenetic species effect (with identity matrix in ginverse). This requires sufficient replicated observations per species.
 #' @param verbose A logical indicating whether to print progress messages. Default is TRUE.
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
@@ -37,13 +66,14 @@
 #' data$x2[sample(1:30, 5)] <- NA	
 #' data$x3[sample(1:30, 5)] <- NA
 #' data$x4[sample(1:30, 5)] <- NA	
-#' # Run BACE imputation
+#' # Run BACE imputation with default MCMC settings
 #' mod1 <- bace_imp(
 #'   fixformula = "y ~ x1 + x2",
 #'   ran_phylo_form = "~ 1 |Species",
 #'   phylo = phylo,
 #'   data = data
 #' )
+#' # Run with multiple formulas and single MCMC settings (applied to all)
 #' mod2 <- bace_imp(
 #'   fixformula = list(
 #'     "y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2",
@@ -52,7 +82,24 @@
 #'   ran_phylo_form = "~ 1 |Species",
 #'   phylo = phylo,
 #'   data = data,
-#'   runs = 5
+#'   runs = 5,
+#'   nitt = 8000,
+#'   thin = 10,
+#'   burnin = 2000
+#' )
+#' # Run with model-specific MCMC settings (list for each formula)
+#' mod3 <- bace_imp(
+#'   fixformula = list(
+#'     "y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2",
+#'     "x3 ~ x1 + x2", "x4 ~ x1 + x2"
+#'   ),
+#'   ran_phylo_form = "~ 1 |Species",
+#'   phylo = phylo,
+#'   data = data,
+#'   runs = 5,
+#'   nitt = list(10000, 6000, 6000, 8000, 8000),
+#'   thin = list(10, 5, 5, 8, 8),
+#'   burnin = list(2000, 1000, 1000, 1500, 1500)
 #' )
 #' }
 #' @export
@@ -136,6 +183,15 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 	
 	# Random effect formula. Pass species parameter to enable decomposition if requested
 	   ran_phylo_form <- .build_formula_string_random(ran_phylo_form, species = species)
+
+	#---------------------------------------------#
+	# Standardize MCMC parameters
+	#---------------------------------------------#
+	# Convert single values to lists if needed, and validate list lengths
+	n_models <- length(formulas)
+	nitt_list <- .standardize_mcmc_params(nitt, n_models, "nitt")
+	thin_list <- .standardize_mcmc_params(thin, n_models, "thin")
+	burnin_list <- .standardize_mcmc_params(burnin, n_models, "burnin")
 
 	#---------------------------------------------#
 	# Create indicators for where missing data are
@@ -258,9 +314,9 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 						    randformula = ran_phylo_form, # phylo only or phylo + species depending on species parameter
 					 		       type = types[[response_var]], 
 							      prior = prior_i, 
-								   nitt = nitt, 
-								   thin = thin, 
-								 burnin = burnin)
+								   nitt = nitt_list[[i]], 
+								   thin = thin_list[[i]], 
+								 burnin = burnin_list[[i]])
 
 			# If last run, store the model for evaluation later
 				if(r == (runs + 1)){
