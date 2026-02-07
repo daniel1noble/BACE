@@ -27,11 +27,11 @@ bace_imp(
 
 \item{data}{A data frame containing the dataset with missing values to be imputed.}
 
-\item{nitt}{An integer specifying the number of iterations to run the MCMC algorithm. Default is 6000.}
+\item{nitt}{An integer or list specifying the number of iterations to run the MCMC algorithm. Can be a single value (applied to all models) or a list of values (one per formula). Default is 6000.}
 
-\item{thin}{An integer specifying the thinning rate for the MCMC algorithm. Default is 5.}
+\item{thin}{An integer or list specifying the thinning rate for the MCMC algorithm. Can be a single value (applied to all models) or a list of values (one per formula). Default is 5.}
 
-\item{burnin}{An integer specifying the number of iterations to discard as burnin. Default is 1000.}
+\item{burnin}{An integer or list specifying the number of iterations to discard as burnin. Can be a single value (applied to all models) or a list of values (one per formula). Default is 1000.}
 
 \item{runs}{An integer specifying the number of imputation iterations to perform. Default is 10.}
 
@@ -72,13 +72,14 @@ data$x1[sample(1:30, 5)] <- NA
 data$x2[sample(1:30, 5)] <- NA	
 data$x3[sample(1:30, 5)] <- NA
 data$x4[sample(1:30, 5)] <- NA	
-# Run BACE imputation
+# Run BACE imputation with default MCMC settings
 mod1 <- bace_imp(
   fixformula = "y ~ x1 + x2",
   ran_phylo_form = "~ 1 |Species",
   phylo = phylo,
   data = data
 )
+# Run with multiple formulas and single MCMC settings (applied to all)
 mod2 <- bace_imp(
   fixformula = list(
     "y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2",
@@ -87,7 +88,24 @@ mod2 <- bace_imp(
   ran_phylo_form = "~ 1 |Species",
   phylo = phylo,
   data = data,
-  runs = 5
+  runs = 5,
+  nitt = 8000,
+  thin = 10,
+  burnin = 2000
+)
+# Run with model-specific MCMC settings (list for each formula)
+mod3 <- bace_imp(
+  fixformula = list(
+    "y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2",
+    "x3 ~ x1 + x2", "x4 ~ x1 + x2"
+  ),
+  ran_phylo_form = "~ 1 |Species",
+  phylo = phylo,
+  data = data,
+  runs = 5,
+  nitt = list(10000, 6000, 6000, 8000, 8000),
+  thin = list(10, 5, 5, 8, 8),
+  burnin = list(2000, 1000, 1000, 1500, 1500)
 )
 }
 }

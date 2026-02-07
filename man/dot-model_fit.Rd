@@ -29,11 +29,11 @@
 
 \item{prior}{A list specifying the prior distributions for the MCMCglmm model.}
 
-\item{nitt}{An integer specifying the number of iterations to run the MCMC algorithm. Default is 6000}
+\item{nitt}{An integer specifying the number of iterations to run the MCMC algorithm for this specific model. Default is 6000. Note: when called from bace_imp, this can be model-specific if a list was provided.}
 
-\item{thin}{An integer specifying the thinning rate for the MCMC algorithm. Default is 5.}
+\item{thin}{An integer specifying the thinning rate for the MCMC algorithm for this specific model. Default is 5. Note: when called from bace_imp, this can be model-specific if a list was provided.}
 
-\item{burnin}{An integer specifying the number of iterations to discard as burnin. Default is 1000.}
+\item{burnin}{An integer specifying the number of iterations to discard as burnin for this specific model. Default is 1000. Note: when called from bace_imp, this can be model-specific if a list was provided.}
 }
 \value{
 A list of draws from the posterior distribution of the model parameters.
