@@ -249,3 +249,27 @@ bace_impute4 <- bace_imp(fixformula = "y ~ x1 + x2",
                                data = data,
                                runs = 5, nitt = 20000, burnin = 5000, thin = 10, species = TRUE)
 ```
+
+## Adjusting MCMC Parameters For Convergence
+
+Obviously, depending on the model complexity and data size etc, some models will need longer runtimes. Users can adjust the MCMC parameters (i.e., `nitt`, `thin`, and `burnin`) for each model by providing a list of values for each parameter that corresponds to the order of the formulas provided in the `fixformula` argument. For example, if you have 5 formulas in your `fixformula` list, you can provide a list of 5 values for each MCMC parameter as follows:
+
+```{r}
+#| label: mcmc_parameters
+#| echo: true
+#| eval: true
+#| warning: false
+#| message: false
+
+# Define MCMC parameters for each model
+nitt_list <- c(20000, 15000, 10000)
+thin_list <- c(10, 5, 5)
+burnin_list <- c(5000, 3000, 2000)
+
+# Run BACE with model-specific MCMC parameters
+bace_impute5 <- bace_imp(fixformula = "y ~ x1 + x2",
+                    ran_phylo_form = "~ 1 |species",
+                             phylo = tree,
+                              data = data,
+                              runs = 5, nitt = nitt_list, thin = thin_list, burnin = burnin_list, species = TRUE)
+```
