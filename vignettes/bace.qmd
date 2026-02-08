@@ -125,6 +125,7 @@ There are two ways you can use `bace_imp`. The first is to specify a list of all
 ```{r}
 #| label: bace_imputation
 #| echo: true 
+#| eval: false
 
 # First check that all variables are correctly classified. If using sim_bace() this is done automatically, but always worth checking.
   str(data)
@@ -143,7 +144,6 @@ bace_impute <- bace_imp(fixformula = list("y ~ x1 + x2",
 ```
 
 What *BACE* will do here is fit a `MCMCglmm` model for each of the response variables specified in the formula list. At the first iteration, it will fill in missing values for any predictors using either their mean (for continuous variables) or randomly sampled values (for categorical variables). Models will then be fit using this complete predictor set and predictions will be made for missing values of the response variable. In the next run, those predictions will be used to 'fill' in missing values in any predictors instead. This cycle will continue until the predicted values converge. This process is repeated for the number of iterations specified by the `runs` argument. All the models will include the phylogenetic random effect specified in the `ran_phylo_form` argument.
-
 
 The second way to use *BACE* is to just provide a model with your main variables. This may be because you have an *a priori* model in mind, as such, you can also use `bace_imp` by simply feeding in a single formula as below. Here, *BACE* will automatically build models for the other variables based on their types and the variables present in the dataset. It will impute missing values in the same way as described above, but using all other variables as predictors. You can also specify interactions if you wish. We can run *BACE* in this way as follows (this time using verbose = TRUE to see more output during the imputation process):
 
@@ -245,14 +245,30 @@ Note that in this case we get a message indicating that both phylogenetic and no
 
 bace_impute4 <- bace_imp(fixformula = "y ~ x1 + x2",
                      ran_phylo_form = "~ 1 |species",
-                              phylo = tree,
-                               data = data,
+                              phylo = tree2,
+                               data = data2,
                                runs = 5, nitt = 20000, burnin = 5000, thin = 10, species = TRUE)
 ```
 
 ## Adjusting MCMC Parameters For Convergence
 
-Obviously, depending on the model complexity and data size etc, some models will need longer runtimes. Users can adjust the MCMC parameters (i.e., `nitt`, `thin`, and `burnin`) for each model by providing a list of values for each parameter that corresponds to the order of the formulas provided in the `fixformula` argument. For example, if you have 5 formulas in your `fixformula` list, you can provide a list of 5 values for each MCMC parameter as follows:
+As we can see from the model summary above, some parameters may have low effective sample sizes (ESS) which indicates poor mixing of the MCMC chains. This can be a sign that the imputation is not performing well and that more iterations are needed to achieve convergence. Lets have a look:
+
+```{r}
+#| label: check_ess
+#| echo: true
+#| eval: true
+
+model_x1 <- bace_impute3$models[["x1"]]
+summary(model_x1)  
+
+model_x2 <- bace_impute3$models[["x2"]]
+summary(model_x2)  
+```
+
+As we can see x1 and x2 models have poor mixing and low ESS for some parameters. Obviously, depending on the model complexity and data size etc, some models will need longer runtimes. This is likely because the imputation process has not yet converged. To address this, we can increase the number of iterations (i.e., `nitt`), increase the burn-in period (i.e., `burnin`), and/or adjust the thinning interval (i.e., `thin`) to improve mixing and convergence of the MCMC chains.  
+
+Users can adjust the MCMC parameters (i.e., `nitt`, `thin`, and `burnin`) for each model by providing a list of values for each parameter that corresponds to the order of the formulas provided in the `fixformula` argument. For example, if you have 5 formulas in your `fixformula` list, you can provide a list of 5 values for each MCMC parameter as follows:
 
 ```{r}
 #| label: mcmc_parameters
@@ -262,14 +278,15 @@ Obviously, depending on the model complexity and data size etc, some models will
 #| message: false
 
 # Define MCMC parameters for each model
-nitt_list <- c(20000, 15000, 10000)
-thin_list <- c(10, 5, 5)
-burnin_list <- c(5000, 3000, 2000)
+  nitt_list <- list(60000, 60000, 105000)
+  thin_list <- list(10, 10, 10)
 
 # Run BACE with model-specific MCMC parameters
 bace_impute5 <- bace_imp(fixformula = "y ~ x1 + x2",
                     ran_phylo_form = "~ 1 |species",
-                             phylo = tree,
-                              data = data,
-                              runs = 5, nitt = nitt_list, thin = thin_list, burnin = burnin_list, species = TRUE)
+                             phylo = tree2,
+                              data = data2,
+                              runs = 5, nitt = nitt_list, thin = thin_list, burnin = 5000, species = TRUE)
 ```
+
+As you can imagine, longer runtimes will mean that `bace_imp` will need to take longer. The diagnostics still suggest possible issues with mixing for some parameters, so we may need to further increase the number of iterations or adjust the priors to improve mixing, however, it's still good to look at the final models to check the model visually.
