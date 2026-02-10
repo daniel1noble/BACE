@@ -1,6 +1,9 @@
 #' @title plot.bace_convergence
 #' @description Plot convergence diagnostics for BACE imputation
 #' @param x Object of class bace_convergence from assess_convergence()
+#' @importFrom graphics abline barplot boxplot grid layout legend lines mtext par plot.new points text
+#' @importFrom grDevices colorRampPalette rainbow
+#' @importFrom stats median na.pass
 #' @param type Type of plot: "trace", "density", "acf", "pct_change", "energy", "all"
 #' @param variables Character vector of variable names to plot. If NULL (default), plots all
 #' @param ... Additional arguments passed to plotting functions
@@ -124,8 +127,8 @@ plot_trace_convergence <- function(conv_object, variables = NULL, ...) {
         }
         
         status_text <- ifelse(converged, 
-                             paste0("✓ Converged", pct_info), 
-                             paste0("✗ Not Converged", pct_info))
+                             paste0("\u2713 Converged", pct_info), 
+                             paste0("\u2717 Not Converged", pct_info))
         mtext(status_text, side = 3, line = 0.5, col = col_indicator, cex = 0.8)
       }
     }
@@ -335,7 +338,7 @@ plot_acf_convergence <- function(conv_object, variables = NULL, ...) {
         acf_conv <- conv_object$method_results$summary$stationarity_tests[[var]]$acf_converged
         if (!is.na(acf_conv)) {
           col_indicator <- ifelse(acf_conv, "darkgreen", "darkred")
-          mtext(ifelse(acf_conv, "✓ Low ACF", "✗ High ACF"), 
+          mtext(ifelse(acf_conv, "\u2713 Low ACF", "\u2717 High ACF"), 
                 side = 3, line = 0.5, col = col_indicator, cex = 0.8)
         }
       }
@@ -380,8 +383,8 @@ plot_energy_convergence <- function(conv_object, ...) {
   if (!is.na(energy_res$converged)) {
     col_indicator <- ifelse(energy_res$converged, "darkgreen", "darkred")
     status <- ifelse(energy_res$converged, 
-                     "✓ Converged (stable energy distance)", 
-                     "✗ Not Converged")
+                     "\u2713 Converged (stable energy distance)", 
+                     "\u2717 Not Converged")
     mtext(status, side = 3, line = 0.5, col = col_indicator, cex = 0.9)
   }
   
@@ -443,7 +446,7 @@ plot_wasserstein_convergence <- function(conv_object, variables = NULL, ...) {
     # Add convergence indicator
     if (!is.na(stabilized)) {
       col_indicator <- ifelse(stabilized, "darkgreen", "darkred")
-      mtext(ifelse(stabilized, "✓ Stabilized", "✗ Not Stabilized"), 
+      mtext(ifelse(stabilized, "\u2713 Stabilized", "\u2717 Not Stabilized"), 
             side = 3, line = 0.5, col = col_indicator, cex = 0.8)
     }
     

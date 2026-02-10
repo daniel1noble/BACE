@@ -1,6 +1,7 @@
 #' @title assess_convergence
 #' @description Assess convergence of BACE imputation using multiple diagnostic criteria
 #' @param bace_object An object of class 'bace' returned from bace_imp function
+#' @importFrom stats cor cor.test var approx
 #' @param method Character string specifying the convergence method: "summary" (all summary tests), 
 #'   "summary.acf" (ACF only), "summary.percentage" (% change only), "summary.trend" (trend only),
 #'   "summary.geweke" (Geweke only), "energy", "wasserstein", or "all" for all methods

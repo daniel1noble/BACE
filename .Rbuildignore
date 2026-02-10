@@ -21,3 +21,4 @@ testing.R
 ^test\.R$
 ^MCMC_PARAM_LIST_IMPLEMENTATION\.md$
 test_mcmc_demo.R
+.quarto/

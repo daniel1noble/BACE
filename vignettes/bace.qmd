@@ -290,3 +290,14 @@ bace_impute5 <- bace_imp(fixformula = "y ~ x1 + x2",
 ```
 
 As you can imagine, longer runtimes will mean that `bace_imp` will need to take longer. The diagnostics still suggest possible issues with mixing for some parameters, so we may need to further increase the number of iterations or adjust the priors to improve mixing, however, it's still good to look at the final models to check the model visually.
+
+## Assessing Model Convergence
+
+We need to check whether the numbers of runs we've done has lead to convergence of the imputation process. We can do this by looking at the trace and density plots for the parameters in the models. For example, we can check the model for `y` as follows:
+
+
+```{r}
+
+
+assess_convergence(model_y2)
+```
