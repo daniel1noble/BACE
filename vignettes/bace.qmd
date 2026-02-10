@@ -297,7 +297,29 @@ We need to check whether the numbers of runs we've done has lead to convergence 
 
 
 ```{r}
+#| label: check_convergence
+#| echo: true
+#| eval: true
+#| warning: false
+#| message: false
 
+# Assess whether number of runs was enough by looking at the stability of imputed points across runs. Adjust runs if needed
+converge <- assess_convergence(bace_impute2, method = "summary")
+plot(converge)
 
-assess_convergence(model_y2)
+# Now that we know that we can run BACE longer
+
+# Fit BACE with a single formula
+bace_impute2_2 <- bace_imp(fixformula = "y ~ x1 + x2",
+                     ran_phylo_form = "~ 1 |species",
+                              phylo = tree,
+                               data = data,
+                               runs = 15, nitt = 100000, burnin = 10000, thin = 10)  
+
+# Check again for convergence
+converge <- assess_convergence(bace_impute2_2, method = "summary")
+plot(converge)
+                              
 ```
+
+TO DO: Now that we've tested the convergence function we need to decide how we want to integrate it into the workflow. The slight complicatin is that it takes a bace_imp object as input, so there's a two step process that is needed now rather than working internally. We could have this iterative back and forth and then simply have a final function which picks up from the last run and does 10 more runs and then pools....
