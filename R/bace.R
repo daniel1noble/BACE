@@ -96,6 +96,9 @@ if (plot) {
 n_attempts <- 1
 converged <- converge$converged
 
+# Treat NA as not converged
+if (is.na(converged)) converged <- FALSE
+
 ##-----------------------## 
 # If not converged, try again with more runs
 ##-----------------------##
@@ -122,6 +125,8 @@ while (!converged && n_attempts < max_attempts) {
   }
   
   converged <- converge$converged
+  # Treat NA as not converged
+  if (is.na(converged)) converged <- FALSE
   n_attempts <- n_attempts + 1
 }
 

@@ -186,9 +186,9 @@ pool_posteriors <- function(bace_final_object, variable = NULL) {
       pooled = TRUE
     )
     
-    # Set class to MCMCglmm with additional bace_pooled_MCMCglmm class
-    # This allows MCMCglmm methods to work while still allowing custom behavior
-    class(pooled_model) <- c("MCMCglmm", "bace_pooled_MCMCglmm")
+    # Set class to bace_pooled_MCMCglmm with MCMCglmm as second class
+    # Order matters for S3 dispatch - custom methods are checked first
+    class(pooled_model) <- c("bace_pooled_MCMCglmm", "MCMCglmm")
     
     pooled_models[[var]] <- pooled_model
   }
@@ -251,15 +251,15 @@ print.bace_pooled <- function(x, ...) {
 print.bace_pooled_MCMCglmm <- function(x, ...) {
   # Add header indicating this is a pooled model
   if (!is.null(x$BACE_pooling)) {
-    cat("\n╔══════════════════════════════════════════════════════════════╗\n")
-    cat("║  BACE Pooled MCMCglmm Model (Imputation Uncertainty Included) ║\n")
-    cat("╚══════════════════════════════════════════════════════════════╝\n\n")
+    cat("\n+--------------------------------------------------------------+\n")
+    cat("|  BACE Pooled MCMCglmm Model (Imputation Uncertainty Included) |\n")
+    cat("+--------------------------------------------------------------+\n\n")
     cat("Pooled from", x$BACE_pooling$n_imputations, "imputations\n")
     cat("Total posterior samples:", x$BACE_pooling$total_samples, "\n")
-    cat("  (=", x$BACE_pooling$n_samples_per_imputation, "samples/imputation ×", 
+    cat("  (=", x$BACE_pooling$n_samples_per_imputation, "samples/imputation x", 
         x$BACE_pooling$n_imputations, "imputations)\n\n")
     cat("Note: Posterior distribution accounts for both estimation and imputation uncertainty.\n")
-    cat("────────────────────────────────────────────────────────────────\n\n")
+    cat("--------------------------------------------------------------\n\n")
   }
   
   # Call the MCMCglmm print method
@@ -278,19 +278,22 @@ print.bace_pooled_MCMCglmm <- function(x, ...) {
 summary.bace_pooled_MCMCglmm <- function(object, ...) {
   # Add header indicating this is a pooled model
   if (!is.null(object$BACE_pooling)) {
-    cat("\n╔══════════════════════════════════════════════════════════════╗\n")
-    cat("║  BACE Pooled MCMCglmm Summary (Imputation Uncertainty Included)║\n")
-    cat("╚══════════════════════════════════════════════════════════════╝\n\n")
+    cat("\n+--------------------------------------------------------------+\n")
+    cat("|  BACE Pooled MCMCglmm Summary (Imputation Uncertainty Included)|\n")
+    cat("+--------------------------------------------------------------+\n\n")
     cat("Pooled from", object$BACE_pooling$n_imputations, "imputations\n")
     cat("Total posterior samples:", object$BACE_pooling$total_samples, "\n")
-    cat("  (=", object$BACE_pooling$n_samples_per_imputation, "samples/imputation ×", 
+    cat("  (=", object$BACE_pooling$n_samples_per_imputation, "samples/imputation x", 
         object$BACE_pooling$n_imputations, "imputations)\n\n")
     cat("Note: Posterior summaries account for both estimation and imputation uncertainty.\n")
-    cat("────────────────────────────────────────────────────────────────\n\n")
+    cat("--------------------------------------------------------------\n\n")
   }
   
   # Call the MCMCglmm summary method
   # Temporarily remove bace_pooled_MCMCglmm class to call MCMCglmm method
   class(object) <- "MCMCglmm"
-  summary(object, ...)
+  result <- summary(object, ...)
+  
+  # Return invisibly so it can be captured if needed
+  invisible(result)
 }
