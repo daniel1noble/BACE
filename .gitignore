@@ -59,3 +59,8 @@ test_mcmc_demo.R
 dev/demo_mcmc_param_lists.R
 
 /.quarto/
+IMPLEMENTATION_SUMMARY.md
+README_BACE_WRAPPER.md
+SETUP_INSTRUCTIONS.md
+.gitignore
+UPDATE_MCMCGLMM_CLASS.md
