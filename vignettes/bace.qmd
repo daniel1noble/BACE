@@ -322,4 +322,35 @@ plot(converge)
                               
 ```
 
+
+## Simple BACE Workflow
+Now that you are aware of the different components of the *BACE* workflow, you can put it all together in a simple workflow. This will involve simulating data, running the imputation, checking model fit and convergence, and then rerunning the model say, 10 times, and simply pooling the results to account for imputation uncertainty.
+
+```{r}
+#| label: simple_bace_workflow
+#| echo: true
+#| eval: true
+#| warning: false
+#| message: false
+
+# Run the full bace workflow:
+bace_final <- bace(fixformula = "y ~ x1 + x2",
+                     ran_phylo_form = "~ 1 |species",
+                              phylo = tree2,
+                               data = data2,
+                               species = TRUE,
+                               runs = 15, nitt = 100000, burnin = 10000, thin = 10, plot = TRUE)
+
+# Now have a look at the final models and the pooled results
+y_model <- bace_final$pooled_models$models$y
+summary(y_model)
+plot(y_model)  
+
+# We can now extract posteriors in the same way we would use a normal MCMCglmm model, but now we have the pooled results that account for imputation uncertainty. For example, we can extract the posterior samples for the fixed effects as follows:
+
+hist(y_model$Sol[, "x1"], main = "Posterior distribution for x1", xlab = "x1 coefficient")
+
+```
+
+
 TO DO: Now that we've tested the convergence function we need to decide how we want to integrate it into the workflow. The slight complicatin is that it takes a bace_imp object as input, so there's a two step process that is needed now rather than working internally. We could have this iterative back and forth and then simply have a final function which picks up from the last run and does 10 more runs and then pools....
