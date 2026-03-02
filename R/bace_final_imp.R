@@ -165,10 +165,7 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
     # Store results for this run
     all_models[[run]] <- models_this_run
     all_datasets[[run]] <- data_current
-    
-    if (verbose && run %% max(1, floor(n_final/4)) == 0) {
-      cat(paste0("\nCompleted ", run, "/", n_final, " runs\n\n"))
-    }
+
   }
   
   # Prepare output
