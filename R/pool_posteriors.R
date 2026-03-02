@@ -295,5 +295,5 @@ summary.bace_pooled_MCMCglmm <- function(object, ...) {
   result <- summary(object, ...)
   
   # Return invisibly so it can be captured if needed
-  invisible(result)
+  print(result)
 }
