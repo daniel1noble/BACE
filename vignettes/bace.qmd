@@ -101,7 +101,7 @@ We can then view the simulated data and phylogenetic tree because the `sim_bace(
 Here, we can see that the dataset contains lots of missing values across different variable types. Of course, normally, we would need to exclude these cases to use a complete dataset. However, with *BACE* we simply feed in the entire dataset, specify the models we want to use for imputation (or the real model of interest), and impute the missing data. 
 
 ## Using *BACE* for Imputation
-Now that we have the data and the phylogenetic tree one way to do the imputation is to use the `bace_imp()` function. 
+Now that we have the data and the phylogenetic tree one way to do the imputation is to use the `bace()` or `bace_imp()` function. 
 
 :::::: {.callout-caution}
 It's very important to ensure that all variables are correctly classified in the dataset (e.g., factors for categorical variables, numeric for continuous variables, etc.) before running the imputation. *BACE* will fit different models for different variable types, and so, if they have not been correctly classified you will be modeling the variable incorrectly. 
@@ -120,7 +120,7 @@ Importantly, users also need to think carefully about the distributions of the v
 :::
 
 
-There are two ways you can use `bace_imp`. The first is to specify a list of all the formulas for each variable you would like to fit. It is important here that, if you provide a list, that any variable with missing data is found as a response variable. This must be the case because *BACE* will not automatically build models for other variables if you provide a list of formulas (but see below). For example, we can run *BACE* as follows. Note that we specify a formula for each variable in the dataset that has missing data.
+There are two ways you can use `bace/bace_imp`. The first is to specify a list of all the formulas for each variable you would like to fit. It is important here that, if you provide a list, that any variable with missing data is found as a response variable. This must be the case because *BACE* will not automatically build models for other variables if you provide a list of formulas (but see below). For example, we can run *BACE* as follows. Note that we specify a formula for each variable in the dataset that has missing data.
 
 ```{r}
 #| label: bace_imputation
@@ -162,6 +162,7 @@ bace_impute2 <- bace_imp(fixformula = "y ~ x1 + x2",
 ```
 
 As you can see from the printout above, *BACE* provides a summary of the imputation process, including the number of models fitted, parameters estimated, and effective sample sizes which evaluate how well the MCMC chains for parameters are mixing. This is important to check to ensure that the imputation is performing well. Note, it is not always the case that these checks signal problems with the models. Users will need to explore final models carefully before adjusting MCMC parameters or the number of runs. More on this below.
+
 
 ## Evaluating Final Models
 
@@ -353,6 +354,3 @@ plot(y_model)
 hist(y_model$Sol[, "x1"], main = "Posterior distribution for x1", xlab = "x1 coefficient")
 
 ```
-
-
-TO DO: Now that we've tested the convergence function we need to decide how we want to integrate it into the workflow. The slight complicatin is that it takes a bace_imp object as input, so there's a two step process that is needed now rather than working internally. We could have this iterative back and forth and then simply have a final function which picks up from the last run and does 10 more runs and then pools....
