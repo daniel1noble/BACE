@@ -45,9 +45,9 @@ fit <- bace_imp(
   ran_phylo_form  = "~ 1 | species",
   phylo           = tree,
   data            = dat,
-  runs            = 3,
-  nitt            = 3000,
-  burnin          = 1000,
+  runs            = 7,
+  nitt            = 3000*10,
+  burnin          = 1000*10,
   thin            = 10,
   verbose         = TRUE
 )
