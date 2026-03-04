@@ -342,7 +342,7 @@ bace_final <- bace(fixformula = "y ~ x1 + x2",
                               phylo = tree2,
                                data = data2,
                                species = TRUE,
-                               runs = 15, nitt = 100000, burnin = 10000, thin = 10, plot = TRUE, skip_conv = TRUE)
+                               runs = 15, nitt = 100000, burnin = 10000, thin = 10, plot = TRUE, skip_conv = TRUE, sample_size = 1000)
 
 # Now have a look at the final models and the pooled results
 y_model <- bace_final$pooled_models$models$y
@@ -354,3 +354,4 @@ plot(y_model)
 hist(y_model$Sol[, "x1"], main = "Posterior distribution for x1", xlab = "x1 coefficient")
 
 ```
+
