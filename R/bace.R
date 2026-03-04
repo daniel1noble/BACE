@@ -34,6 +34,10 @@
 #' @param skip_conv A logical indicating whether to skip convergence retry logic. When TRUE, 
 #'   convergence is still assessed, but if it fails, the function proceeds directly to final 
 #'   imputation instead of retrying with more runs. Default is FALSE.
+#' @param sample_size Integer specifying how many posterior samples to draw from each 
+#'   imputation before pooling. If NULL (default), uses all posterior samples. Setting this 
+#'   to a smaller value (e.g., 1000) can greatly reduce memory usage of the final pooled 
+#'   models while still properly accounting for imputation and parameter uncertainty.
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
 #' @return A list of class 'bace_complete' containing:
 #'   - pooled_models: Pooled posterior distributions accounting for imputation uncertainty
@@ -55,6 +59,17 @@
 #'   n_final = 10
 #' )
 #' 
+#' # With posterior sampling to reduce memory usage
+#' result <- bace(
+#'   fixformula = "y ~ x1 + x2",
+#'   ran_phylo_form = "~1|Species",
+#'   phylo = phylo_tree,
+#'   data = my_data,
+#'   runs = 10,
+#'   n_final = 10,
+#'   sample_size = 1000  # Sample 1000 draws from each imputation
+#' )
+#' 
 #' # Access pooled results
 #' summary(result$pooled_models$models$y)
 #' 
@@ -67,7 +82,8 @@
 #' @export
 bace <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, 
                 burnin = 1000, runs = 10, n_final = 10, species = FALSE, 
-                verbose = TRUE, plot = FALSE, max_attempts = 3, skip_conv = FALSE, ...) {
+                verbose = TRUE, plot = FALSE, max_attempts = 3, skip_conv = FALSE, 
+                sample_size = NULL, ...) {
 
 ##-----------------------## 
 # Run bace_imp first
@@ -166,9 +182,12 @@ if (converged) {
   if (verbose) {
     cat("\n\nStep 4: Pooling posteriors across imputations\n")
     cat("-------------------------------------------------------\n")
+    if (!is.null(sample_size)) {
+      cat("Using posterior sampling:", sample_size, "samples per imputation\n")
+    }
   }
   
-  pooled <- pool_posteriors(final_results)
+  pooled <- pool_posteriors(final_results, sample_size = sample_size)
   
   if (verbose) {
     cat("\nPosterior pooling complete!\n")
@@ -179,13 +198,17 @@ if (converged) {
 } else {
   
   if (verbose) {
-    cat("\n\nWARNING: Convergence not achieved after", max_attempts, "attempts\n")
-    cat("Consider increasing 'runs' or 'max_attempts' parameters\n")
-    cat("Proceeding with final imputation despite lack of convergence...\n")
+    if (!skip_conv) {
+      cat("\n\nWARNING: Convergence not achieved after", max_attempts, "attempts\n")
+      cat("Consider increasing 'runs' or 'max_attempts' parameters\n")
+    } else {
+      cat("\n\nSkipping convergence retry (skip_conv = TRUE)\n")
+    }
+    cat("Proceeding with final imputation...\n")
     cat("-------------------------------------------------------\n")
   }
   
-  # Still proceed with final runs, but warn user
+  # Still proceed with final runs, but warn user (only if not explicitly skipping)
   final_results <- bace_final_imp(
     bace_object = start,
     fixformula = fixformula,
@@ -200,9 +223,16 @@ if (converged) {
     ...
   )
   
-  pooled <- pool_posteriors(final_results)
+  if (verbose && !is.null(sample_size)) {
+    cat("\nPooling posteriors with sampling:", sample_size, "samples per imputation\n")
+  }
   
-  warning("BACE completed but convergence was not achieved. Results should be interpreted with caution.")
+  pooled <- pool_posteriors(final_results, sample_size = sample_size)
+  
+  # Only warn if convergence was attempted but not achieved (not when explicitly skipped)
+  if (!skip_conv) {
+    warning("BACE completed but convergence was not achieved. Results should be interpreted with caution.")
+  }
 }
 
 ##-----------------------## 

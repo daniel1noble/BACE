@@ -4,13 +4,19 @@
 \alias{pool_posteriors}
 \title{pool_posteriors}
 \usage{
-pool_posteriors(bace_final_object, variable = NULL)
+pool_posteriors(bace_final_object, variable = NULL, sample_size = NULL)
 }
 \arguments{
 \item{bace_final_object}{An object of class 'bace_final' from bace_final_imp}
 
 \item{variable}{Character string specifying which variable's model to pool.
 If NULL (default), pools all variables}
+
+\item{sample_size}{Integer specifying how many posterior samples to draw from each
+imputation before pooling. If NULL (default), uses all posterior samples. Setting
+this to a smaller value (e.g., 1000) can greatly reduce memory usage while still
+properly accounting for imputation and parameter uncertainty. The total samples in
+the pooled posterior will be sample_size * n_imputations.}
 }
 \value{
 A list of class 'bace_pooled' containing pooled models for each variable.
@@ -44,10 +50,15 @@ but also include class "bace_pooled_MCMCglmm" for custom behavior when needed.
 \dontrun{
 # After running bace_final_imp
 final <- bace_final_imp(bace_obj, ...)
+
+# Pool all samples (may create large objects)
 pooled <- pool_posteriors(final)
 
+# Pool with sampling to reduce memory usage
+pooled <- pool_posteriors(final, sample_size = 1000)
+
 # Extract pooled model for specific variable - works like MCMCglmm!
-pooled_y <- pooled$y
+pooled_y <- pooled$models$y
 summary(pooled_y)  # Standard MCMCglmm summary
 print(pooled_y)    # Standard MCMCglmm print
 plot(pooled_y)     # Standard MCMCglmm plots

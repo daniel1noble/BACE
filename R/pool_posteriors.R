@@ -3,6 +3,11 @@
 #' @param bace_final_object An object of class 'bace_final' from bace_final_imp
 #' @param variable Character string specifying which variable's model to pool. 
 #'   If NULL (default), pools all variables
+#' @param sample_size Integer specifying how many posterior samples to draw from each 
+#'   imputation before pooling. If NULL (default), uses all posterior samples. Setting 
+#'   this to a smaller value (e.g., 1000) can greatly reduce memory usage while still 
+#'   properly accounting for imputation and parameter uncertainty. The total samples in 
+#'   the pooled posterior will be sample_size * n_imputations.
 #' @return A list of class 'bace_pooled' containing pooled models for each variable.
 #'   Each pooled model is an MCMCglmm object with class c("MCMCglmm", "bace_pooled_MCMCglmm") 
 #'   containing:
@@ -26,20 +31,39 @@
 #' @examples \dontrun{
 #' # After running bace_final_imp
 #' final <- bace_final_imp(bace_obj, ...)
+#' 
+#' # Pool all samples (may create large objects)
 #' pooled <- pool_posteriors(final)
 #' 
+#' # Pool with sampling to reduce memory usage
+#' pooled <- pool_posteriors(final, sample_size = 1000)
+#' 
 #' # Extract pooled model for specific variable - works like MCMCglmm!
-#' pooled_y <- pooled$y
+#' pooled_y <- pooled$models$y
 #' summary(pooled_y)  # Standard MCMCglmm summary
 #' print(pooled_y)    # Standard MCMCglmm print
 #' plot(pooled_y)     # Standard MCMCglmm plots
 #' }
 #' @export
-pool_posteriors <- function(bace_final_object, variable = NULL) {
+pool_posteriors <- function(bace_final_object, variable = NULL, sample_size = NULL) {
   
   # Check inputs
   if (!inherits(bace_final_object, "bace_final")) {
     stop("Input must be an object of class 'bace_final' from bace_final_imp function")
+  }
+  
+  # Validate sample_size
+  if (!is.null(sample_size)) {
+    if (!is.numeric(sample_size) || length(sample_size) != 1) {
+      stop("sample_size must be a single numeric value or NULL")
+    }
+    if (sample_size < 1) {
+      warning("sample_size must be >= 1. Using all samples instead.")
+      sample_size <- NULL
+    } else if (sample_size != floor(sample_size)) {
+      sample_size <- floor(sample_size)
+      warning("sample_size must be an integer. Rounding down to ", sample_size)
+    }
   }
   
   all_models <- bace_final_object$all_models
@@ -89,8 +113,16 @@ pool_posteriors <- function(bace_final_object, variable = NULL) {
     has_liab <- !is.null(first_model$Liab) && length(first_model$Liab) > 0
     has_deviance <- !is.null(first_model$Deviance) && length(first_model$Deviance) > 0
     
+    # Determine sampling strategy
+    use_sampling <- !is.null(sample_size) && sample_size < n_iter_per_model
+    if (use_sampling) {
+      n_samples_per_imp <- sample_size
+    } else {
+      n_samples_per_imp <- n_iter_per_model
+    }
+    
     # Calculate total number of posterior samples
-    total_samples <- n_iter_per_model * n_valid
+    total_samples <- n_samples_per_imp * n_valid
     
     # Preallocate matrices for pooled posteriors
     pooled_sol <- matrix(NA, nrow = total_samples, ncol = n_fixed)
@@ -115,24 +147,31 @@ pool_posteriors <- function(bace_final_object, variable = NULL) {
       pooled_deviance <- numeric(total_samples)
     }
     
-    # Combine posteriors by stacking
+    # Combine posteriors by stacking (with optional sampling)
     for (i in 1:n_valid) {
-      start_idx <- (i - 1) * n_iter_per_model + 1
-      end_idx <- i * n_iter_per_model
+      start_idx <- (i - 1) * n_samples_per_imp + 1
+      end_idx <- i * n_samples_per_imp
       
-      pooled_sol[start_idx:end_idx, ] <- var_models[[i]]$Sol
-      pooled_vcv[start_idx:end_idx, ] <- var_models[[i]]$VCV
+      # Sample indices if using sampling, otherwise use all
+      if (use_sampling) {
+        sample_idx <- sample(1:n_iter_per_model, n_samples_per_imp, replace = FALSE)
+      } else {
+        sample_idx <- 1:n_iter_per_model
+      }
+      
+      pooled_sol[start_idx:end_idx, ] <- var_models[[i]]$Sol[sample_idx, , drop = FALSE]
+      pooled_vcv[start_idx:end_idx, ] <- var_models[[i]]$VCV[sample_idx, , drop = FALSE]
       
       if (has_cp) {
-        pooled_cp[start_idx:end_idx, ] <- var_models[[i]]$CP
+        pooled_cp[start_idx:end_idx, ] <- var_models[[i]]$CP[sample_idx, , drop = FALSE]
       }
       
       if (has_liab) {
-        pooled_liab[start_idx:end_idx, ] <- var_models[[i]]$Liab
+        pooled_liab[start_idx:end_idx, ] <- var_models[[i]]$Liab[sample_idx, , drop = FALSE]
       }
       
       if (has_deviance) {
-        pooled_deviance[start_idx:end_idx] <- var_models[[i]]$Deviance
+        pooled_deviance[start_idx:end_idx] <- var_models[[i]]$Deviance[sample_idx]
       }
     }
     
@@ -180,10 +219,12 @@ pool_posteriors <- function(bace_final_object, variable = NULL) {
     # Add metadata about the pooling process
     pooled_model$BACE_pooling <- list(
       n_imputations = n_valid,
-      n_samples_per_imputation = n_iter_per_model,
+      n_samples_per_imputation = n_samples_per_imp,
+      original_samples_per_imputation = n_iter_per_model,
       total_samples = total_samples,
       variable = var,
-      pooled = TRUE
+      pooled = TRUE,
+      sampled = use_sampling
     )
     
     # Set class to bace_pooled_MCMCglmm with MCMCglmm as second class
@@ -229,7 +270,12 @@ print.bace_pooled <- function(x, ...) {
     cat(paste0("\n--- ", var, " ---\n"))
     if (!is.null(model$BACE_pooling)) {
       cat("Total posterior samples:", model$BACE_pooling$total_samples, "\n")
-      cat("Samples per imputation:", model$BACE_pooling$n_samples_per_imputation, "\n")
+      if (model$BACE_pooling$sampled) {
+        cat("Samples per imputation:", model$BACE_pooling$n_samples_per_imputation, 
+            "(sampled from", model$BACE_pooling$original_samples_per_imputation, ")\n")
+      } else {
+        cat("Samples per imputation:", model$BACE_pooling$n_samples_per_imputation, "\n")
+      }
       cat("Number of imputations:", model$BACE_pooling$n_imputations, "\n")
     }
     cat("Number of fixed effects:", ncol(model$Sol), "\n")
@@ -256,9 +302,15 @@ print.bace_pooled_MCMCglmm <- function(x, ...) {
     cat("+--------------------------------------------------------------+\n\n")
     cat("Pooled from", x$BACE_pooling$n_imputations, "imputations\n")
     cat("Total posterior samples:", x$BACE_pooling$total_samples, "\n")
-    cat("  (=", x$BACE_pooling$n_samples_per_imputation, "samples/imputation x", 
-        x$BACE_pooling$n_imputations, "imputations)\n\n")
-    cat("Note: Posterior distribution accounts for both estimation and imputation uncertainty.\n")
+    if (x$BACE_pooling$sampled) {
+      cat("  (=", x$BACE_pooling$n_samples_per_imputation, "sampled per imputation x", 
+          x$BACE_pooling$n_imputations, "imputations)\n")
+      cat("  Original samples per imputation:", x$BACE_pooling$original_samples_per_imputation, "\n")
+    } else {
+      cat("  (=", x$BACE_pooling$n_samples_per_imputation, "samples/imputation x", 
+          x$BACE_pooling$n_imputations, "imputations)\n")
+    }
+    cat("\nNote: Posterior distribution accounts for both estimation and imputation uncertainty.\n")
     cat("--------------------------------------------------------------\n\n")
   }
   
@@ -283,9 +335,15 @@ summary.bace_pooled_MCMCglmm <- function(object, ...) {
     cat("+--------------------------------------------------------------+\n\n")
     cat("Pooled from", object$BACE_pooling$n_imputations, "imputations\n")
     cat("Total posterior samples:", object$BACE_pooling$total_samples, "\n")
-    cat("  (=", object$BACE_pooling$n_samples_per_imputation, "samples/imputation x", 
-        object$BACE_pooling$n_imputations, "imputations)\n\n")
-    cat("Note: Posterior summaries account for both estimation and imputation uncertainty.\n")
+    if (object$BACE_pooling$sampled) {
+      cat("  (=", object$BACE_pooling$n_samples_per_imputation, "sampled per imputation x", 
+          object$BACE_pooling$n_imputations, "imputations)\n")
+      cat("  Original samples per imputation:", object$BACE_pooling$original_samples_per_imputation, "\n")
+    } else {
+      cat("  (=", object$BACE_pooling$n_samples_per_imputation, "samples/imputation x", 
+          object$BACE_pooling$n_imputations, "imputations)\n")
+    }
+    cat("\nNote: Posterior summaries account for both estimation and imputation uncertainty.\n")
     cat("--------------------------------------------------------------\n\n")
   }
   
