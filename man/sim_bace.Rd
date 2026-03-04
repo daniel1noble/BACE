@@ -102,6 +102,7 @@ by random effect and contains character vector of covariate names}
 Named list containing:
 \itemize{
 \item data: data.frame with simulated data
+\item complete_data: data.frame with complete data before applying missingness
 \item tree: phylogenetic tree
 \item params: list of simulation parameters used
 \item random_effects: list of simulated random effect coefficients
