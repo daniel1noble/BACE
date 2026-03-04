@@ -235,33 +235,48 @@ assess_convergence <- function(bace_object,
   for (var in vars_to_check) {
     var_series <- stats_list[[var]]
     
+    # Check if variable has zero variance (all values the same)
+    var_variance <- var(var_series, na.rm = TRUE)
+    has_zero_variance <- is.na(var_variance) || var_variance < 1e-10
+    
     # 1. Geweke diagnostic (compare first 10% vs last 50%)
     geweke_result <- .geweke_test(var_series, alpha = alpha)
     
     # 2. Check autocorrelation at specified lag
-    if (n_iter > lag + 1 && sum(is.finite(var_series)) >= lag + 2) {
+    if (n_iter > lag + 1 && sum(is.finite(var_series)) >= lag + 2 && !has_zero_variance) {
       acf_val <- tryCatch({
         cor(var_series[1:(n_iter - lag)], 
             var_series[(1 + lag):n_iter], 
             use = "complete.obs")
       }, error = function(e) {
         NA
+      }, warning = function(w) {
+        NA
       })
       # Low autocorrelation indicates mixing/convergence
       acf_converged <- if (is.finite(acf_val)) abs(acf_val) < 0.3 else NA
+    } else if (has_zero_variance) {
+      # Zero variance means perfectly stable (converged)
+      acf_val <- 0
+      acf_converged <- TRUE
     } else {
       acf_val <- NA
       acf_converged <- NA
     }
     
     # 3. Check if trend is stable (no significant linear trend)
-    if (n_iter >= 3 && sum(is.finite(var_series)) >= 3) {
+    if (n_iter >= 3 && sum(is.finite(var_series)) >= 3 && !has_zero_variance) {
       trend_test <- tryCatch({
         cor.test(1:n_iter, var_series)
       }, error = function(e) {
         list(p.value = NA)
+      }, warning = function(w) {
+        list(p.value = NA)
       })
       trend_converged <- if (!is.na(trend_test$p.value)) trend_test$p.value > alpha else NA
+    } else if (has_zero_variance) {
+      # Zero variance means perfectly stable (converged)
+      trend_converged <- TRUE
     } else {
       trend_converged <- NA
     }
@@ -435,7 +450,7 @@ assess_convergence <- function(bace_object,
   if (n_iter >= 4 && sum(is.finite(energy_distances)) >= 3) {
     # Test trend in energy distances
     trend_test <- tryCatch({
-      cor.test(1:length(energy_distances), energy_distances)
+      suppressWarnings(cor.test(1:length(energy_distances), energy_distances))
     }, error = function(e) {
       list(estimate = 0, p.value = 1)
     })
@@ -615,7 +630,7 @@ assess_convergence <- function(bace_object,
         # 2. No significant increasing trend in last half
         if (length(last_half) >= 3) {
           trend_test <- tryCatch({
-            cor.test(seq_along(last_half), last_half)
+            suppressWarnings(cor.test(seq_along(last_half), last_half))
           }, error = function(e) list(estimate = 0, p.value = 1))
           no_increase <- trend_test$estimate <= 0 || trend_test$p.value > alpha
         } else {
