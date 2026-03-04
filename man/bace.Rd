@@ -18,6 +18,7 @@ bace(
   verbose = TRUE,
   plot = FALSE,
   max_attempts = 3,
+  skip_conv = FALSE,
   ...
 )
 }
@@ -64,6 +65,10 @@ matrix in ginverse). This requires sufficient replicated observations per specie
 \item{max_attempts}{Maximum number of attempts to achieve convergence by increasing runs.
 Default is 3.}
 
+\item{skip_conv}{A logical indicating whether to skip convergence retry logic. When TRUE,
+convergence is still assessed, but if it fails, the function proceeds directly to final
+imputation instead of retrying with more runs. Default is FALSE.}
+
 \item{...}{Additional arguments to be passed to the underlying modeling functions.}
 }
 \value{
@@ -71,6 +76,7 @@ A list of class 'bace_complete' containing:
 \itemize{
 \item pooled_models: Pooled posterior distributions accounting for imputation uncertainty
 \item final_results: Results from final imputation runs (bace_final object)
+\item imputed_datasets: List of n_final imputed datasets from final runs (for convenient access)
 \item initial_results: Results from initial convergence runs (bace object)
 \item convergence: Convergence assessment results
 \item converged: Logical indicating if convergence was achieved
@@ -96,6 +102,9 @@ result <- bace(
 
 # Access pooled results
 summary(result$pooled_models$models$y)
+
+# Access final imputed datasets
+imputed_data1 <- result$imputed_datasets[[1]]
 
 # Check convergence
 print(result$convergence)

@@ -31,10 +31,14 @@
 #' @param plot A logical indicating whether to plot convergence diagnostics. Default is FALSE.
 #' @param max_attempts Maximum number of attempts to achieve convergence by increasing runs. 
 #'   Default is 3.
+#' @param skip_conv A logical indicating whether to skip convergence retry logic. When TRUE, 
+#'   convergence is still assessed, but if it fails, the function proceeds directly to final 
+#'   imputation instead of retrying with more runs. Default is FALSE.
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
 #' @return A list of class 'bace_complete' containing:
 #'   - pooled_models: Pooled posterior distributions accounting for imputation uncertainty
 #'   - final_results: Results from final imputation runs (bace_final object)
+#'   - imputed_datasets: List of n_final imputed datasets from final runs (for convenient access)
 #'   - initial_results: Results from initial convergence runs (bace object)
 #'   - convergence: Convergence assessment results
 #'   - converged: Logical indicating if convergence was achieved
@@ -54,13 +58,16 @@
 #' # Access pooled results
 #' summary(result$pooled_models$models$y)
 #' 
+#' # Access final imputed datasets
+#' imputed_data1 <- result$imputed_datasets[[1]]
+#' 
 #' # Check convergence
 #' print(result$convergence)
 #' }
 #' @export
 bace <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, 
                 burnin = 1000, runs = 10, n_final = 10, species = FALSE, 
-                verbose = TRUE, plot = FALSE, max_attempts = 3, ...) {
+                verbose = TRUE, plot = FALSE, max_attempts = 3, skip_conv = FALSE, ...) {
 
 ##-----------------------## 
 # Run bace_imp first
@@ -100,9 +107,9 @@ converged <- converge$converged
 if (is.na(converged)) converged <- FALSE
 
 ##-----------------------## 
-# If not converged, try again with more runs
+# If not converged, try again with more runs (unless skip_conv is TRUE)
 ##-----------------------##
-while (!converged && n_attempts < max_attempts) {
+while (!converged && n_attempts < max_attempts && !skip_conv) {
   
   if (verbose) {
     cat("\n\nConvergence not achieved. Running additional iterations...\n")
@@ -204,6 +211,7 @@ if (converged) {
 out <- list(
   pooled_models = pooled,
   final_results = final_results,
+  imputed_datasets = final_results$all_datasets,  # For convenient access
   initial_results = start,
   convergence = converge,
   converged = converged,
@@ -222,8 +230,9 @@ if (verbose) {
   cat("Final imputations:", n_final, "\n")
   cat("\nAccess results via:\n")
   cat("  - $pooled_models: Pooled posterior distributions\n")
+  cat("  - $imputed_datasets: List of", n_final, "imputed datasets\n")
   cat("  - $convergence: Convergence diagnostics\n")
-  cat("  - $final_results: Final imputation datasets and models\n\n")
+  cat("  - $final_results: Full final imputation results\n\n")
 }
 
 return(out)
@@ -249,12 +258,15 @@ print.bace_complete <- function(x, ...) {
   
   cat("Components:\n")
   cat("  $pooled_models - Contains MCMCglmm objects with imputation uncertainty\n")
+  cat("  $imputed_datasets - List of", length(x$imputed_datasets), "imputed datasets for additional analyses\n")
   cat("  $convergence - Convergence assessment details\n")
-  cat("  $final_results - Final imputation runs\n")
+  cat("  $final_results - Full final imputation results\n")
   cat("  $initial_results - Initial convergence runs\n\n")
   
   cat("Access pooled MCMCglmm models:\n")
   cat("  result$pooled_models$models$variable_name\n\n")
+  cat("Access imputed datasets:\n")
+  cat("  result$imputed_datasets[[1]]  # First imputed dataset\n\n")
   cat("Use standard MCMCglmm methods:\n")
   cat("  summary(result$pooled_models$models$y)\n")
   cat("  print(result$pooled_models$models$y)\n")
