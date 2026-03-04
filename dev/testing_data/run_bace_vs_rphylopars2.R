@@ -57,8 +57,55 @@ traits <- setdiff(names(dat), "species")
 ## Optional: ensure branch lengths exist / are compatible
 tree <- ape::compute.brlen(tree, method = "Grafen")
 
-## ---- 3) Run BACE imputation ----
-set.seed(1)
+## ---- 2.5) Optional: log-transform traits BEFORE imputation ----
+
+# Choose which traits to log-transform:
+# For AVONET continuous traits, often: all positive traits (e.g., Mass, Wing, Tarsus, etc.)
+log_traits <- traits  # or specify: c("Mass","Wing.Length","Tarsus.Length", ...)
+
+# Helper: build a safe log transform (handles zeros/negatives via per-trait shift)
+make_log_transform <- function(df, vars, eps = 0) {
+  # eps can be 0 for strictly positive variables; use small eps if you want log(x + eps)
+  shifts <- setNames(numeric(length(vars)), vars)
+  
+  for (v in vars) {
+    x <- df[[v]]
+    x_obs <- x[is.finite(x)]
+    if (!length(x_obs)) next
+    
+    min_x <- min(x_obs, na.rm = TRUE)
+    
+    # If any observed values <= 0, shift up so min becomes (1 + eps), then log
+    # (Using 1 rather than tiny values makes back-transforming more stable.)
+    if (min_x <= 0) {
+      shifts[v] <- (1 + eps) - min_x
+    } else {
+      shifts[v] <- eps
+    }
+  }
+  
+  forward <- function(df_in) {
+    df_out <- df_in
+    for (v in vars) df_out[[v]] <- log(df_out[[v]] + shifts[v])
+    df_out
+  }
+  
+  inverse <- function(df_in) {
+    df_out <- df_in
+    for (v in vars) df_out[[v]] <- exp(df_out[[v]]) - shifts[v]
+    df_out
+  }
+  
+  list(shifts = shifts, forward = forward, inverse = inverse)
+}
+
+log_tf <- make_log_transform(dat, log_traits, eps = 0)
+
+# Apply forward transform to the data used for imputation
+dat_imp <- log_tf$forward(dat)
+
+# IMPORTANT: if your truth values are on the original scale (they are),
+# keep them as-is for evaluation. We'll back-transform predictions later.
 
 ## Use any variable as the LHS; bace_imp will generate chained formulas for all vars in the formula
 fixformula <- paste0("Mass ~ ", paste(setdiff(traits, "Mass"), collapse = " + "))
@@ -67,31 +114,34 @@ fit_bace <- bace_imp(
   fixformula     = fixformula,
   ran_phylo_form = "~ 1 | species",
   phylo          = tree,
-  data           = dat,
-  runs           = 10,
-  nitt           = 4000 * 100,
-  burnin         = 1000 * 100,
-  thin           = 10 * 50,
+  data           = dat_imp,
+  runs           = 5,       
+  nitt           = 4000*5,    
+  burnin         = 1000*5,
+  thin           = 10*2,
   verbose        = TRUE
 )
 
-## Last completed dataset (point imputations)
 bace_last <- fit_bace$data[[length(fit_bace$data)]]
 bace_last <- as.data.frame(bace_last)
+#write_csv(bace_last, "bace_last.csv")
 
-## ---- 4) Run Rphylopars imputation ----
-## Rphylopars expects a data.frame with a species column + numeric traits
-trait_df <- dat %>%
+## ---- 4) Run Rphylopars imputation (on log scale) ----
+trait_df <- dat_imp %>%  # <- changed
   dplyr::select(species, dplyr::everything()) %>%
   as.data.frame()
+  
+  system.time(
+    rp <- Rphylopars::phylopars(
+      trait_data  = trait_df,
+      tree        = tree,
+      model       = "BM",
+      pheno_error = FALSE
+    ))
 
-rp <- Rphylopars::phylopars(
-  trait_data  = trait_df,
-  tree        = tree,
-  model       = "BM",
-  pheno_error = FALSE
-)
 
+## Extract reconstructed tip traits (includes imputations)
+## Different versions expose slightly different slot names; handle both.
 ## Robustly extract reconstructed TIP traits from a phylopars fit
 get_tip_recon_phylopars <- function(rp, what = c("mean", "var")) {
   what <- match.arg(what)
@@ -99,33 +149,42 @@ get_tip_recon_phylopars <- function(rp, what = c("mean", "var")) {
   if (is.null(rp$tree) || is.null(rp$tree$tip.label)) {
     stop("rp$tree$tip.label not found; cannot identify tips.")
   }
+  
   tip_labels <- rp$tree$tip.label
   
+  # Choose source matrix
   mat <- switch(
     what,
     mean = rp$anc_recon,
     var  = rp$anc_var
   )
+  
   if (is.null(mat)) {
     stop(sprintf("Could not find rp$anc_%s in phylopars output.", what))
   }
+  
+  # Need rownames to match tips; anc_recon in your object *does* have them
   if (is.null(rownames(mat))) {
     stop("Reconstruction matrix has no rownames; cannot match to tip labels.")
   }
   
+  # Subset/reorder to tips
   idx <- match(tip_labels, rownames(mat))
+  
   if (anyNA(idx)) {
     missing <- tip_labels[is.na(idx)]
-    stop("Some tip labels were not found in reconstruction matrix rownames. Examples: ",
-         paste(utils::head(missing, 10), collapse = ", "))
+    stop(
+      "Some tip labels were not found in reconstruction matrix rownames. ",
+      "Examples: ", paste(utils::head(missing, 10), collapse = ", ")
+    )
   }
   
   mat[idx, , drop = FALSE]
 }
 
-rp_tip_recon <- get_tip_recon_phylopars(rp, what = "mean")  # 2000 x p
-rp_tip_var   <- get_tip_recon_phylopars(rp, what = "var")   # 2000 x p
-
+## Usage:
+rp_tip_recon <- get_tip_recon_phylopars(rp, what = "mean")
+rp_tip_var   <- get_tip_recon_phylopars(rp, what = "var")
 rp_recon <- as.data.frame(rp_tip_recon)
 rp_recon$species <- rownames(rp_tip_recon)
 rp_recon <- rp_recon %>% dplyr::select(species, all_of(traits))

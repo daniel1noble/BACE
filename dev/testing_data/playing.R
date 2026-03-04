@@ -5,6 +5,7 @@ library(ape)
 library(dplyr)
 library(magrittr)
 library(BACE)
+library(coda)
 
 set.seed(1)
 
@@ -59,3 +60,4 @@ names(fit$data)           # "Initial_Data", "Iter_1", "Iter_2", "Iter_3", ...
 imp3 <- fit$data$Iter_3
 colSums(is.na(imp3))      # should be ~0 for variables included in fixformula
 str(imp3)
+
