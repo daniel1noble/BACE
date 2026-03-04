@@ -67,6 +67,7 @@
 #'
 #' @return Named list containing:
 #'   - data: data.frame with simulated data
+#'   - complete_data: data.frame with complete data before applying missingness
 #'   - tree: phylogenetic tree
 #'   - params: list of simulation parameters used
 #'   - random_effects: list of simulated random effect coefficients
