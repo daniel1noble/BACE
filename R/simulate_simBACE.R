@@ -595,9 +595,10 @@ sim_bace <- function(
   # -------------------------------------------------------------------------
   # APPLY MISSINGNESS
   # -------------------------------------------------------------------------
-
+  raw_response <- response
   response <- apply_missingness(response, missingness[1])
 
+  raw_covars <- covars
   for (i in seq_len(n_predictors)) {
     covars[[var_names[i + 1]]] <- apply_missingness(
       covars[[var_names[i + 1]]],
@@ -617,6 +618,14 @@ sim_bace <- function(
     stringsAsFactors = FALSE
   )
   names(out_data)[2] <- resp_name
+
+  out_data_complete <- data.frame(
+    species = case_species,
+    response = raw_response,
+    raw_covars,
+    stringsAsFactors = FALSE
+  )
+  names(out_data_complete)[2] <- resp_name
 
   # Store parameters used
   params <- list(
@@ -667,12 +676,12 @@ sim_bace <- function(
     out_data[[resp_col]] <- factor(out_data[[resp_col]], ordered = FALSE)
   }
   # gaussian variables remain numeric (default)
-  
+
   # Convert predictor variables to appropriate types
   for (i in seq_len(n_predictors)) {
     pred_col <- var_names[i + 1]
     pred_type <- predictor_types[i]
-    
+
     if (pred_type == "poisson") {
       out_data[[pred_col]] <- as.integer(out_data[[pred_col]])
     } else if (pred_type == "binary") {
@@ -684,9 +693,46 @@ sim_bace <- function(
     }
     # gaussian variables remain numeric (default)
   }
+  
+  # -------------------------------------------------------------------------
+  # CONVERT VARIABLES in complete data TO APPROPRIATE DATA TYPES
+  # -------------------------------------------------------------------------
+  
+  # Convert response variable to appropriate type
+  resp_col <- var_names[1]
+  if (response_type == "poisson") {
+    out_data_complete[[resp_col]] <- as.integer(out_data_complete[[resp_col]])
+  } else if (response_type == "binary") {
+    out_data_complete[[resp_col]] <- factor(out_data_complete[[resp_col]], ordered = TRUE)
+  } else if (grepl("^threshold", response_type)) {
+    out_data_complete[[resp_col]] <- factor(out_data_complete[[resp_col]], ordered = TRUE)
+  } else if (grepl("^multinomial", response_type)) {
+    out_data_complete[[resp_col]] <- factor(out_data_complete[[resp_col]], ordered = FALSE)
+  }
+  # gaussian variables remain numeric (default)
+  
+  # Convert predictor variables to appropriate types
+  for (i in seq_len(n_predictors)) {
+    pred_col <- var_names[i + 1]
+    pred_type <- predictor_types[i]
+    
+    if (pred_type == "poisson") {
+      out_data_complete[[pred_col]] <- as.integer(out_data_complete[[pred_col]])
+    } else if (pred_type == "binary") {
+      out_data_complete[[pred_col]] <- factor(out_data_complete[[pred_col]], ordered = TRUE)
+    } else if (grepl("^threshold", pred_type)) {
+      out_data_complete[[pred_col]] <- factor(out_data_complete[[pred_col]], ordered = TRUE)
+    } else if (grepl("^multinomial", pred_type)) {
+      out_data_complete[[pred_col]] <- factor(out_data_complete[[pred_col]], ordered = FALSE)
+    }
+    # gaussian variables remain numeric (default)
+  }
+
+# TO DO: add way to return complete (no missingness) data object for testing purposes
 
   return(list(
     data = out_data,
+    complete_data = out_data_complete,
     tree = tree,
     params = params,
     random_effects = random_effects
