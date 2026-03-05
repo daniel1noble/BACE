@@ -1,8 +1,8 @@
 data <- sim_bace(
     n_cases = 500, n_species = 200,
     response_type = "gaussian",
-    predictor_types = c("gaussian", "gaussian", "gaussian"),
-    missingness = c(0.5, 0.2, 0, 0), phylo_signal = c(0.6, 0.3, 0.2, 0.1)
+    predictor_types = c("gaussian", "multinomial3", "gaussian"),
+    missingness = c(0.5, 0.2, 0.3, 0), phylo_signal = c(0.6, 0.3, 0.2, 0.1)
 )
 
 mod1 <- bace_imp(
@@ -10,7 +10,7 @@ mod1 <- bace_imp(
     phylo = data$tree,
     fixformula = "y ~ x1 + x2 + x3",
     ran_phylo_form = "~ 1 |species",
-    runs = 10, nitt = 25000, burnin = 7000, thin = 18
+    runs = 25, nitt = 10000, burnin = 3000, thin = 10
 )
 
 

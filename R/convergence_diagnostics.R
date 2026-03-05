@@ -149,6 +149,8 @@ assess_convergence <- function(bace_object,
     results$converged <- results$method_results$wasserstein$converged
   }
   
+  results$types <- bace_object$types[setdiff(names(results$summary_stats), "iteration")]
+
   class(results) <- c("bace_convergence", "list")
   return(results)
 }
@@ -350,7 +352,8 @@ assess_convergence <- function(bace_object,
     converged = overall_converged,
     stats_df = stats_df,
     stationarity_tests = stationarity_tests,
-    var_converged = var_converged
+    var_converged = var_converged,
+    types = types
   ))
 }
 

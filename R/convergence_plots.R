@@ -96,6 +96,13 @@ plot_trace_convergence <- function(conv_object, variables = NULL, ...) {
   
   for (var in var_cols) {
     message(paste("Plotting variable:", var))
+
+    ylim <- c()
+
+    if (conv_object$types[var] %in% c("categorical", "threshold", "binary")) {
+      ylim <- c(0, 1)
+    }
+
     plot(stats_df$iteration, stats_df[[var]], 
          type = "b", 
          pch = 19,
@@ -103,6 +110,7 @@ plot_trace_convergence <- function(conv_object, variables = NULL, ...) {
          xlab = "Iteration",
          ylab = "Summary Statistic",
          main = paste("Trace:", var),
+         ylim = ylim,
          ...)
     
     # Add smoothed line
