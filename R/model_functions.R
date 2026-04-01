@@ -132,7 +132,7 @@
         } else {
 
       # Categorical model needs special treatment. Append -1 to the right side of ~ formula to remove intercept
-      fixformula_cat <- as.formula(paste0(as.character(fixformula)[2], "~ trait:(", as.character(fixformula)[3], ") - 1"))
+      fixformula_cat <- as.formula(paste0(as.character(fixformula)[2], "~ trait - 1 + trait:(", as.character(fixformula)[3], ")"))
       
       # Handle random formula for categorical models
       # For categorical models, each random effect needs idh(trait): prefix
