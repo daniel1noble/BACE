@@ -55,7 +55,7 @@ bace_option_defaults <- function() {
   list(
     verbose = TRUE,
     digits = 3L,
-    gelman = 1
+    gelman = 2  # 2 = pseudo-Gelman (diagonal prior, scale = 1 + pi^2/3); 1 = full gelman.prior() (currently broken - wrong dimension); 0 = no prior
   )
 }
 
