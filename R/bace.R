@@ -34,10 +34,14 @@
 #' @param skip_conv A logical indicating whether to skip convergence retry logic. When TRUE, 
 #'   convergence is still assessed, but if it fails, the function proceeds directly to final 
 #'   imputation instead of retrying with more runs. Default is FALSE.
-#' @param sample_size Integer specifying how many posterior samples to draw from each 
-#'   imputation before pooling. If NULL (default), uses all posterior samples. Setting this 
-#'   to a smaller value (e.g., 1000) can greatly reduce memory usage of the final pooled 
+#' @param sample_size Integer specifying how many posterior samples to draw from each
+#'   imputation before pooling. If NULL (default), uses all posterior samples. Setting this
+#'   to a smaller value (e.g., 1000) can greatly reduce memory usage of the final pooled
 #'   models while still properly accounting for imputation and parameter uncertainty.
+#' @param n_cores Integer specifying the number of parallel cores to use for the final
+#'   imputation runs. Default is 1 (serial). Values > 1 use \code{parallel::mclapply}.
+#'   Note: parallel execution may be unstable on macOS with multithreaded BLAS; the
+#'   function falls back to serial automatically if worker failures are detected.
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
 #' @return A list of class 'bace_complete' containing:
 #'   - pooled_models: Pooled posterior distributions accounting for imputation uncertainty

@@ -4,7 +4,17 @@
 \alias{.predict_bace}
 \title{.predict_bace}
 \usage{
-.predict_bace(model, dat_prep, response_var, type = NULL, sample = FALSE, ...)
+.predict_bace(
+  model,
+  dat_prep,
+  response_var,
+  type = NULL,
+  sample = FALSE,
+  formula = NULL,
+  data_full = NULL,
+  cluster_col = "animal",
+  ...
+)
 }
 \arguments{
 \item{model}{A MCMCglmm model object}
@@ -16,6 +26,15 @@
 \item{type}{A string that specifies the type of model to fit.}
 
 \item{sample}{A logical indicating whether to sample from the distribution for categorical/ordinal variables.}
+
+\item{formula}{Optional: the fixed-effects formula used to fit the model. When supplied together
+with data_full, enables forward prediction for categorical/threshold models that covers ALL
+rows (including those with NA response) rather than only the complete cases stored in model$Liab.}
+
+\item{data_full}{Optional: the full data frame passed to MCMCglmm (all rows, including NA response).
+Required together with formula to activate forward prediction for categorical/threshold types.}
+
+\item{cluster_col}{Name of the random-effect grouping column (default "animal").}
 
 \item{...}{Additional arguments (not used).}
 }

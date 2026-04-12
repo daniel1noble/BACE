@@ -10,6 +10,9 @@
 #' @param n_final An integer specifying the number of final imputation runs. Default is 10
 #' @param species A logical indicating whether to decompose phylogenetic and non-phylogenetic species effects. Default is FALSE
 #' @param verbose A logical indicating whether to print progress messages. Default is TRUE
+#' @param n_cores Integer specifying the number of parallel cores to use. Default is 1
+#'   (serial). Values > 1 use \code{parallel::mclapply}. The function falls back to serial
+#'   automatically if any parallel worker returns an error.
 #' @param ... Additional arguments passed to modeling functions
 #' @return A list of class 'bace_final' containing:
 #'   - all_models: List of length n_final, each containing models for all variables
@@ -176,7 +179,7 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
     if (n_failed > 0L) {
       if (verbose) {
         cat(sprintf(
-          "\nWARNING: %d/%d parallel workers failed — falling back to serial execution.\n\n",
+          "\nWARNING: %d/%d parallel workers failed -- falling back to serial execution.\n\n",
           n_failed, n_final
         ))
       }

@@ -650,8 +650,8 @@
     tk <- trait_names[ki]
 
     # MCMCglmm Sol column names:
-    #   intercept (x_col == "(Intercept)") → tk
-    #   other predictors                   → paste0(tk, ":", x_col)
+    #   intercept (x_col == "(Intercept)") -> tk
+    #   other predictors                   -> paste0(tk, ":", x_col)
     sol_fixed <- ifelse(x_cols == "(Intercept)", tk, paste0(tk, ":", x_cols))
     valid     <- sol_fixed %in% sol_names
     beta_k    <- beta_mean[sol_fixed[valid]]
@@ -681,7 +681,7 @@
   prop_results[[n_traits + 1]] <- 1 / exp_sum
 
   # Extract category (level) names: last dot-separated component of trait identifier
-  # e.g. "traitTrophic.Level.Herbivore" → "Herbivore"
+  # e.g. "traitTrophic.Level.Herbivore" -> "Herbivore"
   non_baseline_names <- sub(".*\\.", "", trait_names)
   all_level_names    <- c(baseline_name, non_baseline_names)
 

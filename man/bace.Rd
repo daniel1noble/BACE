@@ -20,6 +20,7 @@ bace(
   max_attempts = 3,
   skip_conv = FALSE,
   sample_size = NULL,
+  n_cores = 1L,
   ...
 )
 }
@@ -74,6 +75,11 @@ imputation instead of retrying with more runs. Default is FALSE.}
 imputation before pooling. If NULL (default), uses all posterior samples. Setting this
 to a smaller value (e.g., 1000) can greatly reduce memory usage of the final pooled
 models while still properly accounting for imputation and parameter uncertainty.}
+
+\item{n_cores}{Integer specifying the number of parallel cores to use for the final
+imputation runs. Default is 1 (serial). Values > 1 use \code{parallel::mclapply}.
+Note: parallel execution may be unstable on macOS with multithreaded BLAS; the
+function falls back to serial automatically if worker failures are detected.}
 
 \item{...}{Additional arguments to be passed to the underlying modeling functions.}
 }

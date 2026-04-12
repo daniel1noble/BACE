@@ -15,6 +15,7 @@ bace_final_imp(
   n_final = 10,
   species = FALSE,
   verbose = TRUE,
+  n_cores = 1,
   ...
 )
 }
@@ -38,6 +39,10 @@ bace_final_imp(
 \item{species}{A logical indicating whether to decompose phylogenetic and non-phylogenetic species effects. Default is FALSE}
 
 \item{verbose}{A logical indicating whether to print progress messages. Default is TRUE}
+
+\item{n_cores}{Integer specifying the number of parallel cores to use. Default is 1
+(serial). Values > 1 use \code{parallel::mclapply}. The function falls back to serial
+automatically if any parallel worker returns an error.}
 
 \item{...}{Additional arguments passed to modeling functions}
 }
