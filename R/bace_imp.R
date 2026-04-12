@@ -289,7 +289,7 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 				data_i[[paste0(species_col_name, "2")]] <- data_i[[species_col_name]]
 			}
 				
-				if (types[[response_var]] == "categorcial") {
+				if (types[[response_var]] == "categorical") {
 					gelman <- cat_gelman
 					fixform <- formulas[[i]]
 					data <- data_i

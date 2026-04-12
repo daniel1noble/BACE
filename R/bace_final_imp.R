@@ -111,13 +111,14 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
         }
         n_rand_eff <- if (species) 2L else 1L
 
+        gelman_val <- if (types[[response_var]] == "categorical") 1L else 0L
         prior_i <- .make_prior(
           n_rand = n_rand_eff,
           n_levels = levels,
           type = types[[response_var]],
           fixform = fixform,
           data = data_i,
-          gelman = 0
+          gelman = gelman_val
         )
 
         model <- .model_fit(
