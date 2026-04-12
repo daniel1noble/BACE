@@ -80,10 +80,10 @@
 #' print(result$convergence)
 #' }
 #' @export
-bace <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, 
-                burnin = 1000, runs = 10, n_final = 10, species = FALSE, 
-                verbose = TRUE, plot = FALSE, max_attempts = 3, skip_conv = FALSE, 
-                sample_size = NULL, ...) {
+bace <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5,
+                burnin = 1000, runs = 10, n_final = 10, species = FALSE,
+                verbose = TRUE, plot = FALSE, max_attempts = 3, skip_conv = FALSE,
+                sample_size = NULL, n_cores = 1L, ...) {
 
 ##-----------------------## 
 # Run bace_imp first
@@ -175,9 +175,10 @@ if (converged) {
     n_final = n_final,
     species = species,
     verbose = verbose,
+    n_cores = n_cores,
     ...
   )
-  
+
   # Pool posteriors across imputations
   if (verbose) {
     cat("\n\nStep 4: Pooling posteriors across imputations\n")
@@ -186,17 +187,17 @@ if (converged) {
       cat("Using posterior sampling:", sample_size, "samples per imputation\n")
     }
   }
-  
+
   pooled <- pool_posteriors(final_results, sample_size = sample_size)
-  
+
   if (verbose) {
     cat("\nPosterior pooling complete!\n")
-    cat("Pooled", length(pooled$models), "variable model(s) across", 
+    cat("Pooled", length(pooled$models), "variable model(s) across",
         n_final, "imputations\n")
   }
-  
+
 } else {
-  
+
   if (verbose) {
     if (!skip_conv) {
       cat("\n\nWARNING: Convergence not achieved after", max_attempts, "attempts\n")
@@ -207,7 +208,7 @@ if (converged) {
     cat("Proceeding with final imputation...\n")
     cat("-------------------------------------------------------\n")
   }
-  
+
   # Still proceed with final runs, but warn user (only if not explicitly skipping)
   final_results <- bace_final_imp(
     bace_object = start,
@@ -220,6 +221,7 @@ if (converged) {
     n_final = n_final,
     species = species,
     verbose = verbose,
+    n_cores = n_cores,
     ...
   )
   

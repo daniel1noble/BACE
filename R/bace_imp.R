@@ -324,7 +324,9 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 				}
 
 			# Predict missing data and store in list to keep track across runs, if the variable was z-transformed then transform back using the attributes from data_i preparation which is done automatically for gaussian variables
-				predictions <- .predict_bace(model, dat_prep, response_var = response_var, type = types[[response_var]])
+				predictions <- .predict_bace(model, dat_prep, response_var = response_var, type = types[[response_var]],
+				                             formula = formulas[[i]], data_full = data_i,
+				                             cluster_col = phylo_ran[["cluster"]])
 
 				# If last run, store the model for evaluation later
 				if(r == (runs + 1)){

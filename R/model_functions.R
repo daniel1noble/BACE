@@ -431,22 +431,29 @@
 #' @param response_var A string specifying the name of the response variable.
 #' @param type A string that specifies the type of model to fit.
 #' @param sample A logical indicating whether to sample from the distribution for categorical/ordinal variables.
+#' @param formula Optional: the fixed-effects formula used to fit the model. When supplied together
+#'   with data_full, enables forward prediction for categorical/threshold models that covers ALL
+#'   rows (including those with NA response) rather than only the complete cases stored in model$Liab.
+#' @param data_full Optional: the full data frame passed to MCMCglmm (all rows, including NA response).
+#'   Required together with formula to activate forward prediction for categorical/threshold types.
+#' @param cluster_col Name of the random-effect grouping column (default "animal").
 #' @param ... Additional arguments (not used).
 #' @return A vector of predicted values from the MCMCglmm model.
 #' @export
-.predict_bace <- function(model, dat_prep, response_var, type = NULL, sample = FALSE, ...) {				
+.predict_bace <- function(model, dat_prep, response_var, type = NULL, sample = FALSE,
+                           formula = NULL, data_full = NULL, cluster_col = "animal", ...) {
 
 				if(type == "gaussian"){
 					# z-transformed so need to back-transform
 					mean_val <- dat_prep[[2]][[response_var]]$mean
 					sd_val   <- dat_prep[[2]][[response_var]]$sd
-					
+
 					# Predict from model and back-transform
 				 		  pred_prob <- .pred_cont(model) * sd_val + mean_val # Full prediction
             pred_values <- pred_prob[,1]          # Extract posterior mean
 			     }
 
-				 if(type == "poisson"){  
+				 if(type == "poisson"){
 					# Predict from model and round to nearest integer to retain count data
               pred_prob <- .pred_count(model)           # Full prediction
 						pred_values <- round(pred_prob[,1], digits = 0) # Extract posterior mean and round
@@ -456,28 +463,42 @@
 					# Identify number of categories and their levels from the data
 			      	     lv  <- dat_prep[[1]][[response_var]]
 				  levels_var <- sort(unique(as.character(lv)))
-				  
-				   # Predicts probabilities for each category. Full prediction
-				 pred_prob <- .pred_threshold(model, level_names = levels_var)
+
+				   # Use forward prediction (all rows) when formula + full data supplied;
+				   # otherwise fall back to Liab-based prediction (complete cases only).
+				   if (!is.null(formula) && !is.null(data_full)) {
+				     pred_prob <- .pred_threshold_forward(model, formula, data_full,
+				                                          cluster_col = cluster_col,
+				                                          level_names = levels_var)
+				   } else {
+				     pred_prob <- .pred_threshold(model, level_names = levels_var)
+				   }
 
 				   # For each observation, sample from the categorical distribution based on the predicted probabilities. TO DO: Note we could also just take the max probability for baseline level
              pred_values <- .impute_levels(pred_prob, levels_var, sample = sample)
           }
-				 
-				 
+
+
 				 if(type == "categorical"){
 					# Identify number of categories and their levels from the data
 			      	     lv  <- dat_prep[[1]][[response_var]]
 				  levels_var <- sort(unique(as.character(lv)))
-					
-					# Predict category probabilities. Full prediction
-					pred_prob <- .pred_cat(model, baseline_name = levels_var[1])
+
+					# Use forward prediction (all rows) when formula + full data supplied;
+					# otherwise fall back to Liab-based prediction (complete cases only).
+					if (!is.null(formula) && !is.null(data_full)) {
+					  pred_prob <- .pred_cat_forward(model, formula, data_full,
+					                                 cluster_col = cluster_col,
+					                                 baseline_name = levels_var[1])
+					} else {
+					  pred_prob <- .pred_cat(model, baseline_name = levels_var[1])
+					}
 
 					# For each observation, sample from the categorical distribution based on the predicted probabilities
 				   pred_values <- .impute_levels(pred_prob, levels_var, sample = sample)
 				 }
 
-	return(list(full_prediction = pred_prob, 
+	return(list(full_prediction = pred_prob,
                   pred_values = pred_values))
 }
 
@@ -505,133 +526,280 @@
 #' @return A data frame of predicted probabilities for each category
 #' @export
 .pred_cat <- function(model, baseline_name = "Baseline") {
-  
+
   # 1. Basic Dimensions
      n_obs <- model$Residual$nrl
   n_traits <- (ncol(model$Sol) - model$Fixed$nll) / (model$Fixed$nfl / (ncol(model$Sol) / (ncol(model$Liab)/n_obs)))
-  
+
   # Simpler way to get n_traits for categorical:
   n_traits <- ncol(model$Liab) / n_obs
-  
+
   # 2. Calculate the c2 Scaling Factor
   # c = 16 * sqrt(3) / (15 * pi)
         c2 <- (16 * sqrt(3) / (15 * pi))^2
-  
+
   # Get Total Variance (G + R) for each sample in the chain
-  # We sum the Phylo and Units variances. 
+  # We sum the Phylo and Units variances.
   # Note: MCMCglmm categorical models usually have fixed residual variance (e.g. 1)
-  
+
   # since residual variance is fixed - we can use directly the IJ matrix
   IJ <- IJ <- 1 / (n_traits+1) * (diag(n_traits) + matrix(1, nrow = n_traits, ncol = n_traits))
   scaling_factor <- sqrt(1 + c2 * diag(IJ))
-  
+
   # 3. Extract and Scale Liabilities
   exp_liab_list <- list()
-  
+
   # Initialize exp_sum with 1 (which is exp(0) for the baseline)
-  exp_sum <- 1 
-  
+  exp_sum <- 1
+
   for (i in 1:n_traits) {
     cols <- ((i - 1) * n_obs + 1):(i * n_obs)
-    
+
     # Apply c2 scaling to the liabilities before exponentiating
     # We divide each sample's liabilities by that sample's scaling factor
     scaled_liab <- model$Liab[, cols] / scaling_factor[i]
-    
+
     exp_liab_list[[i]] <- exp(scaled_liab)
     exp_sum <- exp_sum + exp_liab_list[[i]]
   }
-  
+
   # 4. Calculate Mean Probabilities (%)
   prop_results <- list()
   for (i in 1:n_traits) {
     prop_results[[i]] <- colMeans(exp_liab_list[[i]] / exp_sum)
   }
-  
+
   # Calculate Baseline level %
-  prop_results[[n_traits + 1]] <- colMeans(1 / exp_sum) 
-  
+  prop_results[[n_traits + 1]] <- colMeans(1 / exp_sum)
+
   # 5. Extract Names Generically
   # Look at Fixed effects to get trait/variable names
   raw_names <- colnames(model$Sol)[1:n_traits]
-  
+
   # Removes "trait", the variable name, and the following dot
   clean_names <- gsub("^trait.*?\\.", "", raw_names)
-  
+
   # 6. Final Data Frame Assembly
   df_final <- as.data.frame(do.call(cbind, prop_results))
   colnames(df_final) <- c(clean_names, baseline_name)
-  
+
   # Rearrange columns alphabetically (Aquatic, Insessorial, Terrestrial)
   df_ordered <- df_final[, order(colnames(df_final))]
   rownames(df_ordered) <- paste0("Obs_", 1:n_obs)
-  
+
   return(df_ordered)
+}
+
+
+#' @title .pred_cat_forward
+#' @description Forward prediction of categorical probabilities for ALL rows (including
+#'   those with NA response) using posterior mean fixed + random effects from model$Sol.
+#'   Called instead of .pred_cat() when the response variable has missing values, because
+#'   MCMCglmm drops NA-response rows from model$Liab/model$X, making .pred_cat() return
+#'   fewer rows than the full dataset.
+#' @param model MCMCglmm model object (fit with pr=TRUE, saveX=TRUE)
+#' @param formula The fixed-effects formula used to fit the model
+#' @param data_i Full data frame including rows with NA response (all predictors complete)
+#' @param cluster_col Name of the random-effect grouping column (e.g. "animal")
+#' @param baseline_name Name for the baseline (reference) category
+#' @return Data frame with nrow(data_i) rows of predicted probabilities per category
+#' @export
+.pred_cat_forward <- function(model, formula, data_i, cluster_col = "animal",
+                               baseline_name = "Baseline") {
+
+  beta_mean <- colMeans(as.matrix(model$Sol))
+  sol_names <- names(beta_mean)
+
+  # MCMCglmm naming for categorical:
+  #   intercept for trait k  : "trait{Response}.{Level}"           (no suffix)
+  #   slope for predictor j  : "trait{Response}.{Level}:{j}"       (colon separator)
+  #   species BLUP            : "trait{Response}.{Level}.{species}" (dot separator)
+  #
+  # Extract trait identifiers from slope columns (those containing ":").
+  # This excludes BLUP entries (no colon) which also start with "trait",
+  # e.g. "traitTrophic.Level.Herbivore.Accipiter_gentilis".
+  trait_slope_cols <- sol_names[grep("^trait.*:", sol_names)]
+  trait_names      <- unique(sub(":.*$", "", trait_slope_cols))
+  n_traits         <- length(trait_names)
+  n_obs          <- nrow(data_i)
+
+  # c2 scaling (same as .pred_cat)
+  c2             <- (16 * sqrt(3) / (15 * pi))^2
+  IJ             <- 1 / (n_traits + 1) * (diag(n_traits) + matrix(1, n_traits, n_traits))
+  scaling_factor <- sqrt(1 + c2 * diag(IJ))
+
+  # Build fixed-effects design matrix for ALL rows
+  rhs   <- formula[-2]   # drop LHS response
+  X_all <- tryCatch(model.matrix(rhs, data_i), error = function(e) NULL)
+
+  if (is.null(X_all)) {
+    # Fallback: return uniform probabilities
+    k  <- n_traits + 1
+    df <- as.data.frame(matrix(1 / k, nrow = n_obs, ncol = k))
+    # Extract level names from trait_names: last dot-separated component
+    non_base <- sub(".*\\.", "", trait_names)
+    colnames(df) <- c(baseline_name, non_base)
+    return(df)
+  }
+
+  x_cols  <- colnames(X_all)
+  exp_list <- list()
+  exp_sum  <- 1
+
+  for (ki in seq_len(n_traits)) {
+    tk <- trait_names[ki]
+
+    # MCMCglmm Sol column names:
+    #   intercept (x_col == "(Intercept)") → tk
+    #   other predictors                   → paste0(tk, ":", x_col)
+    sol_fixed <- ifelse(x_cols == "(Intercept)", tk, paste0(tk, ":", x_cols))
+    valid     <- sol_fixed %in% sol_names
+    beta_k    <- beta_mean[sol_fixed[valid]]
+
+    # Linear predictor from fixed effects
+    eta_k <- as.numeric(X_all[, x_cols[valid], drop = FALSE] %*% beta_k)
+
+    # Species BLUPs: "trait{Response}.{Level}.{species_id}" (dot separator)
+    if (cluster_col %in% colnames(data_i)) {
+      species_vals <- as.character(data_i[[cluster_col]])
+      blup_cols    <- paste0(tk, ".", species_vals)
+      blups        <- vapply(blup_cols, function(bc)
+                               if (bc %in% sol_names) beta_mean[[bc]] else 0,
+                             numeric(1))
+      eta_k <- eta_k + blups
+    }
+
+    exp_list[[ki]] <- exp(eta_k / scaling_factor[ki])
+    exp_sum        <- exp_sum + exp_list[[ki]]
+  }
+
+  # Softmax probabilities
+  prop_results <- vector("list", n_traits + 1)
+  for (ki in seq_len(n_traits)) {
+    prop_results[[ki]] <- exp_list[[ki]] / exp_sum
+  }
+  prop_results[[n_traits + 1]] <- 1 / exp_sum
+
+  # Extract category (level) names: last dot-separated component of trait identifier
+  # e.g. "traitTrophic.Level.Herbivore" → "Herbivore"
+  non_baseline_names <- sub(".*\\.", "", trait_names)
+  all_level_names    <- c(baseline_name, non_baseline_names)
+
+  # Output columns: [baseline, trait1, ..., trait_{n_traits}] = levels_var order
+  df_final  <- as.data.frame(do.call(cbind, prop_results[c(n_traits + 1L, seq_len(n_traits))]))
+  colnames(df_final)  <- all_level_names
+  rownames(df_final)  <- paste0("Obs_", seq_len(n_obs))
+  return(df_final)
 }
 
 
 #' @title .pred_threshold
 #' @description Function calculates predicted probabilities for each category from a threshold MCMCglmm model
 #' @param model A MCMCglmm model object
-#' @param level_names A character vector specifying the names of the levels/categories	
+#' @param level_names A character vector specifying the names of the levels/categories
 #' @return A data frame of predicted probabilities for each category
 #' @export
 .pred_threshold <- function(model, level_names = NULL) {
-  # 1. Dimensions and Data
-           n_obs <- model$Residual$nrl
-            liab <- model$Liab
-         v_total <- rowSums(model$VCV)
-  scaling_factor <- 1
-  
-  # 2. Thresholds (Cut-points)
-  # MCMCglmm fixes the first threshold at 0.
-  # Additional cut-points are in model$CP.
+
+  n_obs <- model$Residual$nrl
+
   if (!is.null(model$CP)) {
-    # Ordinal case: J > 2 levels
-    cp_samples <- cbind(0, model$CP) # First CP is 0
-      n_levels <- ncol(cp_samples) + 1
+    cp_samples <- cbind(0, model$CP)
+    n_levels   <- ncol(cp_samples) + 1
   } else {
-    # Binary case: 2 levels
-    cp_samples <- matrix(0, nrow = nrow(liab), ncol = 1)
-      n_levels <- 2
+    cp_samples <- matrix(0, nrow = nrow(model$Sol), ncol = 1)
+    n_levels   <- 2
   }
-  
-  # 3. Calculate Probabilities
-  # We iterate through iterations and calculate area under normal curve
-  # Prob(category j) = Phi((CP_j - Liab) / scale) - Phi((CP_j-1 - Liab) / scale)
-  all_probs <- list()
-  for (j in 1:n_levels) {
-    # Define upper and lower bounds for the current category
-    # Lower bound (T_low)
-    if (j == 1) {
-      t_low <- -Inf
-    } else {
-      t_low <- cp_samples[, j - 1]
-    }
-    # Upper bound (T_high)
-    if (j == n_levels) {
-      t_high <- Inf
-    } else {
-      t_high <- cp_samples[, j]
-    }
-    
-	# Calculate probability for this category across all MCMC samples
-    # Probability = pnorm(Upper) - pnorm(Lower)
-    # We use mapply or row-wise math to handle the scaling per iteration
-    # Prob per sample: pnorm(t_high, mean=liab, sd=scaling_factor) - pnorm(t_low, ...)
-             p_cat <- pnorm(t_high, mean = liab, sd = scaling_factor) -
-                      pnorm(t_low, mean = liab, sd = scaling_factor)
-    all_probs[[j]] <- colMeans(p_cat) 
+
+  liab <- as.matrix(model$Liab)
+
+  all_probs <- vector("list", n_levels)
+  for (j in seq_len(n_levels)) {
+    t_low  <- if (j == 1)        -Inf else cp_samples[, j - 1]
+    t_high <- if (j == n_levels)  Inf else cp_samples[, j]
+    all_probs[[j]] <- colMeans(pnorm(t_high, mean = liab, sd = 1) -
+                                 pnorm(t_low,  mean = liab, sd = 1))
   }
-  
-  # 4. Final Data Frame
+
   df_final <- as.data.frame(do.call(cbind, all_probs))
-  
-  # 5. Naming and Ordering
-  if (is.null(level_names)) {
-    colnames(df_final) <- paste0("Level_", 1:n_levels)
+  colnames(df_final) <- if (is.null(level_names)) paste0("Level_", seq_len(n_levels)) else level_names
+  return(df_final)
+}
+
+
+#' @title .pred_threshold_forward
+#' @description Forward prediction of ordinal/threshold probabilities for ALL rows (including
+#'   those with NA response) using posterior mean fixed + random effects from model$Sol.
+#'   Called instead of .pred_threshold() when the response variable has missing values.
+#' @param model MCMCglmm model object (fit with pr=TRUE)
+#' @param formula The fixed-effects formula used to fit the model
+#' @param data_i Full data frame including rows with NA response (all predictors complete)
+#' @param cluster_col Name of the random-effect grouping column (e.g. "animal")
+#' @param level_names Character vector of ordered level names
+#' @return Data frame with nrow(data_i) rows of predicted probabilities per category
+#' @export
+.pred_threshold_forward <- function(model, formula, data_i,
+                                     cluster_col = "animal",
+                                     level_names = NULL) {
+
+  beta_mean <- colMeans(as.matrix(model$Sol))
+  sol_names <- names(beta_mean)
+  n_obs     <- nrow(data_i)
+
+  # Build fixed-effects design matrix for ALL rows
+  rhs   <- formula[-2]
+  X_all <- tryCatch(model.matrix(rhs, data_i), error = function(e) NULL)
+
+  if (is.null(X_all)) {
+    n_lv <- if (!is.null(model$CP)) ncol(as.matrix(model$CP)) + 2 else 2
+    df <- as.data.frame(matrix(1 / n_lv, nrow = n_obs, ncol = n_lv))
+    colnames(df) <- if (!is.null(level_names) && length(level_names) == n_lv)
+                      level_names else paste0("Level_", seq_len(n_lv))
+    return(df)
+  }
+
+  # Fixed effect columns: X_all column names that exist in Sol (no cluster prefix)
+  x_cols <- colnames(X_all)
+  valid  <- x_cols %in% sol_names
+  beta_k <- beta_mean[x_cols[valid]]
+
+  # Linear predictor from fixed effects
+  eta <- as.numeric(X_all[, x_cols[valid], drop = FALSE] %*% beta_k)
+
+  # Add species BLUPs (posterior mean)
+  if (cluster_col %in% colnames(data_i)) {
+    species_vals <- as.character(data_i[[cluster_col]])
+    blup_cols    <- paste0(cluster_col, ".", species_vals)
+    blups        <- vapply(blup_cols, function(bc)
+                             if (bc %in% sol_names) beta_mean[[bc]] else 0,
+                           numeric(1))
+    eta <- eta + blups
+  }
+
+  # Cut-points: posterior mean
+  # MCMCglmm fixes the first threshold at 0; additional ones are in model$CP.
+  # Prepend 0 so cp_all = c(0, CP2_mean, CP3_mean, ...).
+  if (!is.null(model$CP) && length(model$CP) > 0) {
+    cp_all   <- c(0, colMeans(as.matrix(model$CP)))
+    n_levels <- length(cp_all) + 1
   } else {
+    cp_all   <- 0          # binary: single threshold at 0
+    n_levels <- 2
+  }
+
+  # P(category j | eta_i) = Phi(CP_j - eta_i) - Phi(CP_{j-1} - eta_i)
+  all_probs <- vector("list", n_levels)
+  for (j in seq_len(n_levels)) {
+    t_low  <- if (j == 1)        -Inf else cp_all[j - 1]
+    t_high <- if (j == n_levels)  Inf else cp_all[j]
+    all_probs[[j]] <- pnorm(t_high - eta) - pnorm(t_low - eta)
+  }
+
+  df_final <- as.data.frame(do.call(cbind, all_probs))
+  if (!is.null(level_names) && length(level_names) == n_levels) {
     colnames(df_final) <- level_names
+  } else {
+    colnames(df_final) <- paste0("Level_", seq_len(n_levels))
   }
   return(df_final)
 }

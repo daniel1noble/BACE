@@ -24,149 +24,178 @@
 #' final <- bace_final_imp(result, fixformula = "y ~ x1 + x2", ...)
 #' }
 #' @export
-bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo, 
-                           nitt = 6000, thin = 5, burnin = 1000, 
-                           n_final = 10, species = FALSE, verbose = TRUE, ...) {
-  
+bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
+                           nitt = 6000, thin = 5, burnin = 1000,
+                           n_final = 10, species = FALSE, verbose = TRUE,
+                           n_cores = 1, ...) {
+
   # Check inputs
   if (!inherits(bace_object, "bace")) {
     stop("bace_object must be an object of class 'bace' from bace_imp function")
   }
-  
+
   # Extract components from bace_object
   last_data <- bace_object$data[[length(bace_object$data)]]
   miss_dat <- bace_object$miss_dat
   types <- bace_object$types
   phylo_ran <- bace_object$phylo_ran
-  
+
   # Build formulas if needed
   if (!is.list(fixformula)) {
-    formulas <- .build_formula_string(fixformula) 
+    formulas <- .build_formula_string(fixformula)
   } else {
     formulas <- lapply(fixformula, as.formula)
   }
-  
+
   # Random effect formula with species parameter
   ran_phylo_form <- .build_formula_string_random(ran_phylo_form, species = species)
-  
+
   # Standardize MCMC parameters
   n_models <- length(formulas)
   nitt_list <- .standardize_mcmc_params(nitt, n_models, "nitt")
   thin_list <- .standardize_mcmc_params(thin, n_models, "thin")
   burnin_list <- .standardize_mcmc_params(burnin, n_models, "burnin")
-  
+
   # Variables to impute
   fix <- names(types)
-  
-  # Storage for all runs
-  all_models <- vector("list", n_final)
-  all_datasets <- vector("list", n_final)
-  
-  # Starting dataset
-  data_current <- last_data
-  
+
+  # Clamp n_cores
+  n_cores <- max(1L, min(as.integer(n_cores), n_final))
+
   if (verbose) {
-    cat("\n=== Running", n_final, "final imputation iterations ===\n\n")
+    if (n_cores > 1L) {
+      cat("\n=== Running", n_final, "final imputation iterations",
+          "(parallel:", n_cores, "cores) ===\n\n")
+    } else {
+      cat("\n=== Running", n_final, "final imputation iterations ===\n\n")
+    }
   }
-  
-  # Run n_final imputation iterations
-  for (run in 1:n_final) {
-    
-    # Storage for models in this run
+
+  # Inner function: one complete final imputation starting from data_start.
+  # Each run is independent (all start from the converged last_data), giving
+  # truly independent posterior draws suitable for Rubin's rules pooling.
+  .one_final_run <- function(run, data_start, worker_verbose) {
+    data_current <- data_start
     models_this_run <- list()
-    
-    # Loop through formulas to fit models and impute
-    for (i in 1:length(formulas)) {
-      
-      # Identify response variable
+
+    for (i in seq_along(formulas)) {
+
       response_var <- all.vars(formulas[[i]][[2]])
-      
-      # Prepare data
+
       dat_prep <- .data_prep(
-        data = data_current, 
-        formula = formulas[[i]], 
-        types = types, 
+        data = data_current,
+        formula = formulas[[i]],
+        types = types,
         ran_cluster = phylo_ran[["cluster"]]
       )
-      
+
       data_i <- dat_prep[[1]]
-      
-      # If species decomposition is enabled, add a second copy of the species column
-      # This is needed for MCMCglmm to distinguish between phylo and non-phylo effects
-      # MUST happen BEFORE prior creation
+
       if (species) {
         species_col_name <- phylo_ran[["cluster"]]
         data_i[[paste0(species_col_name, "2")]] <- data_i[[species_col_name]]
       }
-      
-      # Check if variable needs imputation (has missing data)
+
       has_missing <- response_var %in% miss_dat$colname
-      
+
       if (has_missing) {
-        # Get prior
-        fixform <- formulas[[i]]
-        levels <- dat_prep$levels
-        gelman <- NULL  # Use default prior for final runs
-        
-        n_rand_eff <- if (species) 2 else 1
-        
+        fixform    <- formulas[[i]]
+        # Compute number of factor levels from the working data (dat_prep$levels is not set)
+        levels <- if (types[[response_var]] %in% c("categorical", "threshold")) {
+          nlevels(data_current[[response_var]])
+        } else {
+          NULL
+        }
+        n_rand_eff <- if (species) 2L else 1L
+
         prior_i <- .make_prior(
-          n_rand = n_rand_eff, 
+          n_rand = n_rand_eff,
           n_levels = levels,
-          type = types[[response_var]], 
-          fixform = fixform, 
-          data = data_i, 
-          gelman = gelman
+          type = types[[response_var]],
+          fixform = fixform,
+          data = data_i,
+          gelman = 0
         )
-        
-        # Fit model
+
         model <- .model_fit(
-          data = data_i, 
+          data = data_i,
           tree = phylo,
           fixformula = formulas[[i]],
           randformula = ran_phylo_form,
-          type = types[[response_var]], 
-          prior = prior_i, 
-          nitt = nitt_list[[i]], 
-          thin = thin_list[[i]], 
+          type = types[[response_var]],
+          prior = prior_i,
+          nitt = nitt_list[[i]],
+          thin = thin_list[[i]],
           burnin = burnin_list[[i]]
         )
-        
-        # Store model
+
         models_this_run[[response_var]] <- model
-        
-        # Predict missing data
+
         predictions <- .predict_bace(
-          model, 
-          dat_prep, 
-          response_var = response_var, 
-          type = types[[response_var]]
+          model,
+          dat_prep,
+          response_var = response_var,
+          type = types[[response_var]],
+          formula     = formulas[[i]],
+          data_full   = data_i,
+          cluster_col = phylo_ran[["cluster"]]
         )
-        
-        # Update data with new imputations
-        id <- miss_dat[miss_dat$colname == response_var, "row"]
+
+        id     <- miss_dat[miss_dat$colname == response_var, "row"]
         data_id <- which(colnames(data_current) == response_var)
         data_current[id, data_id] <- predictions[["pred_values"]][id]
-        
-        if (verbose) {
-          cat(paste0("Run ", run, "/", n_final, 
+
+        if (worker_verbose) {
+          cat(paste0("Run ", run, "/", n_final,
                      " - Imputed variable: ", response_var, "\n"))
         }
       } else {
-        # Variable has no missing data, still fit model but don't impute
-        if (verbose) {
-          cat(paste0("Run ", run, "/", n_final, 
-                     " - Variable ", response_var, 
+        if (worker_verbose) {
+          cat(paste0("Run ", run, "/", n_final,
+                     " - Variable ", response_var,
                      " has no missing data (skipped imputation)\n"))
         }
       }
     }
-    
-    # Store results for this run
-    all_models[[run]] <- models_this_run
-    all_datasets[[run]] <- data_current
 
+    list(models = models_this_run, dataset = data_current)
   }
+
+  # Run serially or in parallel
+  if (n_cores > 1L) {
+    # Suppress per-worker output to avoid garbled console; progress printed below
+    results_list <- parallel::mclapply(
+      seq_len(n_final),
+      function(run) .one_final_run(run, last_data, worker_verbose = FALSE),
+      mc.cores    = n_cores,
+      mc.set.seed = TRUE
+    )
+
+    # Check for worker failures (mclapply returns try-error objects on failure)
+    n_failed <- sum(vapply(results_list, inherits, logical(1L), "try-error"))
+    if (n_failed > 0L) {
+      if (verbose) {
+        cat(sprintf(
+          "\nWARNING: %d/%d parallel workers failed — falling back to serial execution.\n\n",
+          n_failed, n_final
+        ))
+      }
+      results_list <- lapply(
+        seq_len(n_final),
+        function(run) .one_final_run(run, last_data, worker_verbose = verbose)
+      )
+    } else if (verbose) {
+      cat(paste0("Completed ", n_final, " parallel imputation runs\n"))
+    }
+  } else {
+    results_list <- lapply(
+      seq_len(n_final),
+      function(run) .one_final_run(run, last_data, worker_verbose = verbose)
+    )
+  }
+
+  all_models   <- lapply(results_list, `[[`, "models")
+  all_datasets <- lapply(results_list, `[[`, "dataset")
   
   # Prepare output
   out <- list(
