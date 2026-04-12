@@ -219,40 +219,37 @@
 #'          builds the expanded formula, and counts resulting coefficients.
 #' @export
 .count_categorical_fixef <- function(fixform, data, n_levels) {
-  
-  J <- n_levels - 1  # Number of traits
-  
-  # Create the trait-expanded formula as MCMCglmm does
-  # Original: y ~ x1 + x2
-  # Expanded: y ~ trait:(x1 + x2) - 1
-  fixformula_cat <- as.formula(paste0(
-    as.character(fixform)[2], 
-    "~ trait:(", 
-    as.character(fixform)[3], 
-    ") - 1"
-  ))
-  
-  # Add a dummy 'trait' variable to the data with J levels
-  data_with_trait <- data
-  data_with_trait$trait <- factor(rep(paste0("trait", 1:J), length.out = nrow(data)))
-  
-  # Build the model matrix to count coefficients
-  # Use only complete cases for the predictor variables
-  formula_vars <- all.vars(fixform)
-  complete_rows <- complete.cases(data_with_trait[, formula_vars, drop = FALSE])
-  
-  if (sum(complete_rows) < J) {
-    # If we don't have enough complete rows, use a minimal dataset
-    # Just need enough rows to get the structure
-    minimal_data <- data_with_trait[rep(1, J), , drop = FALSE]
-    minimal_data$trait <- factor(paste0("trait", 1:J), levels = paste0("trait", 1:J))
-    X_temp <- model.matrix(fixformula_cat, data = minimal_data)
-  } else {
-    X_temp <- model.matrix(fixformula_cat, data = data_with_trait[complete_rows, , drop = FALSE])
+
+  J <- n_levels - 1  # Number of non-baseline traits
+
+  # Compute analytically: avoids the NA / missing-factor-level problem that
+  # arises when model.matrix is called on a tiny subset of data that does not
+  # include all factor levels.
+  #
+  # MCMCglmm categorical expansion:
+  #   original:  response ~ x1 + x2 + ... (with intercept)
+  #   expanded:  response ~ trait:(x1 + x2 + ...) - 1   (J traits, no overall intercept)
+  #
+  # Each trait gets:  1 (intercept) + sum(nlevels(factor) - 1 for factors, 1 for continuous)
+  # Total = J * n_cols_per_trait
+
+  # Predictor names only (drop the response, left-hand side)
+  pred_vars <- all.vars(update(fixform, NULL ~ .))
+
+  n_cols_per_trait <- 1L  # intercept term contributed by each trait level
+
+  for (nm in pred_vars) {
+    col <- data[[nm]]
+    if (is.factor(col) || is.ordered(col)) {
+      # Treatment / poly contrasts: nlevels - 1 columns
+      n_cols_per_trait <- n_cols_per_trait + nlevels(col) - 1L
+    } else {
+      # Continuous or integer: 1 column
+      n_cols_per_trait <- n_cols_per_trait + 1L
+    }
   }
-  
-  # Return the number of columns in the design matrix
-  return(ncol(X_temp))
+
+  return(J * n_cols_per_trait)
 }
 
 #' @title .list_of_G
