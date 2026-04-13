@@ -139,10 +139,11 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
           model,
           dat_prep,
           response_var = response_var,
-          type = types[[response_var]],
-          formula     = formulas[[i]],
-          data_full   = data_i,
-          cluster_col = phylo_ran[["cluster"]]
+          type         = types[[response_var]],
+          sample       = TRUE,               # draw from posterior predictive each run
+          formula      = formulas[[i]],
+          data_full    = data_i,
+          cluster_col  = phylo_ran[["cluster"]]
         )
 
         id     <- miss_dat[miss_dat$colname == response_var, "row"]

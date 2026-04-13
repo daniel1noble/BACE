@@ -440,26 +440,48 @@
 .predict_bace <- function(model, dat_prep, response_var, type = NULL, sample = FALSE,
                            formula = NULL, data_full = NULL, cluster_col = "animal", ...) {
 
+  # Initialise so return() is always valid even if a type branch is skipped
+  pred_prob   <- NULL
+  pred_values <- NULL
+
 				if(type == "gaussian"){
 					# z-transformed so need to back-transform
 					mean_val <- dat_prep[[2]][[response_var]]$mean
 					sd_val   <- dat_prep[[2]][[response_var]]$sd
 
-					# Predict from model and back-transform
-				 		  pred_prob <- .pred_cont(model) * sd_val + mean_val # Full prediction
-            pred_values <- pred_prob[,1]          # Extract posterior mean
+					if (sample) {
+					  # Draw one random MCMC iteration from the posterior
+					  X   <- as.matrix(model$X)
+					  Sol <- as.matrix(model$Sol)
+					  W   <- if (!is.null(model$Z)) cbind(X, as.matrix(model$Z)) else X
+					  common <- intersect(colnames(W), colnames(Sol))
+					  eta <- Sol[, common, drop = FALSE] %*% t(W[, common, drop = FALSE])
+					  i_samp <- sample.int(nrow(eta), 1L)
+					  pred_values <- as.numeric(eta[i_samp, ]) * sd_val + mean_val
+					} else {
+					  # Predict from model and back-transform
+					  pred_prob   <- .pred_cont(model) * sd_val + mean_val # Full prediction
+					  pred_values <- pred_prob[, 1]                        # Extract posterior mean
+					}
 			     }
 
 				 if(type == "poisson"){
-					# Predict from model and round to nearest integer to retain count data
-              pred_prob <- .pred_count(model)           # Full prediction
-						pred_values <- round(pred_prob[,1], digits = 0) # Extract posterior mean and round
+					if (sample) {
+					  # Draw one random MCMC iteration from the liability scale
+					  liab <- as.matrix(model$Liab)
+					  i_samp <- sample.int(nrow(liab), 1L)
+					  pred_values <- round(exp(as.numeric(liab[i_samp, ])), digits = 0)
+					} else {
+					  # Predict from model and round to nearest integer to retain count data
+					  pred_prob   <- .pred_count(model)                    # Full prediction
+					  pred_values <- round(pred_prob[, 1], digits = 0)    # Extract posterior mean and round
+					}
 				 }
 
 				 if(type == "threshold" || type == "ordinal"){
 					# Identify number of categories and their levels from the data
 			      	     lv  <- dat_prep[[1]][[response_var]]
-				  levels_var <- sort(unique(as.character(lv)))
+				  levels_var <- if (is.factor(lv)) levels(lv) else sort(unique(na.omit(as.character(lv))))
 
 				   # Use forward prediction (all rows) when formula + full data supplied;
 				   # otherwise fall back to Liab-based prediction (complete cases only).
@@ -479,7 +501,7 @@
 				 if(type == "categorical"){
 					# Identify number of categories and their levels from the data
 			      	     lv  <- dat_prep[[1]][[response_var]]
-				  levels_var <- sort(unique(as.character(lv)))
+				  levels_var <- if (is.factor(lv)) levels(lv) else sort(unique(na.omit(as.character(lv))))
 
 					# Use forward prediction (all rows) when formula + full data supplied;
 					# otherwise fall back to Liab-based prediction (complete cases only).
@@ -513,7 +535,7 @@
   } else {
     pred_values <- levels_var[apply(pred_prob, 1, which.max)]
   }
-  return(pred_values)
+  return(factor(pred_values, levels = levels_var))
 }
 
 #' @title .pred_cat
