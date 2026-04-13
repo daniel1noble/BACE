@@ -535,7 +535,7 @@
   } else {
     pred_values <- levels_var[apply(pred_prob, 1, which.max)]
   }
-  return(factor(pred_values, levels = levels_var))
+  return(as.character(pred_values))
 }
 
 #' @title .pred_cat
