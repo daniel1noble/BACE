@@ -160,8 +160,8 @@ Once the imputation is complete, you can access the final pooled models and eval
 #| eval: true
 #| warning: false
 
-# Now have a look at the final models and the pooled results
-y_model <- bace_final1$pooled_models$models$y
+# Extract the pooled model for the response variable using get_pooled_model()
+y_model <- get_pooled_model(bace_final1, variable = "y")
 summary(y_model)
 plot(y_model)  
 
@@ -169,11 +169,15 @@ plot(y_model)
 
 hist(y_model$Sol[, "x1"], main = "Posterior distribution for x1", xlab = "x1 coefficient")
 
+# You can also extract all pooled models at once
+all_models <- get_pooled_model(bace_final1)
+names(all_models)
+
 ```
 
 Here, we see convergence wasn't achieved with this particular dataset after 3 attempts, and we can see in the plots of the `MCMCglmm models` that some of the variance estimates are not quite converged yet. It's best to adjust `bace` parameters to allow for longer runtimes and better mixing of the MCMC chains. For now, however, we will ignore the convergence issues for the sake of showing the functionality.
 
-Another important feature is that users can also access all the final datasets with imputed values for each run (as a list). This can be useful for checking the imputed values (i.e., cross-validation) and exploring the imputation process in more detail. You can access the imputed datasets as follows:
+Another important feature is that users can also access all the final datasets with imputed values for each run. This can be useful for checking the imputed values (i.e., cross-validation) and exploring the imputation process in more detail. You can access the imputed datasets using the `get_imputed_data()` function, which returns them as either a list or a single stacked data frame:
 
 ```{r}
 #| label: access_imputed_datasets
@@ -181,8 +185,14 @@ Another important feature is that users can also access all the final datasets w
 #| eval: true
 #| warning: false
 
-# Access the imputed datasets for each run. 
-imputed_datasets <- bace_final1$imputed_datasets
+# Access the imputed datasets as a list (one data frame per imputation run)
+imputed_datasets <- get_imputed_data(bace_final1, format = "list")
+length(imputed_datasets)
+head(imputed_datasets[[1]])
+
+# Or stack all imputed datasets into one data frame with an .imputation column
+imputed_df <- get_imputed_data(bace_final1, format = "data.frame")
+table(imputed_df$.imputation)
 
 ```
 
@@ -414,8 +424,8 @@ bace_final <- bace(fixformula = "y ~ x1 + x2",
                                species = TRUE,
                                runs = 15, nitt = 100000, burnin = 10000, thin = 10, plot = TRUE, skip_conv = TRUE, sample_size = 1000)
 
-# Now have a look at the final models and the pooled results
-y_model <- bace_final$pooled_models$models$y
+# Extract the pooled model for y using the accessor function
+y_model <- get_pooled_model(bace_final, variable = "y")
 summary(y_model)
 plot(y_model)  
 
