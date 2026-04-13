@@ -1,48 +1,100 @@
 #' @title pool_posteriors
-#' @description Pool posteriors from multiple imputation runs to account for imputation uncertainty
+#' @description Combine per-imputation MCMC chains into a single set of posterior
+#'   draws that approximate the marginal posterior integrating over the missing-data
+#'   distribution.
 #' @param bace_final_object An object of class 'bace_final' from bace_final_imp
-#' @param variable Character string specifying which variable's model to pool. 
+#' @param variable Character string specifying which variable's model to pool.
 #'   If NULL (default), pools all variables
-#' @param sample_size Integer specifying how many posterior samples to draw from each 
-#'   imputation before pooling. If NULL (default), uses all posterior samples. Setting 
-#'   this to a smaller value (e.g., 1000) can greatly reduce memory usage while still 
-#'   properly accounting for imputation and parameter uncertainty. The total samples in 
-#'   the pooled posterior will be sample_size * n_imputations.
+#' @param sample_size Integer specifying how many posterior samples to draw from each
+#'   imputation before pooling. If NULL (default), uses all posterior samples. Setting
+#'   this to a smaller value (e.g., 1000) can greatly reduce the memory footprint of
+#'   the pooled object. The total number of draws in the pooled posterior will be
+#'   sample_size * n_imputations.
 #' @return A list of class 'bace_pooled' containing pooled models for each variable.
-#'   Each pooled model is an MCMCglmm object with class c("MCMCglmm", "bace_pooled_MCMCglmm") 
-#'   containing:
-#'   - Sol: Pooled fixed effect posteriors (combined across imputations)
-#'   - VCV: Pooled variance component posteriors (combined across imputations)
-#'   - CP: Pooled cutpoint posteriors (for categorical/ordinal models, if present)
-#'   - Liab: Pooled latent variables (for categorical models, if present)
+#'   Each pooled model is an MCMCglmm object with class c("bace_pooled_MCMCglmm",
+#'   "MCMCglmm") containing:
+#'   - Sol: Stacked fixed-effect draws (combined across imputations)
+#'   - VCV: Stacked variance-component draws
+#'   - CP: Stacked cutpoint draws (for categorical/ordinal models, if present)
+#'   - Liab: Stacked latent-variable draws (for categorical models, if present)
 #'   - DIC: Mean DIC across imputations
-#'   - Deviance: Combined deviance samples
-#'   - BACE_pooling: Metadata about pooling (n_imputations, n_samples_per_imputation, etc.)
-#'   - All other MCMCglmm components (Fixed, Random, etc.)
-#' @details This function implements posterior pooling by concatenating MCMC samples 
-#'   from all imputation runs. This naturally accounts for both within-imputation and 
-#'   between-imputation variance. The resulting MCMCglmm object can be used with 
-#'   standard MCMCglmm methods like print() and summary(), which will display results
-#'   that properly reflect uncertainty from both the model and the imputation process.
-#'   
-#'   The pooled models retain the MCMCglmm class so all standard MCMCglmm methods work,
-#'   but also include class "bace_pooled_MCMCglmm" for custom behavior when needed.
+#'   - Deviance: Stacked deviance samples
+#'   - BACE_pooling: Metadata about the pooling (n_imputations,
+#'     n_samples_per_imputation, etc.)
+#'   - All other MCMCglmm components (Fixed, Random, etc.) carried over unchanged
+#'     from the first imputation's fit.
+#' @details
+#'   \strong{What this function does.} It concatenates the MCMC draws from each
+#'   per-imputation run produced by `bace_final_imp()` into a single mcmc object
+#'   per parameter. It does \emph{not} apply Rubin's rules: no between- vs.
+#'   within-imputation variance decomposition is computed, and no scalar point
+#'   estimates are combined.
+#'
+#'   \strong{Why stacking is the right combiner for Bayesian MI.} Under a
+#'   fully Bayesian imputation model, each per-imputation chain targets the
+#'   conditional posterior \eqn{p(\theta \mid Y_{obs}, Y_{mis}^{(m)})}, where
+#'   \eqn{Y_{mis}^{(m)}} is the m-th draw from the imputation distribution
+#'   \eqn{p(Y_{mis} \mid Y_{obs})}. Concatenating these chains and treating the
+#'   result as draws from a single distribution is a Monte Carlo approximation
+#'   to the marginal posterior
+#'   \deqn{p(\theta \mid Y_{obs}) = \int p(\theta \mid Y_{obs}, Y_{mis})\, p(Y_{mis} \mid Y_{obs})\, dY_{mis}.}
+#'   Posterior summaries (means, quantiles, intervals) computed from the
+#'   stacked draws therefore reflect uncertainty about both the model parameters
+#'   and the imputed values in a single, internally consistent way. This is the
+#'   standard Bayesian-MI combiner; see Zhou & Reiter (2010, The American
+#'   Statistician 64:159-163) and Gelman et al. (2013, Bayesian Data Analysis,
+#'   3rd ed., Ch. 18). It differs from Rubin's rules, which operate on scalar
+#'   estimates and variances and are the standard combiner when per-imputation
+#'   analyses produce frequentist point estimates rather than full posterior
+#'   draws.
+#'
+#'   \strong{Assumptions you should check.} Validity of the stacked posterior
+#'   rests on two conditions that `pool_posteriors()` does not verify:
+#'   \enumerate{
+#'     \item Each per-imputation MCMC chain has converged to and adequately
+#'       mixed within its own conditional posterior. If individual MCMCglmm
+#'       runs have not converged, the pooled draws inherit that bias. Run
+#'       standard MCMCglmm diagnostics (trace plots, effective sample size,
+#'       Geweke) on a handful of the per-imputation fits in
+#'       `bace_final_object$all_models` before trusting pooled summaries.
+#'     \item The chained-equations loop has reached its own stationary
+#'       distribution over imputed values — i.e. the sequence of imputed
+#'       datasets is no longer drifting. Use `assess_convergence()` on the
+#'       initial `bace_imp()` output for this.
+#'   }
+#'
+#'   \strong{Class and methods.} Pooled models inherit both
+#'   "bace_pooled_MCMCglmm" and "MCMCglmm" classes, so all standard MCMCglmm
+#'   methods (`summary`, `plot`, posterior extraction) continue to work on the
+#'   concatenated chain.
+#' @references
+#'   Zhou, X. and Reiter, J.P. (2010) A note on Bayesian inference after
+#'   multiple imputation. \emph{The American Statistician} 64(2):159-163.
+#'
+#'   Gelman, A., Carlin, J.B., Stern, H.S., Dunson, D.B., Vehtari, A. and
+#'   Rubin, D.B. (2013) \emph{Bayesian Data Analysis}, 3rd edition, Chapter 18.
+#'   Chapman & Hall/CRC.
 #' @importFrom coda as.mcmc
 #' @examples \dontrun{
 #' # After running bace_final_imp
 #' final <- bace_final_imp(bace_obj, ...)
-#' 
-#' # Pool all samples (may create large objects)
+#'
+#' # Stack all draws from every imputation (may create large objects)
 #' pooled <- pool_posteriors(final)
-#' 
-#' # Pool with sampling to reduce memory usage
+#'
+#' # Stack with per-imputation subsampling to reduce memory footprint
 #' pooled <- pool_posteriors(final, sample_size = 1000)
-#' 
-#' # Extract pooled model for specific variable - works like MCMCglmm!
+#'
+#' # Extract the pooled model for a specific variable — standard MCMCglmm
+#' # methods operate on the concatenated chain.
 #' pooled_y <- pooled$models$y
-#' summary(pooled_y)  # Standard MCMCglmm summary
-#' print(pooled_y)    # Standard MCMCglmm print
-#' plot(pooled_y)     # Standard MCMCglmm plots
+#' summary(pooled_y)
+#' plot(pooled_y)
+#'
+#' # Before trusting pooled summaries, sanity-check a few of the
+#' # per-imputation fits for MCMC convergence:
+#' plot(final$all_models[[1]]$y)
+#' coda::effectiveSize(final$all_models[[1]]$y$Sol)
 #' }
 #' @export
 pool_posteriors <- function(bace_final_object, variable = NULL, sample_size = NULL) {
@@ -181,9 +233,16 @@ pool_posteriors <- function(bace_final_object, variable = NULL, sample_size = NU
     })
     mean_dic <- mean(dics, na.rm = TRUE)
     
-    # Convert pooled matrices to mcmc objects (required by MCMCglmm methods)
-    # Set MCMC parameters: start, end, thin
-    # Since we're pooling, we treat the concatenated samples as a single chain
+    # Convert pooled matrices to mcmc objects (required by MCMCglmm methods).
+    # Note: the concatenated samples are NOT a single MCMC chain in the
+    # stationarity sense -- they are Monte Carlo draws from the marginal
+    # posterior p(theta | Y_obs) obtained by stacking draws from each
+    # conditional posterior p(theta | Y_obs, Y_mis^(m)). Wrapping them in an
+    # mcmc object is purely so that downstream MCMCglmm methods (summary,
+    # plot, HPDinterval, etc.) accept the result; per-chain convergence
+    # diagnostics (Geweke, autocorrelation) applied to the stacked object
+    # are not meaningful and should be run on the per-imputation chains in
+    # bace_final_object$all_models instead.
     pooled_sol <- coda::as.mcmc(pooled_sol)
     pooled_vcv <- coda::as.mcmc(pooled_vcv)
     
@@ -255,11 +314,14 @@ pool_posteriors <- function(bace_final_object, variable = NULL, sample_size = NU
 #' @export
 print.bace_pooled <- function(x, ...) {
   cat("\n=== BACE Pooled Posterior Results ===\n\n")
-  cat("Number of imputations pooled:", x$n_imputations, "\n")
+  cat("Number of imputations stacked:", x$n_imputations, "\n")
   cat("Number of variables:", length(x$models), "\n")
   cat("Variables:", paste(x$variables, collapse = ", "), "\n\n")
-  
-  cat("Each pooled model is an MCMCglmm object accounting for imputation uncertainty.\n")
+
+  cat("Each pooled model is an MCMCglmm-compatible object whose draws\n")
+  cat("approximate the marginal posterior integrating over the\n")
+  cat("imputation distribution (stacked per-imputation chains; see\n")
+  cat("?pool_posteriors for details and references).\n\n")
   cat("Use standard MCMCglmm methods:\n")
   cat("  - summary(object$models$variable_name)\n")
   cat("  - print(object$models$variable_name)\n")
@@ -297,21 +359,23 @@ print.bace_pooled <- function(x, ...) {
 print.bace_pooled_MCMCglmm <- function(x, ...) {
   # Add header indicating this is a pooled model
   if (!is.null(x$BACE_pooling)) {
-    cat("\n+--------------------------------------------------------------+\n")
-    cat("|  BACE Pooled MCMCglmm Model (Imputation Uncertainty Included) |\n")
-    cat("+--------------------------------------------------------------+\n\n")
-    cat("Pooled from", x$BACE_pooling$n_imputations, "imputations\n")
-    cat("Total posterior samples:", x$BACE_pooling$total_samples, "\n")
+    cat("\n+----------------------------------------------------------------+\n")
+    cat("|  BACE Pooled MCMCglmm (stacked per-imputation posterior draws)  |\n")
+    cat("+----------------------------------------------------------------+\n\n")
+    cat("Stacked from", x$BACE_pooling$n_imputations, "imputations\n")
+    cat("Total posterior draws:", x$BACE_pooling$total_samples, "\n")
     if (x$BACE_pooling$sampled) {
-      cat("  (=", x$BACE_pooling$n_samples_per_imputation, "sampled per imputation x", 
+      cat("  (=", x$BACE_pooling$n_samples_per_imputation, "sampled per imputation x",
           x$BACE_pooling$n_imputations, "imputations)\n")
       cat("  Original samples per imputation:", x$BACE_pooling$original_samples_per_imputation, "\n")
     } else {
-      cat("  (=", x$BACE_pooling$n_samples_per_imputation, "samples/imputation x", 
+      cat("  (=", x$BACE_pooling$n_samples_per_imputation, "samples/imputation x",
           x$BACE_pooling$n_imputations, "imputations)\n")
     }
-    cat("\nNote: Posterior distribution accounts for both estimation and imputation uncertainty.\n")
-    cat("--------------------------------------------------------------\n\n")
+    cat("\nDraws approximate p(theta | Y_obs) by Monte Carlo integration over\n")
+    cat("the imputation distribution. This is NOT Rubin's rules -- see\n")
+    cat("?pool_posteriors for the assumptions this combiner relies on.\n")
+    cat("----------------------------------------------------------------\n\n")
   }
   
   # Call the MCMCglmm print method
@@ -330,21 +394,25 @@ print.bace_pooled_MCMCglmm <- function(x, ...) {
 summary.bace_pooled_MCMCglmm <- function(object, ...) {
   # Add header indicating this is a pooled model
   if (!is.null(object$BACE_pooling)) {
-    cat("\n+--------------------------------------------------------------+\n")
-    cat("|  BACE Pooled MCMCglmm Summary (Imputation Uncertainty Included)|\n")
-    cat("+--------------------------------------------------------------+\n\n")
-    cat("Pooled from", object$BACE_pooling$n_imputations, "imputations\n")
-    cat("Total posterior samples:", object$BACE_pooling$total_samples, "\n")
+    cat("\n+----------------------------------------------------------------+\n")
+    cat("|  BACE Pooled MCMCglmm summary (stacked per-imputation draws)    |\n")
+    cat("+----------------------------------------------------------------+\n\n")
+    cat("Stacked from", object$BACE_pooling$n_imputations, "imputations\n")
+    cat("Total posterior draws:", object$BACE_pooling$total_samples, "\n")
     if (object$BACE_pooling$sampled) {
-      cat("  (=", object$BACE_pooling$n_samples_per_imputation, "sampled per imputation x", 
+      cat("  (=", object$BACE_pooling$n_samples_per_imputation, "sampled per imputation x",
           object$BACE_pooling$n_imputations, "imputations)\n")
       cat("  Original samples per imputation:", object$BACE_pooling$original_samples_per_imputation, "\n")
     } else {
-      cat("  (=", object$BACE_pooling$n_samples_per_imputation, "samples/imputation x", 
+      cat("  (=", object$BACE_pooling$n_samples_per_imputation, "samples/imputation x",
           object$BACE_pooling$n_imputations, "imputations)\n")
     }
-    cat("\nNote: Posterior summaries account for both estimation and imputation uncertainty.\n")
-    cat("--------------------------------------------------------------\n\n")
+    cat("\nPosterior summaries below are computed from stacked draws that\n")
+    cat("approximate p(theta | Y_obs) (Monte Carlo integration over imputed\n")
+    cat("values). Validity requires each per-imputation chain to have\n")
+    cat("converged on its own; check a subset via\n")
+    cat("plot(final$all_models[[1]]$<var>) and coda::effectiveSize().\n")
+    cat("----------------------------------------------------------------\n\n")
   }
   
   # Call the MCMCglmm summary method

@@ -523,6 +523,7 @@ test_that("print.bace_pooled works correctly", {
   
   # Test that print doesn't error
   expect_output(print(pooled), "BACE Pooled Posterior Results")
+  expect_output(print(pooled), "imputations stacked")
 })
 
 
@@ -563,7 +564,10 @@ test_that("print.bace_pooled_MCMCglmm works correctly", {
   
   pooled <- pool_posteriors(final)
   
-  # Print should call MCMCglmm print method
-  expect_output(print(pooled$models$y), "BACE Pooled MCMCglmm Model")
+  # Print should include the BACE pooled banner and call the MCMCglmm
+  # print method. Use fixed = TRUE so pipe characters in the banner are
+  # matched literally.
+  expect_output(print(pooled$models$y), "BACE Pooled MCMCglmm", fixed = TRUE)
+  expect_output(print(pooled$models$y), "Stacked from", fixed = TRUE)
 })
 

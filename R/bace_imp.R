@@ -223,53 +223,46 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 	
 	# Now, we can loop through the number of runs specified by the user
 		for(r in 2:(runs+1)){
+
+			# Build the raw-scale working dataset for this iteration. The key
+			# invariant is that everything handed to .data_prep() lives on the
+			# raw scale, so z-transforms computed inside .data_prep() are
+			# self-consistent (mean/sd derived from the same values that end up
+			# in the scaled design matrix).
+			#
+			# - r == 2 (first imputation pass): use the original data, which
+			#   still holds NAs in both responses and predictors. .data_prep()
+			#   warm-starts predictor NAs with marginal means / empirical draws.
+			#
+			# - r >= 3: start from the previous iteration's *fully imputed*
+			#   dataset so predictor cells reflect the latest chained draws on
+			#   the raw scale. Response NAs are reinstated per-formula below,
+			#   so MCMCglmm still performs data augmentation on missing
+			#   response cells rather than conditioning on a prior point draw.
+			iter_data_raw <- if (r == 2) pred_missing_run[[1]] else pred_missing_run[[r - 1]]
+
 			for(i in 1:length(formulas)){
 
-			# Identify the response variable for the current formula			
+			# Identify the response variable for the current formula
 			response_var <- all.vars(formulas[[i]][[2]])
-			
-			# Prepare the data 
-			    dat_prep <- .data_prep(data = pred_missing_run[[1]], formula = formulas[[i]], types = types, ran_cluster = phylo_ran[["cluster"]])
-			
-			 if(r == 2){
-				# For iteration 1 we want to impute missing data as a rough approximation z-transform for continuous data, and random sampling from the empirical distribution for categorical data.
-				data_i <- dat_prep[[1]]
 
-			 } else {
-				data_i <- dat_prep[[1]]
+			# Per-formula raw-scale copy. Reinstate NAs on the current
+			# response so that MCMCglmm sees missing cells (data augmentation
+			# on the response) while predictors keep their most recent
+			# imputed values from iter_data_raw.
+			data_for_model <- iter_data_raw
+			resp_na_rows <- missing_matrix[missing_matrix$colname == response_var, "row"]
+			if (length(resp_na_rows) > 0) {
+				data_for_model[resp_na_rows, response_var] <- NA
+			}
 
-					# predictors in *this* subset
-					predictor_vars <- setdiff(names(data_i), response_var)
-
-					# missing entries that correspond to predictors present in this subset
-					mm <- missing_matrix[missing_matrix$colname %in% predictor_vars, , drop = FALSE]
-
-					# predictions from previous run
-					pred_full <- pred_missing_run[[r - 1]]
-
-					# --- Safety checks ---
-					stopifnot(is.data.frame(mm))
-					stopifnot(all(c("row", "colname") %in% names(mm)))
-
-					# Ensure rows are valid for data_i
-					mm <- mm[mm$row >= 1 & mm$row <= nrow(data_i), , drop = FALSE]
-
-					# Ensure predicted object has the needed columns (by name)
-					if (!all(mm$colname %in% colnames(pred_full))) {
-					missing_cols <- setdiff(unique(mm$colname), colnames(pred_full))
-					stop("pred_full is missing columns: ", paste(missing_cols, collapse = ", "))
-					}
-
-					# Split rows by column name, then fill
-					rows_by_col <- split(mm$row, mm$colname)
-
-					for (cn in names(rows_by_col)) {
-					rows <- rows_by_col[[cn]]
-
-					# Use [[ ]] to avoid data.frame coercion issues
-					data_i[[cn]][rows] <- pred_full[[cn]][rows]
-					}
-			 }
+			# Prepare the data: marginal-mean warm-starts for any remaining
+			# predictor NAs (only relevant at r == 2) and z-score gaussian
+			# variables. Because data_for_model is entirely on the raw scale,
+			# the resulting data_i is internally consistent — no post-hoc
+			# patching of predictor cells is needed.
+			    dat_prep <- .data_prep(data = data_for_model, formula = formulas[[i]], types = types, ran_cluster = phylo_ran[["cluster"]])
+			    data_i <- dat_prep[[1]]
 
 			# Set up prior for the specific variable type
 			   levels_cat <- data_summary$n_levels[which(data_summary$variable == response_var)]
