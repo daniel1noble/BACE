@@ -30,6 +30,28 @@ editor_options:
 # Introduction
 We provide a brief introduction to the *BACE* package for Bayesian phylogenetic and correlated trait imputation. The *BACE* package allows users to impute missing data in comparative datasets using Bayesian methods that account for phylogenetic relationships among species.
 
+# When to use Phylo-BACE
+
+General-purpose multiple-imputation tools such as **mice**, **Amelia** and **missForest** assume that rows are exchangeable: the missing value for row *i* is imputed using the marginal distribution of the column and the observed covariates of row *i*, with no structural relationship between rows. For comparative biology datasets this assumption is wrong. Closely related species tend to share trait values because they share evolutionary history, and throwing that information away means we impute a missing mouse trait as though the nearest source of information were the grand mean across 500 mammals rather than the handful of other mouse-like rodents in the tree.
+
+**Phylo-BACE** keeps that information by fitting every per-variable imputation model as a Bayesian phylogenetic mixed model via `MCMCglmm`, with a phylogenetic random effect that borrows information between related taxa. Imputation is done via chained equations — one conditional model per variable with missing data — and final inference uses multiple independent imputations whose posterior draws are combined (see *Interpreting the pooled output* below).
+
+Phylo-BACE is the right tool when:
+
+- Your rows are species (or populations nested within species) and you have a phylogenetic tree that covers them.
+- Your traits are likely to show **phylogenetic signal** — i.e. closely related species have correlated values. If you are unsure, fit a single-variable phylogenetic model to a complete trait first (e.g. `phytools::phylosig()` or an `MCMCglmm` fit with a `phylo` random effect) and check whether the phylogenetic variance component is non-trivial.
+- You want **posterior inference** on downstream models rather than point imputations followed by ad-hoc variance adjustments.
+- Your missing-data pattern spans **mixed variable types** (continuous, binary, categorical, ordinal, count).
+
+Phylo-BACE is probably the wrong tool when:
+
+- Rows are independent observational units with no phylogenetic structure — generic MI tools are faster and simpler.
+- The trait of interest has no detectable phylogenetic signal. The phylogenetic random effect is then noise that slows down MCMC without helping.
+- Missingness is rare and plausibly MCAR — a complete-case analysis may be defensible and much cheaper.
+- You need sub-second imputations in a production pipeline. Each chained-equations iteration runs an MCMC fit, so runtimes are measured in minutes, not milliseconds.
+
+For a broader discussion of the data-gap problem and imputation in comparative biology we recommend @daliaa.conde2019 and @pottier2024; for Rubin's-rules-based approaches to related problems see @nakagawa2018.
+
 # Installation
 You can install the *BACE* package from GitHub using the following command:
 
@@ -61,6 +83,17 @@ The main functions in the *BACE* package are `bace()` and `bace_imp()`, which pe
 As you will see, the function allows you to specify fixed effects, random effects, phylogenetic tree, and other parameters for the imputation process. At the bare minimum, you need to provide a formula for the fixed effects, a formula for the random effects (including phylogeny), a phylogenetic tree, and the dataset with missing values. 
 
 At present, *BACE* only works with intercept-only phylogenetic and species-level random effects, but we are working on adding support for other types of random effects in the future. For most comparative datasets, this will be sufficient for modeling the phylogenetic and species-level variation in the data, but not always.
+
+# The BACE workflow at a glance
+
+`bace()` is the top-level wrapper. Internally it glues together four steps that you can also run individually when you need finer control:
+
+1. **Initial chained imputation** — `bace_imp()`. For each variable with missing data, fit a `MCMCglmm` phylogenetic mixed model, impute the missing cells, move on to the next variable, and repeat for `runs` iterations. At each iteration the working dataset is updated on the raw scale so that later draws condition on the most recent imputations for every other variable. The first iteration warm-starts predictor NAs with marginal means (for continuous variables) or empirical draws (for categorical variables); subsequent iterations use the chained draws.
+2. **Convergence assessment of the chained loop** — `assess_convergence()`. Check whether the *sequence of imputed datasets* has stabilised. This is not within-chain MCMC convergence — see *Two kinds of convergence* below.
+3. **Final imputation runs** — `bace_final_imp()`. Starting from the converged dataset, launch `n_final` *independent* MCMCglmm fits per variable. Each run produces one complete imputed dataset and one per-variable posterior. Predictions are drawn from the posterior predictive distribution (not a point estimate), so the returned imputed datasets differ from run to run.
+4. **Posterior pooling** — `pool_posteriors()`. Concatenate the per-imputation MCMC chains into a single set of posterior draws per parameter. These stacked draws approximate the marginal posterior of the analysis model integrating over the imputation distribution.
+
+`bace()` runs all four steps and additionally retries step 1 with more chained iterations if step 2 fails (up to `max_attempts` times). The rest of this vignette walks through the workflow first with `bace()` and then shows how to run each step individually.
 
 # Example Usage
 
@@ -106,14 +139,15 @@ Now that we have the data and the phylogenetic tree we can do the imputation is 
 :::::: {.callout-caution}
 It's very important to ensure that all variables are correctly classified in the dataset (e.g., factors for categorical variables, numeric for continuous variables, etc.) before running the imputation. *BACE* will fit different models for different variable types, and so, if they have not been correctly classified you will be modeling the variable incorrectly. 
 
-If you want to see what *BACE* has classified each variable as, you can use the extract the types using the following command:
+If you want to see what *BACE* has classified each variable as, you can inspect the `types` element of any fitted `bace_imp()` or `bace()` object. For example, after running the simple workflow below you can do:
 
 ```{r}
 #| label: check_variable_types
-#| echo: true 
+#| echo: true
 #| eval: false
 
-bace_types <- bace_impute$types
+# After running bace() (see next section), inspect the inferred variable types
+bace_final1$initial_results$types
 ```
 
 Importantly, users also need to think carefully about the distributions of the variables themselves and transform them if necessary prior to running `bace_imp` (e.g., log-transforming skewed continuous variables).
@@ -196,11 +230,44 @@ table(imputed_df$.imputation)
 
 ```
 
+## Interpreting the pooled output
 
+It is worth being precise about what the pooled posterior returned by `bace()` actually is, because the terminology in the multiple-imputation literature can trip people up.
 
-------
+`pool_posteriors()` **concatenates** the MCMC draws from the `n_final` per-imputation fits into a single set of draws per parameter. Each per-imputation chain targets the *conditional* posterior $p(\theta \mid Y_{\text{obs}}, Y_{\text{mis}}^{(m)})$, where $Y_{\text{mis}}^{(m)}$ is the m-th complete imputed dataset. Stacking these chains is a Monte Carlo approximation to the *marginal* posterior
+$$
+p(\theta \mid Y_{\text{obs}}) = \int p(\theta \mid Y_{\text{obs}}, Y_{\text{mis}})\, p(Y_{\text{mis}} \mid Y_{\text{obs}})\, dY_{\text{mis}},
+$$
+which integrates over uncertainty in the imputed values as well as over parameter uncertainty. Posterior summaries — means, quantiles, HPD intervals — computed from the stacked draws therefore reflect both sources of uncertainty simultaneously. This is the standard Bayesian-MI combiner; see @zhou2010 and Chapter 18 of @gelman2013.
 
-For example, we can run *BACE* as follows. Note that we specify a formula for each variable in the dataset that has missing data.
+Two practical notes follow from this:
+
+1. **This is not Rubin's rules.** Rubin's rules combine *scalar* point estimates and variances from each imputation using a specific within/between-imputation variance decomposition, and are the right tool when the per-imputation analysis produces frequentist estimates rather than full posterior draws. When you have posterior draws, stacking is both simpler and more faithful. You do not need, and should not apply, Rubin's formulas on top of the `bace()` output.
+2. **Validity depends on per-imputation MCMC convergence.** Because each per-imputation chain is supposed to target its own conditional posterior, the stacked draws inherit any bias from chains that have not converged. Before trusting pooled summaries, spot-check a handful of the per-imputation fits with standard diagnostics. For example:
+
+```{r}
+#| label: check_per_imputation_mcmc
+#| echo: true
+#| eval: false
+
+# Inspect MCMC diagnostics on the first per-imputation fit for 'y'
+first_fit <- bace_final1$final_results$all_models[[1]]$y
+plot(first_fit)
+coda::effectiveSize(first_fit$Sol)
+coda::autocorr.diag(first_fit$Sol)
+```
+
+If these look poor, increase `nitt` and/or `burnin` and re-run `bace()` rather than simply trusting the pooled banner.
+
+# Advanced: running the workflow step by step
+
+For most users `bace()` is the right entry point — it runs the four-step workflow end-to-end and retries if the chained loop has not converged. But there are cases where you want finer control: you may want to skip convergence assessment, inspect intermediate objects, run more or fewer final imputations than the default, or substitute your own pooling step. Here we show how to call `bace_imp()`, `bace_final_imp()` and `pool_posteriors()` directly.
+
+## Controlling the imputation models with a list of formulas
+
+The first thing you might want to control is which model is fit for each variable with missing data. `bace()` and `bace_imp()` both accept a *list* of formulas, one per variable with missing data. This is useful when you want different predictors for different variables (for example, when a variable should only be imputed from a subset of the others, or when you want to include an interaction in one model but not another).
+
+Note that if you pass a list, every variable with missing data must appear as a response somewhere in the list — *BACE* will not auto-generate models for variables you have left out.
 
 ```{r}
 #| label: bace_imputation
@@ -252,8 +319,10 @@ As you can see from the printout above, *BACE* provides a summary of the imputat
 #| label: evaluate_models
 #| echo: true
 
-# Access the model for the response variable 'y'
-model_y <- bace_impute2$models[["y"]] 
+# Access the model for the response variable 'y' fit on the LAST chained
+# iteration. bace_imp() stores these as $models_last_run (one MCMCglmm
+# object per response variable with a formula).
+model_y <- bace_impute2$models_last_run[["y"]]
 
 # View summary of the model
 summary(model_y)
@@ -314,8 +383,8 @@ bace_impute3 <- bace_imp(fixformula = "y ~ x1 + x2",
 
 
 # We can view the final model for y to check that both random effects are included
-model_y2 <- bace_impute3$models[["y"]]
-summary(model_y2)                                
+model_y2 <- bace_impute3$models_last_run[["y"]]
+summary(model_y2)
 ```
 
 Note that in this case we get a message indicating that both phylogenetic and non-phylogenetic random effects are being included in the models because we probably can decompose the variances. If you try and fit a dataset without multiple replicates per species while setting `species = TRUE` you will get an error because the model cannot be fit given the two parameters are not estimable.
@@ -342,11 +411,11 @@ As we can see from the model summary above, some parameters may have low effecti
 #| echo: true
 #| eval: true
 
-model_x1 <- bace_impute3$models[["x1"]]
-summary(model_x1)  
+model_x1 <- bace_impute3$models_last_run[["x1"]]
+summary(model_x1)
 
-model_x2 <- bace_impute3$models[["x2"]]
-summary(model_x2)  
+model_x2 <- bace_impute3$models_last_run[["x2"]]
+summary(model_x2)
 ```
 
 As we can see x1 and x2 models have poor mixing and low ESS for some parameters. Obviously, depending on the model complexity and data size etc, some models will need longer runtimes. This is likely because the imputation process has not yet converged. To address this, we can increase the number of iterations (i.e., `nitt`), increase the burn-in period (i.e., `burnin`), and/or adjust the thinning interval (i.e., `thin`) to improve mixing and convergence of the MCMC chains.  
@@ -374,7 +443,17 @@ bace_impute5 <- bace_imp(fixformula = "y ~ x1 + x2",
 
 As you can imagine, longer runtimes will mean that `bace_imp` will need to take longer. The diagnostics still suggest possible issues with mixing for some parameters, so we may need to further increase the number of iterations or adjust the priors to improve mixing, however, it's still good to look at the final models to check the model visually.
 
-## Assessing Model Convergence
+## Two kinds of convergence
+
+When working with *BACE* it is important to keep two distinct convergence questions separate, because they are checked in different ways and the tools that flag problems in one are silent on the other.
+
+1. **Within-chain MCMC convergence** of each per-variable `MCMCglmm` fit. This is the classical question: has the MCMC sampler explored its target posterior and mixed well? The right tools are the ones you already know — trace plots, effective sample size, autocorrelation, Geweke — applied to an *individual* `MCMCglmm` object. `bace_imp()` prints a short summary of effective sample sizes and autocorrelation for the last-iteration models when `verbose = TRUE`, and you can always call `plot()` or `coda::effectiveSize()` on `bace_impute$models_last_run[["y"]]` or on any of the per-imputation fits stored in `bace_final1$final_results$all_models[[m]][["y"]]`. Failures here are fixed by increasing `nitt`, `burnin`, or `thin`, tightening priors, or (less often) simplifying the model.
+
+2. **Convergence of the chained-equations loop.** This is the multiple-imputation question: has the *sequence of imputed datasets* stabilised across chained iterations, or is it still drifting? This is not about MCMC mixing within a single fit — it is about whether the outer loop over variables has reached a stationary distribution over imputed values. The right tool for this question is `assess_convergence()`, which tracks summary statistics of the imputed cells across the `runs` chained iterations. Failures here are fixed by increasing `runs` or, occasionally, by revisiting the specification of the imputation models.
+
+`bace()` assesses only the second kind of convergence automatically (and retries with more `runs` if it fails). The first kind is your responsibility to check before trusting pooled inference — see *Interpreting the pooled output* above.
+
+## Assessing chained-equations convergence
 
 We need to check whether the numbers of runs we've done has lead to convergence of the imputation process. We can do this by looking at the trace and density plots for the parameters in the models. For example, we can check the model for `y` as follows:
 
@@ -406,8 +485,9 @@ plot(converge)
 ```
 
 
-## Simple BACE Workflow
-Now that you are aware of the different components of the *BACE* workflow, you can put it all together in a simple workflow. This will involve simulating data, running the imputation, checking model fit and convergence, and then rerunning the model say, 10 times, and simply pooling the results to account for imputation uncertainty.
+## Worked example: bace() with species random effects
+
+Now that you are aware of the different components of the *BACE* workflow, it is useful to see them all combined in a second worked example — this time using the replicated-species dataset from the previous section so that both phylogenetic and non-phylogenetic species effects are estimated, and letting `bace()` handle the orchestration end-to-end.
 
 ```{r}
 #| label: simple_bace_workflow
@@ -429,9 +509,22 @@ y_model <- get_pooled_model(bace_final, variable = "y")
 summary(y_model)
 plot(y_model)  
 
-# We can now extract posteriors in the same way we would use a normal MCMCglmm model, but now we have the pooled results that account for imputation uncertainty. For example, we can extract the posterior samples for the fixed effects as follows:
+# We can now extract posteriors in the same way we would use a normal MCMCglmm model,
+# but now we have draws that integrate over the imputation distribution. For example,
+# we can look at the marginal posterior of the x1 coefficient:
 
 hist(y_model$Sol[, "x1"], main = "Posterior distribution for x1", xlab = "x1 coefficient")
-
 ```
 
+# Citation and further reading
+
+If you use *BACE* in a publication, please cite both the package (see `citation("BACE")`) and the underlying `MCMCglmm` engine [@hadfield2010]. Phylogenetic comparative methods and phylogenetic mixed models are reviewed in @cornwell2017, @devillemereuil2014a and @halliwell2025. The broader motivation for imputation in comparative biology — data gaps, trait databases, and the cost of complete-case analysis — is discussed in @daliaa.conde2019 and @pottier2024. For a related Rubin's-rules-based approach that handles *phylogenetic* uncertainty (rather than missing trait data), see @nakagawa2018.
+
+The Bayesian combiner used by `pool_posteriors()` — concatenating the per-imputation chains to approximate the marginal posterior — is discussed in @zhou2010 and in Chapter 18 of @gelman2013.
+
+Bug reports, feature requests and worked examples are very welcome at the [BACE issue tracker](https://github.com/daniel1noble/BACE/issues).
+
+# References
+
+::: {#refs}
+:::
