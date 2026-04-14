@@ -317,7 +317,9 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 				}
 
 			# Predict missing data and store in list to keep track across runs, if the variable was z-transformed then transform back using the attributes from data_i preparation which is done automatically for gaussian variables
+			# Sample for categorical/threshold to avoid propagating modal-class bias through the chain
 				predictions <- .predict_bace(model, dat_prep, response_var = response_var, type = types[[response_var]],
+				                             sample = types[[response_var]] %in% c("categorical", "threshold"),
 				                             formula = formulas[[i]], data_full = data_i,
 				                             cluster_col = phylo_ran[["cluster"]])
 

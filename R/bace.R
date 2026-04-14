@@ -247,7 +247,8 @@ if (converged) {
 out <- list(
   pooled_models = pooled,
   final_results = final_results,
-  imputed_datasets = final_results$all_datasets,  # For convenient access
+  imputed_datasets = final_results$all_datasets,   # For convenient access
+  prob_preds       = final_results$all_prob_preds, # Pooled probability matrices (cat/threshold)
   initial_results = start,
   convergence = converge,
   converged = converged,

@@ -117,6 +117,9 @@
 	}
 	
 	# Fit the model using MCMCglmm
+  # slice = TRUE improves MCMC mixing for threshold/ordinal/categorical types
+  use_slice <- type %in% c("threshold", "ordinal", "categorical")
+
   if(type != "categorical"){
   	model <- MCMCglmm::MCMCglmm(fixed = fixformula,
                                random = combined_formula,
@@ -127,8 +130,9 @@
                                 saveX = TRUE, saveZ = TRUE,
                                  nitt = nitt,
                                  thin = thin,
-                               burnin = burnin, 
-							    prior = prior, singular.ok=TRUE)	
+                               burnin = burnin,
+							    prior = prior, singular.ok=TRUE,
+							    slice = use_slice)
         } else {
 
       # Categorical model needs special treatment. Append -1 to the right side of ~ formula to remove intercept
@@ -201,8 +205,9 @@
                                 saveX = TRUE, saveZ = TRUE,
                                  nitt = nitt,
                                  thin = thin,
-                               burnin = burnin, 
-							    prior = prior, singular.ok=TRUE)	     
+                               burnin = burnin,
+							    prior = prior, singular.ok=TRUE,
+							    slice = use_slice)
                   }								
   	return(model)
 }

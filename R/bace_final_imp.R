@@ -80,6 +80,7 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
   .one_final_run <- function(run, data_start, worker_verbose) {
     data_current <- data_start
     models_this_run <- list()
+    prob_preds_this_run <- list()   # probability matrices for cat/threshold vars
 
     for (i in seq_along(formulas)) {
 
@@ -146,9 +147,15 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
           cluster_col  = phylo_ran[["cluster"]]
         )
 
-        id     <- miss_dat[miss_dat$colname == response_var, "row"]
+        id      <- miss_dat[miss_dat$colname == response_var, "row"]
         data_id <- which(colnames(data_current) == response_var)
         data_current[id, data_id] <- predictions[["pred_values"]][id]
+
+        # Store probability matrix for categorical/threshold (used for pooled prediction)
+        if (types[[response_var]] %in% c("categorical", "threshold") &&
+            !is.null(predictions[["full_prediction"]])) {
+          prob_preds_this_run[[response_var]] <- predictions[["full_prediction"]][id, , drop = FALSE]
+        }
 
         if (worker_verbose) {
           cat(paste0("Run ", run, "/", n_final,
@@ -163,7 +170,7 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
       }
     }
 
-    list(models = models_this_run, dataset = data_current)
+    list(models = models_this_run, dataset = data_current, prob_preds = prob_preds_this_run)
   }
 
   # Run serially or in parallel
@@ -199,13 +206,15 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
     )
   }
 
-  all_models   <- lapply(results_list, `[[`, "models")
-  all_datasets <- lapply(results_list, `[[`, "dataset")
-  
+  all_models     <- lapply(results_list, `[[`, "models")
+  all_datasets   <- lapply(results_list, `[[`, "dataset")
+  all_prob_preds <- lapply(results_list, `[[`, "prob_preds")
+
   # Prepare output
   out <- list(
-    all_models = all_models,
-    all_datasets = all_datasets,
+    all_models     = all_models,
+    all_datasets   = all_datasets,
+    all_prob_preds = all_prob_preds,   # prob matrices per run, for pooled prediction
     formulas = formulas,
     types = types,
     phylo_ran = phylo_ran,
