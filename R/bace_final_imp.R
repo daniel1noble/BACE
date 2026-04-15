@@ -16,8 +16,8 @@
 #'   categorical models proportionally longer chains.
 #' @param ovr_categorical Logical. If TRUE, categorical variables are modelled using
 #'   one-vs-rest binary threshold MCMCglmm models (J models per variable, one per level)
-#'   instead of a single multinomial probit. Binary threshold models mix more reliably.
-#'   Default is FALSE.
+#'   instead of a single multinomial probit. Binary threshold models mix more reliably
+#'   and are the recommended default. Default is TRUE.
 #'   (serial). Values > 1 use \code{parallel::mclapply}. The function falls back to serial
 #'   automatically if any parallel worker returns an error.
 #' @param ... Additional arguments passed to modeling functions
@@ -37,7 +37,7 @@
 bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
                            nitt = 6000, thin = 5, burnin = 1000,
                            n_final = 10, species = FALSE, verbose = TRUE,
-                           n_cores = 1, nitt_cat_mult = 1L, ovr_categorical = FALSE, ...) {
+                           n_cores = 1, nitt_cat_mult = 1L, ovr_categorical = TRUE, ...) {
 
   # Check inputs
   if (!inherits(bace_object, "bace")) {

@@ -519,14 +519,19 @@
 					sd_val   <- dat_prep[[2]][[response_var]]$sd
 
 					if (sample) {
-					  # Draw one random MCMC iteration from the posterior
+					  # Draw from the posterior predictive: sample K rows and take the
+					  # element-wise median.  A single draw risks hitting rare chain
+					  # excursions (extreme coefficient values) that produce physically
+					  # impossible predictions.  The median of K=3 draws is robust to
+					  # such excursions while preserving genuine between-run variability.
 					  X   <- as.matrix(model$X)
 					  Sol <- as.matrix(model$Sol)
 					  W   <- if (!is.null(model$Z)) cbind(X, as.matrix(model$Z)) else X
-					  common <- intersect(colnames(W), colnames(Sol))
-					  eta <- Sol[, common, drop = FALSE] %*% t(W[, common, drop = FALSE])
-					  i_samp <- sample.int(nrow(eta), 1L)
-					  pred_values <- as.numeric(eta[i_samp, ]) * sd_val + mean_val
+					  common  <- intersect(colnames(W), colnames(Sol))
+					  eta     <- Sol[, common, drop = FALSE] %*% t(W[, common, drop = FALSE])
+					  K       <- min(3L, nrow(eta))
+					  i_samps <- sample.int(nrow(eta), K)
+					  pred_values <- apply(eta[i_samps, , drop = FALSE], 2L, stats::median) * sd_val + mean_val
 					} else {
 					  # Predict from model and back-transform
 					  pred_prob   <- .pred_cont(model) * sd_val + mean_val # Full prediction

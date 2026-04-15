@@ -45,8 +45,8 @@
 #'   categorical models proportionally longer chains.
 #' @param ovr_categorical Logical. If TRUE, categorical variables are modelled using
 #'   one-vs-rest binary threshold MCMCglmm models (J models per variable, one per level)
-#'   instead of a single multinomial probit. Binary threshold models mix more reliably.
-#'   Default is FALSE.
+#'   instead of a single multinomial probit. Binary threshold models mix more reliably
+#'   and are the recommended default. Default is TRUE.
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
 #' @return A list containing imputed datasets and model summaries.
 #' @examples \dontrun{
@@ -110,7 +110,7 @@
 #' )
 #' }
 #' @export
-bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, species = FALSE, verbose = TRUE, nitt_cat_mult = 1L, ovr_categorical = FALSE, ...){
+bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, species = FALSE, verbose = TRUE, nitt_cat_mult = 1L, ovr_categorical = TRUE, ...){
 	#---------------------------------------------#
 	# Preparation steps & Checks
 	#---------------------------------------------#

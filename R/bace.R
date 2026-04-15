@@ -43,8 +43,8 @@
 #'   categorical models proportionally longer chains.
 #' @param ovr_categorical Logical. If TRUE, categorical variables are modelled using
 #'   one-vs-rest binary threshold MCMCglmm models (J models per variable, one per level)
-#'   instead of a single multinomial probit. Binary threshold models mix more reliably.
-#'   Default is FALSE.
+#'   instead of a single multinomial probit. Binary threshold models mix more reliably
+#'   and are the recommended default. Default is TRUE.
 #' @param n_cores Integer specifying the number of parallel cores to use for the final
 #'   imputation runs. Default is 1 (serial). Values > 1 use \code{parallel::mclapply}.
 #'   Note: parallel execution may be unstable on macOS with multithreaded BLAS; the
@@ -95,7 +95,7 @@ bace <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5,
                 burnin = 1000, runs = 10, n_final = 10, species = FALSE,
                 verbose = TRUE, plot = FALSE, max_attempts = 3, skip_conv = FALSE,
                 sample_size = NULL, n_cores = 1L,
-                nitt_cat_mult = 1L, ovr_categorical = FALSE, ...) {
+                nitt_cat_mult = 1L, ovr_categorical = TRUE, ...) {
 
 ##-----------------------## 
 # Run bace_imp first

@@ -1,4 +1,4 @@
-#' @importFrom stats pnorm predict runif sd setNames acf
+#' @importFrom stats pnorm predict runif sd setNames acf na.omit update
 #' @importFrom utils combn head
 #' @importFrom coda effectiveSize geweke.diag
 #' @keywords internal
