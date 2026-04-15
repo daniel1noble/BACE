@@ -21,6 +21,8 @@ bace(
   skip_conv = FALSE,
   sample_size = NULL,
   n_cores = 1L,
+  nitt_cat_mult = 1L,
+  ovr_categorical = FALSE,
   ...
 )
 }
@@ -80,6 +82,15 @@ models while still properly accounting for imputation and parameter uncertainty.
 imputation runs. Default is 1 (serial). Values > 1 use \code{parallel::mclapply}.
 Note: parallel execution may be unstable on macOS with multithreaded BLAS; the
 function falls back to serial automatically if worker failures are detected.}
+
+\item{nitt_cat_mult}{Integer multiplier applied to nitt and burnin for categorical and
+threshold/ordinal variables. Default is 1 (no change). Set to 2 or 3 to give harder-to-mix
+categorical models proportionally longer chains.}
+
+\item{ovr_categorical}{Logical. If TRUE, categorical variables are modelled using
+one-vs-rest binary threshold MCMCglmm models (J models per variable, one per level)
+instead of a single multinomial probit. Binary threshold models mix more reliably.
+Default is FALSE.}
 
 \item{...}{Additional arguments to be passed to the underlying modeling functions.}
 }

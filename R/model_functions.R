@@ -426,6 +426,70 @@
   return(prior)
 }
 
+#' @title .fit_predict_ovr
+#' @description One-vs-rest binary fitting for categorical variables.
+#'   Fits J binary threshold MCMCglmm models (one per category level) and
+#'   aggregates predicted probabilities into a normalised probability matrix.
+#'   Binary threshold models mix far better than multinomial probit and are
+#'   the recommended path when ovr_categorical = TRUE.
+#' @param data_i Prepared data frame (output of .data_prep)
+#' @param response_var Character name of the categorical response variable
+#' @param fixformula Fixed-effects formula
+#' @param phylo Phylogenetic tree (phylo object)
+#' @param ran_phylo_form Random-effects formula
+#' @param nitt MCMC iterations
+#' @param thin MCMC thinning interval
+#' @param burnin MCMC burn-in
+#' @param n_rand_eff Number of random effects (1 or 2)
+#' @param cluster_col Name of the phylogenetic grouping column
+#' @param dat_prep Output of .data_prep (used to extract factor levels)
+#' @param sample Logical; if TRUE sample from probability distribution, else argmax
+#' @return Named list with full_prediction (n_obs x J probability matrix) and pred_values
+.fit_predict_ovr <- function(data_i, response_var, fixformula, phylo,
+                              ran_phylo_form, nitt, thin, burnin,
+                              n_rand_eff, cluster_col, dat_prep, sample = FALSE) {
+
+  lv          <- dat_prep[[1]][[response_var]]
+  level_names <- if (is.factor(lv)) levels(lv) else sort(unique(na.omit(as.character(lv))))
+  n_obs       <- nrow(data_i)
+
+  # Initialise probability matrix with equal priors (overwritten per level)
+  prob_mat <- matrix(0.5, nrow = n_obs, ncol = length(level_names),
+                     dimnames = list(NULL, level_names))
+
+  for (j in seq_along(level_names)) {
+    lv_j     <- level_names[j]
+    data_bin <- data_i
+    # Binarize: level_j -> "yes", all others -> "no", NA stays NA
+    data_bin[[response_var]] <- factor(
+      ifelse(is.na(data_i[[response_var]]), NA_character_,
+             ifelse(as.character(data_i[[response_var]]) == lv_j, "yes", "no")),
+      levels = c("no", "yes"))
+
+    prior_j <- .make_prior(n_rand = n_rand_eff, n_levels = 2L, type = "threshold",
+                            fixform = fixformula, data = data_bin, gelman = 0)
+
+    model_j <- .model_fit(data = data_bin, tree = phylo,
+                          fixformula = fixformula, randformula = ran_phylo_form,
+                          type = "threshold", prior = prior_j,
+                          nitt = nitt, thin = thin, burnin = burnin)
+
+    pred_j <- .pred_threshold_forward(model_j, fixformula, data_bin,
+                                       cluster_col = cluster_col,
+                                       level_names = c("no", "yes"))
+    prob_mat[, j] <- pred_j[, "yes"]
+  }
+
+  # Normalize rows to sum to 1
+  rs            <- rowSums(prob_mat)
+  rs[rs == 0]   <- 1L
+  prob_mat      <- prob_mat / rs
+
+  list(full_prediction = prob_mat,
+       pred_values     = .impute_levels(prob_mat, level_names, sample = sample))
+}
+
+
 #' @title .predict_bace
 #' @description Function creates a predcition from MCMCglmm model
 #' @param model A MCMCglmm model object

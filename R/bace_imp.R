@@ -40,6 +40,13 @@
 #' @param burnin An integer or list specifying the number of iterations to discard as burnin. Can be a single value (applied to all models) or a list of values (one per formula). Default is 1000.
 #' @param species A logical indicating whether to decompose phylogenetic and non-phylogenetic species effects. Default is FALSE. When TRUE, the random effects structure is modified to include both a phylogenetic effect and a non-phylogenetic species effect (with identity matrix in ginverse). This requires sufficient replicated observations per species.
 #' @param verbose A logical indicating whether to print progress messages. Default is TRUE.
+#' @param nitt_cat_mult Integer multiplier applied to nitt and burnin for categorical and
+#'   threshold/ordinal variables. Default is 1 (no change). Set to 2 or 3 to give harder-to-mix
+#'   categorical models proportionally longer chains.
+#' @param ovr_categorical Logical. If TRUE, categorical variables are modelled using
+#'   one-vs-rest binary threshold MCMCglmm models (J models per variable, one per level)
+#'   instead of a single multinomial probit. Binary threshold models mix more reliably.
+#'   Default is FALSE.
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
 #' @return A list containing imputed datasets and model summaries.
 #' @examples \dontrun{
@@ -103,7 +110,7 @@
 #' )
 #' }
 #' @export
-bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, species = FALSE, verbose = TRUE, ...){
+bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, species = FALSE, verbose = TRUE, nitt_cat_mult = 1L, ovr_categorical = FALSE, ...){
 	#---------------------------------------------#
 	# Preparation steps & Checks
 	#---------------------------------------------#
@@ -220,7 +227,18 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 		# We need to categorize the variable types for all fixed effect variables for modelling
 	               types <- lapply(fix, function(var) .get_type(data_summary, var, data_sub))
 			names(types) <- fix
-	
+
+		# Apply nitt/burnin multiplier for categorical/threshold (harder to mix)
+		if (nitt_cat_mult != 1L) {
+			for (i_mult in seq_along(formulas)) {
+				rv_mult <- all.vars(formulas[[i_mult]][[2]])
+				if (!is.null(types[[rv_mult]]) && types[[rv_mult]] %in% c("categorical", "threshold", "ordinal")) {
+					nitt_list[[i_mult]]   <- round(nitt_list[[i_mult]]   * nitt_cat_mult)
+					burnin_list[[i_mult]] <- round(burnin_list[[i_mult]] * nitt_cat_mult)
+				}
+			}
+		}
+
 	# Now, we can loop through the number of runs specified by the user
 		for(r in 2:(runs+1)){
 
@@ -295,37 +313,56 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 				# Determine number of random effects based on species parameter
 				n_rand_eff <- if (species) 2 else 1
 				
+			if (ovr_categorical && types[[response_var]] == "categorical") {
+				# One-vs-rest: fit J binary threshold models instead of one multinomial
+				predictions <- .fit_predict_ovr(
+					data_i       = data_i,
+					response_var = response_var,
+					fixformula   = formulas[[i]],
+					phylo        = phylo,
+					ran_phylo_form = ran_phylo_form,
+					nitt         = nitt_list[[i]],
+					thin         = thin_list[[i]],
+					burnin       = burnin_list[[i]],
+					n_rand_eff   = n_rand_eff,
+					cluster_col  = phylo_ran[["cluster"]],
+					dat_prep     = dat_prep,
+					sample       = FALSE   # argmax in convergence chain
+				)
+				model <- NULL   # no single model for OVR
+
+			} else {
 				prior_i <- .make_prior(
 					n_rand = n_rand_eff, n_levels = levels,
 					type = types[[response_var]], fixform = fixform, data = data_i, gelman = gelman
 				)
-			
-			# Fit the model and predict missing data
-			  model <-  .model_fit(data = data_i, 
-			                       tree = phylo,
-			                 fixformula = formulas[[i]],
-						    randformula = ran_phylo_form, # phylo only or phylo + species depending on species parameter
-					 		       type = types[[response_var]], 
-							      prior = prior_i, 
-								   nitt = nitt_list[[i]], 
-								   thin = thin_list[[i]], 
-								 burnin = burnin_list[[i]])
+
+				# Fit the model and predict missing data
+				model <- .model_fit(data = data_i,
+				                    tree = phylo,
+				              fixformula = formulas[[i]],
+				             randformula = ran_phylo_form,
+				                    type = types[[response_var]],
+				                   prior = prior_i,
+				                    nitt = nitt_list[[i]],
+				                    thin = thin_list[[i]],
+				                  burnin = burnin_list[[i]])
+
+				# Use argmax (sample=FALSE): Gelman-Rubin needs agreement across runs
+				predictions <- .predict_bace(model, dat_prep, response_var = response_var,
+				                             type = types[[response_var]],
+				                             formula = formulas[[i]], data_full = data_i,
+				                             cluster_col = phylo_ran[["cluster"]])
+			}
 
 			# If last run, store the model for evaluation later
 				if(r == (runs + 1)){
-					models_last_run[[response_var]] <- model					
+					models_last_run[[response_var]] <- model
 				}
-
-			# Predict missing data and store in list to keep track across runs, if the variable was z-transformed then transform back using the attributes from data_i preparation which is done automatically for gaussian variables
-			# Use argmax (sample=FALSE) here: convergence assessment relies on Gelman-Rubin, which
-			# requires agreement across runs. Sampling would add variability that trips false non-convergence.
-				predictions <- .predict_bace(model, dat_prep, response_var = response_var, type = types[[response_var]],
-				                             formula = formulas[[i]], data_full = data_i,
-				                             cluster_col = phylo_ran[["cluster"]])
 
 				# If last run, store the model for evaluation later
 				if(r == (runs + 1)){
-					pred_list_last_run[[response_var]] <- predictions[["full_prediction"]]					
+					pred_list_last_run[[response_var]] <- predictions[["full_prediction"]]
 				}
 			 
 			# Store predicted values for only the missing data points

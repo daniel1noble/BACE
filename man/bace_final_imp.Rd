@@ -16,6 +16,8 @@ bace_final_imp(
   species = FALSE,
   verbose = TRUE,
   n_cores = 1,
+  nitt_cat_mult = 1L,
+  ovr_categorical = FALSE,
   ...
 )
 }
@@ -40,7 +42,16 @@ bace_final_imp(
 
 \item{verbose}{A logical indicating whether to print progress messages. Default is TRUE}
 
-\item{n_cores}{Integer specifying the number of parallel cores to use. Default is 1
+\item{n_cores}{Integer specifying the number of parallel cores to use. Default is 1}
+
+\item{nitt_cat_mult}{Integer multiplier applied to nitt and burnin for categorical and
+threshold/ordinal variables. Default is 1 (no change). Set to 2 or 3 to give harder-to-mix
+categorical models proportionally longer chains.}
+
+\item{ovr_categorical}{Logical. If TRUE, categorical variables are modelled using
+one-vs-rest binary threshold MCMCglmm models (J models per variable, one per level)
+instead of a single multinomial probit. Binary threshold models mix more reliably.
+Default is FALSE.
 (serial). Values > 1 use \code{parallel::mclapply}. The function falls back to serial
 automatically if any parallel worker returns an error.}
 

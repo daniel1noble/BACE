@@ -15,6 +15,8 @@ bace_imp(
   runs = 10,
   species = FALSE,
   verbose = TRUE,
+  nitt_cat_mult = 1L,
+  ovr_categorical = FALSE,
   ...
 )
 }
@@ -38,6 +40,15 @@ bace_imp(
 \item{species}{A logical indicating whether to decompose phylogenetic and non-phylogenetic species effects. Default is FALSE. When TRUE, the random effects structure is modified to include both a phylogenetic effect and a non-phylogenetic species effect (with identity matrix in ginverse). This requires sufficient replicated observations per species.}
 
 \item{verbose}{A logical indicating whether to print progress messages. Default is TRUE.}
+
+\item{nitt_cat_mult}{Integer multiplier applied to nitt and burnin for categorical and
+threshold/ordinal variables. Default is 1 (no change). Set to 2 or 3 to give harder-to-mix
+categorical models proportionally longer chains.}
+
+\item{ovr_categorical}{Logical. If TRUE, categorical variables are modelled using
+one-vs-rest binary threshold MCMCglmm models (J models per variable, one per level)
+instead of a single multinomial probit. Binary threshold models mix more reliably.
+Default is FALSE.}
 
 \item{...}{Additional arguments to be passed to the underlying modeling functions.}
 }

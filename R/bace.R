@@ -38,6 +38,13 @@
 #'   imputation before pooling. If NULL (default), uses all posterior samples. Setting this
 #'   to a smaller value (e.g., 1000) can greatly reduce memory usage of the final pooled
 #'   models while still properly accounting for imputation and parameter uncertainty.
+#' @param nitt_cat_mult Integer multiplier applied to nitt and burnin for categorical and
+#'   threshold/ordinal variables. Default is 1 (no change). Set to 2 or 3 to give harder-to-mix
+#'   categorical models proportionally longer chains.
+#' @param ovr_categorical Logical. If TRUE, categorical variables are modelled using
+#'   one-vs-rest binary threshold MCMCglmm models (J models per variable, one per level)
+#'   instead of a single multinomial probit. Binary threshold models mix more reliably.
+#'   Default is FALSE.
 #' @param n_cores Integer specifying the number of parallel cores to use for the final
 #'   imputation runs. Default is 1 (serial). Values > 1 use \code{parallel::mclapply}.
 #'   Note: parallel execution may be unstable on macOS with multithreaded BLAS; the
@@ -87,7 +94,8 @@
 bace <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5,
                 burnin = 1000, runs = 10, n_final = 10, species = FALSE,
                 verbose = TRUE, plot = FALSE, max_attempts = 3, skip_conv = FALSE,
-                sample_size = NULL, n_cores = 1L, ...) {
+                sample_size = NULL, n_cores = 1L,
+                nitt_cat_mult = 1L, ovr_categorical = FALSE, ...) {
 
 ##-----------------------## 
 # Run bace_imp first
@@ -100,10 +108,11 @@ if (verbose) {
   cat("-------------------------------------------------------\n")
 }
 
-start <- bace_imp(fixformula = fixformula, ran_phylo_form = ran_phylo_form, 
-                 phylo = phylo, data = data, nitt = nitt, thin = thin, 
-                 burnin = burnin, runs = runs, species = species, 
-                 verbose = verbose, ...)
+start <- bace_imp(fixformula = fixformula, ran_phylo_form = ran_phylo_form,
+                 phylo = phylo, data = data, nitt = nitt, thin = thin,
+                 burnin = burnin, runs = runs, species = species,
+                 verbose = verbose, nitt_cat_mult = nitt_cat_mult,
+                 ovr_categorical = ovr_categorical, ...)
 
 ##-----------------------## 
 # Check convergence 
@@ -140,10 +149,11 @@ while (!converged && n_attempts < max_attempts && !skip_conv) {
   # Increase runs by 50% each attempt
   runs_new <- round(runs * (1.5 ^ n_attempts))
   
-  start <- bace_imp(fixformula = fixformula, ran_phylo_form = ran_phylo_form, 
-                   phylo = phylo, data = data, nitt = nitt, thin = thin, 
-                   burnin = burnin, runs = runs_new, species = species, 
-                   verbose = verbose, ...)
+  start <- bace_imp(fixformula = fixformula, ran_phylo_form = ran_phylo_form,
+                   phylo = phylo, data = data, nitt = nitt, thin = thin,
+                   burnin = burnin, runs = runs_new, species = species,
+                   verbose = verbose, nitt_cat_mult = nitt_cat_mult,
+                   ovr_categorical = ovr_categorical, ...)
   
   converge <- assess_convergence(start, method = "summary")
   
@@ -180,6 +190,8 @@ if (converged) {
     species = species,
     verbose = verbose,
     n_cores = n_cores,
+    nitt_cat_mult = nitt_cat_mult,
+    ovr_categorical = ovr_categorical,
     ...
   )
 
@@ -226,6 +238,8 @@ if (converged) {
     species = species,
     verbose = verbose,
     n_cores = n_cores,
+    nitt_cat_mult = nitt_cat_mult,
+    ovr_categorical = ovr_categorical,
     ...
   )
   
