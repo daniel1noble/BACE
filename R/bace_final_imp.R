@@ -152,9 +152,12 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
         data_current[id, data_id] <- predictions[["pred_values"]][id]
 
         # Store probability matrix for categorical/threshold (used for pooled prediction)
+        # Attach animal names as rownames so downstream pooling joins by name, not position.
         if (types[[response_var]] %in% c("categorical", "threshold") &&
             !is.null(predictions[["full_prediction"]])) {
-          prob_preds_this_run[[response_var]] <- predictions[["full_prediction"]][id, , drop = FALSE]
+          prob_mat <- predictions[["full_prediction"]][id, , drop = FALSE]
+          rownames(prob_mat) <- as.character(data_current[[phylo_ran[["cluster"]]]][id])
+          prob_preds_this_run[[response_var]] <- prob_mat
         }
 
         if (worker_verbose) {
