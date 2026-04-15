@@ -537,6 +537,14 @@
 					  pred_prob   <- .pred_cont(model) * sd_val + mean_val # Full prediction
 					  pred_values <- pred_prob[, 1]                        # Extract posterior mean
 					}
+
+					# Safety clip: rare factor levels or poorly-mixed chains can produce
+					# physically impossible predictions (e.g. logTarsus = 27 for a
+					# Scavenger species with only 2 representatives in the dataset).
+					# Clip to mean ± 5 SD of the training data; this covers any
+					# biologically plausible value while preventing extreme outliers.
+					pred_values <- pmax(mean_val - 5 * sd_val,
+					                    pmin(mean_val + 5 * sd_val, pred_values))
 			     }
 
 				 if(type == "poisson"){
