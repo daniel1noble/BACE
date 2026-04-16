@@ -11,6 +11,13 @@
 #' @param species A logical indicating whether to decompose phylogenetic and non-phylogenetic species effects. Default is FALSE
 #' @param verbose A logical indicating whether to print progress messages. Default is TRUE
 #' @param n_cores Integer specifying the number of parallel cores to use. Default is 1
+#' @param nitt_cat_mult Integer multiplier applied to nitt and burnin for categorical and
+#'   threshold/ordinal variables. Default is 1 (no change). Set to 2 or 3 to give harder-to-mix
+#'   categorical models proportionally longer chains.
+#' @param ovr_categorical Logical. If TRUE, categorical variables are modelled using
+#'   one-vs-rest binary threshold MCMCglmm models (J models per variable, one per level)
+#'   instead of a single multinomial probit. Binary threshold models mix more reliably
+#'   and are the recommended default. Default is TRUE.
 #'   (serial). Values > 1 use \code{parallel::mclapply}. The function falls back to serial
 #'   automatically if any parallel worker returns an error.
 #' @param ... Additional arguments passed to modeling functions
@@ -30,7 +37,7 @@
 bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
                            nitt = 6000, thin = 5, burnin = 1000,
                            n_final = 10, species = FALSE, verbose = TRUE,
-                           n_cores = 1, ...) {
+                           n_cores = 1, nitt_cat_mult = 1L, ovr_categorical = TRUE, ...) {
 
   # Check inputs
   if (!inherits(bace_object, "bace")) {
@@ -59,6 +66,17 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
   thin_list <- .standardize_mcmc_params(thin, n_models, "thin")
   burnin_list <- .standardize_mcmc_params(burnin, n_models, "burnin")
 
+  # Apply nitt/burnin multiplier for categorical/threshold (harder to mix)
+  if (nitt_cat_mult != 1L) {
+    for (i_mult in seq_along(formulas)) {
+      rv_mult <- all.vars(formulas[[i_mult]][[2]])
+      if (!is.null(types[[rv_mult]]) && types[[rv_mult]] %in% c("categorical", "threshold", "ordinal")) {
+        nitt_list[[i_mult]]   <- round(nitt_list[[i_mult]]   * nitt_cat_mult)
+        burnin_list[[i_mult]] <- round(burnin_list[[i_mult]] * nitt_cat_mult)
+      }
+    }
+  }
+
   # Variables to impute
   fix <- names(types)
 
@@ -80,6 +98,7 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
   .one_final_run <- function(run, data_start, worker_verbose) {
     data_current <- data_start
     models_this_run <- list()
+    prob_preds_this_run <- list()   # probability matrices for cat/threshold vars
 
     for (i in seq_along(formulas)) {
 
@@ -121,34 +140,63 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
           gelman = gelman_val
         )
 
-        model <- .model_fit(
-          data = data_i,
-          tree = phylo,
-          fixformula = formulas[[i]],
-          randformula = ran_phylo_form,
-          type = types[[response_var]],
-          prior = prior_i,
-          nitt = nitt_list[[i]],
-          thin = thin_list[[i]],
-          burnin = burnin_list[[i]]
-        )
+        if (ovr_categorical && types[[response_var]] == "categorical") {
+          # One-vs-rest: J binary threshold models, aggregate probabilities
+          predictions <- .fit_predict_ovr(
+            data_i       = data_i,
+            response_var = response_var,
+            fixformula   = formulas[[i]],
+            phylo        = phylo,
+            ran_phylo_form = ran_phylo_form,
+            nitt         = nitt_list[[i]],
+            thin         = thin_list[[i]],
+            burnin       = burnin_list[[i]],
+            n_rand_eff   = n_rand_eff,
+            cluster_col  = phylo_ran[["cluster"]],
+            dat_prep     = dat_prep,
+            sample       = TRUE   # draw from posterior predictive each final run
+          )
+          models_this_run[[response_var]] <- NULL
 
-        models_this_run[[response_var]] <- model
+        } else {
+          model <- .model_fit(
+            data = data_i,
+            tree = phylo,
+            fixformula = formulas[[i]],
+            randformula = ran_phylo_form,
+            type = types[[response_var]],
+            prior = prior_i,
+            nitt = nitt_list[[i]],
+            thin = thin_list[[i]],
+            burnin = burnin_list[[i]]
+          )
 
-        predictions <- .predict_bace(
-          model,
-          dat_prep,
-          response_var = response_var,
-          type         = types[[response_var]],
-          sample       = TRUE,               # draw from posterior predictive each run
-          formula      = formulas[[i]],
-          data_full    = data_i,
-          cluster_col  = phylo_ran[["cluster"]]
-        )
+          models_this_run[[response_var]] <- model
 
-        id     <- miss_dat[miss_dat$colname == response_var, "row"]
+          predictions <- .predict_bace(
+            model,
+            dat_prep,
+            response_var = response_var,
+            type         = types[[response_var]],
+            sample       = TRUE,               # draw from posterior predictive each run
+            formula      = formulas[[i]],
+            data_full    = data_i,
+            cluster_col  = phylo_ran[["cluster"]]
+          )
+        }
+
+        id      <- miss_dat[miss_dat$colname == response_var, "row"]
         data_id <- which(colnames(data_current) == response_var)
         data_current[id, data_id] <- predictions[["pred_values"]][id]
+
+        # Store probability matrix for categorical/threshold (used for pooled prediction)
+        # Attach animal names as rownames so downstream pooling joins by name, not position.
+        if (types[[response_var]] %in% c("categorical", "threshold") &&
+            !is.null(predictions[["full_prediction"]])) {
+          prob_mat <- predictions[["full_prediction"]][id, , drop = FALSE]
+          rownames(prob_mat) <- as.character(data_current[[phylo_ran[["cluster"]]]][id])
+          prob_preds_this_run[[response_var]] <- prob_mat
+        }
 
         if (worker_verbose) {
           cat(paste0("Run ", run, "/", n_final,
@@ -163,7 +211,7 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
       }
     }
 
-    list(models = models_this_run, dataset = data_current)
+    list(models = models_this_run, dataset = data_current, prob_preds = prob_preds_this_run)
   }
 
   # Run serially or in parallel
@@ -199,13 +247,15 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
     )
   }
 
-  all_models   <- lapply(results_list, `[[`, "models")
-  all_datasets <- lapply(results_list, `[[`, "dataset")
-  
+  all_models     <- lapply(results_list, `[[`, "models")
+  all_datasets   <- lapply(results_list, `[[`, "dataset")
+  all_prob_preds <- lapply(results_list, `[[`, "prob_preds")
+
   # Prepare output
   out <- list(
-    all_models = all_models,
-    all_datasets = all_datasets,
+    all_models     = all_models,
+    all_datasets   = all_datasets,
+    all_prob_preds = all_prob_preds,   # prob matrices per run, for pooled prediction
     formulas = formulas,
     types = types,
     phylo_ran = phylo_ran,

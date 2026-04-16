@@ -117,6 +117,9 @@
 	}
 	
 	# Fit the model using MCMCglmm
+  # slice = TRUE improves MCMC mixing for threshold/ordinal/categorical types
+  use_slice <- type %in% c("threshold", "ordinal", "categorical")
+
   if(type != "categorical"){
   	model <- MCMCglmm::MCMCglmm(fixed = fixformula,
                                random = combined_formula,
@@ -127,8 +130,9 @@
                                 saveX = TRUE, saveZ = TRUE,
                                  nitt = nitt,
                                  thin = thin,
-                               burnin = burnin, 
-							    prior = prior, singular.ok=TRUE)	
+                               burnin = burnin,
+							    prior = prior, singular.ok=TRUE,
+							    slice = use_slice)
         } else {
 
       # Categorical model needs special treatment. Append -1 to the right side of ~ formula to remove intercept
@@ -201,8 +205,9 @@
                                 saveX = TRUE, saveZ = TRUE,
                                  nitt = nitt,
                                  thin = thin,
-                               burnin = burnin, 
-							    prior = prior, singular.ok=TRUE)	     
+                               burnin = burnin,
+							    prior = prior, singular.ok=TRUE,
+							    slice = use_slice)
                   }								
   	return(model)
 }
@@ -421,6 +426,70 @@
   return(prior)
 }
 
+#' @title .fit_predict_ovr
+#' @description One-vs-rest binary fitting for categorical variables.
+#'   Fits J binary threshold MCMCglmm models (one per category level) and
+#'   aggregates predicted probabilities into a normalised probability matrix.
+#'   Binary threshold models mix far better than multinomial probit and are
+#'   the recommended path when ovr_categorical = TRUE.
+#' @param data_i Prepared data frame (output of .data_prep)
+#' @param response_var Character name of the categorical response variable
+#' @param fixformula Fixed-effects formula
+#' @param phylo Phylogenetic tree (phylo object)
+#' @param ran_phylo_form Random-effects formula
+#' @param nitt MCMC iterations
+#' @param thin MCMC thinning interval
+#' @param burnin MCMC burn-in
+#' @param n_rand_eff Number of random effects (1 or 2)
+#' @param cluster_col Name of the phylogenetic grouping column
+#' @param dat_prep Output of .data_prep (used to extract factor levels)
+#' @param sample Logical; if TRUE sample from probability distribution, else argmax
+#' @return Named list with full_prediction (n_obs x J probability matrix) and pred_values
+.fit_predict_ovr <- function(data_i, response_var, fixformula, phylo,
+                              ran_phylo_form, nitt, thin, burnin,
+                              n_rand_eff, cluster_col, dat_prep, sample = FALSE) {
+
+  lv          <- dat_prep[[1]][[response_var]]
+  level_names <- if (is.factor(lv)) levels(lv) else sort(unique(na.omit(as.character(lv))))
+  n_obs       <- nrow(data_i)
+
+  # Initialise probability matrix with equal priors (overwritten per level)
+  prob_mat <- matrix(0.5, nrow = n_obs, ncol = length(level_names),
+                     dimnames = list(NULL, level_names))
+
+  for (j in seq_along(level_names)) {
+    lv_j     <- level_names[j]
+    data_bin <- data_i
+    # Binarize: level_j -> "yes", all others -> "no", NA stays NA
+    data_bin[[response_var]] <- factor(
+      ifelse(is.na(data_i[[response_var]]), NA_character_,
+             ifelse(as.character(data_i[[response_var]]) == lv_j, "yes", "no")),
+      levels = c("no", "yes"))
+
+    prior_j <- .make_prior(n_rand = n_rand_eff, n_levels = 2L, type = "threshold",
+                            fixform = fixformula, data = data_bin, gelman = 0)
+
+    model_j <- .model_fit(data = data_bin, tree = phylo,
+                          fixformula = fixformula, randformula = ran_phylo_form,
+                          type = "threshold", prior = prior_j,
+                          nitt = nitt, thin = thin, burnin = burnin)
+
+    pred_j <- .pred_threshold_forward(model_j, fixformula, data_bin,
+                                       cluster_col = cluster_col,
+                                       level_names = c("no", "yes"))
+    prob_mat[, j] <- pred_j[, "yes"]
+  }
+
+  # Normalize rows to sum to 1
+  rs            <- rowSums(prob_mat)
+  rs[rs == 0]   <- 1L
+  prob_mat      <- prob_mat / rs
+
+  list(full_prediction = prob_mat,
+       pred_values     = .impute_levels(prob_mat, level_names, sample = sample))
+}
+
+
 #' @title .predict_bace
 #' @description Function creates a predcition from MCMCglmm model
 #' @param model A MCMCglmm model object
@@ -450,19 +519,32 @@
 					sd_val   <- dat_prep[[2]][[response_var]]$sd
 
 					if (sample) {
-					  # Draw one random MCMC iteration from the posterior
+					  # Draw from the posterior predictive: sample K rows and take the
+					  # element-wise median.  A single draw risks hitting rare chain
+					  # excursions (extreme coefficient values) that produce physically
+					  # impossible predictions.  The median of K=3 draws is robust to
+					  # such excursions while preserving genuine between-run variability.
 					  X   <- as.matrix(model$X)
 					  Sol <- as.matrix(model$Sol)
 					  W   <- if (!is.null(model$Z)) cbind(X, as.matrix(model$Z)) else X
-					  common <- intersect(colnames(W), colnames(Sol))
-					  eta <- Sol[, common, drop = FALSE] %*% t(W[, common, drop = FALSE])
-					  i_samp <- sample.int(nrow(eta), 1L)
-					  pred_values <- as.numeric(eta[i_samp, ]) * sd_val + mean_val
+					  common  <- intersect(colnames(W), colnames(Sol))
+					  eta     <- Sol[, common, drop = FALSE] %*% t(W[, common, drop = FALSE])
+					  K       <- min(3L, nrow(eta))
+					  i_samps <- sample.int(nrow(eta), K)
+					  pred_values <- apply(eta[i_samps, , drop = FALSE], 2L, stats::median) * sd_val + mean_val
 					} else {
 					  # Predict from model and back-transform
 					  pred_prob   <- .pred_cont(model) * sd_val + mean_val # Full prediction
 					  pred_values <- pred_prob[, 1]                        # Extract posterior mean
 					}
+
+					# Safety clip: rare factor levels or poorly-mixed chains can produce
+					# physically impossible predictions (e.g. logTarsus = 27 for a
+					# Scavenger species with only 2 representatives in the dataset).
+					# Clip to mean ± 5 SD of the training data; this covers any
+					# biologically plausible value while preventing extreme outliers.
+					pred_values <- pmax(mean_val - 5 * sd_val,
+					                    pmin(mean_val + 5 * sd_val, pred_values))
 			     }
 
 				 if(type == "poisson"){
