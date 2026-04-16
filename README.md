@@ -67,10 +67,12 @@ A full tutorial — including when Phylo-BACE is appropriate relative to other M
 - [x] Phylogenetic random effect in every per-variable model via `MCMCglmm`
 - [x] Optional decomposition of phylogenetic and non-phylogenetic species effects (`species = TRUE`) for datasets with replicated observations per species
 - [x] Per-variable MCMC settings — `nitt`, `burnin`, `thin` can be supplied as lists to use different values for different response models
+- [x] **One-vs-rest (OVR) categorical imputation** — unordered categorical variables are modelled as J independent binary threshold models (one per level) rather than a single multinomial probit. OVR chains mix more reliably and is the default (`ovr_categorical = TRUE`); the multinomial probit remains available via `ovr_categorical = FALSE`
+- [x] **`nitt_cat_mult` parameter** — integer multiplier applied to `nitt` and `burnin` for categorical and ordinal variables only, for cases where harder-to-mix models need longer chains
 - [x] Gelman / pseudo-Gelman prior options for categorical models to improve mixing
 - [x] Convergence diagnostics across the chained-equations loop (`assess_convergence()`), with summary, Wasserstein and energy-distance methods
 - [x] Auto-restart of initial imputation when chained-equations convergence is not reached (`bace()` with `max_attempts`)
-- [x] Final independent imputations with posterior-predictive sampling (`bace_final_imp()`), so each of the `n_final` imputed datasets is a proper draw rather than a repeated point estimate
+- [x] Final independent imputations with posterior-predictive sampling (`bace_final_imp()`), so each of the `n_final` imputed datasets is a proper draw rather than a repeated point estimate — continuous variables draw from the posterior predictive via the fixed-effect design matrix, categorical/ordinal variables sample from the posterior probability distribution
 - [x] Posterior pooling across imputations by stacking per-imputation MCMC chains — a Monte Carlo approximation to the marginal posterior integrating over the imputation distribution; see `?pool_posteriors` for the references and assumptions
 - [x] Parallel execution of final imputation runs (`bace_final_imp(n_cores = …)`) via `parallel::mclapply`
 - [x] Accessor helpers `get_pooled_model()` and `get_imputed_data()` for extracting pooled models and imputed datasets from `bace_complete` / `bace_pooled` / `bace_final` objects
