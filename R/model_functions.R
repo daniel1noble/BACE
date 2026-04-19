@@ -453,14 +453,20 @@
   level_names <- if (is.factor(lv)) levels(lv) else sort(unique(na.omit(as.character(lv))))
   n_obs       <- nrow(data_i)
 
-  # Initialise probability matrix with equal priors (overwritten per level)
-  prob_mat <- matrix(0.5, nrow = n_obs, ncol = length(level_names),
-                     dimnames = list(NULL, level_names))
+  # Posterior-mean probability matrix (ALWAYS computed — used downstream
+  # for prob_preds and as the argmax classifier when sample = FALSE).
+  prob_mat    <- matrix(0.5, nrow = n_obs, ncol = length(level_names),
+                        dimnames = list(NULL, level_names))
+
+  # Keep the fitted binary models AND their binarised data frames so we
+  # can do per-iteration posterior predictive draws below without
+  # re-fitting.
+  models_list <- vector("list", length(level_names))
+  data_bin_list <- vector("list", length(level_names))
 
   for (j in seq_along(level_names)) {
     lv_j     <- level_names[j]
     data_bin <- data_i
-    # Binarize: level_j -> "yes", all others -> "no", NA stays NA
     data_bin[[response_var]] <- factor(
       ifelse(is.na(data_i[[response_var]]), NA_character_,
              ifelse(as.character(data_i[[response_var]]) == lv_j, "yes", "no")),
@@ -477,16 +483,53 @@
     pred_j <- .pred_threshold_forward(model_j, fixformula, data_bin,
                                        cluster_col = cluster_col,
                                        level_names = c("no", "yes"))
-    prob_mat[, j] <- pred_j[, "yes"]
+    prob_mat[, j]      <- pred_j[, "yes"]
+    models_list[[j]]   <- model_j
+    data_bin_list[[j]] <- data_bin
   }
 
-  # Normalize rows to sum to 1
   rs            <- rowSums(prob_mat)
   rs[rs == 0]   <- 1L
   prob_mat      <- prob_mat / rs
 
+  if (sample) {
+    # Proper posterior predictive draws under OVR. The J binary chains
+    # are independent (Rubin 1987 proper-MI framing is preserved by
+    # drawing an independent iteration per chain). For each of K=3
+    # predictive draws: pick iteration i_j for each binary model j,
+    # compute per-iteration "yes" probability, row-normalise across j,
+    # draw class. Majority-vote across K for robustness against chain
+    # excursions (per original BACE design intent).
+    K <- 3L
+    draws_mat <- matrix(NA_character_, nrow = n_obs, ncol = K)
+    for (k in seq_len(K)) {
+      iter_probs <- matrix(0, nrow = n_obs, ncol = length(level_names))
+      colnames(iter_probs) <- level_names
+      for (j in seq_along(level_names)) {
+        mdl_j  <- models_list[[j]]
+        n_iter <- nrow(as.matrix(mdl_j$Sol))
+        i_j    <- sample.int(n_iter, 1L)
+        pred_j <- .pred_threshold_forward_iter(
+          mdl_j, fixformula, data_bin_list[[j]],
+          cluster_col = cluster_col, level_names = c("no", "yes"),
+          iteration = i_j)
+        iter_probs[, j] <- pred_j[, "yes"]
+      }
+      rs_k <- rowSums(iter_probs)
+      rs_k[rs_k == 0] <- 1
+      iter_probs <- iter_probs / rs_k
+      draws_mat[, k] <- apply(iter_probs, 1, function(p) {
+        if (any(!is.finite(p)) || sum(p) <= 0) NA_character_
+        else sample(level_names, 1, prob = p)
+      })
+    }
+    pred_values <- .cat_mode(draws_mat)
+  } else {
+    pred_values <- .impute_levels(prob_mat, level_names, sample = FALSE)
+  }
+
   list(full_prediction = prob_mat,
-       pred_values     = .impute_levels(prob_mat, level_names, sample = sample))
+       pred_values     = pred_values)
 }
 
 
@@ -519,19 +562,40 @@
 					sd_val   <- dat_prep[[2]][[response_var]]$sd
 
 					if (sample) {
-					  # Draw from the posterior predictive: sample K rows and take the
-					  # element-wise median.  A single draw risks hitting rare chain
-					  # excursions (extreme coefficient values) that produce physically
-					  # impossible predictions.  The median of K=3 draws is robust to
-					  # such excursions while preserving genuine between-run variability.
+					  # Proper posterior PREDICTIVE draws (Rubin 1987; van Buuren 2018
+					  # FIMD §3.2): at MCMC iteration i, compute eta_i = X beta_i + Z u_i
+					  # AND add residual noise eps_i ~ N(0, sigma2_units_i) drawn from
+					  # the same iteration's VCV. The median of K=3 such draws is
+					  # kept as a robustness guard against rare chain excursions
+					  # (per original design intent) — noted that this shrinks the
+					  # predictive-interval width relative to single draws, capping
+					  # achievable coverage below 95% but ~84% theoretical ceiling.
 					  X   <- as.matrix(model$X)
 					  Sol <- as.matrix(model$Sol)
 					  W   <- if (!is.null(model$Z)) cbind(X, as.matrix(model$Z)) else X
 					  common  <- intersect(colnames(W), colnames(Sol))
-					  eta     <- Sol[, common, drop = FALSE] %*% t(W[, common, drop = FALSE])
-					  K       <- min(3L, nrow(eta))
-					  i_samps <- sample.int(nrow(eta), K)
-					  pred_values <- apply(eta[i_samps, , drop = FALSE], 2L, stats::median) * sd_val + mean_val
+					  Wcom    <- W[, common, drop = FALSE]
+					  n_iter  <- nrow(Sol)
+					  K       <- min(3L, n_iter)
+					  i_samps <- sample.int(n_iter, K)
+
+					  # Residual variance per iteration. MCMCglmm stores this in VCV
+					  # under the "units" column for gaussian models.
+					  VCV <- as.matrix(model$VCV)
+					  if (!"units" %in% colnames(VCV)) {
+					    stop(".predict_bace gaussian sample=TRUE: 'units' column not found in VCV. ",
+					         "Expected a residual-variance column.")
+					  }
+					  sigma2_units <- VCV[i_samps, "units"]
+
+					  n_obs <- ncol(t(Wcom))   # number of observations = ncol after transpose
+					  draws <- matrix(NA_real_, nrow = K, ncol = n_obs)
+					  for (k in seq_len(K)) {
+					    eta_k <- as.numeric(Sol[i_samps[k], common, drop = FALSE] %*% t(Wcom))
+					    eps_k <- rnorm(n_obs, mean = 0, sd = sqrt(sigma2_units[k]))
+					    draws[k, ] <- eta_k + eps_k
+					  }
+					  pred_values <- apply(draws, 2L, stats::median) * sd_val + mean_val
 					} else {
 					  # Predict from model and back-transform
 					  pred_prob   <- .pred_cont(model) * sd_val + mean_val # Full prediction
@@ -549,10 +613,22 @@
 
 				 if(type == "poisson"){
 					if (sample) {
-					  # Draw one random MCMC iteration from the liability scale
-					  liab <- as.matrix(model$Liab)
-					  i_samp <- sample.int(nrow(liab), 1L)
-					  pred_values <- round(exp(as.numeric(liab[i_samp, ])), digits = 0)
+					  # Proper posterior predictive for counts: at iteration i,
+					  # rate_i = exp(Liab_i), then Y_i ~ Poisson(rate_i). Adds the
+					  # Poisson sampling variance that the previous round(exp(Liab))
+					  # dropped. Median of K=3 draws retained for excursion robustness.
+					  liab   <- as.matrix(model$Liab)
+					  n_iter <- nrow(liab); n_obs <- ncol(liab)
+					  K      <- min(3L, n_iter)
+					  i_samps <- sample.int(n_iter, K)
+					  draws   <- matrix(NA_integer_, nrow = K, ncol = n_obs)
+					  for (k in seq_len(K)) {
+					    rate_k <- exp(as.numeric(liab[i_samps[k], ]))
+					    # Guard against numerical overflow from rare chain excursions.
+					    rate_k <- pmin(rate_k, 1e6)
+					    draws[k, ] <- rpois(n_obs, lambda = rate_k)
+					  }
+					  pred_values <- apply(draws, 2L, stats::median)
 					} else {
 					  # Predict from model and round to nearest integer to retain count data
 					  pred_prob   <- .pred_count(model)                    # Full prediction
@@ -565,8 +641,8 @@
 			      	     lv  <- dat_prep[[1]][[response_var]]
 				  levels_var <- if (is.factor(lv)) levels(lv) else sort(unique(na.omit(as.character(lv))))
 
-				   # Use forward prediction (all rows) when formula + full data supplied;
-				   # otherwise fall back to Liab-based prediction (complete cases only).
+				   # Posterior-mean probability matrix (ALWAYS computed — used for
+				   # prob_preds downstream, and as the argmax class when sample=FALSE).
 				   if (!is.null(formula) && !is.null(data_full)) {
 				     pred_prob <- .pred_threshold_forward(model, formula, data_full,
 				                                          cluster_col = cluster_col,
@@ -575,8 +651,36 @@
 				     pred_prob <- .pred_threshold(model, level_names = levels_var)
 				   }
 
-				   # For each observation, sample from the categorical distribution based on the predicted probabilities. TO DO: Note we could also just take the max probability for baseline level
-             pred_values <- .impute_levels(pred_prob, levels_var, sample = sample)
+				   if (sample) {
+				     # Proper posterior predictive draws (Rubin 1987; Hadfield 2010 §3.7):
+				     # sample K=3 MCMC iterations; per iteration, compute the per-cell
+				     # class-probability row from that iteration's Sol / CP / BLUPs and
+				     # draw a class. Majority-vote across the K draws per cell matches
+				     # the median-of-K robustness pattern used for continuous types.
+				     n_iter <- nrow(as.matrix(model$Sol))
+				     K      <- min(3L, n_iter)
+				     i_samps <- sample.int(n_iter, K)
+				     n_obs_i <- nrow(pred_prob)
+				     draws  <- matrix(NA_character_, nrow = n_obs_i, ncol = K)
+				     for (k in seq_len(K)) {
+				       if (!is.null(formula) && !is.null(data_full)) {
+				         probs_k <- .pred_threshold_forward_iter(
+				           model, formula, data_full,
+				           cluster_col = cluster_col, level_names = levels_var,
+				           iteration = i_samps[k])
+				       } else {
+				         probs_k <- .pred_threshold_iter(
+				           model, level_names = levels_var, iteration = i_samps[k])
+				       }
+				       draws[, k] <- apply(probs_k, 1, function(p) {
+				         if (any(!is.finite(p)) || sum(p) <= 0) NA_character_
+				         else sample(levels_var, 1, prob = p)
+				       })
+				     }
+				     pred_values <- .cat_mode(draws)
+				   } else {
+				     pred_values <- .impute_levels(pred_prob, levels_var, sample = FALSE)
+				   }
           }
 
 
@@ -585,8 +689,8 @@
 			      	     lv  <- dat_prep[[1]][[response_var]]
 				  levels_var <- if (is.factor(lv)) levels(lv) else sort(unique(na.omit(as.character(lv))))
 
-					# Use forward prediction (all rows) when formula + full data supplied;
-					# otherwise fall back to Liab-based prediction (complete cases only).
+					# Posterior-mean probability matrix (ALWAYS computed — used for
+					# prob_preds downstream, and as the argmax class when sample=FALSE).
 					if (!is.null(formula) && !is.null(data_full)) {
 					  pred_prob <- .pred_cat_forward(model, formula, data_full,
 					                                 cluster_col = cluster_col,
@@ -595,8 +699,38 @@
 					  pred_prob <- .pred_cat(model, baseline_name = levels_var[1])
 					}
 
-					# For each observation, sample from the categorical distribution based on the predicted probabilities
-				   pred_values <- .impute_levels(pred_prob, levels_var, sample = sample)
+					if (sample) {
+					  # Proper posterior predictive draws for multinomial probit:
+					  # K=3 iterations -> per-iteration softmax (Amemiya 1981 c^2
+					  # correction preserved) -> majority vote.
+					  n_iter <- nrow(as.matrix(model$Sol))
+					  K      <- min(3L, n_iter)
+					  i_samps <- sample.int(n_iter, K)
+					  n_obs_i <- nrow(pred_prob)
+					  draws  <- matrix(NA_character_, nrow = n_obs_i, ncol = K)
+					  for (k in seq_len(K)) {
+					    if (!is.null(formula) && !is.null(data_full)) {
+					      probs_k <- .pred_cat_forward_iter(
+					        model, formula, data_full,
+					        cluster_col = cluster_col,
+					        baseline_name = levels_var[1],
+					        iteration = i_samps[k])
+					    } else {
+					      probs_k <- .pred_cat_iter(
+					        model, baseline_name = levels_var[1],
+					        iteration = i_samps[k])
+					    }
+					    # Align column order of probs_k to levels_var for sampling.
+					    probs_k <- probs_k[, levels_var, drop = FALSE]
+					    draws[, k] <- apply(probs_k, 1, function(p) {
+					      if (any(!is.finite(p)) || sum(p) <= 0) NA_character_
+					      else sample(levels_var, 1, prob = p)
+					    })
+					  }
+					  pred_values <- .cat_mode(draws)
+					} else {
+					  pred_values <- .impute_levels(pred_prob, levels_var, sample = FALSE)
+					}
 				 }
 
 	return(list(full_prediction = pred_prob,
@@ -618,6 +752,23 @@
     pred_values <- levels_var[apply(pred_prob, 1, which.max)]
   }
   return(as.character(pred_values))
+}
+
+#' @title .cat_mode
+#' @description Element-wise mode across a character matrix. For each row,
+#'   returns the most frequent value; ties are broken at random. Used as
+#'   the categorical analogue of median-of-K when combining per-iteration
+#'   posterior-predictive class draws (see .predict_bace, sample = TRUE).
+#' @param mat Character matrix (n rows, K columns of class draws).
+#' @return Character vector of length n with the per-row mode.
+.cat_mode <- function(mat) {
+  apply(mat, 1L, function(row) {
+    row <- row[!is.na(row)]
+    if (length(row) == 0L) return(NA_character_)
+    tab <- table(row)
+    top <- names(tab)[tab == max(tab)]
+    if (length(top) == 1L) top else sample(top, 1L)
+  })
 }
 
 #' @title .pred_cat
@@ -689,6 +840,56 @@
   rownames(df_ordered) <- paste0("Obs_", 1:n_obs)
 
   return(df_ordered)
+}
+
+
+#' @title .pred_cat_iter
+#' @description Per-iteration version of \code{.pred_cat}. Returns the
+#'   categorical class probability matrix computed at a single MCMC
+#'   iteration (no cross-iteration averaging). Used by \code{.predict_bace}
+#'   when \code{sample = TRUE} so that n_final imputations are genuine
+#'   posterior predictive draws rather than samples from the
+#'   posterior-mean probability row (see Rubin 1987; van Buuren 2018 §3.2).
+#'   Retains the Amemiya (1981) c^2 scaling factor used by \code{.pred_cat}.
+#' @param model MCMCglmm categorical model object.
+#' @param baseline_name String name for the baseline / reference category.
+#' @param iteration Integer index of the MCMC iteration to use.
+#' @return Data frame (n_obs x n_levels) of predicted probabilities at the
+#'   chosen iteration, columns ordered alphabetically to match \code{.pred_cat}.
+#' @keywords internal
+.pred_cat_iter <- function(model, baseline_name = "Baseline", iteration) {
+  n_obs    <- model$Residual$nrl
+  n_traits <- ncol(model$Liab) / n_obs
+
+  c2             <- (16 * sqrt(3) / (15 * pi))^2
+  IJ             <- 1 / (n_traits + 1) * (diag(n_traits) + matrix(1, n_traits, n_traits))
+  scaling_factor <- sqrt(1 + c2 * diag(IJ))
+
+  liab_i <- as.numeric(model$Liab[iteration, ])
+
+  exp_liab_list <- vector("list", n_traits)
+  exp_sum <- 1
+  for (k in seq_len(n_traits)) {
+    cols <- ((k - 1) * n_obs + 1):(k * n_obs)
+    scaled <- liab_i[cols] / scaling_factor[k]
+    exp_liab_list[[k]] <- exp(scaled)
+    exp_sum <- exp_sum + exp_liab_list[[k]]
+  }
+
+  prop_results <- vector("list", n_traits + 1)
+  for (k in seq_len(n_traits)) {
+    prop_results[[k]] <- exp_liab_list[[k]] / exp_sum
+  }
+  prop_results[[n_traits + 1]] <- 1 / exp_sum
+
+  raw_names   <- colnames(model$Sol)[seq_len(n_traits)]
+  clean_names <- gsub("^trait.*?\\.", "", raw_names)
+
+  df_final <- as.data.frame(do.call(cbind, prop_results))
+  colnames(df_final) <- c(clean_names, baseline_name)
+  df_ordered <- df_final[, order(colnames(df_final))]
+  rownames(df_ordered) <- paste0("Obs_", seq_len(n_obs))
+  df_ordered
 }
 
 
@@ -794,6 +995,90 @@
 }
 
 
+#' @title .pred_cat_forward_iter
+#' @description Per-iteration variant of \code{.pred_cat_forward}. Computes
+#'   forward-prediction class probabilities for ALL rows using fixed
+#'   effects, cut-points, and species BLUPs at a single MCMC iteration
+#'   (no cross-iteration averaging). Used by \code{.predict_bace} when
+#'   \code{sample = TRUE} to produce proper posterior predictive class
+#'   draws rather than draws from the posterior-mean probability row.
+#' @param model MCMCglmm categorical model object (fit with pr=TRUE).
+#' @param formula Fixed-effects formula used when fitting \code{model}.
+#' @param data_i Full data frame including rows with NA response.
+#' @param cluster_col Name of the random-effect grouping column.
+#' @param baseline_name Name for the baseline / reference category.
+#' @param iteration Integer index of the MCMC iteration to use.
+#' @return Data frame (n_obs x n_levels) of probabilities at the chosen
+#'   iteration; columns ordered as (baseline, then non-baseline levels).
+#' @keywords internal
+.pred_cat_forward_iter <- function(model, formula, data_i, cluster_col = "animal",
+                                    baseline_name = "Baseline", iteration) {
+
+  Sol       <- as.matrix(model$Sol)
+  beta_i    <- Sol[iteration, , drop = TRUE]
+  sol_names <- colnames(Sol)
+
+  # Same naming conventions as .pred_cat_forward.
+  trait_slope_cols <- sol_names[grep("^trait.*:", sol_names)]
+  trait_names      <- unique(sub(":.*$", "", trait_slope_cols))
+  n_traits         <- length(trait_names)
+  n_obs            <- nrow(data_i)
+
+  c2             <- (16 * sqrt(3) / (15 * pi))^2
+  IJ             <- 1 / (n_traits + 1) * (diag(n_traits) + matrix(1, n_traits, n_traits))
+  scaling_factor <- sqrt(1 + c2 * diag(IJ))
+
+  rhs   <- formula[-2]
+  X_all <- tryCatch(model.matrix(rhs, data_i), error = function(e) NULL)
+  if (is.null(X_all)) {
+    k  <- n_traits + 1
+    df <- as.data.frame(matrix(1 / k, nrow = n_obs, ncol = k))
+    non_base <- sub(".*\\.", "", trait_names)
+    colnames(df) <- c(baseline_name, non_base)
+    rownames(df) <- paste0("Obs_", seq_len(n_obs))
+    return(df)
+  }
+  x_cols <- colnames(X_all)
+
+  exp_list <- list()
+  exp_sum  <- 1
+  for (ki in seq_len(n_traits)) {
+    tk        <- trait_names[ki]
+    sol_fixed <- ifelse(x_cols == "(Intercept)", tk, paste0(tk, ":", x_cols))
+    valid     <- sol_fixed %in% sol_names
+    beta_k    <- beta_i[sol_fixed[valid]]
+
+    eta_k <- as.numeric(X_all[, x_cols[valid], drop = FALSE] %*% beta_k)
+
+    if (cluster_col %in% colnames(data_i)) {
+      species_vals <- as.character(data_i[[cluster_col]])
+      blup_cols    <- paste0(tk, ".", species_vals)
+      blups        <- vapply(blup_cols, function(bc)
+                               if (bc %in% sol_names) beta_i[[bc]] else 0,
+                             numeric(1))
+      eta_k <- eta_k + blups
+    }
+
+    exp_list[[ki]] <- exp(eta_k / scaling_factor[ki])
+    exp_sum        <- exp_sum + exp_list[[ki]]
+  }
+
+  prop_results <- vector("list", n_traits + 1)
+  for (ki in seq_len(n_traits)) {
+    prop_results[[ki]] <- exp_list[[ki]] / exp_sum
+  }
+  prop_results[[n_traits + 1]] <- 1 / exp_sum
+
+  non_baseline_names <- sub(".*\\.", "", trait_names)
+  all_level_names    <- c(baseline_name, non_baseline_names)
+
+  df_final <- as.data.frame(do.call(cbind, prop_results[c(n_traits + 1L, seq_len(n_traits))]))
+  colnames(df_final) <- all_level_names
+  rownames(df_final) <- paste0("Obs_", seq_len(n_obs))
+  df_final
+}
+
+
 #' @title .pred_threshold
 #' @description Function calculates predicted probabilities for each category from a threshold MCMCglmm model
 #' @param model A MCMCglmm model object
@@ -825,6 +1110,43 @@
   df_final <- as.data.frame(do.call(cbind, all_probs))
   colnames(df_final) <- if (is.null(level_names)) paste0("Level_", seq_len(n_levels)) else level_names
   return(df_final)
+}
+
+
+#' @title .pred_threshold_iter
+#' @description Per-iteration variant of \code{.pred_threshold}. Computes
+#'   threshold/ordinal class probabilities using the latent liability and
+#'   cut-points at a single MCMC iteration, without cross-iteration
+#'   averaging. Per Hadfield's MCMCglmm course notes (§3.7), threshold-
+#'   model probabilities are \code{Phi(CP_k - eta) - Phi(CP_{k-1} - eta)};
+#'   here \code{eta} is the per-iteration liability.
+#' @param model MCMCglmm threshold/ordinal model (fit with pl=TRUE).
+#' @param level_names Character vector of ordered level names.
+#' @param iteration Integer MCMC iteration index to use.
+#' @return Data frame (n_obs x n_levels) of per-iteration probabilities.
+#' @keywords internal
+.pred_threshold_iter <- function(model, level_names = NULL, iteration) {
+  n_obs <- model$Residual$nrl
+  if (!is.null(model$CP)) {
+    cp_i     <- c(0, as.matrix(model$CP)[iteration, ])
+    n_levels <- length(cp_i) + 1
+  } else {
+    cp_i     <- 0
+    n_levels <- 2
+  }
+  liab_i <- as.numeric(as.matrix(model$Liab)[iteration, ])
+
+  all_probs <- vector("list", n_levels)
+  for (j in seq_len(n_levels)) {
+    t_low  <- if (j == 1)       -Inf else cp_i[j - 1]
+    t_high <- if (j == n_levels) Inf else cp_i[j]
+    all_probs[[j]] <- pnorm(t_high, mean = liab_i, sd = 1) -
+                      pnorm(t_low,  mean = liab_i, sd = 1)
+  }
+  df <- as.data.frame(do.call(cbind, all_probs))
+  colnames(df) <- if (is.null(level_names))
+    paste0("Level_", seq_len(n_levels)) else level_names
+  df
 }
 
 
@@ -903,6 +1225,80 @@
     colnames(df_final) <- paste0("Level_", seq_len(n_levels))
   }
   return(df_final)
+}
+
+
+#' @title .pred_threshold_forward_iter
+#' @description Per-iteration variant of \code{.pred_threshold_forward}.
+#'   Builds class probabilities from fixed effects, cut-points, and
+#'   species BLUPs at a single MCMC iteration (no cross-iteration
+#'   averaging). Used by \code{.predict_bace} for \code{sample = TRUE} to
+#'   generate proper posterior predictive class draws.
+#' @param model MCMCglmm threshold model (fit with pr=TRUE).
+#' @param formula Fixed-effects formula.
+#' @param data_i Full data frame (may contain NA response rows).
+#' @param cluster_col Random-effect grouping column name.
+#' @param level_names Character vector of ordered level names.
+#' @param iteration Integer MCMC iteration index.
+#' @return Data frame (n_obs x n_levels) of per-iteration probabilities.
+#' @keywords internal
+.pred_threshold_forward_iter <- function(model, formula, data_i,
+                                          cluster_col = "animal",
+                                          level_names = NULL, iteration) {
+
+  Sol       <- as.matrix(model$Sol)
+  beta_i    <- Sol[iteration, , drop = TRUE]
+  sol_names <- colnames(Sol)
+  n_obs     <- nrow(data_i)
+
+  rhs   <- formula[-2]
+  X_all <- tryCatch(model.matrix(rhs, data_i), error = function(e) NULL)
+
+  if (is.null(X_all)) {
+    n_lv <- if (!is.null(model$CP)) ncol(as.matrix(model$CP)) + 2 else 2
+    df <- as.data.frame(matrix(1 / n_lv, nrow = n_obs, ncol = n_lv))
+    colnames(df) <- if (!is.null(level_names) && length(level_names) == n_lv)
+                      level_names else paste0("Level_", seq_len(n_lv))
+    return(df)
+  }
+
+  x_cols <- colnames(X_all)
+  valid  <- x_cols %in% sol_names
+  beta_k <- beta_i[x_cols[valid]]
+
+  eta <- as.numeric(X_all[, x_cols[valid], drop = FALSE] %*% beta_k)
+
+  if (cluster_col %in% colnames(data_i)) {
+    species_vals <- as.character(data_i[[cluster_col]])
+    blup_cols    <- paste0(cluster_col, ".", species_vals)
+    blups        <- vapply(blup_cols, function(bc)
+                             if (bc %in% sol_names) beta_i[[bc]] else 0,
+                           numeric(1))
+    eta <- eta + blups
+  }
+
+  if (!is.null(model$CP) && length(model$CP) > 0) {
+    cp_i     <- c(0, as.matrix(model$CP)[iteration, ])
+    n_levels <- length(cp_i) + 1
+  } else {
+    cp_i     <- 0
+    n_levels <- 2
+  }
+
+  all_probs <- vector("list", n_levels)
+  for (j in seq_len(n_levels)) {
+    t_low  <- if (j == 1)       -Inf else cp_i[j - 1]
+    t_high <- if (j == n_levels) Inf else cp_i[j]
+    all_probs[[j]] <- pnorm(t_high - eta) - pnorm(t_low - eta)
+  }
+
+  df_final <- as.data.frame(do.call(cbind, all_probs))
+  if (!is.null(level_names) && length(level_names) == n_levels) {
+    colnames(df_final) <- level_names
+  } else {
+    colnames(df_final) <- paste0("Level_", seq_len(n_levels))
+  }
+  df_final
 }
 
 

@@ -191,10 +191,14 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
 
         # Store probability matrix for categorical/threshold (used for pooled prediction)
         # Attach animal names as rownames so downstream pooling joins by name, not position.
+        # make.unique() handles the multi-row-per-species case (e.g. within-species
+        # replicates in simulated data); AVONET-like single-row-per-species data is
+        # unaffected because make.unique is a no-op on unique inputs.
         if (types[[response_var]] %in% c("categorical", "threshold") &&
             !is.null(predictions[["full_prediction"]])) {
           prob_mat <- predictions[["full_prediction"]][id, , drop = FALSE]
-          rownames(prob_mat) <- as.character(data_current[[phylo_ran[["cluster"]]]][id])
+          rownames(prob_mat) <- make.unique(
+            as.character(data_current[[phylo_ran[["cluster"]]]][id]))
           prob_preds_this_run[[response_var]] <- prob_mat
         }
 
