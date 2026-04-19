@@ -4,7 +4,7 @@
 \alias{.list_of_G}
 \title{.list_of_G}
 \usage{
-.list_of_G(n_rand, nu = NULL, par_expand = FALSE, diag = 1)
+.list_of_G(n_rand, nu = NULL, par_expand = TRUE, diag = 1)
 }
 \arguments{
 \item{n_rand}{An integer specifying the number of random effects in the model.}

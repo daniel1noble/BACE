@@ -9,7 +9,7 @@
   type,
   nu = NULL,
   n_levels = NULL,
-  par_expand = FALSE,
+  par_expand = TRUE,
   fixform = NULL,
   data = NULL,
   gelman = 0
