@@ -1,15 +1,29 @@
 # =============================================================================
-# Simulation: Assessing BACE Imputation Quality (Controlled Simulated Data)
+# 02_benchmark_simulated_full.R - Full simulation benchmark (NOT routine-run)
 # =============================================================================
+#
+# Role in the benchmarking suite
+# ------------------------------
+#   00_benchmark_AVONET.R       empirical benchmark on AVONET (routine).
+#   01_benchmark_simulated.R    small-scale simulation, one replicate
+#                                end-to-end, with intermediate artefacts
+#                                (routine).
+#   02_benchmark_simulated_full.R  THIS FILE. The full crossed-design
+#                                simulation: 4 phylogenetic-signal
+#                                scenarios x 3 missingness mechanisms
+#                                x N_SIMS replicates. Intended to be
+#                                run periodically (e.g. before a
+#                                release), NOT on every change. Heavy
+#                                compute - 600+ bace() calls at
+#                                production MCMC settings.
 #
 # Context
 # -------
-# BACE already has an empirical benchmark against AVONET
-# (avonet_mixed_benchmark.R). That benchmark uses REAL trait data, so the
-# true values of the "missing" cells are unknown. This script fills the
-# gap with a fully controlled simulation: generate complete data with
-# known ground truth, hide cells under a realistic missingness
-# mechanism, impute with bace(), and measure the error directly.
+# The routine-run AVONET benchmark uses REAL trait data, so the true
+# values of the "missing" cells are unknown. This script fills the gap
+# with a fully controlled simulation: generate complete data with known
+# ground truth, hide cells under a realistic missingness mechanism,
+# impute with bace(), and measure the error directly.
 #
 # Key design choices (peer-reviewed backing)
 # ------------------------------------------

@@ -1,15 +1,24 @@
 # =============================================================================
-# Demonstration: What `simulation_imputation_quality.R` Actually Does
+# 01_benchmark_simulated.R - Small-scale simulated benchmark (routine-run)
 # =============================================================================
 #
-# Purpose
-# -------
-# The main script runs ~1500 BACE imputations headlessly (4 phylo scenarios
-# x 3 missingness mechanisms x 125 replicates, with n_final = 20 inner
-# imputations each). This file runs the same machinery on a SINGLE
-# replicate, printing every intermediate artefact so a reader can
-# confirm:
+# Role in the benchmarking suite
+# ------------------------------
+#   00_benchmark_AVONET.R       empirical benchmark on the 2000-species
+#                                AVONET subset (routine-run).
+#   01_benchmark_simulated.R    THIS FILE. Small-scale simulated
+#                                benchmark: ONE replicate end-to-end,
+#                                with all intermediate artefacts
+#                                printed so a reader can sanity-check
+#                                the pipeline visually. Runs in a few
+#                                minutes; intended as the routine
+#                                "simulated" check next to the AVONET
+#                                empirical one.
+#   02_benchmark_simulated_full.R  Full crossed-design simulation
+#                                (scenarios x mechanisms x N_SIMS
+#                                replicates). Heavy; NOT run routinely.
 #
+# What this script confirms
 #   1. sim_bace() produces a complete dataset with known ground truth
 #      (including an ordered categorical trait).
 #   2. inject_missingness() generates masks whose empirical pattern
@@ -62,7 +71,7 @@ source_funcs <- function(path, fn_names) {
     eval(parse(text = src[start_i:end_i]), envir = globalenv())
   }
 }
-MAIN <- file.path("dev", "simulation_imputation_quality.R")
+MAIN <- file.path("dev", "02_benchmark_simulated_full.R")
 
 # We also need the constants the helpers reference. Keep in sync with
 # the main script - see inject_missingness() for the rationale.
@@ -98,6 +107,37 @@ cat("Rows x cols :", nrow(complete_data), "x", ncol(complete_data), "\n")
 cat("Tree tips   :", ape::Ntip(tree), "\n")
 cat("Column types:\n"); print(sapply(complete_data, function(x) class(x)[1]))
 stopifnot(sum(is.na(complete_data)) == 0)
+
+# Recovery check: does Pagel's lambda estimated on the simulated
+# continuous traits match the dialled-in signal? For a demo, a quick
+# sanity check that sim_bace() is producing data with the intended
+# phylo signal. Categorical traits use Fritz & Purvis D via OVR
+# binarisation (Münkemüller et al. 2012 MEE 3:743 recommends reporting
+# such signal measures alongside any phylogenetic method evaluation).
+if (requireNamespace("phytools", quietly = TRUE)) {
+  cat("\n--- Phylogenetic signal recovery check ---\n")
+  cat(sprintf("%-4s  %-12s  %-10s  %-10s  %-10s\n",
+              "var", "type", "signal_set", "lambda_est", "K_est"))
+  for (i in seq_along(phylo_signal)) {
+    v <- c("y", "x1", "x2", "x3", "x4")[i]
+    vals <- complete_data[[v]]
+    if (is.factor(vals)) vals <- as.numeric(vals)   # crude OVR-free proxy
+    vals <- setNames(vals, complete_data$Species)
+    tr   <- ape::keep.tip(tree, unique(complete_data$Species))
+    vals <- vals[tr$tip.label]   # align to tree order; duplicates ok
+    lam  <- tryCatch(
+      suppressWarnings(phytools::phylosig(tr, vals, method = "lambda")$lambda),
+      error = function(e) NA_real_)
+    K    <- tryCatch(
+      suppressWarnings(phytools::phylosig(tr, vals, method = "K")),
+      error = function(e) NA_real_)
+    K_val <- if (is.list(K)) K$K else K
+    cat(sprintf("%-4s  %-12s  %-10.2f  %-10.2f  %-10.2f\n",
+                v,
+                c("gaussian", "binary", "multinomial", "poisson", "threshold")[i],
+                phylo_signal[i], lam, as.numeric(K_val)))
+  }
+}
 
 # -----------------------------------------------------------------------------
 # STEP 2. Demonstrate each missingness MECHANISM using a LOW-signal sim

@@ -71,3 +71,4 @@ dev/testing_data/hoarding/
 
 # Simulation outputs (regenerable, potentially very large RDS artefacts)
 dev/simulation_results/
+dev/benchmark_results/
