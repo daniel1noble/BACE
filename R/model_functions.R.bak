@@ -500,7 +500,7 @@
     # compute per-iteration "yes" probability, row-normalise across j,
     # draw class. Majority-vote across K for robustness against chain
     # excursions (per original BACE design intent).
-    K <- 1L
+    K <- 3L
     draws_mat <- matrix(NA_character_, nrow = n_obs, ncol = K)
     for (k in seq_len(K)) {
       iter_probs <- matrix(0, nrow = n_obs, ncol = length(level_names))
@@ -576,7 +576,7 @@
 					  common  <- intersect(colnames(W), colnames(Sol))
 					  Wcom    <- W[, common, drop = FALSE]
 					  n_iter  <- nrow(Sol)
-					  K <- 1L
+					  K       <- min(3L, n_iter)
 					  i_samps <- sample.int(n_iter, K)
 
 					  # Residual variance per iteration. MCMCglmm stores this in VCV
@@ -619,7 +619,7 @@
 					  # dropped. Median of K=3 draws retained for excursion robustness.
 					  liab   <- as.matrix(model$Liab)
 					  n_iter <- nrow(liab); n_obs <- ncol(liab)
-					  K <- 1L
+					  K      <- min(3L, n_iter)
 					  i_samps <- sample.int(n_iter, K)
 					  draws   <- matrix(NA_integer_, nrow = K, ncol = n_obs)
 					  for (k in seq_len(K)) {
@@ -658,7 +658,7 @@
 				     # draw a class. Majority-vote across the K draws per cell matches
 				     # the median-of-K robustness pattern used for continuous types.
 				     n_iter <- nrow(as.matrix(model$Sol))
-				     K <- 1L
+				     K      <- min(3L, n_iter)
 				     i_samps <- sample.int(n_iter, K)
 				     n_obs_i <- nrow(pred_prob)
 				     draws  <- matrix(NA_character_, nrow = n_obs_i, ncol = K)
@@ -704,7 +704,7 @@
 					  # K=3 iterations -> per-iteration softmax (Amemiya 1981 c^2
 					  # correction preserved) -> majority vote.
 					  n_iter <- nrow(as.matrix(model$Sol))
-					  K <- 1L
+					  K      <- min(3L, n_iter)
 					  i_samps <- sample.int(n_iter, K)
 					  n_obs_i <- nrow(pred_prob)
 					  draws  <- matrix(NA_character_, nrow = n_obs_i, ncol = K)
