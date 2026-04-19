@@ -32,7 +32,10 @@
 #     scoring rule for categorical forecasts.
 # =============================================================================
 
-library(BACE)
+# Load the CURRENT source of BACE (this branch, not the globally installed
+# version). Critical on the cov-fix branch: library(BACE) would load the
+# installed version and miss the sampling-path changes we want to test.
+devtools::load_all(quiet = TRUE)
 library(ape)
 library(MASS)
 
