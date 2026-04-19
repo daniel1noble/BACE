@@ -67,3 +67,7 @@ UPDATE_MCMCGLMM_CLASS.md
 
 dev/testing_data/hoarding/
 .claude/worktrees/jovial-hermann/
+.claude/scheduled_tasks.lock
+
+# Simulation outputs (regenerable, potentially very large RDS artefacts)
+dev/simulation_results/
