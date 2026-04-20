@@ -72,3 +72,10 @@ dev/testing_data/hoarding/
 # Simulation outputs (regenerable, potentially very large RDS artefacts)
 dev/simulation_results/
 dev/benchmark_results/
+
+# VS Code / Quarto / RMarkdown HTML preview artefacts
+# (the _files/ sidecars contain JS/CSS/fonts that we don't want tracked)
+dev/*.html
+dev/*_files/
+*.html
+*_files/

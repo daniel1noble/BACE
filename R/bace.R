@@ -45,6 +45,12 @@
 #'   one-vs-rest binary threshold MCMCglmm models (J models per variable, one per level)
 #'   instead of a single multinomial probit. Binary threshold models mix more reliably
 #'   and are the recommended default. Default is TRUE.
+#' @param phylo_signal Logical. If TRUE, run \code{\link{phylo_signal_summary}} for every
+#'   variable in the formula instead of performing the full BACE imputation pipeline. The
+#'   function returns the signal-only preview object (class \code{c("phylo_signal",
+#'   "bace_preview")}); no call to \code{bace_imp()}, \code{bace_final_imp()}, or
+#'   \code{pool_posteriors()} is made. Use this to check whether the data carry enough
+#'   phylogenetic signal to justify a full BACE run. Default is FALSE.
 #' @param n_cores Integer specifying the number of parallel cores to use for the final
 #'   imputation runs. Default is 1 (serial). Values > 1 use \code{parallel::mclapply}.
 #'   Note: parallel execution may be unstable on macOS with multithreaded BLAS; the
@@ -95,9 +101,46 @@ bace <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5,
                 burnin = 1000, runs = 10, n_final = 10, species = FALSE,
                 verbose = TRUE, plot = FALSE, max_attempts = 3, skip_conv = FALSE,
                 sample_size = NULL, n_cores = 1L,
-                nitt_cat_mult = 1L, ovr_categorical = TRUE, ...) {
+                nitt_cat_mult = 1L, ovr_categorical = TRUE,
+                phylo_signal = FALSE, ...) {
 
-##-----------------------## 
+##-----------------------##
+# phylo_signal = TRUE: short-circuit to signal-only preview
+##-----------------------##
+if (isTRUE(phylo_signal)) {
+  if (verbose) {
+    cat("\n=======================================================\n")
+    cat("BACE: phylo_signal = TRUE (signal-only preview)\n")
+    cat("=======================================================\n\n")
+  }
+  # Collect all variables across fix formula(s)
+  if (is.list(fixformula) && !inherits(fixformula, "formula")) {
+    sig_vars <- unique(unlist(lapply(fixformula,
+                                     function(f) .get_variables(f, fix = TRUE)$fix)))
+  } else {
+    sig_vars <- .get_variables(fixformula, fix = TRUE)$fix
+  }
+  # Extract species column from ran_phylo_form
+  sig_cluster <- .get_variables(ran_phylo_form, fix = FALSE)$cluster
+  sig_species_col <- if (length(sig_cluster) >= 1) sig_cluster[[1]] else "Species"
+
+  preview <- phylo_signal_summary(
+    data            = data,
+    tree            = phylo,
+    species_col     = sig_species_col,
+    variables       = sig_vars,
+    species         = species,
+    ovr_categorical = ovr_categorical,
+    verbose         = verbose
+  )
+  if (verbose) print(preview)
+  class(preview) <- c("phylo_signal", "bace_preview")
+  message("phylo_signal = TRUE: returning signal-only preview. ",
+          "Rerun with phylo_signal = FALSE to proceed with imputation.")
+  return(invisible(preview))
+}
+
+##-----------------------##
 # Run bace_imp first
 ##-----------------------##
 if (verbose) {
