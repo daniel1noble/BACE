@@ -131,7 +131,60 @@ We can then view the simulated data and phylogenetic tree because the `sim_bace(
     head(data)
 ```
 
-Here, we can see that the dataset contains lots of missing values across different variable types. Of course, normally, we would need to exclude these cases to use a complete dataset. However, with *BACE* we simply feed in the entire dataset, specify the models we want to use for imputation (or the real model of interest), and impute the missing data. 
+Here, we can see that the dataset contains lots of missing values across different variable types. Of course, normally, we would need to exclude these cases to use a complete dataset. However, with *BACE* we simply feed in the entire dataset, specify the models we want to use for imputation (or the real model of interest), and impute the missing data.
+
+## Pre-flight: check phylogenetic signal
+
+Before committing to a full BACE run (which can take minutes to hours for larger datasets), it's worth checking whether the variables carry enough phylogenetic information for the phylogenetic random effect to help imputation. BACE provides `phylo_signal_summary()`, which fits one univariate phylogenetic mixed model per variable and reports:
+
+- **H²** — phylogenetic heritability (fraction of variance attributable to the phylogeny) on the latent scale that BACE's per-variable models actually operate on. Posterior mean + 95% HPD. Works for **all** variable types (gaussian, poisson, binary, ordered, multinomial).
+- **λ, K** (continuous variables only) — Pagel's [@pagel1999] and Blomberg's [@blomberg2003] classical statistics, via `phytools::phylosig()`.
+- **D** (binary variables only) — Fritz-Purvis D [@fritz2010], via `caper::phylo.d()`.
+- **Convergence flags** — every fit is checked with `coda::effectiveSize()` and `coda::geweke.diag()`; rows with low effective sample size or failed Geweke tests are flagged `unreliable` and marked with an asterisk in the printout. Do not interpret flagged rows as data-driven estimates.
+
+The same H² formulas that BACE's own per-variable models imply are used here, so the number is directly informative about the imputation model's structure. The function honours BACE's two-RE modes: `species = FALSE` fits a single phylogenetic random effect; `species = TRUE` fits the dual structure (phylogenetic + non-phylogenetic species) that BACE uses when there are within-species replicates.
+
+```{r}
+#| label: phylo_signal_preflight
+#| echo: true
+#| eval: false
+
+# Quick first-pass signal check using quick = TRUE (halves iterations):
+signal <- phylo_signal_summary(
+  data        = data,
+  tree        = tree,
+  species_col = "species",
+  species     = FALSE,
+  quick       = TRUE
+)
+print(signal)
+```
+
+Or, more concisely, call `bace()` with `phylo_signal = TRUE` to get the same diagnostic without running the imputation pipeline:
+
+```{r}
+#| label: phylo_signal_via_bace
+#| echo: true
+#| eval: false
+
+# Signal-only preview: returns a phylo_signal object and does NOT
+# call bace_imp(), bace_final_imp(), or pool_posteriors().
+preview <- bace(
+  fixformula     = y ~ x1 + x2 + x3 + x4,
+  ran_phylo_form = ~ 1 | species,
+  phylo          = tree,
+  data           = data,
+  phylo_signal   = TRUE
+)
+```
+
+**How to interpret the table:**
+
+- H² < 0.2 = **low** signal — the phylogenetic random effect contributes little for this variable; imputation will rely mostly on observed predictors.
+- 0.2 ≤ H² < 0.5 = **moderate** signal.
+- H² ≥ 0.5 = **high** signal — the phylogenetic random effect carries substantial information; BACE's phylogenetic structure is expected to help.
+
+**Reviewer's caveat (important):** phylogenetic signal is *necessary but not sufficient* for good imputation. A high-H² trait can still impute poorly if the data are missing-not-at-random (MNAR); a low-H² trait can still impute well if it is tightly coupled to an observed predictor. The signal table sets expectations; it does not predict imputation accuracy.
 
 ## Using *BACE* for Imputation
 Now that we have the data and the phylogenetic tree we can do the imputation is to use the `bace()` or `bace_imp()` function. 

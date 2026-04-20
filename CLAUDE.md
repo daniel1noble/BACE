@@ -95,6 +95,7 @@ Override with `ovr_categorical = TRUE` to use J one-vs-rest binary threshold mod
 | `.build_formula_string()` | `build_functions.R` | From one formula `y ~ x1 + x2`, generate all variable-swapped formulas (one per variable) |
 | `.make_prior()` | `model_functions.R` | Build MCMCglmm prior list; Gelman/pseudo-Gelman options for categorical |
 | `.standardize_mcmc_params()` | `bace_imp.R` | Normalise `nitt`/`thin`/`burnin` to per-formula lists |
+| `phylo_signal_summary()` | `phylo_signal_summary.R` | Diagnostic: fits univariate MCMCglmm per variable, reports H² (latent scale, per-type trace formulas for multinomial), classical λ/K/D, convergence diagnostics (ESS + Geweke), and flags (`low_ess`/`geweke_fail`/`unreliable`/`low_n`). Honours `species = TRUE` dual-RE structure. MCMC defaults are type-specific (1500 post-burn draws, ESS target > 1000); `quick = TRUE` halves them. Also callable via `bace(..., phylo_signal = TRUE)` which short-circuits the imputation pipeline. |
 
 ### Posterior pooling
 

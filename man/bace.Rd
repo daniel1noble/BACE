@@ -23,6 +23,7 @@ bace(
   n_cores = 1L,
   nitt_cat_mult = 1L,
   ovr_categorical = TRUE,
+  phylo_signal = FALSE,
   ...
 )
 }
@@ -91,6 +92,13 @@ categorical models proportionally longer chains.}
 one-vs-rest binary threshold MCMCglmm models (J models per variable, one per level)
 instead of a single multinomial probit. Binary threshold models mix more reliably
 and are the recommended default. Default is TRUE.}
+
+\item{phylo_signal}{Logical. If TRUE, run \code{\link{phylo_signal_summary}} for every
+variable in the formula instead of performing the full BACE imputation pipeline. The
+function returns the signal-only preview object (class \code{c("phylo_signal",
+  "bace_preview")}); no call to \code{bace_imp()}, \code{bace_final_imp()}, or
+\code{pool_posteriors()} is made. Use this to check whether the data carry enough
+phylogenetic signal to justify a full BACE run. Default is FALSE.}
 
 \item{...}{Additional arguments to be passed to the underlying modeling functions.}
 }
