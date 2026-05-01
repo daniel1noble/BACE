@@ -19,7 +19,7 @@ phylo_signal_summary(
   prior = NULL,
   n_sim = 999,
   min_ess = 1000,
-  keep_models = FALSE,
+  keep_models = TRUE,
   verbose = TRUE
 )
 }
@@ -58,8 +58,10 @@ first-pass exploration. Default \code{FALSE}.}
 \item{min_ess}{numeric; minimum acceptable effective sample size on any
 variance component. Rows below this get \code{low_ess} flag. Default 1000.}
 
-\item{keep_models}{logical; if \code{TRUE}, return the fitted MCMCglmm objects
-on \verb{$models}. Default \code{FALSE} (memory-efficient).}
+\item{keep_models}{logical; if \code{TRUE} (default), return the fitted MCMCglmm
+objects on \verb{$models}. For \code{ovr_categorical = TRUE} runs, the per-level
+binary fits are returned as a named list keyed by factor level. Set to
+\code{FALSE} for memory-constrained runs (e.g. many variables x large trees).}
 
 \item{verbose}{logical; print progress messages. Default \code{TRUE}.}
 }

@@ -92,8 +92,10 @@
 #' @param n_sim integer; simulations for Blomberg's K p-value. Default 999.
 #' @param min_ess numeric; minimum acceptable effective sample size on any
 #'   variance component. Rows below this get `low_ess` flag. Default 1000.
-#' @param keep_models logical; if `TRUE`, return the fitted MCMCglmm objects
-#'   on `$models`. Default `FALSE` (memory-efficient).
+#' @param keep_models logical; if `TRUE` (default), return the fitted MCMCglmm
+#'   objects on `$models`. For `ovr_categorical = TRUE` runs, the per-level
+#'   binary fits are returned as a named list keyed by factor level. Set to
+#'   `FALSE` for memory-constrained runs (e.g. many variables x large trees).
 #' @param verbose logical; print progress messages. Default `TRUE`.
 #'
 #' @return An S3 `phylo_signal` object with slots `$table`, `$models`,
@@ -118,7 +120,7 @@ phylo_signal_summary <- function(
     prior           = NULL,
     n_sim           = 999,
     min_ess         = 1000,
-    keep_models     = FALSE,
+    keep_models     = TRUE,
     verbose         = TRUE) {
 
   # ----- Validate inputs -----
@@ -206,7 +208,8 @@ phylo_signal_summary <- function(
         species_col = species_col, species = species,
         nitt = nitt, burnin = burnin, thin = thin, quick = quick,
         prior = prior, min_ess = min_ess, methods = methods,
-        ovr_categorical = ovr_categorical, n_sim = n_sim
+        ovr_categorical = ovr_categorical, n_sim = n_sim,
+        keep_models = keep_models
       ),
       error = function(e) {
         warning(sprintf("Fit for '%s' failed: %s", v, conditionMessage(e)),
@@ -309,7 +312,8 @@ phylo_signal_summary <- function(
 #' @noRd
 .fit_signal_one <- function(v, type, data, tree, A, species_col, species,
                             nitt, burnin, thin, quick, prior, min_ess,
-                            methods, ovr_categorical, n_sim) {
+                            methods, ovr_categorical, n_sim,
+                            keep_models = TRUE) {
 
   # --- Subset to rows with observed v and species in tree ---
   d <- data[!is.na(data[[v]]), c(v, species_col), drop = FALSE]
@@ -365,7 +369,8 @@ phylo_signal_summary <- function(
       v = v, d = d, type = type, tree = tree, A = A,
       species_col = species_col, species = species,
       mcmc = mcmc, n_levels = n_levels, min_ess = min_ess,
-      methods = methods, n_sim = n_sim, data_full = data
+      methods = methods, n_sim = n_sim, data_full = data,
+      keep_models = keep_models
     ))
   }
 
@@ -450,11 +455,13 @@ phylo_signal_summary <- function(
 #' @noRd
 .fit_signal_ovr <- function(v, d, type, tree, A, species_col, species,
                              mcmc, n_levels, min_ess, methods, n_sim,
-                             data_full) {
+                             data_full, keep_models = TRUE) {
   lvls <- levels(d[[v]])
   per_level_h2 <- numeric(length(lvls))
   per_level_ess <- numeric(length(lvls))
   per_level_gwk <- logical(length(lvls))
+  per_level_fits <- if (keep_models) vector("list", length(lvls)) else NULL
+  if (!is.null(per_level_fits)) names(per_level_fits) <- lvls
   n_obs_total <- nrow(d)
 
   # Build threshold prior once
@@ -498,6 +505,7 @@ phylo_signal_summary <- function(
       as.matrix(m_j$VCV)[, diag_cols, drop = FALSE]))
     per_level_ess[j] <- min(ess, na.rm = TRUE)
     per_level_gwk[j] <- .geweke_fail(m_j, diag_cols)
+    if (keep_models) per_level_fits[[j]] <- m_j
   }
 
   h2_mean <- mean(per_level_h2)
@@ -537,7 +545,7 @@ phylo_signal_summary <- function(
     flag           = flag_str,
     stringsAsFactors = FALSE
   )
-  list(row = row, model = NULL)
+  list(row = row, model = per_level_fits)
 }
 
 

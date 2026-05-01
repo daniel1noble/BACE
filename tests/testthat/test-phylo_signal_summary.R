@@ -302,24 +302,24 @@ test_that("multi-variable input yields one row per variable in order", {
   expect_true(all(res$table$type == "gaussian"))
 })
 
-test_that("keep_models = TRUE returns the fitted models", {
-  tr <- .mk_ultrametric_tree(40)
-  d <- .mk_gaussian_data(tr, H2 = 0.5)
-  res <- suppressWarnings(phylo_signal_summary(
-    data = d, tree = tr, variables = "y",
-    nitt = 1500, burnin = 500, thin = 2,
-    keep_models = TRUE, verbose = FALSE
-  ))
-  expect_named(res$models, "y")
-  expect_s3_class(res$models$y, "MCMCglmm")
-})
-
-test_that("default keep_models = FALSE omits model list", {
+test_that("default keep_models = TRUE returns the fitted models", {
   tr <- .mk_ultrametric_tree(40)
   d <- .mk_gaussian_data(tr, H2 = 0.5)
   res <- suppressWarnings(phylo_signal_summary(
     data = d, tree = tr, variables = "y",
     nitt = 1500, burnin = 500, thin = 2, verbose = FALSE
+  ))
+  expect_named(res$models, "y")
+  expect_s3_class(res$models$y, "MCMCglmm")
+})
+
+test_that("keep_models = FALSE omits the model list (opt-out)", {
+  tr <- .mk_ultrametric_tree(40)
+  d <- .mk_gaussian_data(tr, H2 = 0.5)
+  res <- suppressWarnings(phylo_signal_summary(
+    data = d, tree = tr, variables = "y",
+    nitt = 1500, burnin = 500, thin = 2,
+    keep_models = FALSE, verbose = FALSE
   ))
   expect_null(res$models)
 })
@@ -562,4 +562,10 @@ test_that("ovr_categorical = TRUE runs J binary fits and returns one row", {
   # OVR doesn't produce an aggregate HPD; lo/hi are NA by design
   expect_true(is.na(res$table$H2_lo))
   expect_true(is.na(res$table$H2_hi))
+  # Per-level binary fits returned as a named list keyed by factor level
+  expect_type(res$models, "list")
+  expect_named(res$models$y, c("a", "b", "c"))
+  expect_s3_class(res$models$y$a, "MCMCglmm")
+  expect_s3_class(res$models$y$b, "MCMCglmm")
+  expect_s3_class(res$models$y$c, "MCMCglmm")
 })
