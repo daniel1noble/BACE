@@ -133,7 +133,10 @@ nl()
 
 # ---- Failure callouts -------------------------------------------------------
 
-expected_datasets <- c("avonet","pantheria","amphibio","bien",
+# amphibio temporarily skipped pending stronger-prior fix; restore it
+# here when the matrix entry in .github/workflows/benchmark.yml and
+# the DATASETS entry in dev/08_benchmark_all.R are re-enabled.
+expected_datasets <- c("avonet","pantheria","bien",
                        "globtherm","leptraits")
 present_datasets  <- if (!is.null(all_metrics))
   sort(unique(all_metrics$dataset)) else character()

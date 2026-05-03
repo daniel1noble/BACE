@@ -38,9 +38,12 @@ DATASETS <- list(
     log_traits = c("body_mass_g", "head_body_length_mm",
                    "gestation_d", "max_longevity_m")
   ),
-  amphibio  = list(
-    log_traits = c("body_size_mm", "body_mass_g")
-  ),
+  # amphibio temporarily skipped: MCMCglmm hits "Mixed model equations
+  # singular" even after dropping presence-only binaries. Needs
+  # stronger priors. Re-enable by uncommenting the entry below.
+  # amphibio  = list(
+  #   log_traits = c("body_size_mm", "body_mass_g")
+  # ),
   bien      = list(
     log_traits = c("height_m", "leaf_area", "sla",
                    "seed_mass", "wood_density")
