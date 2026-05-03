@@ -26,14 +26,26 @@ jobs:
           extra-packages: any::covr
           needs: coverage
 
-      - name: Test coverage
+      - name: Test coverage -> coveralls.io
+        # Requires the COVERALLS_REPO_TOKEN secret. Find it at:
+        #   https://coveralls.io/github/daniel1noble/BACE  (Settings tab)
+        # Add it under: GitHub repo -> Settings -> Secrets -> Actions.
         run: |
-          covr::codecov(
+          cov <- covr::package_coverage(
             quiet = FALSE,
             clean = FALSE,
             install_path = file.path(normalizePath(Sys.getenv("RUNNER_TEMP"), winslash = "/"), "package")
           )
+          print(cov)
+          covr::coveralls(
+            coverage = cov,
+            service_name = "github",
+            service_job_id = Sys.getenv("GITHUB_RUN_ID"),
+            repo_token = Sys.getenv("COVERALLS_REPO_TOKEN")
+          )
         shell: Rscript {0}
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
 
       - name: Show testthat output
         if: always()
