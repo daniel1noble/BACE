@@ -24,7 +24,9 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::covr
+          # xml2 is needed by covr::to_cobertura() to emit the
+          # Cobertura XML the coverallsapp action consumes.
+          extra-packages: any::covr, any::xml2
           needs: coverage
 
       - name: Compute coverage and export Cobertura XML
