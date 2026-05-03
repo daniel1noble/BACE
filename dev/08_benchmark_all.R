@@ -12,14 +12,12 @@
 # and where it's struggling (low correlation, low balanced_accuracy).
 #
 # Datasets included:
+#   avonet     : birds, mixed continuous / ordinal / categorical
 #   pantheria  : mammals, mixed cont/count/ordinal/binary
 #   amphibio   : amphibians, mixed cont/binary/ordinal/categorical
 #   bien       : plants, all-continuous
 #   globtherm  : thermal limits, all-continuous (raw scale)
 #   leptraits  : lepidopterans, mixed cont/binary
-#
-# AVONET is benchmarked separately by 00_benchmark_AVONET.R; you can
-# stack its output here too once that script is migrated to the engine.
 # =============================================================================
 
 devtools::load_all(quiet = TRUE)
@@ -32,6 +30,10 @@ source("dev/benchmark_engine.R")
 # Per-dataset config: log_traits + (optionally) MCMC overrides.
 # Defaults inherited from benchmark_dataset() unless overridden.
 DATASETS <- list(
+  avonet    = list(
+    log_traits = c("mass_g", "wing_length_mm", "beak_length_culmen_mm",
+                   "tarsus_length_mm", "tail_length_mm", "range_size_km2")
+  ),
   pantheria = list(
     log_traits = c("body_mass_g", "head_body_length_mm",
                    "gestation_d", "max_longevity_m")
