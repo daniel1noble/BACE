@@ -17,13 +17,14 @@ source("dev/benchmark_engine.R")
 load("dev/testing_data/data/leptraits_traits.rda")
 load("dev/testing_data/data/leptraits_tree.rda")
 
-# Coerce monthly indicators from integer 0/1 to factor "0"/"1" so the
-# engine routes them through the binary (threshold) path, not Poisson.
-month_cols <- c("Jan","Feb","Mar","Apr","May","Jun",
-                "Jul","Aug","Sep","Oct","Nov","Dec")
-for (m in intersect(month_cols, colnames(leptraits_traits))) {
-  leptraits_traits[[m]] <- factor(leptraits_traits[[m]], levels = c(0L, 1L))
-}
+# Drop the 12 monthly flight indicators -- including them gives 16
+# imputable traits which pushes the chained-equations runtime past
+# the GHA 5h45m job ceiling (run 25287097270 leptraits ran 5h19m
+# before "runner lost communication"). Keep the four continuous
+# trait columns; they exercise the gaussian path under log
+# transformation which is what the leptraits dataset is for.
+TRAIT_SUBSET <- c("wingspan_lower", "forewing_length_lower",
+                  "flight_duration", "n_hostplant_families")
 
 # Wingspan and forewing span >2 orders of magnitude across butterflies/moths.
 # n_hostplant_families is a small count (0-30) — log1p so the count's
@@ -36,9 +37,12 @@ result <- benchmark_dataset(
   tree         = leptraits_tree,
   dataset_name = "leptraits",
   log_traits   = LOG_TRAITS,
+  trait_subset = TRAIT_SUBSET,
   subset_n     = 2000L,
   nitt = 20000, thin = 15, burnin = 4000,
   runs = 5, n_final = 10,
-  max_attempts = 2, n_cores = 4L,
+  # n_cores=2 (not 4) -- same memory-pressure consideration as
+  # globtherm; leptraits taxonomic tree + 4 traits + 2000 spp.
+  max_attempts = 2, n_cores = 2L,
   verbose = TRUE
 )
