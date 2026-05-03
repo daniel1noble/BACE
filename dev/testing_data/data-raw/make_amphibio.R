@@ -85,6 +85,16 @@ df   <- df[non_missing, , drop = FALSE]
 tree <- ape::keep.tip(tree, rownames(df))
 df   <- df[tree$tip.label, , drop = FALSE]
 
+# MCMCglmm::inverseA needs every tip + node label distinct. Source
+# amphibio tree carries collapsed-singleton internals labelled "" that
+# all duplicate. make.unique-ing preserves informative Family names
+# where present and kills the empty-string duplicates.
+if (!is.null(tree$node.label)) {
+  nl <- ifelse(nzchar(tree$node.label) & !is.na(tree$node.label),
+               tree$node.label, "N")
+  tree$node.label <- make.unique(nl)
+}
+
 amphibio_traits <- df
 amphibio_tree   <- tree
 

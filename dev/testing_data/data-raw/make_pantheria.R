@@ -64,6 +64,20 @@ df   <- df[non_missing, , drop = FALSE]
 tree <- ape::keep.tip(tree, rownames(df))
 df   <- df[tree$tip.label, , drop = FALSE]
 
+# MCMCglmm::inverseA needs the tree rooted and every tip + node label
+# distinct. The Bininda-Emonds 2007 supertree ships unrooted in this
+# cache, and most internal nodes carry empty-string labels that all
+# collide. Root if needed, then make.unique node labels, preserving
+# informative names where present.
+if (!ape::is.rooted(tree)) {
+  tree <- ape::root.phylo(tree, outgroup = 1L, resolve.root = TRUE)
+}
+if (!is.null(tree$node.label)) {
+  nl <- ifelse(nzchar(tree$node.label) & !is.na(tree$node.label),
+               tree$node.label, "N")
+  tree$node.label <- make.unique(nl)
+}
+
 pantheria_traits <- df
 pantheria_tree   <- tree
 

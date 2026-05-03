@@ -74,6 +74,16 @@ df   <- df[non_missing, , drop = FALSE]
 tree <- ape::keep.tip(tree, rownames(df))
 df   <- df[tree$tip.label, , drop = FALSE]
 
+# MCMCglmm::inverseA needs every tip + node label distinct. The
+# V.PhyloMaker2 tree carries informative Order labels at some nodes
+# and "" at the rest; make.unique-ing preserves the informative ones
+# while killing duplicates.
+if (!is.null(tree$node.label)) {
+  nl <- ifelse(nzchar(tree$node.label) & !is.na(tree$node.label),
+               tree$node.label, "N")
+  tree$node.label <- make.unique(nl)
+}
+
 bien_traits <- df
 bien_tree   <- tree
 

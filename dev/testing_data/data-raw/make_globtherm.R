@@ -65,6 +65,16 @@ tree$edge.length[tree$edge.length <= 0] <- 1e-8
 stopifnot(setequal(tree$tip.label, rownames(df)))
 df <- df[tree$tip.label, , drop = FALSE]
 
+# MCMCglmm::inverseA needs every tip + node label distinct. multi2di
+# adds bifurcations whose internal nodes inherit "" labels; collapse
+# .singles can leave the same. make.unique-ing preserves the
+# informative Class/Order/Family/Genus names while killing duplicates.
+if (!is.null(tree$node.label)) {
+  nl <- ifelse(nzchar(tree$node.label) & !is.na(tree$node.label),
+               tree$node.label, "N")
+  tree$node.label <- make.unique(nl)
+}
+
 globtherm_traits <- df
 globtherm_tree   <- tree
 
