@@ -693,9 +693,24 @@
 				         probs_k <- .pred_threshold_iter(
 				           model, level_names = levels_var, iteration = i_samps[k])
 				       }
+				       # Align the sampling vocabulary with the prediction's column
+				       # count. The threshold iterator can return ncol(probs_k) <
+				       # length(levels_var) when the response factor declares more
+				       # levels than the training data observed (e.g. heavy sub-
+				       # sampling, presence-only binary indicators). The right
+				       # vocabulary in that case is the OBSERVED levels in
+				       # declaration order -- MCMCglmm internally re-indexes
+				       # observed values to 1:K_eff in factor order.
+				       lv_obs <- intersect(
+				         levels_var,
+				         as.character(unique(stats::na.omit(lv))))
+				       sample_levels <- .align_levels_to_probs(
+				         levels_var, ncol(probs_k),
+				         levels_observed = lv_obs,
+				         response_var = response_var)
 				       draws[, k] <- apply(probs_k, 1, function(p) {
 				         if (any(!is.finite(p)) || sum(p) <= 0) NA_character_
-				         else sample(levels_var, 1, prob = p)
+				         else sample(sample_levels, 1, prob = p)
 				       })
 				     }
 				     pred_values <- .cat_mode(draws)
@@ -742,10 +757,15 @@
 					        iteration = i_samps[k])
 					    }
 					    # Align column order of probs_k to levels_var for sampling.
-					    probs_k <- probs_k[, levels_var, drop = FALSE]
+					    # Categorical predictions DO carry the trained level names in
+					    # colnames(probs_k), so we can intersect by name; an unobserved
+					    # declared level simply won't appear in probs_k and is dropped
+					    # from the sampling vocabulary.
+					    sample_levels <- intersect(levels_var, colnames(probs_k))
+					    probs_k <- probs_k[, sample_levels, drop = FALSE]
 					    draws[, k] <- apply(probs_k, 1, function(p) {
 					      if (any(!is.finite(p)) || sum(p) <= 0) NA_character_
-					      else sample(levels_var, 1, prob = p)
+					      else sample(sample_levels, 1, prob = p)
 					    })
 					  }
 					  pred_values <- .cat_mode(draws)
@@ -758,6 +778,43 @@
                   pred_values = pred_values))
 }
 
+#' Reconcile a level vector with the column count of a probability matrix.
+#'
+#' MCMCglmm threshold / categorical fits internally re-index the
+#' response to consecutive integers \code{1:K_eff} where \code{K_eff}
+#' is the number of distinct values actually observed in training.
+#' When the response factor declares more levels than the model saw
+#' (e.g. heavy subsampling, presence-only indicators), the prediction
+#' matrix returned by the iterator has only \code{K_eff} columns.
+#' MCMCglmm preserves factor declaration order, so column \code{j}
+#' corresponds to the \code{j}-th observed level (in declaration
+#' order). This helper enforces that contract.
+#'
+#' @param levels_declared Full declared factor level set (i.e. \code{levels(lv)}).
+#' @param levels_observed Levels actually observed in the training response,
+#'   in declaration order (i.e. \code{intersect(levels_declared, as.character(unique(na.omit(lv))))}).
+#'   May be omitted when the caller knows it equals \code{levels_declared}.
+#' @param n_cols Number of columns in the probability matrix.
+#' @param response_var Name of the response, used in messages.
+#' @return Level vector matching \code{n_cols} entries.
+#' @keywords internal
+.align_levels_to_probs <- function(levels_declared, n_cols,
+                                    levels_observed = levels_declared,
+                                    response_var = "(unknown)") {
+  if (n_cols == length(levels_declared)) return(levels_declared)
+  if (n_cols == length(levels_observed)) return(levels_observed)
+  if (n_cols < length(levels_declared)) {
+    warning(sprintf(
+      "Prediction for '%s' has %d columns; declared %d levels, observed %d. Falling back to first %d declared levels.",
+      response_var, n_cols, length(levels_declared),
+      length(levels_observed), n_cols), call. = FALSE)
+    return(levels_declared[seq_len(n_cols)])
+  }
+  stop(sprintf(
+    "Prediction matrix has %d columns but only %d declared levels for '%s'",
+    n_cols, length(levels_declared), response_var))
+}
+
 #' @title .impute_levels
 #' @description Function samples predicted levels for categorical or ordinal variables based on predicted probabilities
 #' @param pred_prob A data frame of predicted probabilities for each category
@@ -765,6 +822,16 @@
 #' @param sample A logical indicating whether to sample from the distribution or take the maximum probability
 #' @return A vector of predicted levels for each observation
 .impute_levels <- function(pred_prob, levels_var, sample = FALSE) {
+  # If pred_prob carries level names in its column order (categorical
+  # case), align by name; else fall back to position-based alignment
+  # (threshold case, where the iterator may return generic Level_*
+  # names when ncol(pred_prob) < length(levels_var)).
+  if (!is.null(colnames(pred_prob)) &&
+      all(colnames(pred_prob) %in% levels_var)) {
+    levels_var <- colnames(pred_prob)
+  } else {
+    levels_var <- .align_levels_to_probs(levels_var, ncol(pred_prob))
+  }
   if (sample) {
     pred_values <- apply(pred_prob, 1, function(probs) {
       sample(levels_var, size = 1, prob = probs)
