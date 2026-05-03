@@ -18,13 +18,13 @@ load("dev/testing_data/data/amphibio_tree.rda")
 
 LOG_TRAITS <- c("body_size_mm", "body_mass_g")
 
-# Restrict trait set to well-supported columns. body_mass_g (91% NA) and
-# diurnal (87% NA, presence-only with only "yes" observed) cause MCMCglmm
-# to throw "Mixed model equations singular" under the 2000-spp subsample
-# because the design matrix becomes rank-deficient. nocturnal kept (both
-# yes/no observed); body_size_mm + diet_breadth + habitat are the dense
-# core. This still exercises continuous + binary + ordinal + categorical.
-TRAIT_SUBSET <- c("body_size_mm", "nocturnal", "diet_breadth", "habitat")
+# Restrict trait set to well-supported columns. AmphiBIO's binary
+# behaviour traits (diurnal / nocturnal) are presence-only -- NA = no
+# record, "yes" = recorded -- with effectively zero "no" observations
+# in any subsample, so MCMCglmm cannot fit a threshold model on a
+# single observed level (Singular MM equations). body_mass_g is 91%
+# NA in the source. Drop those three; keep the dense traits.
+TRAIT_SUBSET <- c("body_size_mm", "diet_breadth", "habitat")
 
 result <- benchmark_dataset(
   traits_df    = amphibio_traits,
