@@ -307,12 +307,14 @@ benchmark_dataset <- function(
     if (type %in% c("continuous", "count")) {
       vals <- stats::setNames(masked[[v]], masked$Species)
       s <- .phylo_signal_cont(tree, vals)
-      data.frame(trait = v, type = type, lambda = s$lambda, K = s$K,
-                 D = NA_real_, stringsAsFactors = FALSE)
+      data.frame(dataset = dataset_name, trait = v, type = type,
+                 lambda = s$lambda, K = s$K, D = NA_real_,
+                 stringsAsFactors = FALSE)
     } else {
       d <- .phylo_signal_cat(tree, masked[[v]], masked$Species)
-      data.frame(trait = v, type = type, lambda = NA_real_, K = NA_real_,
-                 D = d, stringsAsFactors = FALSE)
+      data.frame(dataset = dataset_name, trait = v, type = type,
+                 lambda = NA_real_, K = NA_real_, D = d,
+                 stringsAsFactors = FALSE)
     }
   }))
 

@@ -1,0 +1,108 @@
+# Cross-dataset BACE benchmark — manually triggered from the Actions tab.
+# Sweeps all six bundled datasets in parallel matrix jobs, then aggregates
+# the per-dataset metric tables into a single cross-dataset bundle with a
+# rendered Markdown / HTML report. Results are uploaded as workflow
+# artifacts (downloadable for 90 days).
+#
+# Trigger: Actions tab -> "Cross-dataset benchmark" -> Run workflow.
+# Never auto-runs.
+
+name: Cross-dataset benchmark
+
+on:
+  workflow_dispatch:
+    # No inputs -- production scope is hardcoded in the per-dataset
+    # wrapper scripts (subset_n=2000, nitt=20000, runs=5, n_final=10).
+    # To run a quicker sweep, edit the wrappers' arguments and push,
+    # then trigger.
+
+jobs:
+  benchmark:
+    name: ${{ matrix.dataset }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 345  # 5h45m, well under 6h GHA ceiling
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dataset: avonet
+            script: dev/00_benchmark_AVONET.R
+          - dataset: pantheria
+            script: dev/03_benchmark_pantheria.R
+          - dataset: amphibio
+            script: dev/04_benchmark_amphibio.R
+          - dataset: bien
+            script: dev/05_benchmark_bien.R
+          - dataset: globtherm
+            script: dev/06_benchmark_globtherm.R
+          - dataset: leptraits
+            script: dev/07_benchmark_leptraits.R
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          # DESCRIPTION already lists ape / MCMCglmm / phytools / caper /
+          # devtools etc. via Imports + Suggests. needs: '' avoids the
+          # rcmdcheck-only path used by R-CMD-check.yaml.
+          needs: ''
+
+      - name: Run ${{ matrix.dataset }} benchmark
+        run: Rscript ${{ matrix.script }}
+
+      - name: Upload per-dataset artifact
+        if: always()  # capture partial output on failure / timeout
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ matrix.dataset }}
+          path: dev/benchmark_results/${{ matrix.dataset }}/
+          if-no-files-found: warn
+
+  aggregate:
+    name: Aggregate + report
+    needs: benchmark
+    if: always()  # run even if some matrix jobs failed
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+          use-public-rspm: true
+
+      - name: Install report-time R packages
+        run: |
+          install.packages(c("knitr", "rmarkdown"), repos = "https://packagemanager.posit.co/cran/__linux__/jammy/latest")
+        shell: Rscript {0}
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - name: Download all per-dataset artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dev/benchmark_results/_artifacts
+          pattern: bench-*
+
+      - name: Generate cross-dataset report
+        run: Rscript dev/make_benchmark_report.R
+
+      - name: Upload cross-dataset summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-dataset-summary
+          path: dev/benchmark_results/cross_dataset/
+          if-no-files-found: warn
