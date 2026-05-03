@@ -175,11 +175,9 @@ CONT_TRAITS <- c("Mass", "Wing.Length", "Beak.Length_Culmen",
 LOG_TRAITS <- c("Mass", "Wing.Length", "Beak.Length_Culmen",
                 "Tarsus.Length", "Tail.Length", "Range.Size")
 
-# Categorical traits to impute. Sourced from the full AVONET.csv
-# (the pre-existing avonet_2000_masked.csv only carries the
-# continuous columns, so we pull the categorical columns from the
-# full AVONET table and attach them below). BACE will dispatch these
-# via ovr_categorical = TRUE (default), i.e. J binary threshold models.
+# Categorical traits to impute. Pulled directly from avonet_traits.
+# BACE will dispatch these via ovr_categorical = TRUE (default), i.e.
+# J binary threshold models.
 CAT_TRAITS <- c("Trophic.Level", "Primary.Lifestyle")
 
 # Rates at which we hide trait cells. The continuous mask used to be
