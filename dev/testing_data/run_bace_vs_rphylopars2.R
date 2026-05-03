@@ -1,10 +1,14 @@
 ## Compare BACE (bace_imp) vs Rphylopars on AVONET (2000 spp) with artificial masking
 ## Includes: point metrics + 95% interval coverage + interval width
 ##
-## Inputs (expected in dev/testing_data/):
-##  - avonet_2000_masked.csv : masked trait matrix (species + continuous traits)
-##  - avonet_2000_truth.csv  : held-out true values (species_tip, trait, true_value)
-##  - Hackett_tree_2000.tre  : pruned phylogeny with exactly those 2000 tips
+## Inputs:
+##  - dev/testing_data/data/avonet_traits.rda : 9993 spp x 16 cols, built
+##                                              by data-raw/make_avonet.R
+##  - dev/testing_data/data/avonet_tree.rda   : 9993-tip Hackett phylogeny
+## We sample 2000 species at runtime (set.seed-controlled), keep the
+## 8 continuous AVONET morphometric / range / centroid traits, then
+## hide a fixed 10% of cells per column. Held-out cells are stored in
+## `truth` for downstream scoring.
 ##
 ## Assumptions:
 ##  - bace_imp() returns fit_bace$pred_list_last_run[[trait]] with columns:
@@ -38,21 +42,56 @@ library(here)
 ## If you have BACE installed:
 # library(BACE)
 
-## ---- 2) Load prepared data + tree ----
-dat   <- read_csv(here::here("dev", "testing_data", "avonet_2000_masked.csv"),
-                  show_col_types = FALSE)
-truth <- read_csv(here::here("dev", "testing_data", "avonet_2000_truth.csv"),
-                  show_col_types = FALSE)
-tree  <- read.tree(here::here("dev", "testing_data", "Hackett_tree_2000.tre"))
+## ---- 2) Load bundled data + tree, sample 2000 spp, mask 10% per col ----
+load(here::here("dev", "testing_data", "data", "avonet_traits.rda"))
+load(here::here("dev", "testing_data", "data", "avonet_tree.rda"))
+
+# AVONET-native names so the rest of the script reads naturally.
+col_map <- c(
+  mass_g                = "Mass",
+  wing_length_mm        = "Wing.Length",
+  beak_length_culmen_mm = "Beak.Length_Culmen",
+  tarsus_length_mm      = "Tarsus.Length",
+  tail_length_mm        = "Tail.Length",
+  range_size_km2        = "Range.Size",
+  centroid_lat          = "Centroid.Latitude",
+  centroid_lon          = "Centroid.Longitude"
+)
+
+set.seed(1)
+N_SUBSET  <- 2000
+MISS_RATE <- 0.10
+
+keep_sp <- sample(rownames(avonet_traits), N_SUBSET)
+dat     <- avonet_traits[keep_sp, names(col_map), drop = FALSE]
+colnames(dat) <- unname(col_map)
+dat     <- data.frame(species = rownames(dat), dat,
+                       stringsAsFactors = FALSE,
+                       check.names      = FALSE)
+tree    <- ape::keep.tip(avonet_tree, keep_sp)
+
+# Hide MISS_RATE per continuous column, build a long-format truth frame.
+traits <- unname(col_map)
+truth_list <- list()
+for (v in traits) {
+  vals <- dat[[v]]
+  obs  <- which(!is.na(vals))
+  miss <- sample(obs, floor(length(obs) * MISS_RATE))
+  truth_list[[v]] <- data.frame(
+    species_tip = dat$species[miss],
+    trait       = v,
+    true_value  = vals[miss],
+    stringsAsFactors = FALSE
+  )
+  dat[[v]][miss] <- NA
+}
+truth <- do.call(rbind, truth_list)
 
 stopifnot(all(dat$species %in% tree$tip.label),
           length(tree$tip.label) == nrow(dat))
 
-## Ensure order matches tree tips (helps both methods, and crucial for BACE CI join)
-dat <- dat %>% slice(match(tree$tip.label, species))
-dat <- as.data.frame(dat)
-
-traits <- setdiff(names(dat), "species")
+## Reorder to tree tips (crucial for BACE CI join in section 5)
+dat <- dat %>% slice(match(tree$tip.label, species)) %>% as.data.frame()
 
 ## Optional: ensure branch lengths exist / are compatible
 tree <- ape::compute.brlen(tree, method = "Grafen")

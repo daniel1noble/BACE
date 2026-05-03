@@ -33,11 +33,21 @@
 #
 # Data
 # ----
-#   dev/testing_data/avonet_2000_masked.csv    2000 species x 8 traits;
-#                                              ~10% of cells set to NA
-#   dev/testing_data/avonet_2000_truth.csv     long form (species, trait,
-#                                              true_value) for masked cells
-#   dev/testing_data/Hackett_tree_2000.tre     matching 2000-tip phylogeny
+#   dev/testing_data/data/avonet_traits.rda    9993 species x 16 cols
+#                                              (8 continuous + 2 ordinal +
+#                                               3 categorical + 3 tax);
+#                                              built by data-raw/make_avonet.R
+#                                              from AVONET.csv
+#   dev/testing_data/data/avonet_tree.rda      9993-tip Hackett phylogeny
+#                                              (Hackett et al. 2008,
+#                                              Science 320:1763)
+#
+# The benchmark subsamples SUBSET_N species at runtime (set.seed-controlled),
+# then masks CONT_MISS_RATE of observed continuous cells and CAT_MISS_RATE of
+# observed categorical cells. Truth values for the masked cells are stored
+# in `truth` (continuous) / `cat_truth` (categorical) for scoring. This
+# replaces the previously bundled avonet_2000_masked.csv / _truth.csv /
+# Hackett_tree_2000.tre fixtures.
 #
 # Traits
 # ------
@@ -172,9 +182,12 @@ LOG_TRAITS <- c("Mass", "Wing.Length", "Beak.Length_Culmen",
 # via ovr_categorical = TRUE (default), i.e. J binary threshold models.
 CAT_TRAITS <- c("Trophic.Level", "Primary.Lifestyle")
 
-# Rate at which we hide categorical trait cells (we apply this fresh
-# because the pre-existing mask covers only the continuous traits).
-CAT_MISS_RATE <- 0.10
+# Rates at which we hide trait cells. The continuous mask used to be
+# pre-baked into avonet_2000_masked.csv (~10% per col); we now generate
+# it on the fly from the bundled .rda so the scope is set by SUBSET_N
+# rather than by the fixture file.
+CONT_MISS_RATE <- 0.10
+CAT_MISS_RATE  <- 0.10
 
 # =============================================================================
 # 2. RUN TAGGING (traceability across reruns)
@@ -216,32 +229,33 @@ if (!dir.exists(OUT_DIR)) dir.create(OUT_DIR, recursive = TRUE)
 # 3. DATA + TREE PREPARATION
 # =============================================================================
 
-masked <- read.csv("dev/testing_data/avonet_2000_masked.csv",
-                   stringsAsFactors = FALSE)
-truth  <- read.csv("dev/testing_data/avonet_2000_truth.csv",
-                   stringsAsFactors = FALSE)
-tree   <- ape::read.tree("dev/testing_data/Hackett_tree_2000.tre")
+# Load bundled trait data + tree (built by data-raw/make_avonet.R).
+load("dev/testing_data/data/avonet_traits.rda")
+load("dev/testing_data/data/avonet_tree.rda")
 
-# bace() expects the random-effect grouping column to be "Species".
-names(masked)[names(masked) == "species"] <- "Species"
+# Translate the rda's snake_case column names back to the AVONET-native
+# names used downstream (Mass, Wing.Length, Trophic.Level, ...). This
+# keeps the rest of the script readable in the conventions of the
+# AVONET / phylo-comp literature without altering benchmark logic.
+.rda_to_native <- c(
+  mass_g                = "Mass",
+  wing_length_mm        = "Wing.Length",
+  beak_length_culmen_mm = "Beak.Length_Culmen",
+  tarsus_length_mm      = "Tarsus.Length",
+  tail_length_mm        = "Tail.Length",
+  range_size_km2        = "Range.Size",
+  centroid_lat          = "Centroid.Latitude",
+  centroid_lon          = "Centroid.Longitude",
+  trophic_level         = "Trophic.Level",
+  primary_lifestyle     = "Primary.Lifestyle"
+)
+keep_cols <- intersect(names(.rda_to_native), colnames(avonet_traits))
+masked <- avonet_traits[, keep_cols, drop = FALSE]
+colnames(masked) <- unname(.rda_to_native[keep_cols])
+masked$Species <- rownames(masked)
+masked <- masked[, c("Species", CONT_TRAITS, CAT_TRAITS), drop = FALSE]
+tree   <- avonet_tree
 stopifnot(all(masked$Species %in% tree$tip.label))
-
-# Attach categorical traits from the full AVONET.csv table. The
-# pre-existing avonet_2000_masked.csv / avonet_2000_truth.csv only
-# carry the continuous columns. Naming bridge: AVONET.csv uses
-# "Genus species" with a space; the Hackett tree and masked data use
-# the underscore form "Genus_species".
-avonet_full <- read.csv("dev/testing_data/AVONET.csv",
-                        stringsAsFactors = FALSE)
-avonet_full$Species3_u <- gsub(" ", "_", avonet_full$Species3)
-idx_full <- match(masked$Species, avonet_full$Species3_u)
-if (any(is.na(idx_full))) {
-  stop("Some benchmark species are absent from AVONET.csv: ",
-       paste(head(masked$Species[is.na(idx_full)]), collapse = ", "))
-}
-for (v in CAT_TRAITS) {
-  masked[[v]] <- avonet_full[[v]][idx_full]
-}
 
 #' Phylogenetic signal for a continuous trait — Pagel's lambda and
 #' Blomberg's K on the tips that have an observed value.
@@ -313,12 +327,18 @@ for (v in CAT_TRAITS) {
 }
 
 #' Prep a phylogeny for MCMCglmm:
-#'   (a) Force ultrametric if the tree is only ultrametric modulo
-#'       floating-point drift (the published Hackett tree is).
-#'   (b) Replace zero-length edges with a small positive value — these
+#'   (a) Replace zero-length edges with a small positive value — these
 #'       can appear after `ape::keep.tip` subsampling.
+#'   (b) Re-force ultrametric: the zero-edge fix in (a) bumps individual
+#'       tip edges up by epsilon and breaks ultrametricity, so we have
+#'       to re-ultrametricize unconditionally afterwards.
 #' MCMCglmm::inverseA refuses non-ultrametric trees or zero edges.
 .prep_tree <- function(tree) {
+  if (any(tree$edge.length <= 0)) {
+    pos <- tree$edge.length[tree$edge.length > 0]
+    eps <- if (length(pos)) min(pos) / 1e3 else 1e-6
+    tree$edge.length[tree$edge.length <= 0] <- eps
+  }
   if (!ape::is.ultrametric(tree)) {
     if (requireNamespace("phytools", quietly = TRUE)) {
       tree <- phytools::force.ultrametric(tree, method = "extend")
@@ -329,11 +349,6 @@ for (v in CAT_TRAITS) {
       tree$edge.length[tip_edges] <- tree$edge.length[tip_edges] + extend
     }
   }
-  if (any(tree$edge.length <= 0)) {
-    pos <- tree$edge.length[tree$edge.length > 0]
-    eps <- if (length(pos)) min(pos) / 1e3 else 1e-6
-    tree$edge.length[tree$edge.length <= 0] <- eps
-  }
   tree
 }
 
@@ -342,10 +357,29 @@ for (v in CAT_TRAITS) {
 if (!is.na(SUBSET_N) && SUBSET_N < nrow(masked)) {
   keep_species <- sample(masked$Species, SUBSET_N)
   masked <- masked[masked$Species %in% keep_species, ]
-  truth  <- truth[truth$species_tip %in% keep_species, ]
   tree   <- ape::keep.tip(tree, keep_species)
 }
 tree <- .prep_tree(tree)
+
+# Apply a reproducible CONT_MISS_RATE mask to the continuous traits and
+# stash the true values in `truth` for downstream scoring. (Replaces
+# the old pre-baked avonet_2000_masked.csv / avonet_2000_truth.csv
+# fixtures.)
+truth <- list()
+for (v in CONT_TRAITS) {
+  vals_full <- masked[[v]]
+  known_idx <- which(!is.na(vals_full))
+  n_mask    <- floor(length(known_idx) * CONT_MISS_RATE)
+  mask_idx  <- sample(known_idx, n_mask)
+  truth[[v]] <- data.frame(
+    species_tip = masked$Species[mask_idx],
+    trait       = v,
+    true_value  = vals_full[mask_idx],
+    stringsAsFactors = FALSE
+  )
+  masked[[v]][mask_idx] <- NA
+}
+truth <- do.call(rbind, truth)
 
 # Log-transform the skewed continuous traits so bace() fits on a scale
 # where Brownian / Gaussian residual assumptions are reasonable (see
@@ -357,26 +391,24 @@ for (v in LOG_TRAITS) {
 }
 
 # Apply a reproducible CAT_MISS_RATE mask to the categorical traits,
-# preserving the true values in `cat_truth` for later scoring. The
-# continuous traits already have a pre-existing mask stored in
-# avonet_2000_truth.csv.
+# preserving the true values in `cat_truth` for later scoring.
 cat_truth <- list()
 for (v in CAT_TRAITS) {
   vals_full <- masked[[v]]
-  # If AVONET.csv has its own NAs for this trait, keep them missing
+  # If the source has its own NAs for this trait, keep them missing
   # (we can't score what we don't know).
-  known_idx <- which(!is.na(vals_full) & nzchar(vals_full))
+  known_idx <- which(!is.na(vals_full))
   n_mask    <- floor(length(known_idx) * CAT_MISS_RATE)
   mask_idx  <- sample(known_idx, n_mask)
   cat_truth[[v]] <- data.frame(
     species_tip = masked$Species[mask_idx],
     trait       = v,
-    true_value  = vals_full[mask_idx],
+    true_value  = as.character(vals_full[mask_idx]),
     stringsAsFactors = FALSE
   )
   masked[[v]][mask_idx] <- NA
-  # Convert to factor (unordered) for BACE's type detection.
-  masked[[v]] <- factor(masked[[v]])
+  # Force unordered factor for BACE's type detection.
+  masked[[v]] <- factor(as.character(masked[[v]]))
 }
 cat_truth <- do.call(rbind, cat_truth)
 
