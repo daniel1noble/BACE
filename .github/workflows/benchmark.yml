@@ -52,9 +52,11 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          # DESCRIPTION already lists ape / MCMCglmm / phytools / caper /
-          # devtools etc. via Imports + Suggests. needs: '' avoids the
-          # rcmdcheck-only path used by R-CMD-check.yaml.
+          # DESCRIPTION lists ape / MCMCglmm / phytools / caper via
+          # Imports + Suggests. Add devtools explicitly because the
+          # benchmark wrappers source-load BACE via devtools::load_all
+          # (so the same scripts run unchanged for local development).
+          extra-packages: any::devtools
           needs: ''
 
       - name: Run ${{ matrix.dataset }} benchmark
