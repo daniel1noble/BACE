@@ -27,10 +27,13 @@ jobs:
           extra-packages: any::covr
           needs: coverage
 
-      - name: Test coverage -> coveralls.io
-        # Requires the COVERALLS_REPO_TOKEN secret. Find it at:
-        #   https://coveralls.io/github/daniel1noble/BACE  (Settings tab)
-        # Add it under: GitHub repo -> Settings -> Secrets -> Actions.
+      - name: Compute coverage and export Cobertura XML
+        # covr::coveralls() against coveralls.io was returning 422
+        # "Couldn't find a repository matching this job" even with a
+        # valid COVERALLS_REPO_TOKEN -- a known gotcha with covr's
+        # direct upload path. Switched to the official coverallsapp
+        # action below, which uses GitHub-Apps auth on public repos
+        # (no secret required) and accepts a Cobertura XML file.
         run: |
           cov <- covr::package_coverage(
             quiet = FALSE,
@@ -38,15 +41,14 @@ jobs:
             install_path = file.path(normalizePath(Sys.getenv("RUNNER_TEMP"), winslash = "/"), "package")
           )
           print(cov)
-          covr::coveralls(
-            coverage = cov,
-            service_name = "github",
-            service_job_id = Sys.getenv("GITHUB_RUN_ID"),
-            repo_token = Sys.getenv("COVERALLS_REPO_TOKEN")
-          )
+          covr::to_cobertura(cov, filename = "coverage.xml")
         shell: Rscript {0}
-        env:
-          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+
+      - name: Upload to coveralls.io
+        uses: coverallsapp/github-action@v2
+        with:
+          file: coverage.xml
+          format: cobertura
 
       - name: Show testthat output
         if: always()
