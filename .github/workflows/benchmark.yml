@@ -99,6 +99,20 @@ jobs:
       - name: Generate cross-dataset report
         run: Rscript dev/make_benchmark_report.R
 
+      - name: Publish report inline to workflow summary
+        # Appends report.md to $GITHUB_STEP_SUMMARY so the rendered
+        # report appears at the top of the workflow run page -- no
+        # download required to view results.
+        run: |
+          REPORT=$(find dev/benchmark_results/cross_dataset \
+                        -name "report.md" -type f | sort -r | head -1)
+          if [ -n "$REPORT" ] && [ -f "$REPORT" ]; then
+            cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## ⚠️ Report not generated" >> "$GITHUB_STEP_SUMMARY"
+            echo "Check the matrix job logs for failures." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Upload cross-dataset summary
         if: always()
         uses: actions/upload-artifact@v4
