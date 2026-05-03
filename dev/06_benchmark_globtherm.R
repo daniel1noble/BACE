@@ -23,6 +23,11 @@ result <- benchmark_dataset(
   subset_n     = 2000L,
   nitt = 20000, thin = 15, burnin = 4000,
   runs = 5, n_final = 10,
-  max_attempts = 2, n_cores = 4L,
+  # n_cores=2 (not 4) to keep MCMCglmm parallel memory pressure under
+  # the standard GHA runner's 7GB. globtherm's first cloud run hit
+  # SIGTERM ~56min in, mid-final-imputation, after the convergence
+  # phase had already passed -- consistent with peak-memory exhaustion
+  # from 4 parallel MCMCglmm processes on 2000 spp + phylo random.
+  max_attempts = 2, n_cores = 2L,
   verbose = TRUE
 )
