@@ -1,2 +1,0 @@
-"type","response_type","n_complete","n_missing","metric","BACE_value","baseline_value","BACE_better","elapsed_seconds"
-"binary","binary",120,24,"balanced_accuracy",0.777777777777778,0.5,TRUE,2.91197204589844

@@ -1,2 +1,0 @@
-"type","response_type","n_complete","n_missing","metric","BACE_value","baseline_value","BACE_better","elapsed_seconds"
-"poisson","poisson",120,24,"nrmse",1.19264678523514,1.1512461726947,FALSE,2.61949586868286

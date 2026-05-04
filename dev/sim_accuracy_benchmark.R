@@ -69,8 +69,13 @@ CFG <- list(
   seed        = 2026
 )
 
-OUT_ROOT <- file.path("dev", "sim_accuracy_results",
-                      format(Sys.time(), "%Y%m%d_%H%M%S"))
+# Default output dir is `singlerep_latest` — same name overwrites in
+# place each run so we don't pollute the repo with timestamped dirs.
+# Override with env var BACE_SIM_OUT to write somewhere else.
+OUT_ROOT <- Sys.getenv("BACE_SIM_OUT", unset = "")
+if (!nzchar(OUT_ROOT)) {
+  OUT_ROOT <- file.path("dev", "sim_accuracy_results", "singlerep_latest")
+}
 dir.create(file.path(OUT_ROOT, "per_type"), recursive = TRUE,
            showWarnings = FALSE)
 

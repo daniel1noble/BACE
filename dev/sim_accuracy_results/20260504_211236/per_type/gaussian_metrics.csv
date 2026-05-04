@@ -1,2 +1,0 @@
-"type","response_type","n_complete","n_missing","metric","BACE_value","baseline_value","BACE_better","elapsed_seconds"
-"gaussian","gaussian",120,24,"nrmse",0.414711216338146,0.78268157289653,TRUE,2.60420322418213

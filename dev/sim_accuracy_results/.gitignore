@@ -1,0 +1,12 @@
+# Ignore all result subdirectories by default — accuracy benchmark
+# scripts write timestamped subdirs (e.g. multirep_20260504_211652_20reps,
+# poisson_calibrated_<TS>, etc) and we don't want those in git.
+#
+# Commit only the canonical "manuscript_v*" or "v*_n<reps>" directories
+# by adding an explicit ! exception below.
+
+*/
+
+# Canonical runs that ARE tracked
+!multirep_v1_n20/
+!.gitignore
