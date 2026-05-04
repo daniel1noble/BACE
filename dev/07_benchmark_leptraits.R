@@ -41,8 +41,11 @@ result <- benchmark_dataset(
   subset_n     = 2000L,
   nitt = 20000, thin = 15, burnin = 4000,
   runs = 5, n_final = 10,
-  # n_cores=2 (not 4) -- same memory-pressure consideration as
-  # globtherm; leptraits taxonomic tree + 4 traits + 2000 spp.
-  max_attempts = 2, n_cores = 2L,
+  # n_cores=1 (sequential) -- parallel R workers caused GHA runner
+  # shutdowns mid-final-imputation on the previous two runs (the
+  # taxonomy-built tree's per-iter MCMCglmm cost is high enough that
+  # silent parallel workers trip the runner's no-stdout-heartbeat
+  # kill timer). Sequential streams every iteration message.
+  max_attempts = 2, n_cores = 1L,
   verbose = TRUE
 )

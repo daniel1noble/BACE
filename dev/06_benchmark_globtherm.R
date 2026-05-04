@@ -23,11 +23,14 @@ result <- benchmark_dataset(
   subset_n     = 2000L,
   nitt = 20000, thin = 15, burnin = 4000,
   runs = 5, n_final = 10,
-  # n_cores=2 (not 4) to keep MCMCglmm parallel memory pressure under
-  # the standard GHA runner's 7GB. globtherm's first cloud run hit
-  # SIGTERM ~56min in, mid-final-imputation, after the convergence
-  # phase had already passed -- consistent with peak-memory exhaustion
-  # from 4 parallel MCMCglmm processes on 2000 spp + phylo random.
-  max_attempts = 2, n_cores = 2L,
+  # n_cores=1 (sequential) for taxonomy-built-tree datasets. n_cores>=2
+  # caused GHA runner shutdowns mid-final-imputation in two consecutive
+  # runs (25287097270, 25294935456) at the same Step-3 phase: parallel
+  # R workers don't stream log output to the parent process, GHA's
+  # runner detects no stdout heartbeat and kills the runner. Sequential
+  # avoids this -- every per-iteration message appears in main stdout.
+  # Cost is ~2x final-imputation time, still well inside the 5h45m
+  # workflow budget for 5 continuous traits.
+  max_attempts = 2, n_cores = 1L,
   verbose = TRUE
 )
