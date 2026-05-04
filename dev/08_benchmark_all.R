@@ -11,13 +11,17 @@
 # (coverage95 ~ 0.95), where it's accurate (low NRMSE / high accuracy),
 # and where it's struggling (low correlation, low balanced_accuracy).
 #
-# Datasets included:
-#   avonet     : birds, mixed continuous / ordinal / categorical
-#   pantheria  : mammals, mixed cont/count/ordinal/binary
-#   amphibio   : amphibians, mixed cont/binary/ordinal/categorical
-#   bien       : plants, all-continuous
-#   globtherm  : thermal limits, all-continuous (raw scale)
-#   leptraits  : lepidopterans, mixed cont/binary
+# Datasets included (aligned with Shinichi's pigauto cross-dataset
+# bench, 2026-05-04 spec):
+#   avonet     : birds (4 cont + 2 cat + 1 ord)
+#   pantheria  : mammals (4 cont + 1 count + 2 ord + 1 binary)
+#   amphibio   : amphibians (2 cont; discrete columns skipped per
+#                pigauto v1 -- Rphylopars singular on AmphiBIO tree)
+#   bien       : plants, 5 continuous
+#
+# Datasets in the repo but NOT in pigauto's bench (kept for local
+# use, excluded from cloud matrix): globtherm, leptraits.
+# Pigauto bench dataset not yet in repo: fishbase (TODO).
 # =============================================================================
 
 devtools::load_all(quiet = TRUE)
@@ -31,38 +35,19 @@ source("dev/benchmark_engine.R")
 # Defaults inherited from benchmark_dataset() unless overridden.
 DATASETS <- list(
   avonet    = list(
-    log_traits = c("mass_g", "wing_length_mm", "beak_length_culmen_mm",
-                   "tarsus_length_mm", "tail_length_mm", "range_size_km2")
+    log_traits = c("mass_g", "wing_length_mm",
+                   "beak_length_culmen_mm", "tarsus_length_mm")
   ),
   pantheria = list(
     log_traits = c("body_mass_g", "head_body_length_mm",
                    "gestation_d", "max_longevity_m")
   ),
-  # amphibio temporarily skipped: MCMCglmm hits "Mixed model equations
-  # singular" even after dropping presence-only binaries. Needs
-  # stronger priors. Re-enable by uncommenting the entry below.
-  # amphibio  = list(
-  #   log_traits = c("body_size_mm", "body_mass_g")
-  # ),
+  amphibio  = list(
+    log_traits = c("body_size_mm", "body_mass_g")
+  ),
   bien      = list(
     log_traits = c("height_m", "leaf_area", "sla",
                    "seed_mass", "wood_density")
-  ),
-  globtherm = list(
-    log_traits = character(0)
-  ),
-  leptraits = list(
-    log_traits = c("wingspan_lower", "forewing_length_lower",
-                   "n_hostplant_families"),
-    pre_hook   = function(traits) {
-      # Coerce 0/1 monthly indicators to factor for binary (threshold) fitting.
-      months <- c("Jan","Feb","Mar","Apr","May","Jun",
-                  "Jul","Aug","Sep","Oct","Nov","Dec")
-      for (m in intersect(months, colnames(traits))) {
-        traits[[m]] <- factor(traits[[m]], levels = c(0L, 1L))
-      }
-      traits
-    }
   )
 )
 

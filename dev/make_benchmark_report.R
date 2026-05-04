@@ -133,11 +133,10 @@ nl()
 
 # ---- Failure callouts -------------------------------------------------------
 
-# amphibio temporarily skipped pending stronger-prior fix; restore it
-# here when the matrix entry in .github/workflows/benchmark.yml and
-# the DATASETS entry in dev/08_benchmark_all.R are re-enabled.
-expected_datasets <- c("avonet","pantheria","bien",
-                       "globtherm","leptraits")
+# Aligned with Shinichi's pigauto cross-dataset bench (2026-05-04).
+# globtherm and leptraits dropped from the suite (not in pigauto).
+# fishbase TODO: needs data-raw/make_fishbase.R.
+expected_datasets <- c("avonet", "pantheria", "amphibio", "bien")
 present_datasets  <- if (!is.null(all_metrics))
   sort(unique(all_metrics$dataset)) else character()
 missing_datasets  <- setdiff(expected_datasets, present_datasets)

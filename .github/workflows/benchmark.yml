@@ -24,26 +24,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # amphibio is temporarily skipped: even after dropping the
-        # presence-only binaries (diurnal/nocturnal) and the 91%-NA
-        # body_mass_g, MCMCglmm still hits "Mixed model equations
-        # singular" on the remaining body_size_mm + diet_breadth +
-        # habitat fit. Needs stronger priors (out-of-scope BACE engine
-        # change) or re-curated source data. Re-enable by adding the
-        # commented-out matrix entry below back in.
+        # Trait set per dataset aligned with Shinichi's pigauto
+        # cross-dataset bench (2026-05-04 spec). globtherm and
+        # leptraits are NOT in the pigauto suite; the corresponding
+        # wrappers (dev/06_, dev/07_) are kept in the repo for local
+        # use but excluded from the cloud cross-dataset comparison.
+        # FishBase is in the pigauto suite but the .rda has not been
+        # built in this repo yet -- TODO: data-raw/make_fishbase.R.
         include:
           - dataset: avonet
             script: dev/00_benchmark_AVONET.R
           - dataset: pantheria
             script: dev/03_benchmark_pantheria.R
-          # - dataset: amphibio
-          #   script: dev/04_benchmark_amphibio.R
+          - dataset: amphibio
+            script: dev/04_benchmark_amphibio.R
           - dataset: bien
             script: dev/05_benchmark_bien.R
-          - dataset: globtherm
-            script: dev/06_benchmark_globtherm.R
-          - dataset: leptraits
-            script: dev/07_benchmark_leptraits.R
+          # - dataset: fishbase
+          #   script: dev/09_benchmark_fishbase.R
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}

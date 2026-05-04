@@ -24,22 +24,24 @@ source("dev/benchmark_engine.R")
 load("dev/testing_data/data/avonet_traits.rda")
 load("dev/testing_data/data/avonet_tree.rda")
 
-# Mass / morphometrics / range_size span 5+ orders of magnitude in
-# birds (Tobias et al. 2022; Felsenstein 1985 Am Nat 125:1) and are
-# conventionally log-transformed before phylogenetic analysis.
-# Latitude / longitude are angular -- not log-transformed.
-LOG_TRAITS <- c("mass_g", "wing_length_mm", "beak_length_culmen_mm",
-                "tarsus_length_mm", "tail_length_mm", "range_size_km2")
+# Trait set aligned with Shinichi's pigauto cross-dataset bench
+# (2026-05-04 spec): 4 continuous morphometrics + 2 categorical +
+# 1 ordinal. 7 traits total, makes BACE's results directly
+# comparable to the pigauto AVONET headline.
+#
+# Caveat on Primary.Lifestyle: Shinichi's pigauto bench reports
+# K=7 levels but the avonet_traits.rda built from this repo's
+# AVONET.csv has K=5 (Aerial / Aquatic / Generalist / Insessorial /
+# Terrestrial). Different AVONET version. BACE's results will not
+# be exactly comparable on this trait until both pipelines align
+# on the same source CSV.
+LOG_TRAITS <- c("mass_g", "wing_length_mm",
+                "beak_length_culmen_mm", "tarsus_length_mm")
 
-# Use the historical 10-trait benchmark scope (8 continuous + 2
-# categorical). The full 13-trait set (adding habitat_density /
-# migration ordinals + habitat K=11 categorical) ran 5h45m past the
-# GHA workflow timeout in run 25287097270 -- chained equations
-# scale O(n_traits) per iteration and the K=11 habitat OVR pulls
-# 11 binary threshold fits per chain step. The historical 10 traits
-# already cover continuous + categorical paths cleanly.
-TRAIT_SUBSET <- c(LOG_TRAITS, "centroid_lat", "centroid_lon",
-                  "trophic_level", "primary_lifestyle")
+TRAIT_SUBSET <- c(LOG_TRAITS,
+                  "trophic_level",      # categorical K=4
+                  "primary_lifestyle",  # categorical K=5 (pigauto K=7)
+                  "migration")          # ordinal K=3
 
 result <- benchmark_dataset(
   traits_df    = avonet_traits,

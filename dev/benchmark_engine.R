@@ -240,8 +240,12 @@ benchmark_dataset <- function(
     log_traits     = character(0),
     trait_subset   = NULL,        # which cols to actually impute (default
                                   # = non-tax columns)
-    cont_miss_rate = 0.10,
-    cat_miss_rate  = 0.10,
+    # 30% MCAR mask matches Shinichi's pigauto cross-dataset bench
+    # (2026-05-04 spec). Was 10% historically; the higher rate
+    # stresses the imputation pipeline more and matches the
+    # comparison baseline.
+    cont_miss_rate = 0.30,
+    cat_miss_rate  = 0.30,
     subset_n       = 2000L,
     nitt           = 20000, thin = 15, burnin = 4000,
     runs           = 5,    n_final = 10,

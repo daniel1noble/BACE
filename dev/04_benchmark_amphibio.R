@@ -1,13 +1,17 @@
 # =============================================================================
 # 04_benchmark_amphibio.R - AmphiBIO amphibians
 # =============================================================================
-# 2 continuous (log-transformed), 2 binary (diurnal, nocturnal), 1 ordinal
-# (diet_breadth K=5), 1 categorical (habitat K=4).
+# Trait set aligned with Shinichi's pigauto cross-dataset bench
+# (2026-05-04 spec): 2 continuous traits only (Body_size_mm,
+# Body_mass_g). Discrete columns (diurnal / nocturnal binary,
+# diet_breadth ordinal, habitat categorical) are intentionally
+# skipped here -- they were skipped in pigauto's v1 amphibio bench
+# because the threshold-joint baseline hits an Rphylopars
+# singular-matrix error on the AmphiBIO taxonomic tree, AND
+# diurnal / nocturnal are presence-only ("yes" recorded vs NA = no
+# record) which makes MCMCglmm threshold fitting on a single
+# observed level fail with "Mixed model equations singular".
 # Source: Oliveira et al. 2017 Sci. Data 4:170123.
-#
-# Caveats: diurnal / nocturnal are presence-only in AmphiBIO (NA = no
-# record, not necessarily absence). body_mass_g has ~91% missingness.
-# The benchmark masks an extra 10% of *observed* cells regardless.
 # =============================================================================
 
 devtools::load_all(quiet = TRUE)
@@ -16,15 +20,8 @@ source("dev/benchmark_engine.R")
 load("dev/testing_data/data/amphibio_traits.rda")
 load("dev/testing_data/data/amphibio_tree.rda")
 
-LOG_TRAITS <- c("body_size_mm", "body_mass_g")
-
-# Restrict trait set to well-supported columns. AmphiBIO's binary
-# behaviour traits (diurnal / nocturnal) are presence-only -- NA = no
-# record, "yes" = recorded -- with effectively zero "no" observations
-# in any subsample, so MCMCglmm cannot fit a threshold model on a
-# single observed level (Singular MM equations). body_mass_g is 91%
-# NA in the source. Drop those three; keep the dense traits.
-TRAIT_SUBSET <- c("body_size_mm", "diet_breadth", "habitat")
+LOG_TRAITS   <- c("body_size_mm", "body_mass_g")
+TRAIT_SUBSET <- c("body_size_mm", "body_mass_g")
 
 result <- benchmark_dataset(
   traits_df    = amphibio_traits,
