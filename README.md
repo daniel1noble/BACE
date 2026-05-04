@@ -3,7 +3,7 @@
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/daniel1noble/BACE/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/daniel1noble/BACE/actions/workflows/R-CMD-check.yaml)
 [![test-coverage](https://github.com/daniel1noble/BACE/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/daniel1noble/BACE/actions/workflows/test-coverage.yaml)
-[![Coverage Status](https://coveralls.io/repos/github/daniel1noble/BACE/badge.svg?branch=main)](https://coveralls.io/github/daniel1noble/BACE?branch=main)
+[![Coverage Status](https://img.shields.io/coveralls/github/daniel1noble/BACE/main)](https://coveralls.io/github/daniel1noble/BACE?branch=main)
 [![Ask Us Anything\ !](https://img.shields.io/badge/Ask%20me-anything-1abc9c.svg)](https://github.com/daniel1noble/BACE/issues/new)
 ![Open Source Love](https://badges.frapsoft.com/os/v2/open-source.svg?v=103)
 <!-- badges: end -->
