@@ -11,16 +11,14 @@
 # (coverage95 ~ 0.95), where it's accurate (low NRMSE / high accuracy),
 # and where it's struggling (low correlation, low balanced_accuracy).
 #
-# Datasets included (aligned with Shinichi's pigauto cross-dataset
-# bench, 2026-05-04 spec):
-#   avonet     : birds (4 cont + 2 cat + 1 ord)
-#   pantheria  : mammals (4 cont + 1 count + 2 ord + 1 binary)
-#   amphibio   : amphibians (2 cont; discrete columns skipped per
-#                pigauto v1 -- Rphylopars singular on AmphiBIO tree)
-#   bien       : plants, 5 continuous
+# Datasets included:
+#   avonet     : birds (4 cont + 2 cat + 1 ord)         [pigauto-aligned]
+#   pantheria  : mammals (4 cont + 1 count + 2 ord + 1 binary) [pigauto-aligned]
+#   amphibio   : amphibians (2 cont; discrete skipped) [pigauto-aligned]
+#   bien       : plants, 5 continuous                  [pigauto-aligned]
+#   globtherm  : thermal limits, 5 continuous          [BACE-only]
+#   leptraits  : lepidopterans, 4 continuous (n_cores=1) [BACE-only]
 #
-# Datasets in the repo but NOT in pigauto's bench (kept for local
-# use, excluded from cloud matrix): globtherm, leptraits.
 # Pigauto bench dataset not yet in repo: fishbase (TODO).
 # =============================================================================
 
@@ -48,6 +46,13 @@ DATASETS <- list(
   bien      = list(
     log_traits = c("height_m", "leaf_area", "sla",
                    "seed_mass", "wood_density")
+  ),
+  globtherm = list(
+    log_traits = character(0)
+  ),
+  leptraits = list(
+    log_traits = c("wingspan_lower", "forewing_length_lower",
+                   "n_hostplant_families")
   )
 )
 

@@ -133,10 +133,12 @@ nl()
 
 # ---- Failure callouts -------------------------------------------------------
 
-# Aligned with Shinichi's pigauto cross-dataset bench (2026-05-04).
-# globtherm and leptraits dropped from the suite (not in pigauto).
-# fishbase TODO: needs data-raw/make_fishbase.R.
-expected_datasets <- c("avonet", "pantheria", "amphibio", "bien")
+# Cloud benchmark suite. avonet/pantheria/amphibio/bien are aligned
+# with Shinichi's pigauto cross-dataset bench (2026-05-04 spec);
+# globtherm and leptraits are BACE-only (not in pigauto). fishbase
+# TODO: needs data-raw/make_fishbase.R.
+expected_datasets <- c("avonet", "pantheria", "amphibio", "bien",
+                       "globtherm", "leptraits")
 present_datasets  <- if (!is.null(all_metrics))
   sort(unique(all_metrics$dataset)) else character()
 missing_datasets  <- setdiff(expected_datasets, present_datasets)
