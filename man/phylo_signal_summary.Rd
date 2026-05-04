@@ -155,3 +155,32 @@ Schielzeth 2013 \emph{Methods Ecol Evol} 4:133; Hadfield & Nakagawa 2010
 \emph{J Evol Biol} 23:494; Lynch 1991 \emph{Evolution} 45:1065.
 }
 
+\section{Multinomial}{
+ H² versus lambda_nominal:
+For \code{categorical} traits the table reports BOTH \verb{H2_*} and
+\verb{lambda_nominal_*}. They measure related but DIFFERENT quantities and
+typically disagree by 0.1-0.2 — that gap is expected, not a bug.
+\itemize{
+\item \code{H2_mean} is trace-based on MCMCglmm's working scale: residuals
+take their MCMCglmm-reported diagonal \code{2/(J+1)} per non-baseline
+level, with no rescaling. Faithful to the model's own variance
+decomposition; useful for within-categorical reporting.
+\item \code{lambda_nominal_mean} applies the Hadfield (2010 §3.7) / Amemiya
+(1981) c² correction to put each level on the standard probit
+scale (residual = 1 per level), then averages
+\verb{lambda_k = G'_kk / (G'_kk + 1)} with
+\verb{G'_kk = G_phylo[k,k] / (1 + c²·2/(J+1))}. This is the
+Pagel-comparable statistic — same scale and interpretation as
+Pagel's lambda for continuous traits, so it can be compared
+across trait types in a multi-trait phylo_signal table.
+}
+
+Use \code{lambda_nominal_mean} for cross-trait comparisons; use
+\code{H2_mean} when you specifically want MCMCglmm-native variance
+partitioning. Per-level (one value per non-baseline category)
+detail is on \code{attr(model, "lambda_nominal_per_level")} after a
+run with \code{keep_models = TRUE}. Reference: Ayumi (2024)
+multinomial GLMM tutorial,
+\url{https://ayumi-495.github.io/multinomial-GLMM-tutorial/#nominal}.
+}
+

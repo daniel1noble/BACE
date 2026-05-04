@@ -70,6 +70,32 @@
 #' Schielzeth 2013 *Methods Ecol Evol* 4:133; Hadfield & Nakagawa 2010
 #' *J Evol Biol* 23:494; Lynch 1991 *Evolution* 45:1065.
 #'
+#' @section Multinomial: H² versus lambda_nominal:
+#' For `categorical` traits the table reports BOTH `H2_*` and
+#' `lambda_nominal_*`. They measure related but DIFFERENT quantities and
+#' typically disagree by 0.1-0.2 — that gap is expected, not a bug.
+#'
+#' * `H2_mean` is trace-based on MCMCglmm's working scale: residuals
+#'   take their MCMCglmm-reported diagonal `2/(J+1)` per non-baseline
+#'   level, with no rescaling. Faithful to the model's own variance
+#'   decomposition; useful for within-categorical reporting.
+#' * `lambda_nominal_mean` applies the Hadfield (2010 §3.7) / Amemiya
+#'   (1981) c² correction to put each level on the standard probit
+#'   scale (residual = 1 per level), then averages
+#'   `lambda_k = G'_kk / (G'_kk + 1)` with
+#'   `G'_kk = G_phylo[k,k] / (1 + c²·2/(J+1))`. This is the
+#'   Pagel-comparable statistic — same scale and interpretation as
+#'   Pagel's lambda for continuous traits, so it can be compared
+#'   across trait types in a multi-trait phylo_signal table.
+#'
+#' Use `lambda_nominal_mean` for cross-trait comparisons; use
+#' `H2_mean` when you specifically want MCMCglmm-native variance
+#' partitioning. Per-level (one value per non-baseline category)
+#' detail is on `attr(model, "lambda_nominal_per_level")` after a
+#' run with `keep_models = TRUE`. Reference: Ayumi (2024)
+#' multinomial GLMM tutorial,
+#' \url{https://ayumi-495.github.io/multinomial-GLMM-tutorial/#nominal}.
+#'
 #' @param data data.frame with rows keyed by the species column.
 #' @param tree phylogenetic tree of class `phylo` (ape package).
 #' @param species_col character; column name in `data` matching `tree$tip.label`.
@@ -391,6 +417,14 @@ phylo_signal_summary <- function(
   # --- Compute H² per posterior draw ---
   h2_stats <- .compute_H2_stats(model, type, species, species_col, n_levels)
 
+  # --- Per-level multinomial Pagel-style lambda (categorical only) ---
+  lam_nom <- if (type == "categorical") {
+    .compute_lambda_nominal(model, species_col, n_levels)
+  } else {
+    list(avg_mean = NA_real_, avg_lo = NA_real_, avg_hi = NA_real_,
+         per_level = NULL)
+  }
+
   # --- Compute R_species (dual RE only) ---
   rs_stats <- if (species) {
     .compute_R_species_stats(model, type, species_col, n_levels)
@@ -430,6 +464,9 @@ phylo_signal_summary <- function(
     H2_mean        = h2_stats$mean,
     H2_lo          = h2_stats$lo,
     H2_hi          = h2_stats$hi,
+    lambda_nominal_mean = lam_nom$avg_mean,
+    lambda_nominal_lo   = lam_nom$avg_lo,
+    lambda_nominal_hi   = lam_nom$avg_hi,
     R_species_mean = rs_stats$mean,
     R_species_lo   = rs_stats$lo,
     R_species_hi   = rs_stats$hi,
@@ -446,6 +483,10 @@ phylo_signal_summary <- function(
     stringsAsFactors = FALSE
   )
 
+  # Stash per-level lambda detail on the model object for later access
+  if (!is.null(lam_nom$per_level)) {
+    attr(model, "lambda_nominal_per_level") <- lam_nom$per_level
+  }
   list(row = row, model = model)
 }
 
@@ -530,6 +571,9 @@ phylo_signal_summary <- function(
     H2_mean        = h2_mean,
     H2_lo          = NA_real_,  # OVR aggregation: per-level HPDs not pooled
     H2_hi          = NA_real_,
+    lambda_nominal_mean = NA_real_,  # OVR path uses per-level threshold fits
+    lambda_nominal_lo   = NA_real_,  # not the multinomial probit; lambda_nominal
+    lambda_nominal_hi   = NA_real_,  # is defined only on the joint G_phylo
     R_species_mean = NA_real_,
     R_species_lo   = NA_real_,
     R_species_hi   = NA_real_,
@@ -606,6 +650,83 @@ phylo_signal_summary <- function(
                                dimnames = list(NULL, c("lower", "upper")))
   )
   list(mean = mean(h2), lo = hpd[1, "lower"], hi = hpd[1, "upper"])
+}
+
+
+#' Per-level Pagel-style lambda for multinomial categorical traits.
+#'
+#' For each non-baseline category k, computes
+#'   lambda_k = (G_phylo[k,k] / (1 + c_k)) / (G_phylo[k,k]/(1 + c_k) + 1)
+#' where c_k = c2 * IJ[k,k] = c2 * 2/(J+1) is the Amemiya c² correction
+#' (Amemiya 1981) and J = K-1 is the number of non-baseline levels,
+#' c2 = (16*sqrt(3)/(15*pi))^2 ≈ 0.3458.
+#'
+#' Each lambda_k has the same Pagel interpretation as for continuous
+#' traits: fraction of LATENT-scale variance for category k that is
+#' phylogenetic. Useful when the per-category interpretation matters
+#' (some categories may have strong phylogenetic signal, others weak).
+#' Differs from the trace-based H² returned alongside, which is one
+#' summary number across the whole multinomial.
+#'
+#' Returns the average across non-baseline levels plus per-level
+#' details. Requires MCMCglmm `family = "categorical"` (multinomial
+#' probit with R fixed at I/(J+1) + 1/(J+1)*1*1').
+#'
+#' Reference: Ayumi (2024) multinomial GLMM tutorial,
+#' \url{https://ayumi-495.github.io/multinomial-GLMM-tutorial/#nominal};
+#' Hadfield (2010) §3.7; Amemiya (1981) Econometrica 49:1483.
+#' @keywords internal
+#' @noRd
+.compute_lambda_nominal <- function(model, species_col, n_levels) {
+  J <- n_levels - 1L
+  if (J < 1L) {
+    return(list(avg_mean = NA_real_, avg_lo = NA_real_, avg_hi = NA_real_,
+                per_level = NULL))
+  }
+  vcv <- as.matrix(model$VCV)
+  cols <- colnames(vcv)
+  phylo_diag <- .get_multinom_diag_cols(cols, species_col, J)
+  if (length(phylo_diag) == 0L) {
+    return(list(avg_mean = NA_real_, avg_lo = NA_real_, avg_hi = NA_real_,
+                per_level = NULL))
+  }
+
+  # Amemiya c² with the IJ-diagonal correction. IJ = (1/(J+1))(I + 11')
+  # so diag(IJ) = 2/(J+1) for every k.
+  c2      <- (16 * sqrt(3) / (15 * pi))^2
+  c2_corr <- c2 * 2 / (J + 1)
+
+  per_level <- vector("list", length(phylo_diag))
+  lambda_avg <- numeric(nrow(vcv))
+  for (k in seq_along(phylo_diag)) {
+    G_kk    <- vcv[, phylo_diag[k]]
+    G_corr  <- G_kk / (1 + c2_corr)
+    lam_k   <- G_corr / (G_corr + 1)
+    hpd_k <- tryCatch(
+      coda::HPDinterval(coda::as.mcmc(lam_k)),
+      error = function(e) matrix(c(NA_real_, NA_real_), nrow = 1,
+                                  dimnames = list(NULL, c("lower", "upper")))
+    )
+    per_level[[k]] <- list(
+      column = phylo_diag[k],
+      mean   = mean(lam_k),
+      lo     = hpd_k[1, "lower"],
+      hi     = hpd_k[1, "upper"]
+    )
+    lambda_avg <- lambda_avg + lam_k
+  }
+  lambda_avg <- lambda_avg / length(phylo_diag)
+  hpd_avg <- tryCatch(
+    coda::HPDinterval(coda::as.mcmc(lambda_avg)),
+    error = function(e) matrix(c(NA_real_, NA_real_), nrow = 1,
+                                dimnames = list(NULL, c("lower", "upper")))
+  )
+  list(
+    avg_mean  = mean(lambda_avg),
+    avg_lo    = hpd_avg[1, "lower"],
+    avg_hi    = hpd_avg[1, "upper"],
+    per_level = per_level
+  )
 }
 
 
@@ -851,6 +972,9 @@ phylo_signal_summary <- function(
   data.frame(
     variable = v, type = type, n_obs = NA_integer_,
     H2_mean = NA_real_, H2_lo = NA_real_, H2_hi = NA_real_,
+    lambda_nominal_mean = NA_real_,
+    lambda_nominal_lo   = NA_real_,
+    lambda_nominal_hi   = NA_real_,
     R_species_mean = NA_real_, R_species_lo = NA_real_,
     R_species_hi = NA_real_,
     lambda = NA_real_, lambda_p = NA_real_, K = NA_real_, K_p = NA_real_,
