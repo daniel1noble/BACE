@@ -148,12 +148,29 @@ if (length(missing_datasets)) {
   nl()
 }
 
-# ---- Per-dataset summary ----------------------------------------------------
+# ---- Per-dataset summary (BACE only; baseline summarised separately) -------
 
+# Engine output now has both method = "bace" and method = "mean_baseline"
+# rows. Split here so the headline summary doesn't average across them.
+# (Legacy bundles without a method column are treated as bace via NA.)
+bace_rows     <- NULL
+baseline_rows <- NULL
 if (!is.null(all_metrics)) {
-  add("## Per-dataset summary")
+  if (!"method" %in% colnames(all_metrics)) {
+    all_metrics$method <- "bace"
+  }
+  bace_rows     <- all_metrics[is.na(all_metrics$method) |
+                                 all_metrics$method == "bace", ,
+                                drop = FALSE]
+  baseline_rows <- all_metrics[!is.na(all_metrics$method) &
+                                 all_metrics$method == "mean_baseline", ,
+                                drop = FALSE]
+}
+
+if (!is.null(bace_rows) && nrow(bace_rows)) {
+  add("## Per-dataset summary (BACE)")
   nl()
-  ds_summary <- do.call(rbind, lapply(split(all_metrics, all_metrics$dataset),
+  ds_summary <- do.call(rbind, lapply(split(bace_rows, bace_rows$dataset),
     function(d) {
       cont <- d[d$type %in% c("continuous", "count"), , drop = FALSE]
       catg <- d[d$type %in% c("categorical", "binary", "ordinal"),
@@ -187,26 +204,102 @@ if (!is.null(all_metrics)) {
   nl()
 }
 
-# ---- Continuous trait detail ------------------------------------------------
+# ---- BACE vs mean_baseline head-to-head ------------------------------------
 
-if (!is.null(all_metrics)) {
-  cont <- all_metrics[all_metrics$type %in% c("continuous","count"), ,
+if (!is.null(baseline_rows) && nrow(baseline_rows) &&
+    !is.null(bace_rows)     && nrow(bace_rows)) {
+  add("## BACE vs mean-baseline head-to-head")
+  nl()
+  add("Pigauto-style reference. `lift_pct` = improvement vs the column-mean / modal-class baseline. Positive = BACE better. For RMSE / NRMSE: `100 * (baseline - bace) / baseline`. For accuracy: `100 * (bace - baseline)`.")
+  nl()
+
+  # Continuous + count traits: lift on rmse + nrmse. Dedupe to one
+  # row per (dataset, trait) in case dev/benchmark_results/ has
+  # accumulated bundles from prior local runs (cloud aggregate is
+  # always one-run, so this is just defensive for local use).
+  cont_b <- bace_rows[bace_rows$type %in% c("continuous","count"), ,
                        drop = FALSE]
+  cont_h2h <- do.call(rbind, lapply(
+    split(cont_b, paste(cont_b$dataset, cont_b$trait)),
+    function(b) {
+      if (nrow(b) > 1) b <- b[1, , drop = FALSE]
+      bl <- baseline_rows[baseline_rows$dataset == b$dataset[1] &
+                          baseline_rows$trait   == b$trait[1], ,
+                          drop = FALSE]
+      if (!nrow(bl)) return(NULL)
+      if (nrow(bl) > 1) bl <- bl[1, , drop = FALSE]
+      data.frame(
+        dataset    = b$dataset[1],
+        trait      = b$trait[1],
+        type       = b$type[1],
+        bace_rmse  = round(b$rmse,  3),
+        base_rmse  = round(bl$rmse, 3),
+        lift_pct   = round(100 * (bl$rmse - b$rmse) / bl$rmse, 1),
+        bace_cor   = round(b$correlation, 3),
+        stringsAsFactors = FALSE
+      )
+    }))
+  if (!is.null(cont_h2h) && nrow(cont_h2h)) {
+    add("### Continuous / count traits")
+    nl()
+    md <- c(md, knitr::kable(cont_h2h, format = "markdown",
+                              row.names = FALSE))
+    nl()
+  }
+
+  # Categorical / binary / ordinal: lift on accuracy
+  cat_b <- bace_rows[bace_rows$type %in% c("categorical","binary","ordinal"), ,
+                      drop = FALSE]
+  cat_h2h <- do.call(rbind, lapply(
+    split(cat_b, paste(cat_b$dataset, cat_b$trait)),
+    function(b) {
+      if (nrow(b) > 1) b <- b[1, , drop = FALSE]
+      bl <- baseline_rows[baseline_rows$dataset == b$dataset[1] &
+                          baseline_rows$trait   == b$trait[1], ,
+                          drop = FALSE]
+      if (!nrow(bl)) return(NULL)
+      if (nrow(bl) > 1) bl <- bl[1, , drop = FALSE]
+      data.frame(
+        dataset       = b$dataset[1],
+        trait         = b$trait[1],
+        type          = b$type[1],
+        bace_accuracy = round(b$accuracy,  3),
+        base_accuracy = round(bl$accuracy, 3),
+        lift_pct      = round(100 * (b$accuracy - bl$accuracy), 1),
+        bace_brier    = round(b$brier, 3),
+        base_brier    = round(bl$brier, 3),
+        stringsAsFactors = FALSE
+      )
+    }))
+  if (!is.null(cat_h2h) && nrow(cat_h2h)) {
+    add("### Categorical / binary / ordinal traits")
+    nl()
+    md <- c(md, knitr::kable(cat_h2h, format = "markdown",
+                              row.names = FALSE))
+    nl()
+  }
+}
+
+# ---- Continuous trait detail (BACE only) -----------------------------------
+
+if (!is.null(bace_rows) && nrow(bace_rows)) {
+  cont <- bace_rows[bace_rows$type %in% c("continuous","count"), ,
+                     drop = FALSE]
   if (nrow(cont)) {
-    add("## Continuous + count traits")
+    add("## BACE continuous + count traits (per-trait detail)")
     nl()
     cols <- intersect(c("dataset","trait","type","scale","n_hidden",
-                        "nrmse","mae_fit","mae_raw","correlation",
+                        "rmse","nrmse","mae_fit","mae_raw","correlation",
                         "coverage95"), colnames(cont))
     md <- c(md, knitr::kable(cont[, cols], format = "markdown",
                               digits = 3, row.names = FALSE))
     nl()
   }
 
-  catg <- all_metrics[all_metrics$type %in% c("categorical","binary","ordinal"),
-                       , drop = FALSE]
+  catg <- bace_rows[bace_rows$type %in% c("categorical","binary","ordinal"),
+                     , drop = FALSE]
   if (nrow(catg)) {
-    add("## Categorical / binary / ordinal traits")
+    add("## BACE categorical / binary / ordinal traits (per-trait detail)")
     nl()
     cols <- intersect(c("dataset","trait","type","n_hidden",
                         "accuracy","balanced_accuracy","brier","mae_level"),

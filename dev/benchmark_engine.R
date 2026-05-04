@@ -233,6 +233,84 @@ suppressPackageStartupMessages({
 }
 
 # ----------------------------------------------------------------------------
+# Mean-baseline metrics — pigauto-style reference. Predicts column-mean
+# for continuous/count traits and modal class for factor types. Single
+# constant prediction per trait, so correlation and coverage95 are
+# undefined; we emit NA for those and report rmse / mae / accuracy /
+# brier just like the BACE rows so the two methods stack cleanly.
+# ----------------------------------------------------------------------------
+.compute_baseline_metrics <- function(masked, truth_long, types,
+                                       log_traits, dataset_name) {
+  rows <- lapply(names(types), function(v) {
+    type <- types[[v]]
+    truth_v <- truth_long[truth_long$trait == v, , drop = FALSE]
+    if (nrow(truth_v) == 0L) return(NULL)
+    is_log <- v %in% log_traits
+
+    base <- data.frame(
+      dataset           = dataset_name,
+      method            = "mean_baseline",
+      trait             = v,
+      type              = type,
+      scale             = if (type %in% c("continuous", "count"))
+                            (if (is_log) "log" else "raw") else "categorical",
+      n_hidden          = nrow(truth_v),
+      rmse              = NA_real_,
+      nrmse             = NA_real_,
+      mae_fit           = NA_real_,
+      mae_raw           = NA_real_,
+      correlation       = NA_real_,
+      coverage95        = NA_real_,
+      accuracy          = NA_real_,
+      balanced_accuracy = NA_real_,
+      brier             = NA_real_,
+      mae_level         = NA_real_,
+      stringsAsFactors  = FALSE
+    )
+
+    if (type %in% c("continuous", "count")) {
+      tv_raw  <- as.numeric(truth_v$true_value)
+      tv_cmp  <- if (is_log) log1p(tv_raw) else tv_raw
+      col_mu  <- mean(masked[[v]], na.rm = TRUE)
+      sd_full <- stats::sd(masked[[v]], na.rm = TRUE)
+      preds   <- rep(col_mu, length(tv_cmp))
+      base$rmse        <- sqrt(mean((preds - tv_cmp)^2))
+      base$nrmse       <- base$rmse / sd_full
+      base$mae_fit     <- mean(abs(preds - tv_cmp))
+      preds_raw        <- if (is_log) expm1(preds) else preds
+      base$mae_raw     <- mean(abs(preds_raw - tv_raw))
+      # correlation / coverage95 are NA for a constant predictor.
+    } else {
+      tv_chr <- as.character(truth_v$true_value)
+      tab    <- table(masked[[v]], useNA = "no")
+      modal  <- names(tab)[which.max(tab)]
+      preds  <- rep(modal, length(tv_chr))
+      base$accuracy <- mean(preds == tv_chr, na.rm = TRUE)
+      classes <- unique(tv_chr)
+      recalls <- vapply(classes, function(cl) {
+        is_cl <- tv_chr == cl
+        if (!any(is_cl)) NA_real_ else mean(preds[is_cl] == cl, na.rm = TRUE)
+      }, numeric(1))
+      base$balanced_accuracy <- mean(recalls, na.rm = TRUE)
+      lvls <- if (is.factor(masked[[v]])) levels(masked[[v]])
+              else sort(unique(c(tv_chr, modal)))
+      prob_mat <- matrix(0, nrow = length(tv_chr), ncol = length(lvls),
+                          dimnames = list(NULL, lvls))
+      prob_mat[, modal] <- 1
+      y_indic <- sapply(lvls, function(cl) as.integer(tv_chr == cl))
+      base$brier <- mean(rowSums((prob_mat - y_indic)^2))
+      if (type == "ordinal") {
+        pos_pred  <- match(preds,  lvls)
+        pos_truth <- match(tv_chr, lvls)
+        base$mae_level <- mean(abs(pos_pred - pos_truth), na.rm = TRUE)
+      }
+    }
+    base
+  })
+  do.call(rbind, rows)
+}
+
+# ----------------------------------------------------------------------------
 # Top-level: benchmark a dataset.
 # ----------------------------------------------------------------------------
 benchmark_dataset <- function(
@@ -248,6 +326,11 @@ benchmark_dataset <- function(
     cat_miss_rate  = 0.30,
     subset_n       = 2000L,
     nitt           = 20000, thin = 15, burnin = 4000,
+    # n_final=10 for cloud feasibility. Pigauto's canonical
+    # N_IMP=20 doubles final-imputation wall time and pushes
+    # BACE's MCMCglmm chains past the GHA 5h45m budget for the
+    # heavier datasets. Local runs aiming for direct pigauto
+    # comparison should override n_final = 20.
     runs           = 5,    n_final = 10,
     max_attempts   = 2,    n_cores = 4L,
     skip_conv      = FALSE,
@@ -353,7 +436,8 @@ benchmark_dataset <- function(
   )
   runtime_min <- as.numeric(round(difftime(Sys.time(), t0, units = "mins"), 1))
 
-  # Type-aware metrics, one row per imputed trait
+  # Type-aware metrics, one row per imputed trait. Tagged with
+  # method = "bace" so it stacks cleanly with the mean_baseline rows.
   metric_rows <- lapply(names(types), function(v) {
     type <- types[[v]]
     truth_v <- truth_long[truth_long$trait == v, ]
@@ -363,11 +447,13 @@ benchmark_dataset <- function(
 
     base <- data.frame(
       dataset           = dataset_name,
+      method            = "bace",
       trait             = v,
       type              = type,
       scale             = if (type %in% c("continuous", "count"))
                             (if (is_log) "log" else "raw") else "categorical",
       n_hidden          = nrow(truth_v),
+      rmse              = NA_real_,
       nrmse             = NA_real_,
       mae_fit           = NA_real_,
       mae_raw           = NA_real_,
@@ -391,6 +477,8 @@ benchmark_dataset <- function(
       cm <- .metrics_continuous(imp_mat, tv_cmp, sd_full)
       post_mean      <- rowMeans(imp_mat)
       post_mean_raw  <- if (is_log) expm1(post_mean) else post_mean
+      # Raw rmse on the FIT scale (matches pigauto's headline rmse column).
+      base$rmse        <- sqrt(mean((post_mean - tv_cmp)^2))
       base$nrmse       <- cm$nrmse
       base$mae_fit     <- cm$mae_fit
       base$mae_raw     <- mean(abs(post_mean_raw - tv_raw))
@@ -413,7 +501,13 @@ benchmark_dataset <- function(
     }
     base
   })
-  metrics_df <- do.call(rbind, metric_rows)
+  metrics_bace <- do.call(rbind, metric_rows)
+
+  # Mean-baseline reference (pigauto-aligned) -- stacked alongside bace.
+  metrics_baseline <- .compute_baseline_metrics(
+    masked, truth_long, types, log_traits, dataset_name)
+
+  metrics_df <- rbind(metrics_bace, metrics_baseline)
 
   # Output
   date_str  <- format(Sys.Date(), "%Y%m%d")
@@ -424,6 +518,26 @@ benchmark_dataset <- function(
 
   utils::write.csv(metrics_df,
                    file.path(out_dir, "summary_metrics.csv"),
+                   row.names = FALSE)
+
+  # Pigauto-style tidy long format: (dataset, method, trait, type,
+  # metric, value). Each (method, trait) row in the wide frame
+  # spreads to N rows, one per metric. Easier to stack across
+  # methods / runs / datasets for cross-method comparison.
+  metric_cols <- c("rmse", "nrmse", "mae_fit", "mae_raw",
+                   "correlation", "coverage95", "accuracy",
+                   "balanced_accuracy", "brier", "mae_level")
+  metrics_long <- do.call(rbind, lapply(metric_cols, function(m) {
+    d <- metrics_df[, c("dataset", "method", "trait", "type",
+                        "scale", "n_hidden", m)]
+    colnames(d)[ncol(d)] <- "value"
+    d$metric <- m
+    d <- d[!is.na(d$value), , drop = FALSE]
+    d[, c("dataset","method","trait","type","scale","n_hidden",
+          "metric","value")]
+  }))
+  utils::write.csv(metrics_long,
+                   file.path(out_dir, "summary_metrics_long.csv"),
                    row.names = FALSE)
   utils::write.csv(phylo_signal_df,
                    file.path(out_dir, "phylo_signal.csv"),
