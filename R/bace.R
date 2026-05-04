@@ -167,8 +167,9 @@ if (verbose) {
 
 converge <- assess_convergence(start, method = "summary")
 
-if (plot) { 
-  plot(converge) 
+if (plot && inherits(converge, "bace_convergence") &&
+    !is.null(converge$summary_stats)) {
+  plot(converge)
 }
 
 # Track convergence attempts
@@ -199,11 +200,12 @@ while (!converged && n_attempts < max_attempts && !skip_conv) {
                    ovr_categorical = ovr_categorical, ...)
   
   converge <- assess_convergence(start, method = "summary")
-  
-  if (plot) { 
-    plot(converge) 
+
+  if (plot && inherits(converge, "bace_convergence") &&
+      !is.null(converge$summary_stats)) {
+    plot(converge)
   }
-  
+
   converged <- converge$converged
   # Treat NA as not converged
   if (is.na(converged)) converged <- FALSE
