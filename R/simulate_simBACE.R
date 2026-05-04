@@ -214,11 +214,33 @@ sim_bace <- function(
     stop("missingness must have length equal to n_vars (response + predictors)")
   }
 
-  # Setup variance components (default: all random effect SD = 1)
+  # Setup variance components.
+  #
+  # Per-variable defaults depend on the variable's type. For gaussian
+  # variables the response is on a linear scale and a sigma of 1 is
+  # innocuous. For variables passed through a non-linear link (poisson
+  # via exp, binary/threshold/categorical via probit/logit), the same
+  # sigma=1 combined with phylo_signal=0.9 gives sigma2_phylo=18,
+  # which produces linear-predictor SDs around 4-5. After exp() that
+  # is poisson rates spanning 10^-3 to 10^20 — a few species end up
+  # with counts in the millions while most are zero, swamping the
+  # phylogenetic signal we tried to encode.
+  #
+  # We therefore scale non-gaussian sigmas down so total latent
+  # variance is approximately 2 (sigma_species = sigma_residual =
+  # sqrt(0.1) gives sigma2_phylo = 1.8 at phylo_signal = 0.9, total
+  # latent variance ~2). Verified by recovery diagnostic: with
+  # sigma=1 defaults, Pagel's lambda on simulated poisson y is ~0.07
+  # despite phylo_signal=0.9; with the scaled defaults below it
+  # recovers to ~0.6-0.95.
   if (is.null(sigmas)) {
+    all_types <- c(response_type, predictor_types)
+    is_gauss <- vapply(all_types, function(t) identical(t, "gaussian"),
+                        logical(1))
+    default_sd <- ifelse(is_gauss, 1.0, sqrt(0.1))
     sigmas <- list(
-      sigma_species = rep(1, n_vars),
-      sigma_residual = rep(1, n_vars)
+      sigma_species  = default_sd,
+      sigma_residual = default_sd
     )
   }
 
