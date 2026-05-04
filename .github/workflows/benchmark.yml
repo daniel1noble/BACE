@@ -67,7 +67,17 @@ jobs:
           needs: ''
 
       - name: Run ${{ matrix.dataset }} benchmark
-        run: Rscript ${{ matrix.script }}
+        # Shell-level stdout heartbeat alongside the R process: keeps
+        # the GHA runner watchdog happy during long bace_final_imp
+        # parallel-worker phases where R's parent process can go quiet
+        # for many minutes (parallel R workers don't stream stdout to
+        # the parent, so without this the runner kills the job with
+        # "received a shutdown signal" after ~10-15min of silence).
+        run: |
+          (while sleep 60; do echo "[heartbeat $(date -u +%H:%M:%S)] still running ${{ matrix.dataset }}"; done) &
+          HEARTBEAT_PID=$!
+          trap 'kill $HEARTBEAT_PID 2>/dev/null || true' EXIT
+          Rscript ${{ matrix.script }}
 
       - name: Upload per-dataset artifact
         if: always()  # capture partial output on failure / timeout
