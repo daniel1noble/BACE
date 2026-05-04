@@ -31,10 +31,15 @@ load("dev/testing_data/data/avonet_tree.rda")
 LOG_TRAITS <- c("mass_g", "wing_length_mm", "beak_length_culmen_mm",
                 "tarsus_length_mm", "tail_length_mm", "range_size_km2")
 
-# To reproduce the historical 10-trait benchmark scope, uncomment:
-# TRAIT_SUBSET <- c(LOG_TRAITS, "centroid_lat", "centroid_lon",
-#                   "trophic_level", "primary_lifestyle")
-TRAIT_SUBSET <- NULL  # default: all non-tax columns (13 traits)
+# Use the historical 10-trait benchmark scope (8 continuous + 2
+# categorical). The full 13-trait set (adding habitat_density /
+# migration ordinals + habitat K=11 categorical) ran 5h45m past the
+# GHA workflow timeout in run 25287097270 -- chained equations
+# scale O(n_traits) per iteration and the K=11 habitat OVR pulls
+# 11 binary threshold fits per chain step. The historical 10 traits
+# already cover continuous + categorical paths cleanly.
+TRAIT_SUBSET <- c(LOG_TRAITS, "centroid_lat", "centroid_lon",
+                  "trophic_level", "primary_lifestyle")
 
 result <- benchmark_dataset(
   traits_df    = avonet_traits,
