@@ -169,3 +169,108 @@ test_that("generate_default_beta_matrix(0) errors clearly", {
   expect_error(generate_default_beta_matrix(n_predictors = 0),
                regexp = "n_predictors must be >= 1")
 })
+
+# ----------------------------------------------------------------------------
+# More sim_bace coverage: alternative response types + validation paths
+# ----------------------------------------------------------------------------
+
+test_that("sim_bace with custom var_names overrides defaults", {
+  set.seed(2026)
+  out <- suppressMessages(sim_bace(
+    response_type   = "gaussian",
+    predictor_types = c("gaussian", "gaussian"),
+    var_names       = c("resp", "pred_a", "pred_b"),
+    phylo_signal    = c(0.3, 0.3, 0.3),
+    n_cases = 30, n_species = 12
+  ))
+  expect_equal(out$params$var_names, c("resp", "pred_a", "pred_b"))
+  expect_true(all(c("resp", "pred_a", "pred_b") %in% colnames(out$data)))
+})
+
+test_that("sim_bace rejects mismatched var_names length", {
+  set.seed(2026)
+  expect_error(suppressMessages(sim_bace(
+    predictor_types = c("gaussian", "gaussian"),
+    var_names       = c("only_one"),  # need 3 (response + 2 predictors)
+    n_cases = 20, n_species = 10
+  )), regexp = "var_names must have length")
+})
+
+test_that("sim_bace rejects mismatched phylo_signal length", {
+  set.seed(2026)
+  expect_error(suppressMessages(sim_bace(
+    predictor_types = c("gaussian", "gaussian"),
+    phylo_signal    = c(0.5),  # need 3 (response + 2 predictors)
+    n_cases = 20, n_species = 10
+  )), regexp = "phylo_signal must have length")
+})
+
+test_that("sim_bace rejects out-of-range phylo_signal", {
+  set.seed(2026)
+  expect_error(suppressMessages(sim_bace(
+    predictor_types = c("gaussian"),
+    phylo_signal    = c(0.5, 1.5),  # 1.5 is out of [0, 1)
+    n_cases = 20, n_species = 10
+  )), regexp = "phylo_signal values must be in")
+})
+
+test_that("sim_bace accepts numeric intercepts vector and converts to list", {
+  set.seed(2026)
+  out <- suppressMessages(sim_bace(
+    predictor_types = c("gaussian"),
+    phylo_signal    = c(0.3, 0.3),
+    intercepts      = c(2.0, 0.5),  # response, predictor
+    n_cases = 30, n_species = 12
+  ))
+  expect_equal(out$params$intercepts$response, 2.0)
+  expect_equal(out$params$intercepts$predictors, 0.5)
+})
+
+test_that("sim_bace rejects list intercepts missing required keys", {
+  set.seed(2026)
+  expect_error(suppressMessages(sim_bace(
+    predictor_types = c("gaussian"),
+    phylo_signal    = c(0.3, 0.3),
+    intercepts      = list(response = 0),  # missing 'predictors'
+    n_cases = 20, n_species = 10
+  )), regexp = "must have 'response' and 'predictors'")
+})
+
+test_that("sim_bace warns when rr=TRUE but rr_form is NULL", {
+  set.seed(2026)
+  expect_warning(suppressMessages(sim_bace(
+    predictor_types = c("gaussian"),
+    phylo_signal    = c(0.3, 0.3),
+    rr              = TRUE,
+    rr_form         = NULL,
+    n_cases = 30, n_species = 12
+  )), regexp = "rr=TRUE but rr_form not specified")
+})
+
+test_that("sim_bace_gaussian respects beta_sparsity override", {
+  set.seed(2026)
+  out <- suppressMessages(sim_bace_gaussian(
+    n_predictors = 4, n_cases = 30, n_species = 15,
+    beta_sparsity = 0.0  # all coefficients non-zero
+  ))
+  bm <- out$params$beta_matrix
+  # Lower triangle entries should mostly be non-zero with sparsity=0
+  lower <- bm[lower.tri(bm)]
+  expect_gt(sum(lower != 0), length(lower) * 0.5)  # most are non-zero
+})
+
+test_that("sim_bace handles a poisson predictor in the design", {
+  set.seed(2026)
+  # First predictor must be gaussian for numerical stability
+  # (sim_bace warns otherwise) -- put the poisson second.
+  out <- suppressMessages(suppressWarnings(sim_bace(
+    response_type   = "gaussian",
+    predictor_types = c("gaussian", "poisson"),
+    phylo_signal    = c(0.3, 0.3, 0.3),
+    n_cases = 30, n_species = 12
+  )))
+  pois_col <- out$params$var_names[3]
+  vals <- out$complete_data[[pois_col]]
+  expect_true(is.integer(vals) || all(vals == as.integer(vals), na.rm = TRUE))
+  expect_true(all(vals >= 0))
+})
