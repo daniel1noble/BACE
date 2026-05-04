@@ -11,8 +11,14 @@
 
 .build_formula <- function(x) {
 
-	# Some checks. Formula must have a '`~`' in it
-	if(!grepl("~", as.character(x))) { stop("Make sure you specify a formula string. This involves a structure of the form: y ~ x") } 
+	# Accept a formula object directly; only validate strings.
+	if (inherits(x, "formula")) {
+		return(x)
+	}
+	# Formula string must have a `~` in it
+	if (!is.character(x) || length(x) != 1L || !grepl("~", x)) {
+		stop("Make sure you specify a formula string. This involves a structure of the form: y ~ x")
+	}
 
   return(stats::as.formula(x))
 }
