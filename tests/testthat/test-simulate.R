@@ -135,3 +135,37 @@ test_that("ordinal_liab2cat returns integer levels in 1..K", {
   expect_length(out, 100L)
   expect_true(all(out >= 1L & out <= 4L))
 })
+
+# ----------------------------------------------------------------------------
+# Regression: source bugs fixed alongside this test file.
+# ----------------------------------------------------------------------------
+
+test_that("sim_bace output uses 'Species' (capital S) per BACE convention", {
+  # Bug surfaced 2026-05: sim_bace previously produced a lowercase
+  # 'species' column, which forced users to rename before feeding
+  # the result into bace_imp (whose ran_phylo_form examples all use
+  # capital 'Species'). Fix in commit alongside this test.
+  set.seed(2026)
+  out <- suppressMessages(sim_bace_gaussian(n_predictors = 2,
+                                             n_cases = 30, n_species = 10))
+  expect_true("Species" %in% colnames(out$data))
+  expect_true("Species" %in% colnames(out$complete_data))
+  expect_false("species" %in% colnames(out$data))
+})
+
+test_that("generate_default_beta_matrix handles n_predictors = 1 cleanly", {
+  # Bug surfaced 2026-05: the inner `for (i in 2:n_predictors)` loop
+  # used R's `2:1` ⇒ c(2,1) quirk and tried to assign
+  # beta_matrix[2, 1] on a 1x1 matrix. Fixed by guarding the loop
+  # behind n_predictors >= 2.
+  set.seed(2026)
+  b <- generate_default_beta_matrix(n_predictors = 1, sparsity = 0.5)
+  expect_true(is.matrix(b))
+  expect_equal(dim(b), c(1L, 1L))
+  expect_equal(b[1, 1], 0)
+})
+
+test_that("generate_default_beta_matrix(0) errors clearly", {
+  expect_error(generate_default_beta_matrix(n_predictors = 0),
+               regexp = "n_predictors must be >= 1")
+})

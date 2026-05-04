@@ -611,9 +611,14 @@ sim_bace <- function(
   # ASSEMBLE OUTPUT
   # -------------------------------------------------------------------------
 
-  # Create output data frame
+  # Create output data frame. The species column is named 'Species'
+  # (capital S) to match the convention used throughout the rest of
+  # BACE -- bace_imp examples reference ran_phylo_form = "~1|Species",
+  # and the bundled .rda datasets follow the same convention. Using
+  # lowercase here forced users to rename before feeding sim_bace
+  # output into bace_imp.
   out_data <- data.frame(
-    species = case_species,
+    Species = case_species,
     response = response,
     covars,
     stringsAsFactors = FALSE
@@ -621,7 +626,7 @@ sim_bace <- function(
   names(out_data)[2] <- resp_name
 
   out_data_complete <- data.frame(
-    species = case_species,
+    Species = case_species,
     response = raw_response,
     raw_covars,
     stringsAsFactors = FALSE

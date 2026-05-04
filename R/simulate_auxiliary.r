@@ -153,13 +153,21 @@ beta_generator <- function(beta_row, ns, default_beta = 0.5) {
 #' @export
 generate_default_beta_matrix <- function(n_predictors, sparsity = 0.7,
                                          beta_range = c(-0.5, 0.5)) {
+  if (n_predictors < 1L) {
+    stop("n_predictors must be >= 1")
+  }
   beta_matrix <- matrix(0, nrow = n_predictors, ncol = n_predictors)
 
-  # Create lower triangular structure (predictors depend on earlier ones)
-  for (i in 2:n_predictors) {
-    for (j in 1:(i - 1)) {
-      if (runif(1) > sparsity) {
-        beta_matrix[i, j] <- runif(1, beta_range[1], beta_range[2])
+  # Create lower triangular structure (predictors depend on earlier
+  # ones). Guard the outer loop so n_predictors == 1 returns a zero
+  # 1x1 matrix without indexing out of bounds (R's `2:1` quirk gave
+  # a length-2 sequence and crashed at beta_matrix[2, 1]).
+  if (n_predictors >= 2L) {
+    for (i in 2:n_predictors) {
+      for (j in 1:(i - 1)) {
+        if (runif(1) > sparsity) {
+          beta_matrix[i, j] <- runif(1, beta_range[1], beta_range[2])
+        }
       }
     }
   }
