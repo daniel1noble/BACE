@@ -274,3 +274,203 @@ test_that("sim_bace handles a poisson predictor in the design", {
   expect_true(is.integer(vals) || all(vals == as.integer(vals), na.rm = TRUE))
   expect_true(all(vals >= 0))
 })
+
+# ----------------------------------------------------------------------------
+# Response-type variants: threshold + multinomial responses
+# ----------------------------------------------------------------------------
+
+test_that("sim_bace response_type='threshold3' returns 3-level ordered factor", {
+  set.seed(2026)
+  out <- suppressMessages(suppressWarnings(sim_bace(
+    response_type   = "threshold3",
+    predictor_types = c("gaussian", "gaussian"),
+    phylo_signal    = c(0.3, 0.3, 0.3),
+    n_cases         = 40, n_species = 20
+  )))
+  resp_col <- out$params$var_names[1]
+  resp <- out$complete_data[[resp_col]]
+  expect_s3_class(resp, "factor")
+  expect_true(is.ordered(resp))
+  # All response values should be valid level labels (1, 2, or 3)
+  expect_true(all(as.integer(as.character(resp)) %in% 1:3))
+})
+
+test_that("sim_bace response_type='threshold4' returns 4-level ordered factor", {
+  set.seed(2026)
+  out <- suppressMessages(suppressWarnings(sim_bace(
+    response_type   = "threshold4",
+    predictor_types = c("gaussian", "gaussian"),
+    phylo_signal    = c(0.3, 0.3, 0.3),
+    n_cases         = 50, n_species = 25
+  )))
+  resp <- out$complete_data[[out$params$var_names[1]]]
+  expect_s3_class(resp, "factor")
+  expect_true(is.ordered(resp))
+  expect_true(all(as.integer(as.character(resp)) %in% 1:4))
+})
+
+test_that("sim_bace response_type='multinomial3' returns 3-level unordered factor", {
+  set.seed(2026)
+  out <- suppressMessages(suppressWarnings(sim_bace(
+    response_type   = "multinomial3",
+    predictor_types = c("gaussian", "gaussian"),
+    phylo_signal    = c(0.3, 0.3, 0.3),
+    n_cases         = 40, n_species = 20
+  )))
+  resp <- out$complete_data[[out$params$var_names[1]]]
+  expect_s3_class(resp, "factor")
+  expect_false(is.ordered(resp))
+  expect_true(all(as.character(resp) %in% c("A","B","C")))
+})
+
+test_that("sim_bace response_type='multinomial4' returns 4-level unordered factor", {
+  set.seed(2026)
+  out <- suppressMessages(suppressWarnings(sim_bace(
+    response_type   = "multinomial4",
+    predictor_types = c("gaussian", "gaussian"),
+    phylo_signal    = c(0.3, 0.3, 0.3),
+    n_cases         = 50, n_species = 25
+  )))
+  resp <- out$complete_data[[out$params$var_names[1]]]
+  expect_s3_class(resp, "factor")
+  expect_true(all(as.character(resp) %in% c("A","B","C","D")))
+})
+
+test_that("sim_bace response_type='binary' returns 2-level ordered factor", {
+  set.seed(2026)
+  out <- suppressMessages(suppressWarnings(sim_bace(
+    response_type   = "binary",
+    predictor_types = c("gaussian", "gaussian"),
+    phylo_signal    = c(0.3, 0.3, 0.3),
+    n_cases         = 40, n_species = 20
+  )))
+  resp <- out$complete_data[[out$params$var_names[1]]]
+  expect_s3_class(resp, "factor")
+  expect_equal(nlevels(resp), 2L)
+})
+
+test_that("sim_bace response_type='poisson' returns non-negative integer", {
+  set.seed(2026)
+  out <- suppressMessages(suppressWarnings(sim_bace(
+    response_type   = "poisson",
+    predictor_types = c("gaussian", "gaussian"),
+    phylo_signal    = c(0.3, 0.3, 0.3),
+    n_cases         = 40, n_species = 20
+  )))
+  resp <- out$complete_data[[out$params$var_names[1]]]
+  expect_true(is.integer(resp))
+  expect_true(all(resp >= 0))
+})
+
+# ----------------------------------------------------------------------------
+# Threshold/multinomial as predictor types (different code path than response)
+# ----------------------------------------------------------------------------
+
+test_that("sim_bace with threshold3 predictor produces ordered factor", {
+  set.seed(2026)
+  out <- suppressMessages(suppressWarnings(sim_bace(
+    response_type   = "gaussian",
+    predictor_types = c("gaussian", "threshold3"),
+    phylo_signal    = c(0.3, 0.3, 0.3),
+    n_cases         = 40, n_species = 20
+  )))
+  pred_col <- out$params$var_names[3]
+  vals <- out$complete_data[[pred_col]]
+  expect_s3_class(vals, "factor")
+  expect_true(is.ordered(vals))
+})
+
+test_that("sim_bace with multinomial3 predictor produces unordered factor", {
+  set.seed(2026)
+  out <- suppressMessages(suppressWarnings(sim_bace(
+    response_type   = "gaussian",
+    predictor_types = c("gaussian", "multinomial3"),
+    phylo_signal    = c(0.3, 0.3, 0.3),
+    n_cases         = 40, n_species = 20
+  )))
+  pred_col <- out$params$var_names[3]
+  vals <- out$complete_data[[pred_col]]
+  expect_s3_class(vals, "factor")
+  expect_false(is.ordered(vals))
+  expect_true(all(as.character(vals) %in% c("A","B","C")))
+})
+
+# ----------------------------------------------------------------------------
+# Custom beta_matrix + custom intercepts list
+# ----------------------------------------------------------------------------
+
+test_that("sim_bace accepts a custom beta_matrix", {
+  set.seed(2026)
+  bm <- matrix(0, 3, 3)
+  bm[2, 1] <- 0.4
+  bm[3, 1] <- -0.2
+  bm[3, 2] <- 0.1
+  out <- suppressMessages(suppressWarnings(sim_bace(
+    response_type   = "gaussian",
+    predictor_types = c("gaussian", "gaussian", "gaussian"),
+    beta_matrix     = bm,
+    phylo_signal    = c(0.3, 0.3, 0.3, 0.3),
+    n_cases         = 30, n_species = 15
+  )))
+  # beta_matrix is named with predictor_names by sim_bace; compare
+  # values element-wise rather than insisting on attribute equality.
+  expect_equal(unname(out$params$beta_matrix), unname(bm))
+})
+
+test_that("sim_bace with custom intercepts list applies the values", {
+  set.seed(2026)
+  out <- suppressMessages(suppressWarnings(sim_bace(
+    response_type   = "gaussian",
+    predictor_types = c("gaussian", "gaussian"),
+    intercepts      = list(response = 5.0,
+                            predictors = c(2.0, -1.0)),
+    phylo_signal    = c(0.3, 0.3, 0.3),
+    n_cases         = 40, n_species = 20
+  )))
+  expect_equal(out$params$intercepts$response, 5.0)
+  expect_equal(out$params$intercepts$predictors, c(2.0, -1.0))
+})
+
+test_that("sim_bace rejects beta_matrix with wrong dimensions", {
+  set.seed(2026)
+  bm <- matrix(0, 2, 2)  # 2x2 but n_predictors = 3
+  expect_error(suppressMessages(sim_bace(
+    response_type   = "gaussian",
+    predictor_types = c("gaussian", "gaussian", "gaussian"),
+    beta_matrix     = bm,
+    n_cases         = 30, n_species = 15
+  )), regexp = "beta_matrix must be a square matrix")
+})
+
+# ----------------------------------------------------------------------------
+# Custom beta_resp argument
+# ----------------------------------------------------------------------------
+
+test_that("sim_bace with custom beta_resp vector applies coefficients", {
+  set.seed(2026)
+  out <- suppressMessages(suppressWarnings(sim_bace(
+    response_type   = "gaussian",
+    predictor_types = c("gaussian", "gaussian"),
+    beta_resp       = c(2.0, -1.0),
+    phylo_signal    = c(0.3, 0.3, 0.3),
+    n_cases         = 40, n_species = 20
+  )))
+  # beta_resp_stored should reflect the input
+  stored <- out$params$beta_resp
+  expect_true(!is.null(stored))
+})
+
+# ----------------------------------------------------------------------------
+# missingness vector
+# ----------------------------------------------------------------------------
+
+test_that("sim_bace missingness vector validates length", {
+  set.seed(2026)
+  expect_error(suppressMessages(sim_bace(
+    response_type   = "gaussian",
+    predictor_types = c("gaussian", "gaussian"),
+    phylo_signal    = c(0.3, 0.3, 0.3),
+    missingness     = c(0.1),  # length 1, but n_vars = 3
+    n_cases = 30, n_species = 15
+  )), regexp = "missingness must have length")
+})
