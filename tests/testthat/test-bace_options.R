@@ -3,9 +3,9 @@
 # get/set/validate path through every documented option.
 
 # Always reset BACE.* options after each test so we don't leak state
-# into other test files.
-withr::local_options(.local_envir = teardown_env())
-
+# into other test files. Each test that mutates options uses
+# on.exit(reset_bace_options(), add = TRUE) -- avoids the withr
+# dependency.
 reset_bace_options <- function() {
   bace_options(.reset = TRUE)
 }
