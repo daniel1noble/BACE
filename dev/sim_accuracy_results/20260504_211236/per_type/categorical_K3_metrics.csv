@@ -1,0 +1,2 @@
+"type","response_type","n_complete","n_missing","metric","BACE_value","baseline_value","BACE_better","elapsed_seconds"
+"categorical_K3","multinomial3",120,24,"balanced_accuracy",0.518055555555555,0.333333333333333,TRUE,5.16152501106262

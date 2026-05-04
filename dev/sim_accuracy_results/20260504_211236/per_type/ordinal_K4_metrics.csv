@@ -1,0 +1,2 @@
+"type","response_type","n_complete","n_missing","metric","BACE_value","baseline_value","BACE_better","elapsed_seconds"
+"ordinal_K4","threshold4",120,24,"mae_level",0.416666666666667,1,TRUE,2.96229100227356

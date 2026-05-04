@@ -1,0 +1,6 @@
+"type","response_type","n_complete","n_missing","metric","BACE_value","baseline_value","BACE_better","elapsed_seconds"
+"gaussian","gaussian",120,24,"nrmse",0.414711216338146,0.78268157289653,TRUE,2.60420322418213
+"poisson","poisson",120,24,"nrmse",1.19264678523514,1.1512461726947,FALSE,2.61949586868286
+"binary","binary",120,24,"balanced_accuracy",0.777777777777778,0.5,TRUE,2.91197204589844
+"categorical_K3","multinomial3",120,24,"balanced_accuracy",0.518055555555555,0.333333333333333,TRUE,5.16152501106262
+"ordinal_K4","threshold4",120,24,"mae_level",0.416666666666667,1,TRUE,2.96229100227356
