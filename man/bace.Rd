@@ -13,7 +13,7 @@ bace(
   thin = 5,
   burnin = 1000,
   runs = 10,
-  n_final = 10,
+  n_final = 50,
   species = FALSE,
   verbose = TRUE,
   plot = FALSE,
@@ -55,8 +55,16 @@ Default is 1000.}
 \item{runs}{An integer specifying the number of initial imputation iterations for convergence
 checking. Default is 10.}
 
-\item{n_final}{An integer specifying the number of final imputation runs to perform after
-convergence is achieved. Default is 10. These runs are used for posterior pooling.}
+\item{n_final}{An integer specifying the number of final imputation runs to
+perform after convergence is achieved. Default is 50. These runs are used
+for posterior pooling and to estimate per-cell prediction intervals. The
+default is set high enough that the empirical 2.5 and 97.5 percent
+quantiles of the per-cell imputed values give a reasonable estimate of the
+95 percent posterior predictive interval — at small n_final the empirical
+quantile shrinks toward the per-cell min and max and undercovers (e.g.
+n_final = 5 gives roughly 67 percent effective coverage, n_final = 50
+gives roughly 92 percent, asymptotic 95 percent). Reduce only if compute
+is constrained AND you do not need calibrated intervals.}
 
 \item{species}{A logical indicating whether to decompose phylogenetic and non-phylogenetic
 species effects. Default is FALSE. When TRUE, the random effects structure is modified to

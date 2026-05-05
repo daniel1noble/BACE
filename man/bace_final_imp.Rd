@@ -12,7 +12,7 @@ bace_final_imp(
   nitt = 6000,
   thin = 5,
   burnin = 1000,
-  n_final = 10,
+  n_final = 50,
   species = FALSE,
   verbose = TRUE,
   n_cores = 1,
@@ -36,7 +36,12 @@ bace_final_imp(
 
 \item{burnin}{An integer or list specifying the burn-in iterations. Default is 1000}
 
-\item{n_final}{An integer specifying the number of final imputation runs. Default is 10}
+\item{n_final}{An integer specifying the number of final imputation runs.
+Default is 50 — large enough that the empirical 2.5 and 97.5 percent
+quantiles of per-cell imputed values give a reasonable estimate of the
+95 percent posterior predictive interval. Smaller values undercover:
+n_final = 5 gives roughly 67 percent effective coverage, n_final = 20
+gives roughly 88 percent, n_final = 50 gives roughly 92 percent.}
 
 \item{species}{A logical indicating whether to decompose phylogenetic and non-phylogenetic species effects. Default is FALSE}
 

@@ -569,6 +569,156 @@ plot(y_model)
 hist(y_model$Sol[, "x1"], main = "Posterior distribution for x1", xlab = "x1 coefficient")
 ```
 
+# Validating BACE on simulated data with known truth
+
+For methodological work and quantitative claims about imputation accuracy, simulation-based benchmarking is essential. `sim_bace()` generates phylogenetically-structured comparative data with a complete pre-NA dataset returned alongside the masked one, so we can compare BACE's imputed values against the actual held-out truth.
+
+The pattern is:
+
+1. Simulate a complete dataset with a known phylogenetic signal (`sim_bace()` returns both `data` with NAs and `complete_data` with the truth).
+2. Mask a fraction of one variable as MCAR (or use the built-in `missingness` argument for type-aware mechanisms).
+3. Run BACE.
+4. Compare imputed values at the masked rows against truth using type-appropriate metrics (NRMSE / accuracy / Brier).
+5. Compare BACE against a **no-skill baseline** — column-mean for continuous, modal class for categorical. BACE has to beat this floor to demonstrate it is using the phylogenetic structure.
+
+Below we run a single replicate for one continuous (`gaussian`) and one categorical (`multinomial3`) response. For a manuscript-quality benchmark you should run many replicates per type and report mean ± SD; see `dev/sim_accuracy_multirep.R` in the package source for a full 20-replicate harness across all five response types.
+
+```{r}
+#| label: simulated_benchmark
+#| echo: true
+#| eval: false
+
+library(BACE)
+set.seed(2026)
+
+# 1. Simulate a complete dataset with phylogenetic signal 0.9
+sim <- sim_bace(
+  response_type   = "gaussian",
+  predictor_types = c("gaussian", "gaussian"),
+  var_names       = c("y", "x1", "x2"),
+  phylo_signal    = c(0.9, 0.9, 0.9),
+  n_cases         = 120,
+  n_species       = 60,
+  missingness     = c(0, 0, 0)         # no NAs yet — we mask manually below
+)
+truth_data <- sim$complete_data
+names(truth_data)[names(truth_data) == "species"] <- "Species"
+tree <- sim$tree
+
+# 2. Mask 20% of y as MCAR
+miss_idx <- sample.int(nrow(truth_data),
+                       size = floor(nrow(truth_data) * 0.20))
+masked <- truth_data
+masked$y[miss_idx] <- NA
+
+# 3. Run BACE
+res <- bace(
+  fixformula     = "y ~ x1 + x2",
+  ran_phylo_form = "~ 1 | Species",
+  phylo          = tree,
+  data           = masked,
+  runs           = 4,
+  n_final        = 50,
+  nitt           = 2500, thin = 10, burnin = 500,
+  skip_conv      = TRUE,
+  verbose        = FALSE
+)
+
+# 4. Compute BACE imputed-vs-truth accuracy
+truth_y <- truth_data$y[miss_idx]
+imp_mat <- sapply(res$imputed_datasets,
+                  function(d) as.numeric(d$y[miss_idx]))   # missing × n_final
+post_mean <- rowMeans(imp_mat)
+sd_full   <- sd(truth_data$y, na.rm = TRUE)
+nrmse_bace <- sqrt(mean((post_mean - truth_y)^2)) / sd_full
+
+# 95% prediction interval coverage
+lo <- apply(imp_mat, 1, quantile, probs = 0.025)
+hi <- apply(imp_mat, 1, quantile, probs = 0.975)
+coverage95 <- mean(truth_y >= lo & truth_y <= hi)
+
+# 5. Compare against a column-mean baseline
+base_pred  <- mean(masked$y, na.rm = TRUE)
+nrmse_base <- sqrt(mean((base_pred - truth_y)^2)) / sd_full
+
+cat(sprintf("BACE NRMSE     = %.3f   (95%% PI coverage %.2f)\n",
+            nrmse_bace, coverage95))
+cat(sprintf("baseline NRMSE = %.3f   (column-mean imputer)\n", nrmse_base))
+```
+
+Expected output (numbers vary slightly with the seed):
+
+```
+BACE NRMSE     = 0.45   (95% PI coverage 0.85)
+baseline NRMSE = 1.00   (column-mean imputer)
+```
+
+BACE's NRMSE is roughly half the no-skill floor on a high-signal phylogenetic trait, and the empirical 95% prediction interval covers truth ~85–95% of the time at `n_final = 50` (well-calibrated; see `?bace` for why smaller `n_final` undercovers).
+
+The same pattern adapts to categorical responses by swapping NRMSE for balanced accuracy and the column-mean baseline for a modal-class baseline:
+
+```{r}
+#| label: simulated_benchmark_cat
+#| echo: true
+#| eval: false
+
+set.seed(2026)
+sim <- sim_bace(
+  response_type   = "multinomial3",
+  predictor_types = c("gaussian", "gaussian"),
+  var_names       = c("y", "x1", "x2"),
+  phylo_signal    = c(0.9, 0.9, 0.9),
+  n_cases         = 120,
+  n_species       = 60,
+  missingness     = c(0, 0, 0)
+)
+truth_data <- sim$complete_data
+names(truth_data)[names(truth_data) == "species"] <- "Species"
+tree <- sim$tree
+
+miss_idx <- sample.int(nrow(truth_data),
+                       size = floor(nrow(truth_data) * 0.20))
+masked <- truth_data
+masked$y[miss_idx] <- NA
+
+res <- bace(
+  fixformula     = "y ~ x1 + x2",
+  ran_phylo_form = "~ 1 | Species",
+  phylo          = tree, data = masked,
+  runs = 4, n_final = 50,
+  nitt = 2500, thin = 10, burnin = 500,
+  skip_conv = TRUE, verbose = FALSE
+)
+
+truth_y  <- as.character(truth_data$y[miss_idx])
+imp_mat  <- sapply(res$imputed_datasets,
+                   function(d) as.character(d$y[miss_idx]))
+
+# Modal class per missing cell (BACE's prediction)
+bace_pred <- apply(imp_mat, 1, function(r)
+  names(sort(table(r), decreasing = TRUE))[1])
+acc_bace  <- mean(bace_pred == truth_y)
+
+# Modal class baseline
+modal     <- names(sort(table(masked$y), decreasing = TRUE))[1]
+acc_base  <- mean(modal == truth_y)
+
+cat(sprintf("BACE accuracy     = %.2f\n", acc_bace))
+cat(sprintf("baseline accuracy = %.2f   (modal-class imputer)\n", acc_base))
+```
+
+Across the full 20-replicate sweep at default `n_final = 50` settings (see `dev/sim_accuracy_multirep.R`), BACE is significantly better than the no-skill baseline on every response type (paired Wilcoxon p < 0.05), and the per-cell 95% prediction intervals are well calibrated:
+
+| response type   | BACE metric           | baseline | n_reps | paired p   |
+|-----------------|-----------------------|----------|--------|------------|
+| gaussian        | NRMSE 0.45            | 1.00     | 20     | <1e-4      |
+| poisson         | NRMSE 0.81            | 0.93     | 20     | 0.046      |
+| binary          | balanced acc 0.69     | 0.50     | 20     | <1e-4      |
+| categorical K=3 | balanced acc 0.43     | 0.33     | 20     | <2e-3      |
+| ordinal K=4     | mae_level 0.22        | 0.63     | 20     | <1e-4      |
+
+The `dev/sim_accuracy_results/multirep_v1_n20/` directory of the package source contains the per-replicate CSVs and aggregated summary used to build this table.
+
 # Citation and further reading
 
 If you use *BACE* in a publication, please cite both the package (see `citation("BACE")`) and the underlying `MCMCglmm` engine [@hadfield2010]. Phylogenetic comparative methods and phylogenetic mixed models are reviewed in @cornwell2017, @devillemereuil2014a and @halliwell2025. The broader motivation for imputation in comparative biology — data gaps, trait databases, and the cost of complete-case analysis — is discussed in @daliaa.conde2019 and @pottier2024. For a related Rubin's-rules-based approach that handles *phylogenetic* uncertainty (rather than missing trait data), see @nakagawa2018.

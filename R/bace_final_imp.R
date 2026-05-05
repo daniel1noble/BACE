@@ -7,7 +7,12 @@
 #' @param nitt An integer or list specifying the number of MCMC iterations. Default is 6000
 #' @param thin An integer or list specifying the thinning rate. Default is 5
 #' @param burnin An integer or list specifying the burn-in iterations. Default is 1000
-#' @param n_final An integer specifying the number of final imputation runs. Default is 10
+#' @param n_final An integer specifying the number of final imputation runs.
+#'   Default is 50 — large enough that the empirical 2.5 and 97.5 percent
+#'   quantiles of per-cell imputed values give a reasonable estimate of the
+#'   95 percent posterior predictive interval. Smaller values undercover:
+#'   n_final = 5 gives roughly 67 percent effective coverage, n_final = 20
+#'   gives roughly 88 percent, n_final = 50 gives roughly 92 percent.
 #' @param species A logical indicating whether to decompose phylogenetic and non-phylogenetic species effects. Default is FALSE
 #' @param verbose A logical indicating whether to print progress messages. Default is TRUE
 #' @param n_cores Integer specifying the number of parallel cores to use. Default is 1
@@ -36,7 +41,7 @@
 #' @export
 bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
                            nitt = 6000, thin = 5, burnin = 1000,
-                           n_final = 10, species = FALSE, verbose = TRUE,
+                           n_final = 50, species = FALSE, verbose = TRUE,
                            n_cores = 1, nitt_cat_mult = 1L, ovr_categorical = TRUE, ...) {
 
   # Check inputs

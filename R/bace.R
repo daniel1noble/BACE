@@ -21,8 +21,16 @@
 #' @param burnin An integer or list specifying the number of iterations to discard as burnin. 
 #'   Can be a single value (applied to all models) or a list of values (one per formula). 
 #'   Default is 1000.
-#' @param n_final An integer specifying the number of final imputation runs to perform after 
-#'   convergence is achieved. Default is 10. These runs are used for posterior pooling.
+#' @param n_final An integer specifying the number of final imputation runs to
+#'   perform after convergence is achieved. Default is 50. These runs are used
+#'   for posterior pooling and to estimate per-cell prediction intervals. The
+#'   default is set high enough that the empirical 2.5 and 97.5 percent
+#'   quantiles of the per-cell imputed values give a reasonable estimate of the
+#'   95 percent posterior predictive interval — at small n_final the empirical
+#'   quantile shrinks toward the per-cell min and max and undercovers (e.g.
+#'   n_final = 5 gives roughly 67 percent effective coverage, n_final = 50
+#'   gives roughly 92 percent, asymptotic 95 percent). Reduce only if compute
+#'   is constrained AND you do not need calibrated intervals.
 #' @param species A logical indicating whether to decompose phylogenetic and non-phylogenetic 
 #'   species effects. Default is FALSE. When TRUE, the random effects structure is modified to 
 #'   include both a phylogenetic effect and a non-phylogenetic species effect (with identity 
@@ -98,7 +106,7 @@
 #' }
 #' @export
 bace <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5,
-                burnin = 1000, runs = 10, n_final = 10, species = FALSE,
+                burnin = 1000, runs = 10, n_final = 50, species = FALSE,
                 verbose = TRUE, plot = FALSE, max_attempts = 3, skip_conv = FALSE,
                 sample_size = NULL, n_cores = 1L,
                 nitt_cat_mult = 1L, ovr_categorical = TRUE,
