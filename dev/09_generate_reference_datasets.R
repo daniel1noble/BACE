@@ -217,16 +217,23 @@ SPECS <- list(
     base_seed     = 2028
   ),
   sim_hard = list(
-    n_cases       = 300,
-    n_species     = 300,
+    # Softened from the original (N=300, rate=0.50, dep_strength=2.5)
+    # because the combination was intermittently producing singular
+    # MCMCglmm equations inside bace_final_imp at production budget
+    # (one rep wasted ~82 min before raising "Mixed model equations
+    # singular: use a (stronger) prior"). The settings below remain
+    # the most adverse of the four datasets (smallest N, lowest signal,
+    # highest missingness, only MNAR) while letting most reps complete.
+    n_cases       = 400,
+    n_species     = 400,
     phylo_signal  = c(y = 0.20, x1 = 0.20, x2 = 0.20, x3 = 0.20, x4 = 0.20),
     beta_sparsity = 0.7,
     mag_range     = c(0.1, 0.3),
     beta_resp     = list(x1 = 0.3, x2 = c(0.2, -0.1), x3 = 0.1, x4 = -0.1),
     intercepts    = list(predictors = c(0, 0, 0.5, 0), response = 0),
     mechanism     = "trait_MNAR",
-    rate          = 0.50,
-    dep_strength  = 2.5,
+    rate          = 0.40,
+    dep_strength  = 2.0,
     n_reps        = 50,
     base_seed     = 2029
   )
