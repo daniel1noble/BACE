@@ -1,0 +1,179 @@
+# Simulated reference-dataset benchmark — manually triggered.
+#
+# Generates the four reference simulated datasets (sim_ideal / sim_typical
+# / sim_heterogeneous / sim_hard) once, then evaluates BACE on every
+# replicate in parallel matrix jobs (one job per dataset), and aggregates
+# the per-rep results into a cross-dataset summary.
+#
+# Each dataset has 30-50 replicates. The evaluator runs at production
+# MCMC budget (nitt=50000, burnin=10000, thin=25, runs=10, n_final=50).
+# With 4 inner cores per runner, every matrix job fits within the 6h GHA
+# timeout (largest expected: sim_heterogeneous, ~3.8h).
+#
+# Trigger: Actions tab -> "Simulated reference benchmark" -> Run workflow.
+
+name: Simulated reference benchmark
+
+on:
+  workflow_dispatch:
+    # No inputs. To dial the MCMC budget down for a quick smoke run,
+    # edit the MCMC list in dev/10_evaluate_reference_datasets.R and
+    # push, then trigger.
+
+jobs:
+  # ---------------------------------------------------------------------
+  # 1. Generate the four reference datasets (~5 min total). Uploaded as
+  #    a shared artifact so the matrix evaluator jobs don't each redo it.
+  # ---------------------------------------------------------------------
+  prepare:
+    name: Generate reference datasets
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::devtools
+          needs: ''
+
+      - name: Generate datasets
+        run: Rscript dev/09_generate_reference_datasets.R
+
+      - name: Upload reference-dataset artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-datasets
+          path: dev/simulation_results/reference_datasets/
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------
+  # 2. Evaluate BACE on every replicate. One matrix job per dataset; each
+  #    job parallelises across replicates internally with mclapply.
+  # ---------------------------------------------------------------------
+  evaluate:
+    name: ${{ matrix.dataset }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 345  # 5h45m, under 6h GHA ceiling
+    strategy:
+      fail-fast: false
+      matrix:
+        dataset: [sim_ideal, sim_typical, sim_heterogeneous, sim_hard]
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      BACE_EVAL_CORES: 4  # ubuntu-latest is 4 vCPU as of 2025-Q1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::devtools
+          needs: ''
+
+      - name: Download reference datasets
+        uses: actions/download-artifact@v4
+        with:
+          name: reference-datasets
+          path: dev/simulation_results/reference_datasets/
+
+      - name: Evaluate BACE on ${{ matrix.dataset }}
+        # Shell-level heartbeat to keep the runner's watchdog happy
+        # during long stretches when parallel R workers go quiet
+        # (mclapply children don't stream stdout to the parent).
+        run: |
+          (while sleep 60; do echo "[heartbeat $(date -u +%H:%M:%S)] still evaluating ${{ matrix.dataset }}"; done) &
+          HEARTBEAT_PID=$!
+          trap 'kill $HEARTBEAT_PID 2>/dev/null || true' EXIT
+          Rscript dev/10_evaluate_reference_datasets.R ${{ matrix.dataset }}
+
+      - name: Upload per-dataset evaluation artifact
+        if: always()  # capture partial output on timeout/failure
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-${{ matrix.dataset }}
+          path: dev/simulation_results/evaluation_results/${{ matrix.dataset }}/
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------------
+  # 3. Aggregate all per-rep RDS bundles into a cross-dataset summary.
+  # ---------------------------------------------------------------------
+  aggregate:
+    name: Aggregate + report
+    needs: evaluate
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::devtools
+          needs: ''
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - name: Download all evaluation artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dev/simulation_results/evaluation_results
+          pattern: eval-*
+
+      - name: Move artifact dirs into expected layout
+        # download-artifact unpacks each artifact into a directory named
+        # after the artifact (eval-sim_ideal/...). Rename to the dataset
+        # names the aggregator expects.
+        run: |
+          cd dev/simulation_results/evaluation_results
+          for d in eval-*; do
+            mv "$d" "${d#eval-}"
+          done
+          ls -la
+
+      - name: Aggregate
+        run: Rscript dev/11_aggregate_reference_evaluations.R
+
+      - name: Publish summary inline
+        run: |
+          REPORT=dev/simulation_results/evaluation_results/summary_report.md
+          if [ -f "$REPORT" ]; then
+            cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Aggregate report not generated" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload cross-dataset summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-dataset-summary
+          path: |
+            dev/simulation_results/evaluation_results/summary_report.md
+            dev/simulation_results/evaluation_results/*.csv
+            dev/simulation_results/evaluation_results/*.rds
+          if-no-files-found: warn
