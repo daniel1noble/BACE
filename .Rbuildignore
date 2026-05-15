@@ -28,3 +28,4 @@ test_mcmc_demo.R
 ^UPDATE_MCMCGLMM_CLASS\.md$
 ^CLAUDE\.md$
 ^\.claude$
+^notes/

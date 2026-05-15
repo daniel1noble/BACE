@@ -73,6 +73,9 @@ dev/testing_data/hoarding/
 dev/simulation_results/
 dev/benchmark_results/
 
+# Local planning notes — not tracked, not built into the package
+notes/
+
 # VS Code / Quarto / RMarkdown HTML preview artefacts
 # (the _files/ sidecars contain JS/CSS/fonts that we don't want tracked)
 dev/*.html
