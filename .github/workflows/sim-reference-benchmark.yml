@@ -16,9 +16,14 @@ name: Simulated reference benchmark
 
 on:
   workflow_dispatch:
-    # No inputs. To dial the MCMC budget down for a quick smoke run,
-    # edit the MCMC list in dev/10_evaluate_reference_datasets.R and
-    # push, then trigger.
+    inputs:
+      mode:
+        description: "smoke = 1 rep/dataset at tiny MCMC budget (~15 min, validates pipeline); production = all reps at full budget (~4h per matrix job)."
+        type: choice
+        options:
+          - smoke
+          - production
+        default: smoke
 
 jobs:
   # ---------------------------------------------------------------------
@@ -75,6 +80,15 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
       BACE_EVAL_CORES: 4  # ubuntu-latest is 4 vCPU as of 2025-Q1
+      # MCMC budget — toggled by the `mode` workflow input. Smoke values
+      # exercise every code path (generate -> matrix -> aggregate -> report)
+      # in a few minutes per matrix job; production values match the
+      # defaults baked into dev/10_evaluate_reference_datasets.R.
+      BACE_NITT:    ${{ inputs.mode == 'smoke' && '2000' || '50000' }}
+      BACE_BURNIN:  ${{ inputs.mode == 'smoke' && '500'  || '10000' }}
+      BACE_THIN:    ${{ inputs.mode == 'smoke' && '5'    || '25' }}
+      BACE_RUNS:    ${{ inputs.mode == 'smoke' && '2'    || '10' }}
+      BACE_NFINAL:  ${{ inputs.mode == 'smoke' && '4'    || '50' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -99,11 +113,17 @@ jobs:
         # Shell-level heartbeat to keep the runner's watchdog happy
         # during long stretches when parallel R workers go quiet
         # (mclapply children don't stream stdout to the parent).
+        # In smoke mode we pass `1` as the second CLI arg so the evaluator
+        # runs only rep 1 of each dataset (see CLI block in 10_*.R).
         run: |
-          (while sleep 60; do echo "[heartbeat $(date -u +%H:%M:%S)] still evaluating ${{ matrix.dataset }}"; done) &
+          (while sleep 60; do echo "[heartbeat $(date -u +%H:%M:%S)] still evaluating ${{ matrix.dataset }} (mode=${{ inputs.mode }})"; done) &
           HEARTBEAT_PID=$!
           trap 'kill $HEARTBEAT_PID 2>/dev/null || true' EXIT
-          Rscript dev/10_evaluate_reference_datasets.R ${{ matrix.dataset }}
+          if [ "${{ inputs.mode }}" = "smoke" ]; then
+            Rscript dev/10_evaluate_reference_datasets.R ${{ matrix.dataset }} 1
+          else
+            Rscript dev/10_evaluate_reference_datasets.R ${{ matrix.dataset }}
+          fi
 
       - name: Upload per-dataset evaluation artifact
         if: always()  # capture partial output on timeout/failure
