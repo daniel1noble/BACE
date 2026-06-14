@@ -113,10 +113,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    # Email is sent only if SMTP secrets are configured; otherwise the
+    # Email is sent only if the Gmail secrets are configured; otherwise the
     # email step skips cleanly and the run still succeeds.
     env:
-      MAIL_ENABLED: ${{ secrets.MAIL_SERVER != '' }}
+      MAIL_ENABLED: ${{ secrets.MAIL_USERNAME != '' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -167,12 +167,12 @@ jobs:
         continue-on-error: true
         uses: dawidd6/action-send-mail@v3
         with:
-          server_address: ${{ secrets.MAIL_SERVER }}
-          server_port: ${{ secrets.MAIL_PORT }}
+          server_address: smtp.gmail.com
+          server_port: 465
           username: ${{ secrets.MAIL_USERNAME }}
           password: ${{ secrets.MAIL_PASSWORD }}
           subject: "BACE cross-dataset benchmark — run ${{ github.run_number }} (${{ inputs.mode }})"
-          to: ${{ secrets.MAIL_TO }}
+          to: daniel.wa.noble@gmail.com
           from: BACE Benchmarks <${{ secrets.MAIL_USERNAME }}>
           html_body: file://${{ steps.report.outputs.html }}
           attachments: ${{ steps.report.outputs.html }}
