@@ -348,19 +348,22 @@ benchmark_dataset <- function(
   # ---- Replicate / seed resolution -----------------------------------------
   # rep_id and base_seed are env-overridable (BENCH_REP_ID / BENCH_BASE_SEED)
   # so the CI matrix can shard by replicate WITHOUT editing the per-dataset
-  # wrappers: each wrapper just calls benchmark_dataset() and the engine picks
-  # up the rep from the environment. Each rep uses an independent seed that
-  # drives BOTH the species subsample and the mask, so a replicate is an
-  # independent realisation of "subsample subset_n species + mask 30%" --
-  # yielding error bars over sampling + masking. rep_id = 1 reproduces the
-  # historical single-draw behaviour (seed = base_seed = 2026).
+  # wrappers. Design (statistician-reviewed): the species subsample is a
+  # COMPUTATIONAL device (MCMCglmm cannot fit the full tree), so it is held
+  # FIXED across reps (subsample_seed = base_seed). Only the missingness MASK
+  # varies per rep (mask seed = base_seed + rep_id - 1). Mean +/- SD over reps
+  # therefore isolates imputation/missingness variability on a single fixed
+  # evaluation set -- the standard imputation-benchmark protocol (Stekhoven &
+  # Buhlmann 2012 Bioinformatics 28:112; van Buuren 2018 FIMD) -- rather than
+  # conflating it with subsample luck.
   .bench_envint <- function(name, default) {
     v <- suppressWarnings(as.integer(Sys.getenv(name, unset = NA_character_)))
     if (is.na(v)) default else v
   }
   if (is.null(rep_id))    rep_id    <- .bench_envint("BENCH_REP_ID", 1L)
   if (is.null(base_seed)) base_seed <- .bench_envint("BENCH_BASE_SEED", 2026L)
-  if (is.null(seed))      seed      <- base_seed + rep_id - 1L
+  subsample_seed <- base_seed                          # fixed across reps
+  if (is.null(seed)) seed <- base_seed + rep_id - 1L   # mask seed, per rep
 
   # Smoke switch: shrink the dataset and MCMC budget so CI can validate the
   # whole prepare -> matrix -> benchmark -> aggregate chain in minutes.
@@ -380,7 +383,9 @@ benchmark_dataset <- function(
     trait_subset <- setdiff(colnames(traits_df), tax_cols)
   }
 
-  set.seed(seed)
+  # Fixed subsample across reps (computational device, not part of the
+  # evaluation design — see seed-resolution note above).
+  set.seed(subsample_seed)
 
   # Subsample
   n_full <- nrow(traits_df)
@@ -412,7 +417,11 @@ benchmark_dataset <- function(
   masked <- masked[, c("Species", names(types))]
   rownames(masked) <- masked$Species
 
-  # Apply type-aware masking
+  # Apply type-aware masking. Seed HERE (per-rep mask seed) so that only the
+  # missingness pattern varies across replicates while the subsample stays
+  # fixed — the across-rep error bars then reflect imputation/missingness
+  # variability alone.
+  set.seed(seed)
   m <- .apply_mask(masked, as.list(types), cont_miss_rate, cat_miss_rate)
   masked     <- m$masked
   truth_long <- m$truth
