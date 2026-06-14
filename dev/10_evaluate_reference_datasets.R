@@ -312,20 +312,40 @@ build_worklist <- function() {
 
 # CLI:
 #   Rscript dev/10_*.R                    # all reps, all datasets
-#   Rscript dev/10_*.R sim_hard           # all reps of sim_hard (CI uses this)
+#   Rscript dev/10_*.R sim_hard           # all reps of sim_hard
 #   Rscript dev/10_*.R sim_hard 1         # one rep, smoke test
+#   Rscript dev/10_*.R sim_hard 5 12      # reps 5..12 (CI shards by rep range)
+#
+# The 3-arg rep-range form is what the GitHub Actions matrix uses: each job
+# evaluates a small contiguous chunk of reps so it finishes well under the
+# 6h hosted-runner ceiling. Requested reps are intersected with the reps
+# that actually exist on disk, so an over-broad end bound is harmless.
 args <- commandArgs(trailingOnly = TRUE)
-if (length(args) == 2L) {
+
+avail_reps <- function(ds) {
+  reps <- list.files(file.path(REF_ROOT, ds), pattern = "^rep_\\d+\\.rds$")
+  if (length(reps) == 0L) stop("No reps found for dataset: ", ds)
+  sort(as.integer(sub("^rep_(\\d+)\\.rds$", "\\1", reps)))
+}
+
+if (length(args) == 3L) {
+  ds        <- args[[1]]
+  start_rep <- as.integer(args[[2]])
+  end_rep   <- as.integer(args[[3]])
+  if (is.na(start_rep) || is.na(end_rep) || start_rep > end_rep)
+    stop("Invalid rep range: ", args[[2]], " ", args[[3]])
+  rep_ids <- intersect(start_rep:end_rep, avail_reps(ds))
+  if (length(rep_ids) == 0L)
+    stop("No existing reps in range ", start_rep, "-", end_rep,
+         " for dataset: ", ds)
+  worklist <- data.frame(dataset = ds, rep_id = rep_ids,
+                         stringsAsFactors = FALSE)
+} else if (length(args) == 2L) {
   worklist <- data.frame(dataset = args[[1]],
                          rep_id  = as.integer(args[[2]]),
                          stringsAsFactors = FALSE)
 } else if (length(args) == 1L) {
-  reps <- list.files(file.path(REF_ROOT, args[[1]]),
-                     pattern = "^rep_\\d+\\.rds$")
-  if (length(reps) == 0L)
-    stop("No reps found for dataset: ", args[[1]])
-  rep_ids <- sort(as.integer(sub("^rep_(\\d+)\\.rds$", "\\1", reps)))
-  worklist <- data.frame(dataset = args[[1]], rep_id = rep_ids,
+  worklist <- data.frame(dataset = args[[1]], rep_id = avail_reps(args[[1]]),
                          stringsAsFactors = FALSE)
 } else {
   worklist <- build_worklist()
