@@ -2,13 +2,17 @@
 #
 # Generates the four reference simulated datasets (sim_ideal / sim_typical
 # / sim_heterogeneous / sim_hard) once, then evaluates BACE on every
-# replicate in parallel matrix jobs (one job per dataset), and aggregates
-# the per-rep results into a cross-dataset summary.
+# replicate in parallel matrix jobs, and aggregates the per-rep results
+# into a cross-dataset summary.
 #
-# Each dataset has 30-50 replicates. The evaluator runs at production
-# MCMC budget (nitt=50000, burnin=10000, thin=25, runs=10, n_final=50).
-# With 4 inner cores per runner, every matrix job fits within the 6h GHA
-# timeout (largest expected: sim_heterogeneous, ~3.8h).
+# Sharding: the matrix is built dynamically in the `prepare` job, one job
+# per small CONTIGUOUS CHUNK of replicates (chunk_size, default 4) rather
+# than one job per whole dataset. With 30-50 reps/dataset that previously
+# meant a single 4-vCPU runner had to grind through every rep at full MCMC
+# budget within the 6h GitHub ceiling — which it cannot, so every
+# dataset-level job timed out. Per-chunk jobs each finish in well under an
+# hour, and GitHub runs ~20 of them concurrently, so the whole production
+# sweep completes in a few hours of wallclock with no job near the ceiling.
 #
 # Trigger: Actions tab -> "Simulated reference benchmark" -> Run workflow.
 
@@ -18,26 +22,34 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "smoke = 1 rep/dataset at tiny MCMC budget (~15 min, validates pipeline); production = all reps at full budget (~4h per matrix job)."
+        description: "smoke = 1 rep/dataset at tiny MCMC budget (~15 min, validates pipeline); production = all reps at full budget."
         type: choice
         options:
           - smoke
           - production
         default: smoke
+      chunk_size:
+        description: "Replicates per matrix job in production mode. Smaller = safer against the 6h ceiling but more jobs."
+        type: string
+        default: "4"
 
 jobs:
   # ---------------------------------------------------------------------
-  # 1. Generate the four reference datasets (~5 min total). Uploaded as
-  #    a shared artifact so the matrix evaluator jobs don't each redo it.
+  # 1. Generate the four reference datasets (~5 min total) and build the
+  #    per-chunk evaluate matrix. Datasets are uploaded as a shared
+  #    artifact so the evaluator jobs don't each redo generation.
   # ---------------------------------------------------------------------
   prepare:
-    name: Generate reference datasets
+    name: Generate datasets + build matrix
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+
+    outputs:
+      matrix: ${{ steps.setmatrix.outputs.matrix }}
 
     steps:
       - uses: actions/checkout@v4
@@ -55,6 +67,10 @@ jobs:
       - name: Generate datasets
         run: Rscript dev/09_generate_reference_datasets.R
 
+      - name: Build evaluate matrix
+        id: setmatrix
+        run: Rscript dev/_build_eval_matrix.R "${{ inputs.mode }}" "${{ inputs.chunk_size }}"
+
       - name: Upload reference-dataset artifact
         uses: actions/upload-artifact@v4
         with:
@@ -63,27 +79,25 @@ jobs:
           if-no-files-found: error
 
   # ---------------------------------------------------------------------
-  # 2. Evaluate BACE on every replicate. One matrix job per dataset; each
-  #    job parallelises across replicates internally with mclapply.
+  # 2. Evaluate BACE on each chunk of replicates. One matrix job per
+  #    {dataset, start, end} chunk emitted by the prepare job.
   # ---------------------------------------------------------------------
   evaluate:
-    name: ${{ matrix.dataset }}
+    name: ${{ matrix.dataset }} reps ${{ matrix.start }}-${{ matrix.end }}
     needs: prepare
     runs-on: ubuntu-latest
-    timeout-minutes: 345  # 5h45m, under 6h GHA ceiling
+    timeout-minutes: 180  # generous safety net; per-chunk jobs run minutes-to-~1h
     strategy:
       fail-fast: false
-      matrix:
-        dataset: [sim_ideal, sim_typical, sim_heterogeneous, sim_hard]
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
       BACE_EVAL_CORES: 4  # ubuntu-latest is 4 vCPU as of 2025-Q1
       # MCMC budget — toggled by the `mode` workflow input. Smoke values
-      # exercise every code path (generate -> matrix -> aggregate -> report)
-      # in a few minutes per matrix job; production values match the
-      # defaults baked into dev/10_evaluate_reference_datasets.R.
+      # exercise every code path in a few minutes; production values match
+      # the defaults baked into dev/10_evaluate_reference_datasets.R.
       BACE_NITT:    ${{ inputs.mode == 'smoke' && '2000' || '50000' }}
       BACE_BURNIN:  ${{ inputs.mode == 'smoke' && '500'  || '10000' }}
       BACE_THIN:    ${{ inputs.mode == 'smoke' && '5'    || '25' }}
@@ -109,27 +123,22 @@ jobs:
           name: reference-datasets
           path: dev/simulation_results/reference_datasets/
 
-      - name: Evaluate BACE on ${{ matrix.dataset }}
-        # Shell-level heartbeat to keep the runner's watchdog happy
-        # during long stretches when parallel R workers go quiet
-        # (mclapply children don't stream stdout to the parent).
-        # In smoke mode we pass `1` as the second CLI arg so the evaluator
-        # runs only rep 1 of each dataset (see CLI block in 10_*.R).
+      - name: Evaluate BACE on ${{ matrix.dataset }} reps ${{ matrix.start }}-${{ matrix.end }}
+        # Shell-level heartbeat to keep the runner's watchdog happy during
+        # long stretches when parallel R workers go quiet (mclapply children
+        # don't stream stdout to the parent).
         run: |
-          (while sleep 60; do echo "[heartbeat $(date -u +%H:%M:%S)] still evaluating ${{ matrix.dataset }} (mode=${{ inputs.mode }})"; done) &
+          (while sleep 60; do echo "[heartbeat $(date -u +%H:%M:%S)] still evaluating ${{ matrix.dataset }} reps ${{ matrix.start }}-${{ matrix.end }} (mode=${{ inputs.mode }})"; done) &
           HEARTBEAT_PID=$!
           trap 'kill $HEARTBEAT_PID 2>/dev/null || true' EXIT
-          if [ "${{ inputs.mode }}" = "smoke" ]; then
-            Rscript dev/10_evaluate_reference_datasets.R ${{ matrix.dataset }} 1
-          else
-            Rscript dev/10_evaluate_reference_datasets.R ${{ matrix.dataset }}
-          fi
+          Rscript dev/10_evaluate_reference_datasets.R \
+            "${{ matrix.dataset }}" "${{ matrix.start }}" "${{ matrix.end }}"
 
-      - name: Upload per-dataset evaluation artifact
+      - name: Upload per-chunk evaluation artifact
         if: always()  # capture partial output on timeout/failure
         uses: actions/upload-artifact@v4
         with:
-          name: eval-${{ matrix.dataset }}
+          name: eval-${{ matrix.dataset }}-${{ matrix.start }}-${{ matrix.end }}
           path: dev/simulation_results/evaluation_results/${{ matrix.dataset }}/
           if-no-files-found: warn
 
@@ -161,19 +170,30 @@ jobs:
       - name: Download all evaluation artifacts
         uses: actions/download-artifact@v4
         with:
-          path: dev/simulation_results/evaluation_results
+          path: dev/simulation_results/_chunks
           pattern: eval-*
 
-      - name: Move artifact dirs into expected layout
-        # download-artifact unpacks each artifact into a directory named
-        # after the artifact (eval-sim_ideal/...). Rename to the dataset
-        # names the aggregator expects.
+      - name: Flatten per-chunk artifacts into per-dataset layout
+        # Each artifact unpacks to a dir named eval-<dataset>-<start>-<end>.
+        # The aggregator expects evaluation_results/<dataset>/eval_rep_NN.rds,
+        # so strip the eval- prefix and -start-end suffix and merge the
+        # per-rep RDS files (rep ids are unique within a dataset, so chunks
+        # never collide).
         run: |
-          cd dev/simulation_results/evaluation_results
-          for d in eval-*; do
-            mv "$d" "${d#eval-}"
-          done
-          ls -la
+          set -euo pipefail
+          src=dev/simulation_results/_chunks
+          dst=dev/simulation_results/evaluation_results
+          mkdir -p "$dst"
+          if [ -d "$src" ]; then
+            for d in "$src"/eval-*; do
+              [ -d "$d" ] || continue
+              base=$(basename "$d")
+              dataset=$(echo "$base" | sed -E 's/^eval-(.+)-[0-9]+-[0-9]+$/\1/')
+              mkdir -p "$dst/$dataset"
+              cp -n "$d"/eval_rep_*.rds "$dst/$dataset/" 2>/dev/null || true
+            done
+          fi
+          echo "Flattened layout:"; ls -R "$dst" || true
 
       - name: Aggregate
         run: Rscript dev/11_aggregate_reference_evaluations.R
