@@ -152,6 +152,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    # Email is sent only if SMTP secrets are configured; otherwise the
+    # email step skips cleanly and the run still succeeds.
+    env:
+      MAIL_ENABLED: ${{ secrets.MAIL_SERVER != '' }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -207,6 +212,36 @@ jobs:
             echo "## Aggregate report not generated" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Render HTML report
+        id: report
+        run: |
+          md=dev/simulation_results/evaluation_results/summary_report.md
+          html=dev/simulation_results/evaluation_results/summary_report.html
+          if [ -f "$md" ]; then
+            pandoc "$md" -o "$html" --standalone \
+              --metadata title="BACE simulated reference benchmark"
+            echo "html=$html" >> "$GITHUB_OUTPUT"
+            echo "Report HTML: $html"
+          else
+            echo "No summary_report.md to render."
+          fi
+
+      - name: Email HTML report
+        # Skips unless SMTP secrets are set; never fails the run.
+        if: ${{ env.MAIL_ENABLED == 'true' && steps.report.outputs.html != '' }}
+        continue-on-error: true
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAIL_SERVER }}
+          server_port: ${{ secrets.MAIL_PORT }}
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "BACE simulated reference benchmark — run ${{ github.run_number }} (${{ inputs.mode }})"
+          to: ${{ secrets.MAIL_TO }}
+          from: BACE Benchmarks <${{ secrets.MAIL_USERNAME }}>
+          html_body: file://${{ steps.report.outputs.html }}
+          attachments: ${{ steps.report.outputs.html }}
+
       - name: Upload cross-dataset summary
         if: always()
         uses: actions/upload-artifact@v4
@@ -214,6 +249,7 @@ jobs:
           name: cross-dataset-summary
           path: |
             dev/simulation_results/evaluation_results/summary_report.md
+            dev/simulation_results/evaluation_results/summary_report.html
             dev/simulation_results/evaluation_results/*.csv
             dev/simulation_results/evaluation_results/*.rds
           if-no-files-found: warn
