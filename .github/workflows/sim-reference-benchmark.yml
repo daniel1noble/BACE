@@ -106,8 +106,8 @@ jobs:
       BACE_NITT:    ${{ inputs.mode == 'smoke' && '2000' || '50000' }}
       BACE_BURNIN:  ${{ inputs.mode == 'smoke' && '500'  || '10000' }}
       BACE_THIN:    ${{ inputs.mode == 'smoke' && '5'    || '25' }}
-      BACE_RUNS:    ${{ inputs.mode == 'smoke' && '2'    || '10' }}
-      BACE_NFINAL:  ${{ inputs.mode == 'smoke' && '4'    || '50' }}
+      BACE_RUNS:    ${{ inputs.mode == 'smoke' && '2'    || '6' }}
+      BACE_NFINAL:  ${{ inputs.mode == 'smoke' && '4'    || '20' }}
       # Per-rep wall-clock guard (see dev/10_evaluate_reference_datasets.R).
       # Kills a degenerate rep (e.g. singular MCMCglmm equations on sim_hard)
       # so it can't stall the whole job; the rep is recorded as status=timeout.

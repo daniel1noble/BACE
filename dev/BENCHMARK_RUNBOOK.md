@@ -52,8 +52,8 @@ production run:
 | nitt         |  50000  | `BACE_NITT`    |
 | burnin       |  10000  | `BACE_BURNIN`  |
 | thin         |     25  | `BACE_THIN`    |
-| runs         |     10  | `BACE_RUNS`    |
-| n_final      |     50  | `BACE_NFINAL`  |
+| runs         |      6  | `BACE_RUNS`    |
+| n_final      |     20  | `BACE_NFINAL`  |
 
 Example quick pre-flight (tiny budget, 1 rep of one dataset, in-process):
 

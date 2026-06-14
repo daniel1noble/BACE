@@ -84,8 +84,8 @@ MCMC <- list(
   nitt    = .envint("BACE_NITT",   50000L),
   burnin  = .envint("BACE_BURNIN", 10000L),
   thin    = .envint("BACE_THIN",   25L),
-  runs    = .envint("BACE_RUNS",   10L),
-  n_final = .envint("BACE_NFINAL", 50L),
+  runs    = .envint("BACE_RUNS",   6L),
+  n_final = .envint("BACE_NFINAL", 20L),
   max_attempts = 2L
 )
 
