@@ -1,8 +1,13 @@
 # Cross-dataset BACE benchmark — manually triggered from the Actions tab.
-# Sweeps all six bundled datasets in parallel matrix jobs, then aggregates
-# the per-dataset metric tables into a single cross-dataset bundle with a
-# rendered Markdown / HTML report. Results are uploaded as workflow
-# artifacts (downloadable for 90 days).
+#
+# Sweeps the bundled real-world datasets and now shards by REPLICATE: each
+# dataset is benchmarked over `n_reps` independent mask draws (different
+# seeds drive both the species subsample and the masking), so the metrics
+# carry error bars instead of being a single n=1 draw. The matrix is built
+# dynamically in the `prepare` job, one job per {dataset, rep} -- ~20 run
+# concurrently, and because each job is a single bace() run it stays under
+# the 6h hosted-runner ceiling. The aggregate job stacks all reps and
+# reports mean +/- SD per (dataset, trait).
 #
 # Trigger: Actions tab -> "Cross-dataset benchmark" -> Run workflow.
 # Never auto-runs.
@@ -11,44 +16,62 @@ name: Cross-dataset benchmark
 
 on:
   workflow_dispatch:
-    # No inputs -- production scope is hardcoded in the per-dataset
-    # wrapper scripts (subset_n=2000, nitt=20000, runs=5, n_final=10).
-    # To run a quicker sweep, edit the wrappers' arguments and push,
-    # then trigger.
+    inputs:
+      mode:
+        description: "smoke = 1 rep/dataset at a tiny budget+subsample (~15 min, validates pipeline); production = n_reps per dataset at full budget."
+        type: choice
+        options:
+          - smoke
+          - production
+        default: smoke
+      n_reps:
+        description: "Replicate mask draws per dataset in production mode (error bars). 6 datasets x n_reps jobs."
+        type: string
+        default: "10"
 
 jobs:
-  benchmark:
-    name: ${{ matrix.dataset }}
+  # ---------------------------------------------------------------------
+  # 1. Build the {dataset, rep} matrix. No dataset generation needed --
+  #    the real datasets are bundled .rda loaded by each wrapper.
+  # ---------------------------------------------------------------------
+  prepare:
+    name: Build matrix
     runs-on: ubuntu-latest
-    timeout-minutes: 345  # 5h45m, well under 6h GHA ceiling
+    timeout-minutes: 15
+
+    outputs:
+      matrix: ${{ steps.setmatrix.outputs.matrix }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+          use-public-rspm: true
+
+      - name: Build benchmark matrix
+        id: setmatrix
+        run: Rscript dev/_build_bench_matrix.R "${{ inputs.mode }}" "${{ inputs.n_reps }}"
+
+  # ---------------------------------------------------------------------
+  # 2. Benchmark one {dataset, rep} per job. BENCH_REP_ID makes the
+  #    engine pick an independent seed (subsample + mask) per rep.
+  # ---------------------------------------------------------------------
+  benchmark:
+    name: ${{ matrix.dataset }} rep ${{ matrix.rep }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 345  # 5h45m, under the 6h ceiling; each job is one bace() run
     strategy:
       fail-fast: false
-      matrix:
-        # Trait sets per dataset aligned with Shinichi's pigauto
-        # cross-dataset bench (2026-05-04 spec) where overlapping.
-        # globtherm + leptraits are NOT in pigauto's suite but kept
-        # here for BACE-side coverage of taxonomy-built trees.
-        # FishBase is in pigauto but its .rda is not built yet --
-        # TODO: data-raw/make_fishbase.R.
-        include:
-          - dataset: avonet
-            script: dev/00_benchmark_AVONET.R
-          - dataset: pantheria
-            script: dev/03_benchmark_pantheria.R
-          - dataset: amphibio
-            script: dev/04_benchmark_amphibio.R
-          - dataset: bien
-            script: dev/05_benchmark_bien.R
-          - dataset: globtherm
-            script: dev/06_benchmark_globtherm.R
-          - dataset: leptraits
-            script: dev/07_benchmark_leptraits.R
-          # - dataset: fishbase
-          #   script: dev/09_benchmark_fishbase.R
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      BENCH_REP_ID: ${{ matrix.rep }}
+      BENCH_SMOKE: ${{ inputs.mode == 'smoke' && '1' || '0' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -60,31 +83,26 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          # DESCRIPTION lists ape / MCMCglmm / phytools / caper via
-          # Imports + Suggests. Add devtools explicitly because the
-          # benchmark wrappers source-load BACE via devtools::load_all
-          # (so the same scripts run unchanged for local development).
+          # Benchmark wrappers source-load BACE via devtools::load_all, so
+          # devtools is added explicitly on top of the package's deps.
           extra-packages: any::devtools
           needs: ''
 
-      - name: Run ${{ matrix.dataset }} benchmark
-        # Shell-level stdout heartbeat alongside the R process: keeps
-        # the GHA runner watchdog happy during long bace_final_imp
-        # parallel-worker phases where R's parent process can go quiet
-        # for many minutes (parallel R workers don't stream stdout to
-        # the parent, so without this the runner kills the job with
-        # "received a shutdown signal" after ~10-15min of silence).
+      - name: Run ${{ matrix.dataset }} rep ${{ matrix.rep }}
+        # Shell-level stdout heartbeat: keeps the runner watchdog happy
+        # during long bace_final_imp parallel-worker phases where R's
+        # parent process can go quiet for many minutes.
         run: |
-          (while sleep 60; do echo "[heartbeat $(date -u +%H:%M:%S)] still running ${{ matrix.dataset }}"; done) &
+          (while sleep 60; do echo "[heartbeat $(date -u +%H:%M:%S)] still running ${{ matrix.dataset }} rep ${{ matrix.rep }} (mode=${{ inputs.mode }})"; done) &
           HEARTBEAT_PID=$!
           trap 'kill $HEARTBEAT_PID 2>/dev/null || true' EXIT
           Rscript ${{ matrix.script }}
 
-      - name: Upload per-dataset artifact
+      - name: Upload per-rep artifact
         if: always()  # capture partial output on failure / timeout
         uses: actions/upload-artifact@v4
         with:
-          name: bench-${{ matrix.dataset }}
+          name: bench-${{ matrix.dataset }}-rep${{ matrix.rep }}
           path: dev/benchmark_results/${{ matrix.dataset }}/
           if-no-files-found: warn
 
@@ -110,7 +128,7 @@ jobs:
 
       - uses: r-lib/actions/setup-pandoc@v2
 
-      - name: Download all per-dataset artifacts
+      - name: Download all per-rep artifacts
         uses: actions/download-artifact@v4
         with:
           path: dev/benchmark_results/_artifacts
@@ -120,9 +138,6 @@ jobs:
         run: Rscript dev/make_benchmark_report.R
 
       - name: Publish report inline to workflow summary
-        # Appends report.md to $GITHUB_STEP_SUMMARY so the rendered
-        # report appears at the top of the workflow run page -- no
-        # download required to view results.
         run: |
           REPORT=$(find dev/benchmark_results/cross_dataset \
                         -name "report.md" -type f | sort -r | head -1)

@@ -334,7 +334,9 @@ benchmark_dataset <- function(
     runs           = 5,    n_final = 10,
     max_attempts   = 2,    n_cores = 4L,
     skip_conv      = FALSE,
-    seed           = 2026,
+    seed           = NULL,
+    rep_id         = NULL,
+    base_seed      = NULL,
     out_dir_root   = "dev/benchmark_results",
     verbose        = TRUE,
     save_imputed   = FALSE) {
@@ -342,6 +344,34 @@ benchmark_dataset <- function(
   stopifnot(inherits(tree, "phylo"),
             is.data.frame(traits_df),
             !is.null(rownames(traits_df)))
+
+  # ---- Replicate / seed resolution -----------------------------------------
+  # rep_id and base_seed are env-overridable (BENCH_REP_ID / BENCH_BASE_SEED)
+  # so the CI matrix can shard by replicate WITHOUT editing the per-dataset
+  # wrappers: each wrapper just calls benchmark_dataset() and the engine picks
+  # up the rep from the environment. Each rep uses an independent seed that
+  # drives BOTH the species subsample and the mask, so a replicate is an
+  # independent realisation of "subsample subset_n species + mask 30%" --
+  # yielding error bars over sampling + masking. rep_id = 1 reproduces the
+  # historical single-draw behaviour (seed = base_seed = 2026).
+  .bench_envint <- function(name, default) {
+    v <- suppressWarnings(as.integer(Sys.getenv(name, unset = NA_character_)))
+    if (is.na(v)) default else v
+  }
+  if (is.null(rep_id))    rep_id    <- .bench_envint("BENCH_REP_ID", 1L)
+  if (is.null(base_seed)) base_seed <- .bench_envint("BENCH_BASE_SEED", 2026L)
+  if (is.null(seed))      seed      <- base_seed + rep_id - 1L
+
+  # Smoke switch: shrink the dataset and MCMC budget so CI can validate the
+  # whole prepare -> matrix -> benchmark -> aggregate chain in minutes.
+  if (identical(Sys.getenv("BENCH_SMOKE"), "1")) {
+    nitt <- 2000L; burnin <- 500L; thin <- 5L
+    runs <- 2L;    n_final <- 2L
+    if (is.na(subset_n) || subset_n > 300L) subset_n <- 300L
+    if (verbose)
+      cat("[BENCH_SMOKE] tiny budget: nitt=2000 burnin=500 thin=5 runs=2",
+          "n_final=2 subset_n=300\n")
+  }
 
   # Drop higher-tax columns by default — they're known and we don't impute.
   if (is.null(trait_subset)) {
@@ -404,6 +434,7 @@ benchmark_dataset <- function(
                  stringsAsFactors = FALSE)
     }
   }))
+  phylo_signal_df$rep <- rep_id
 
   # Run bace()
   fixformulas <- lapply(names(types), function(v) {
@@ -508,12 +539,14 @@ benchmark_dataset <- function(
     masked, truth_long, types, log_traits, dataset_name)
 
   metrics_df <- rbind(metrics_bace, metrics_baseline)
+  metrics_df$rep <- rep_id
 
   # Output
   date_str  <- format(Sys.Date(), "%Y%m%d")
   scope_tag <- if (did_subset) paste0("n", subset_n) else "full"
+  rep_tag   <- sprintf("rep%02d", rep_id)
   out_dir <- file.path(out_dir_root, dataset_name,
-                       paste0("run_", scope_tag, "_", date_str))
+                       paste0("run_", scope_tag, "_", rep_tag, "_", date_str))
   if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
   utils::write.csv(metrics_df,
@@ -528,12 +561,12 @@ benchmark_dataset <- function(
                    "correlation", "coverage95", "accuracy",
                    "balanced_accuracy", "brier", "mae_level")
   metrics_long <- do.call(rbind, lapply(metric_cols, function(m) {
-    d <- metrics_df[, c("dataset", "method", "trait", "type",
+    d <- metrics_df[, c("dataset", "rep", "method", "trait", "type",
                         "scale", "n_hidden", m)]
     colnames(d)[ncol(d)] <- "value"
     d$metric <- m
     d <- d[!is.na(d$value), , drop = FALSE]
-    d[, c("dataset","method","trait","type","scale","n_hidden",
+    d[, c("dataset","rep","method","trait","type","scale","n_hidden",
           "metric","value")]
   }))
   utils::write.csv(metrics_long,
@@ -544,6 +577,8 @@ benchmark_dataset <- function(
                    row.names = FALSE)
   utils::write.csv(
     data.frame(dataset      = dataset_name,
+               rep          = rep_id,
+               seed         = seed,
                n_species    = nrow(masked),
                n_traits     = length(types),
                runtime_min  = runtime_min,

@@ -167,6 +167,39 @@ if (!is.null(all_metrics)) {
                                 drop = FALSE]
 }
 
+# ---- Collapse replicates -----------------------------------------------------
+# The benchmark now runs n_reps independent mask draws per dataset (each a
+# separate bundle with a `rep` column). Collapse to one row per
+# (dataset, method, trait): mean of each metric across reps, plus n_reps and
+# the across-rep SD of the headline metrics (nrmse for continuous, accuracy
+# for categorical) so the report can show error bars. Legacy single-draw
+# bundles (no `rep` column) are treated as rep = 1 and pass through unchanged.
+collapse_reps <- function(df) {
+  if (is.null(df) || !nrow(df)) return(df)
+  if (!"rep" %in% colnames(df)) df$rep <- 1L
+  metric_cols <- intersect(
+    c("rmse", "nrmse", "mae_fit", "mae_raw", "correlation", "coverage95",
+      "accuracy", "balanced_accuracy", "brier", "mae_level", "n_hidden"),
+    colnames(df))
+  keys <- intersect(c("dataset", "method", "trait", "type", "scale"),
+                    colnames(df))
+  do.call(rbind, lapply(
+    split(df, interaction(df[keys], drop = TRUE)),
+    function(g) {
+      out <- g[1, , drop = FALSE]
+      for (mc in metric_cols) out[[mc]] <- mean(g[[mc]], na.rm = TRUE)
+      out$n_reps   <- length(unique(g$rep))
+      out$nrmse_sd <- if ("nrmse" %in% metric_cols)
+                        stats::sd(g$nrmse, na.rm = TRUE) else NA_real_
+      out$acc_sd   <- if ("accuracy" %in% metric_cols)
+                        stats::sd(g$accuracy, na.rm = TRUE) else NA_real_
+      out$rep <- NULL
+      out
+    }))
+}
+bace_rows     <- collapse_reps(bace_rows)
+baseline_rows <- collapse_reps(baseline_rows)
+
 if (!is.null(bace_rows) && nrow(bace_rows)) {
   add("## Per-dataset summary (BACE)")
   nl()
@@ -178,6 +211,8 @@ if (!is.null(bace_rows) && nrow(bace_rows)) {
       data.frame(
         dataset       = d$dataset[1],
         n_traits      = nrow(d),
+        n_reps        = if ("n_reps" %in% names(d))
+                          max(d$n_reps, na.rm = TRUE) else NA_integer_,
         mean_NRMSE    = if (nrow(cont)) round(mean(cont$nrmse,
                                                     na.rm = TRUE), 3)
                         else NA_real_,
@@ -288,9 +323,9 @@ if (!is.null(bace_rows) && nrow(bace_rows)) {
   if (nrow(cont)) {
     add("## BACE continuous + count traits (per-trait detail)")
     nl()
-    cols <- intersect(c("dataset","trait","type","scale","n_hidden",
-                        "rmse","nrmse","mae_fit","mae_raw","correlation",
-                        "coverage95"), colnames(cont))
+    cols <- intersect(c("dataset","trait","type","scale","n_hidden","n_reps",
+                        "rmse","nrmse","nrmse_sd","mae_fit","mae_raw",
+                        "correlation","coverage95"), colnames(cont))
     md <- c(md, knitr::kable(cont[, cols], format = "markdown",
                               digits = 3, row.names = FALSE))
     nl()
@@ -301,8 +336,9 @@ if (!is.null(bace_rows) && nrow(bace_rows)) {
   if (nrow(catg)) {
     add("## BACE categorical / binary / ordinal traits (per-trait detail)")
     nl()
-    cols <- intersect(c("dataset","trait","type","n_hidden",
-                        "accuracy","balanced_accuracy","brier","mae_level"),
+    cols <- intersect(c("dataset","trait","type","n_hidden","n_reps",
+                        "accuracy","acc_sd","balanced_accuracy","brier",
+                        "mae_level"),
                       colnames(catg))
     md <- c(md, knitr::kable(catg[, cols], format = "markdown",
                               digits = 3, row.names = FALSE))
@@ -315,8 +351,20 @@ if (!is.null(bace_rows) && nrow(bace_rows)) {
 if (!is.null(all_signal)) {
   add("## Pre-imputation phylogenetic signal")
   nl()
-  add("Reference values per trait, computed before BACE runs. Pagel λ and Blomberg K for continuous; Fritz-Purvis D (OVR mean) for categorical.")
+  add("Reference values per trait, averaged across reps, computed before BACE runs. Pagel λ and Blomberg K for continuous; Fritz-Purvis D (OVR mean) for categorical.")
   nl()
+  # Collapse reps: mean of each signal statistic per (dataset, trait, type).
+  if (!"rep" %in% colnames(all_signal)) all_signal$rep <- 1L
+  sig_keys <- intersect(c("dataset", "trait", "type"), colnames(all_signal))
+  all_signal <- do.call(rbind, lapply(
+    split(all_signal, interaction(all_signal[sig_keys], drop = TRUE)),
+    function(g) {
+      out <- g[1, , drop = FALSE]
+      for (mc in intersect(c("lambda", "K", "D"), colnames(g)))
+        out[[mc]] <- mean(g[[mc]], na.rm = TRUE)
+      out$rep <- NULL
+      out
+    }))
   cols <- intersect(c("dataset","trait","type","lambda","K","D"),
                     colnames(all_signal))
   md <- c(md, knitr::kable(all_signal[, cols], format = "markdown",
@@ -329,8 +377,21 @@ if (!is.null(all_signal)) {
 if (!is.null(all_info)) {
   add("## Runtime + MCMC config")
   nl()
-  cols <- intersect(c("dataset","n_species","n_traits","runtime_min",
-                      "converged","n_attempts","nitt","thin","burnin",
+  # Collapse reps: mean runtime, converged count as "k/n", n_reps.
+  if (!"rep" %in% colnames(all_info)) all_info$rep <- 1L
+  all_info <- do.call(rbind, lapply(
+    split(all_info, all_info$dataset),
+    function(g) {
+      out <- g[1, , drop = FALSE]
+      out$n_reps      <- nrow(g)
+      out$runtime_min <- round(mean(g$runtime_min, na.rm = TRUE), 1)
+      conv <- g$converged %in% c(TRUE, "TRUE", "true")
+      out$converged   <- sprintf("%d/%d", sum(conv, na.rm = TRUE), nrow(g))
+      out$rep <- NULL
+      out
+    }))
+  cols <- intersect(c("dataset","n_reps","n_species","n_traits","runtime_min",
+                      "converged","nitt","thin","burnin",
                       "runs","n_final"), colnames(all_info))
   md <- c(md, knitr::kable(all_info[, cols], format = "markdown",
                             row.names = FALSE))
