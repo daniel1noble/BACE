@@ -33,6 +33,10 @@ on:
         description: "Replicates per matrix job in production mode. Smaller = safer against the 6h ceiling but more jobs."
         type: string
         default: "4"
+      timeout_min:
+        description: "Override the per-rep wall-clock timeout (minutes). Blank = mode default (smoke 12 / calibrate 170 / production 90). Set small (e.g. 1) to force-test the timeout-kill path."
+        type: string
+        default: ""
 
 jobs:
   # ---------------------------------------------------------------------
@@ -111,7 +115,8 @@ jobs:
       #   calibrate = 170 (relaxed, so real per-rep timings are NOT truncated;
       #                    still under the 180 min job cap as a backstop)
       #   production= 90  (catches the documented ~82 min sim_hard degeneracy)
-      BACE_REP_TIMEOUT_MIN: ${{ inputs.mode == 'smoke' && '12' || inputs.mode == 'calibrate' && '170' || '90' }}
+      # A non-blank timeout_min input overrides the mode default.
+      BACE_REP_TIMEOUT_MIN: ${{ inputs.timeout_min != '' && inputs.timeout_min || inputs.mode == 'smoke' && '12' || inputs.mode == 'calibrate' && '170' || '90' }}
 
     steps:
       - uses: actions/checkout@v4

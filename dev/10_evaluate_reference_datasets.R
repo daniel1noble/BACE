@@ -152,7 +152,17 @@ evaluate_one_rep <- function(ds_name, rep_id, mcmc = MCMC) {
 
     # ------------------------------------------------------------------
     # 1. BACE on the masked data
+    #
+    # Seed deterministically from the rep's stored seed so the whole
+    # evaluation is reproducible (Morris, White & Crowther 2019, Stat Med
+    # 38:2074 — store and set a per-repetition seed). Without this, BACE's
+    # MCMC is driven by ambient RNG state, so whether a fit hits singular
+    # equations becomes a run-to-run coin flip and the benchmark is not
+    # reproducible. bace() runs with n_cores = 1L here, so no inner fork
+    # reseeds away from this stream. The oracle gets an offset seed so the
+    # two fits draw independent but reproducible streams.
     # ------------------------------------------------------------------
+    set.seed(rb$seed)
     t_bace <- Sys.time()
     bace_res <- bace(
       fixformula     = list(
@@ -190,6 +200,7 @@ evaluate_one_rep <- function(ds_name, rep_id, mcmc = MCMC) {
     # ------------------------------------------------------------------
     # 3. Oracle MCMCglmm on complete_data (same formula/family/budget)
     # ------------------------------------------------------------------
+    set.seed(rb$seed + 1L)
     t_oracle <- Sys.time()
     cd <- rb$complete_data
     cor_mat <- ape::vcv(rb$tree, corr = TRUE)
