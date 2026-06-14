@@ -7,7 +7,8 @@
 #
 # Usage (from the workflow `prepare` job, AFTER datasets are generated):
 #   Rscript dev/_build_eval_matrix.R <mode> <chunk_size>
-#     mode       : "smoke" (1 rep/dataset) or "production" (all reps, chunked)
+#     mode       : "smoke"/"calibrate" (1 rep/dataset) or "production"
+#                  (all reps, chunked)
 #     chunk_size : reps per matrix job in production mode (default 4)
 #
 # Writes a line `matrix=<json>` to $GITHUB_OUTPUT (or stdout when run
@@ -41,8 +42,9 @@ for (ds in DATASETS) {
   reps <- avail_reps(ds)
   if (length(reps) == 0L) next
 
-  if (identical(mode, "smoke")) {
-    # One rep per dataset — mirrors the previous smoke behaviour (rep 1).
+  if (mode %in% c("smoke", "calibrate")) {
+    # One rep per dataset, each its own job. smoke = tiny budget; calibrate =
+    # full budget, used to measure real per-rep wall-clock and convergence.
     add_entry(ds, reps[[1]], reps[[1]])
     next
   }

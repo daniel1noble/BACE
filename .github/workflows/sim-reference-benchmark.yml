@@ -22,10 +22,11 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "smoke = 1 rep/dataset at tiny MCMC budget (~15 min, validates pipeline); production = all reps at full budget."
+        description: "smoke = 1 rep/dataset, tiny budget (~15 min, validates pipeline); calibrate = 1 rep/dataset at FULL budget (measures real per-rep time + convergence to size the timeout/chunks); production = all reps, full budget."
         type: choice
         options:
           - smoke
+          - calibrate
           - production
         default: smoke
       chunk_size:
@@ -96,8 +97,8 @@ jobs:
       R_KEEP_PKG_SOURCE: yes
       BACE_EVAL_CORES: 4  # ubuntu-latest is 4 vCPU as of 2025-Q1
       # MCMC budget — toggled by the `mode` workflow input. Smoke values
-      # exercise every code path in a few minutes; production values match
-      # the defaults baked into dev/10_evaluate_reference_datasets.R.
+      # exercise every code path in a few minutes; calibrate and production
+      # use the full budget (the defaults baked into 10_*.R).
       BACE_NITT:    ${{ inputs.mode == 'smoke' && '2000' || '50000' }}
       BACE_BURNIN:  ${{ inputs.mode == 'smoke' && '500'  || '10000' }}
       BACE_THIN:    ${{ inputs.mode == 'smoke' && '5'    || '25' }}
@@ -106,9 +107,11 @@ jobs:
       # Per-rep wall-clock guard (see dev/10_evaluate_reference_datasets.R).
       # Kills a degenerate rep (e.g. singular MCMCglmm equations on sim_hard)
       # so it can't stall the whole job; the rep is recorded as status=timeout.
-      # Smoke is tight to exercise the path; production catches the documented
-      # ~82 min sim_hard degeneracy while staying under the 180 min job cap.
-      BACE_REP_TIMEOUT_MIN: ${{ inputs.mode == 'smoke' && '12' || '90' }}
+      #   smoke     = 12  (tight, exercises the path quickly)
+      #   calibrate = 170 (relaxed, so real per-rep timings are NOT truncated;
+      #                    still under the 180 min job cap as a backstop)
+      #   production= 90  (catches the documented ~82 min sim_hard degeneracy)
+      BACE_REP_TIMEOUT_MIN: ${{ inputs.mode == 'smoke' && '12' || inputs.mode == 'calibrate' && '170' || '90' }}
 
     steps:
       - uses: actions/checkout@v4
