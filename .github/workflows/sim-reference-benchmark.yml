@@ -152,11 +152,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    # Email is sent only if the Gmail secrets are configured; otherwise the
-    # email step skips cleanly and the run still succeeds.
-    env:
-      MAIL_ENABLED: ${{ secrets.MAIL_USERNAME != '' }}
-
     steps:
       - uses: actions/checkout@v4
 
@@ -213,34 +208,17 @@ jobs:
           fi
 
       - name: Render HTML report
-        id: report
+        # Self-contained HTML report, uploaded as a downloadable artifact.
         run: |
           md=dev/simulation_results/evaluation_results/summary_report.md
           html=dev/simulation_results/evaluation_results/summary_report.html
           if [ -f "$md" ]; then
             pandoc "$md" -o "$html" --standalone \
               --metadata title="BACE simulated reference benchmark"
-            echo "html=$html" >> "$GITHUB_OUTPUT"
             echo "Report HTML: $html"
           else
             echo "No summary_report.md to render."
           fi
-
-      - name: Email HTML report
-        # Skips unless SMTP secrets are set; never fails the run.
-        if: ${{ env.MAIL_ENABLED == 'true' && steps.report.outputs.html != '' }}
-        continue-on-error: true
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-          subject: "BACE simulated reference benchmark — run ${{ github.run_number }} (${{ inputs.mode }})"
-          to: daniel.wa.noble@gmail.com
-          from: BACE Benchmarks <${{ secrets.MAIL_USERNAME }}>
-          html_body: file://${{ steps.report.outputs.html }}
-          attachments: ${{ steps.report.outputs.html }}
 
       - name: Upload cross-dataset summary
         if: always()
