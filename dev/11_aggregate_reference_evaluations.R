@@ -134,16 +134,20 @@ report <- c(
 report <- c(report,
   "## Replicate status",
   "",
-  "| Dataset | OK | Error | Other |",
-  "|:--------|---:|------:|------:|"
+  "| Dataset | OK | Error | Timeout | Other |",
+  "|:--------|---:|------:|--------:|------:|"
 )
 stat_tab <- table(factor(timings$dataset, levels = DATASETS), timings$status)
+col_count <- function(tab, ds, nm)
+  if (nm %in% colnames(tab)) tab[ds, nm] else 0L
 for (ds in DATASETS) {
-  ok <- if ("ok" %in% colnames(stat_tab)) stat_tab[ds, "ok"] else 0L
-  err <- if ("error" %in% colnames(stat_tab)) stat_tab[ds, "error"] else 0L
+  ok    <- col_count(stat_tab, ds, "ok")
+  err   <- col_count(stat_tab, ds, "error")
+  tmo   <- col_count(stat_tab, ds, "timeout")
   total <- sum(stat_tab[ds, ])
-  oth <- total - ok - err
-  report <- c(report, sprintf("| %s | %d | %d | %d |", ds, ok, err, oth))
+  oth   <- total - ok - err - tmo
+  report <- c(report, sprintf("| %s | %d | %d | %d | %d |",
+                              ds, ok, err, tmo, oth))
 }
 report <- c(report, "")
 

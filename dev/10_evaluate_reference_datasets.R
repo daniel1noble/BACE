@@ -97,6 +97,16 @@ N_CORES_OUTER <- suppressWarnings(as.integer(
 ))
 if (is.na(N_CORES_OUTER) || N_CORES_OUTER < 1L) N_CORES_OUTER <- 6L
 
+# Per-rep wall-clock guard. A degenerate MCMCglmm fit (e.g. singular mixed-
+# model equations on adverse low-signal / high-MNAR data such as sim_hard) can
+# spin for ~80 min before erroring or limping through. Each rep is run in a
+# forked worker; if it exceeds this wall-clock limit the worker is killed and
+# the rep is recorded as status = "timeout" (terminal: skipped on resume,
+# counted in the report) so a single degenerate rep can never stall a whole
+# job. Override via BACE_REP_TIMEOUT_MIN; set to 0 to disable the guard.
+REP_TIMEOUT_MIN  <- .envint("BACE_REP_TIMEOUT_MIN", 120L)
+REP_TIMEOUT_SECS <- if (REP_TIMEOUT_MIN > 0L) REP_TIMEOUT_MIN * 60 else Inf
+
 # Datasets and reps to evaluate. NULL = all reps in each dataset folder.
 DATASETS <- c("sim_ideal", "sim_typical", "sim_heterogeneous", "sim_hard")
 
@@ -111,10 +121,15 @@ evaluate_one_rep <- function(ds_name, rep_id, mcmc = MCMC) {
   if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
   out_file  <- file.path(out_dir, sprintf("eval_rep_%02d.rds", rep_id))
 
-  # Resume: skip if a successful output already exists.
+  # Resume: skip if a terminal output already exists. "ok" is a success;
+  # "timeout" is terminal too — the seed/data are fixed, so a degenerate rep
+  # would just time out again, and re-running it would waste the full budget.
+  # Delete the eval_rep_NN.rds by hand to force a retry (e.g. after raising
+  # BACE_REP_TIMEOUT_MIN).
   if (file.exists(out_file)) {
     prev <- tryCatch(readRDS(out_file), error = function(e) NULL)
-    if (!is.null(prev) && identical(prev$status, "ok")) return(invisible(prev))
+    if (!is.null(prev) && isTRUE(prev$status %in% c("ok", "timeout")))
+      return(invisible(prev))
   }
 
   rb   <- readRDS(rep_file)
@@ -310,6 +325,82 @@ build_worklist <- function() {
   }))
 }
 
+# -----------------------------------------------------------------------------
+# Process-level per-rep timeout guard
+#
+# Each rep runs in a forked worker (parallel::mcparallel). The scheduler keeps
+# up to `n_cores` workers alive and polls them; any worker exceeding
+# `timeout_secs` of wall-clock is killed (SIGTERM then SIGKILL) and recorded as
+# status = "timeout". An R-level setTimeLimit() would NOT work here: its limit
+# is only checked when control returns from compiled code to the interpreter,
+# so a stuck MCMCglmm C call is never interrupted. Killing the process is the
+# only reliable guard. set timeout_secs = Inf to disable.
+# -----------------------------------------------------------------------------
+save_timeout_result <- function(ds_name, rep_id, timeout_secs, t0) {
+  out_dir  <- file.path(EVAL_ROOT, ds_name)
+  if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+  out_file <- file.path(out_dir, sprintf("eval_rep_%02d.rds", rep_id))
+  result <- list(
+    dataset      = ds_name,
+    rep_id       = rep_id,
+    status       = "timeout",
+    error        = sprintf(
+      "Killed after exceeding per-rep wall-clock limit (%.0f min).",
+      timeout_secs / 60),
+    settings     = MCMC,
+    started_at   = t0,
+    completed_at = Sys.time()
+  )
+  saveRDS(result, out_file)
+  result
+}
+
+run_worklist_guarded <- function(worklist, n_cores, timeout_secs) {
+  n       <- nrow(worklist)
+  results <- vector("list", n)
+  next_i  <- 1L
+  running <- list()
+
+  launch <- function(i) {
+    ds <- worklist$dataset[i]; rid <- worklist$rep_id[i]
+    list(idx = i, ds = ds, rid = rid, t0 = Sys.time(),
+         job = parallel::mcparallel(evaluate_one_rep(ds, rid),
+                                    name = sprintf("%s_%02d", ds, rid)))
+  }
+
+  while (next_i <= n || length(running) > 0L) {
+    while (length(running) < n_cores && next_i <= n) {
+      running[[length(running) + 1L]] <- launch(next_i)
+      next_i <- next_i + 1L
+    }
+    Sys.sleep(2)
+    keep <- list()
+    for (r in running) {
+      got     <- parallel::mccollect(r$job, wait = FALSE)
+      elapsed <- as.numeric(difftime(Sys.time(), r$t0, units = "secs"))
+      if (!is.null(got)) {
+        out <- got[[1]]
+        results[[r$idx]] <- out
+        cat(sprintf("[%s] %s rep %02d -> %s (%.1f min)\n",
+                    format(Sys.time(), "%H:%M:%S"), r$ds, r$rid,
+                    if (is.list(out) && !is.null(out$status)) out$status else "unknown",
+                    elapsed / 60))
+      } else if (is.finite(timeout_secs) && elapsed > timeout_secs) {
+        tools::pskill(r$job$pid, tools::SIGTERM)
+        Sys.sleep(1); tools::pskill(r$job$pid, tools::SIGKILL)
+        parallel::mccollect(r$job, wait = FALSE)  # reap the killed child
+        results[[r$idx]] <- save_timeout_result(r$ds, r$rid, timeout_secs, r$t0)
+        cat(sprintf("[%s] %s rep %02d -> TIMEOUT after %.1f min (killed)\n",
+                    format(Sys.time(), "%H:%M:%S"), r$ds, r$rid, elapsed / 60))
+      } else {
+        keep[[length(keep) + 1L]] <- r
+      }
+    }
+    running <- keep
+  }
+  results
+}
+
 # CLI:
 #   Rscript dev/10_*.R                    # all reps, all datasets
 #   Rscript dev/10_*.R sim_hard           # all reps of sim_hard
@@ -353,6 +444,8 @@ if (length(args) == 3L) {
 
 cat("Worklist:", nrow(worklist), "rep(s).\n")
 cat("Cores   :", N_CORES_OUTER, "\n")
+cat("Timeout : ", if (is.finite(REP_TIMEOUT_SECS))
+      paste0(REP_TIMEOUT_MIN, " min/rep") else "disabled", "\n", sep = "")
 cat("Budget  : nitt=", MCMC$nitt,
     " burnin=", MCMC$burnin,
     " thin=",   MCMC$thin,
@@ -362,12 +455,16 @@ cat("Started :", format(Sys.time()), "\n\n")
 
 t_all <- Sys.time()
 
+# Every rep runs in a forked worker under the wall-clock guard, whether it is
+# a single smoke rep or a full production chunk. This unifies the timeout
+# handling and means no in-process path can hang the job.
+results <- run_worklist_guarded(worklist, N_CORES_OUTER, REP_TIMEOUT_SECS)
+
 if (nrow(worklist) == 1L) {
-  # Single rep — run in-process for easier debugging during smoke test.
-  ev <- evaluate_one_rep(worklist$dataset[1], worklist$rep_id[1])
+  ev <- results[[1]]
   cat("\n=== Smoke-test result ===\n")
   cat("Status:", ev$status, "\n")
-  if (ev$status == "ok") {
+  if (identical(ev$status, "ok")) {
     cat("BACE runtime  :", round(ev$bace_runtime, 1), "s\n")
     cat("Oracle runtime:", round(ev$oracle_runtime, 1), "s\n")
     cat("BACE converged:", ev$bace_converged,
@@ -375,26 +472,14 @@ if (nrow(worklist) == 1L) {
     cat("\nCell metrics:\n"); print(ev$cell_metrics, row.names = FALSE)
     cat("\nBeta comparison (y equation):\n"); print(ev$beta_compare, row.names = FALSE)
   } else {
-    cat("Error:", ev$error, "\n")
+    cat("Error:", if (!is.null(ev$error)) ev$error else NA_character_, "\n")
   }
 } else {
-  res <- mclapply(seq_len(nrow(worklist)), function(i) {
-    ds  <- worklist$dataset[i]
-    rid <- worklist$rep_id[i]
-    t0 <- Sys.time()
-    out <- tryCatch(
-      evaluate_one_rep(ds, rid),
-      error = function(e) list(status = "outer_error", error = conditionMessage(e))
-    )
-    elapsed <- as.numeric(difftime(Sys.time(), t0, units = "mins"))
-    cat(sprintf("[%s] %s rep %02d -> %s (%.1f min)\n",
-                format(Sys.time(), "%H:%M:%S"),
-                ds, rid, out$status, elapsed))
-    out$status
-  }, mc.cores = N_CORES_OUTER)
-
   cat("\n=== Status counts ===\n")
-  print(table(unlist(res)))
+  print(table(vapply(results,
+                     function(x) if (is.list(x) && !is.null(x$status)) x$status
+                                 else "unknown",
+                     character(1))))
 }
 
 cat("\nTotal wallclock:",
