@@ -9,6 +9,29 @@ whole sweep in one go.
 All paths below are relative to the repo root. Run from there after checking
 out the branch with these scripts.
 
+## Why off-CI: calibration result (2026-06-14)
+
+A single seeded full-budget rep was timed on GitHub's 4-vCPU runners
+(`nitt=50000`, `runs=6`, `n_final=20`). Per-rep wall time scales roughly with
+the square of the tree size, because the per-iteration cost is dominated by the
+dense `inverseA` solve and the `Sol` dimension:
+
+| dataset           | N (tree) | per-rep eval time | fits 170-min CI cap? |
+|:------------------|---------:|------------------:|:---------------------|
+| sim_typical       |   500    | 106 min           | yes                  |
+| sim_heterogeneous |   600    | 145 min           | yes                  |
+| sim_ideal         |   750    | > 170 min         | **no — timed out**   |
+| sim_hard          |   400    | > 170 min         | **no — singular draw, not size** |
+
+Conclusion: the largest tree exceeds the CI per-job ceiling even after cutting
+`runs` 10→6 and `n_final` 50→20, and a 180-rep sweep is far beyond free-runner
+budgets regardless. We deliberately did **not** shorten the chains (`nitt`) to
+fit CI — at `thin=25`/`burnin=10000` that drops stored draws from 1600 to ~600
+per chain, which is borderline for the slow-mixing threshold/categorical
+equations' VCV/CP estimates. The production sweep therefore runs **off-CI** at
+the budget below; CI is retained only for smoke tests, dev checks, and
+single-rep calibration.
+
 ## 0. Prerequisites (once)
 
 ```r
