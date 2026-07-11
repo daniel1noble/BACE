@@ -169,18 +169,16 @@ run_rep <- function(mechanism, rep_id, cfg) {
 }
 
 # ---- main -------------------------------------------------------------------
-cat(sprintf("Recovery sim: reps=%d nspp=%d nitt=%d n_final=%d  b1=%.2f\n",
-            CFG$reps, CFG$nspp, CFG$nitt, CFG$n_final, CFG$b1))
-rows <- list()
-for (mech in c("MCAR", "MAR")) {
-  for (r in seq_len(CFG$reps)) {
-    rows[[length(rows) + 1L]] <- tryCatch(run_rep(mech, r, CFG),
-      error = function(e) { message(mech, " rep ", r, " failed: ", e$message,
-        " | call: ", paste(deparse(conditionCall(e)), collapse = " ")); NULL })
-    cat(".")
-  }
-}
-cat("\n")
+cores <- .envint("RECOV_CORES", 6L)
+cat(sprintf("Recovery sim: reps=%d nspp=%d nitt=%d n_final=%d b1=%.2f cores=%d\n",
+            CFG$reps, CFG$nspp, CFG$nitt, CFG$n_final, CFG$b1, cores))
+wl <- expand.grid(mech = c("MCAR", "MAR"), rep = seq_len(CFG$reps),
+                  stringsAsFactors = FALSE)
+rows <- parallel::mclapply(seq_len(nrow(wl)), function(i) {
+  tryCatch(run_rep(wl$mech[i], wl$rep[i], CFG),
+    error = function(e) { message(wl$mech[i], " rep ", wl$rep[i], " failed: ",
+      e$message); NULL })
+}, mc.cores = cores)
 res <- do.call(rbind, rows)
 
 agg <- do.call(rbind, lapply(split(res, list(res$mechanism, res$method)), function(g) {
