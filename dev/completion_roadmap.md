@@ -58,18 +58,35 @@ pipeline before spending compute on it (Track B). Full suite after: 1274 pass /
 - [ ] **C4. Release hygiene** — `NEWS.md`; prune exported internals (dozens of
   `.`-prefixed functions are in NAMESPACE); tighten toward a CRAN-ready surface.
 
-## Track D — Rubin's-rules pooling pathway  (planned: `dev/pool_mi_rubin_plan.md`)
+## Track D — Rubin's-rules pooling pathway  (D1/D2/D4 DONE 2026-07-11)
 
-Model-agnostic MI layer + free choice of combiner. Land after Track A.
+Model-agnostic MI layer + free choice of combiner. Plan: `dev/pool_mi_rubin_plan.md`.
 
-- [ ] **D1. `with_imputations(object, .f)`** — fit any model (frequentist or MCMCglmm)
-  per imputed dataset.
-- [ ] **D2. `pool_mi()`** — Rubin's rules; accepts MCMCglmm (posterior mean/var),
-  Barnard-Rubin df, reports `fmi`/`riv`. Mirrors pigauto's column set.
-- [ ] **D3. Generalize `pool_posteriors()`** to accept `with_imputations()` output, so
-  the same fits go to either combiner.
-- [ ] **D4. Tests** — golden test vs `mice::pool`; Bayesian-fit tests; variance-
-  component guard (never Rubin-pool variance components).
+- [x] **D1. `with_imputations(object, .f, tree=)`** (`R/with_imputations.R`) — fits any
+  model (frequentist or MCMCglmm) per imputed dataset; accepts bace_complete /
+  bace_final / list; captures per-fit errors. Class `bace_mi_fits`.
+- [x] **D2. `pool_mi()`** (`R/pool_mi.R`) — Rubin's rules; accepts MCMCglmm (posterior
+  mean/var of fixed effects, with a NOTE steering to pool_posteriors + away from
+  variance components), Barnard-Rubin df, reports `fmi`/`riv`. Mirrors pigauto columns.
+- [ ] **D3. Generalize `pool_posteriors()`** to accept `with_imputations()` output —
+  DEFERRED (keep this PR focused; existing pool_posteriors tests untouched).
+- [x] **D4. Tests** (`tests/testthat/test-pool_mi.R`, 26 assertions) — **golden test vs
+  `mice::pool` matches to machine precision** (estimate/SE/df/fmi, ~1e-15); MCMCglmm
+  path extracts only fixed effects + warns; edge cases (M<2, term mismatch, dropped
+  failures). Full suite: 1300 pass / 0 fail.
+
+## Recovery simulation — parameter + value recovery under MCAR and MAR
+
+`dev/12_recovery_simulation.R` (env-var scaled; smoke defaults tiny). Uses the Track D
+pathway: bace_imp -> bace_final_imp -> with_imputations(gls) -> pool_mi(). Compares
+oracle / complete-case / BACE on slope recovery (bias, 95% coverage), marginal-mean
+recovery (the MAR signature), and hidden-cell correlation.
+
+8-rep smoke (n=60): under MAR, complete-case marginal-mean bias = **-0.20** while BACE
+= **+0.00** (MI corrects the MAR selection); under MCAR both ~0. BACE slope tracks the
+oracle (MAR -0.099 vs -0.098). cell correlation 0.64 (MAR) - 0.84 (MCAR).
+- [ ] **Production run** (RECOV_REPS=50+, larger n, production MCMC) for stable coverage
+  estimates -> a manuscript figure. Currently only an 8-rep smoke.
 
 ---
 
