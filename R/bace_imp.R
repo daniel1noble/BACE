@@ -348,8 +348,15 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 				                    thin = thin_list[[i]],
 				                  burnin = burnin_list[[i]])
 
-				# Use argmax (sample=FALSE): Gelman-Rubin needs agreement across runs
-				predictions <- .predict_bace(model, dat_prep, response_var = response_var,
+				# Convergence chain uses argmax / posterior mean, so pass sample =
+				# FALSE explicitly. This MUST stay FALSE here: the chained-equations
+				# convergence diagnostic reads the imputed values settling across runs,
+				# which only happens for deterministic point estimates. sample = TRUE
+				# would inject fresh posterior-predictive noise every run and the
+				# diagnostic could never detect convergence (two-phase invariant,
+				# CLAUDE.md; the posterior-predictive draws belong in bace_final_imp).
+				predictions <- .predict_bace(model, dat_prep, sample = FALSE,
+				                             response_var = response_var,
 				                             type = types[[response_var]],
 				                             formula = formulas[[i]], data_full = data_i,
 				                             cluster_col = phylo_ran[["cluster"]])

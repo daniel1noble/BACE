@@ -11,25 +11,27 @@ Manuscript `ms/ms.qmd` is a 98-line skeleton whose bib/template assets are missi
 
 ---
 
-## Track A — Numerical-correctness hardening  (low compute; DO FIRST)
+## Track A — Numerical-correctness hardening  (DONE 2026-07-11)
 
-Cheap, high-value, and exactly the "accuracy + testing" emphasis. Hardens the
-pipeline before we spend compute on it (Track B).
+Cheap, high-value, and exactly the "accuracy + testing" emphasis. Hardened the
+pipeline before spending compute on it (Track B). Full suite after: 1274 pass /
+0 fail / 0 warn / 0 skip.
 
-- [ ] **A1. Stale `K=3` comments in `.predict_bace`** (`R/model_functions.R` ~585-771).
-  Every branch sets `K <- 1L` but comments still describe "median of K=3 draws".
-  Fix comments; remove/annotate the now-vestigial median/`.cat_mode` machinery.
-- [ ] **A2. Explicit `sample = FALSE` at `bace_imp.R:352`.** The only prediction call
-  that relies on the default; it's the one site where `sample=TRUE` would *silently*
-  break the convergence diagnostic. Make it explicit (its OVR sibling already is).
-- [ ] **A3. Determinism regression test.** Call the convergence-chain prediction twice
-  on one fit; assert identical imputed values. Locks the `sample=FALSE` contract.
-- [ ] **A4. Align oracle-comparator prior** in `dev/10_evaluate_reference_datasets.R`
-  (currently `nu=0.002` while BACE uses `nu=2`) — the `ci_width_ratio` is not
-  apples-to-apples. Match BACE's prior, or add a second matched-prior oracle arm.
-- [ ] **A5. Pooled-coverage test.** On simulated data with known beta, assert
-  `pool_posteriors()` 95% intervals cover the truth near-nominally at `n_final=50`.
-  Empirically validates the stacking combiner (currently only exercised structurally).
+- [x] **A1. Stale `K=3` comments in `.predict_bace`** — fixed in all FIVE sample
+  branches (gaussian, poisson, threshold/ordinal, categorical, and the OVR path in
+  `.fit_predict_ovr`). Comments now say "single draw (K=1)"; the K-loop/median/
+  `.cat_mode` scaffolding is left in place (correct, RNG-equivalent) and annotated as
+  a no-op hook — deliberately NOT refactored, to avoid regression risk on validated
+  numerical code.
+- [x] **A2. Explicit `sample = FALSE` at `bace_imp.R:352`** with a comment explaining
+  why it must never be TRUE (two-phase invariant).
+- [x] **A3. Determinism regression tests** (`tests/testthat/test-track-a-hardening.R`):
+  `.predict_bace(sample=FALSE)` identical across calls (no RNG); `sample=TRUE` varies.
+- [x] **A4. Aligned oracle-comparator prior** in `dev/10` to BACE's own gaussian prior
+  (R nu=2 + Gelman par-expanded G) so `ci_width_ratio` is apples-to-apples.
+- [x] **A5. Stacking-variance test** — `pool_posteriors()` coefficient variance =
+  within + between (mixture identity), validating it propagates imputation uncertainty.
+  (Full nominal-coverage validation is Track B's multi-rep job.)
 
 ## Track B — Run the evidence base  (compute-heavy; the manuscript's Performance section)
 

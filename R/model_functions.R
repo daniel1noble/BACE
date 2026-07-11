@@ -514,13 +514,13 @@
   prob_mat      <- prob_mat / rs
 
   if (sample) {
-    # Proper posterior predictive draws under OVR. The J binary chains
-    # are independent (Rubin 1987 proper-MI framing is preserved by
-    # drawing an independent iteration per chain). For each of K=3
-    # predictive draws: pick iteration i_j for each binary model j,
-    # compute per-iteration "yes" probability, row-normalise across j,
-    # draw class. Majority-vote across K for robustness against chain
-    # excursions (per original BACE design intent).
+    # Proper posterior-predictive draw under OVR. The J binary chains are
+    # independent (Rubin 1987 proper-MI framing preserved by drawing an
+    # independent iteration per chain). A SINGLE draw is used (K = 1): pick
+    # iteration i_j for each binary model j, compute its "yes" probability,
+    # row-normalise across j, and draw a class. The K-loop / .cat_mode below
+    # are no-ops at K = 1, kept as a hook (an earlier median/majority-vote
+    # guard shrank predictive variance; see benchmark_report_2026-04-19.md §3).
     K <- 1L
     draws_mat <- matrix(NA_character_, nrow = n_obs, ncol = K)
     for (k in seq_len(K)) {
@@ -583,14 +583,14 @@
 					sd_val   <- dat_prep[[2]][[response_var]]$sd
 
 					if (sample) {
-					  # Proper posterior PREDICTIVE draws (Rubin 1987; van Buuren 2018
-					  # FIMD §3.2): at MCMC iteration i, compute eta_i = X beta_i + Z u_i
-					  # AND add residual noise eps_i ~ N(0, sigma2_units_i) drawn from
-					  # the same iteration's VCV. The median of K=3 such draws is
-					  # kept as a robustness guard against rare chain excursions
-					  # (per original design intent) — noted that this shrinks the
-					  # predictive-interval width relative to single draws, capping
-					  # achievable coverage below 95% but ~84% theoretical ceiling.
+					  # Proper posterior-PREDICTIVE draw (Rubin 1987; van Buuren 2018
+					  # FIMD §3.2): pick one MCMC iteration i, compute
+					  # eta_i = X beta_i + Z u_i, and add residual noise
+					  # eps_i ~ N(0, sigma2_units_i) from that same iteration's VCV.
+					  # A SINGLE draw is used (K = 1). An earlier median-of-3 excursion
+					  # guard shrank the predictive variance and capped attainable
+					  # coverage at ~84%; see dev/benchmark_report_2026-04-19.md §3.1.
+					  # The K-loop / median below are no-ops at K = 1, kept as a hook.
 					  X   <- as.matrix(model$X)
 					  Sol <- as.matrix(model$Sol)
 					  W   <- if (!is.null(model$Z)) cbind(X, as.matrix(model$Z)) else X
@@ -634,10 +634,10 @@
 
 				 if(type == "poisson"){
 					if (sample) {
-					  # Proper posterior predictive for counts: at iteration i,
-					  # rate_i = exp(Liab_i), then Y_i ~ Poisson(rate_i). Adds the
-					  # Poisson sampling variance that the previous round(exp(Liab))
-					  # dropped. Median of K=3 draws retained for excursion robustness.
+					  # Proper posterior predictive for counts: pick one iteration i,
+					  # rate_i = exp(Liab_i), then draw Y_i ~ Poisson(rate_i). Restores
+					  # the Poisson sampling variance that round(exp(Liab)) dropped.
+					  # A single draw (K = 1); the K-loop / median below is a no-op hook.
 					  liab   <- as.matrix(model$Liab)
 					  n_iter <- nrow(liab); n_obs <- ncol(liab)
 					  K <- 1L
@@ -673,11 +673,11 @@
 				   }
 
 				   if (sample) {
-				     # Proper posterior predictive draws (Rubin 1987; Hadfield 2010 §3.7):
-				     # sample K=3 MCMC iterations; per iteration, compute the per-cell
-				     # class-probability row from that iteration's Sol / CP / BLUPs and
-				     # draw a class. Majority-vote across the K draws per cell matches
-				     # the median-of-K robustness pattern used for continuous types.
+				     # Proper posterior-predictive draw (Rubin 1987; Hadfield 2010 §3.7):
+				     # pick one MCMC iteration, compute each cell's class-probability
+				     # row from that iteration's Sol / CP / BLUPs, and draw a class.
+				     # A single draw is used (K = 1), matching the continuous branches;
+				     # .cat_mode over the resulting one-column matrix is a no-op hook.
 				     n_iter <- nrow(as.matrix(model$Sol))
 				     K <- 1L
 				     i_samps <- sample.int(n_iter, K)
@@ -736,9 +736,10 @@
 					}
 
 					if (sample) {
-					  # Proper posterior predictive draws for multinomial probit:
-					  # K=3 iterations -> per-iteration softmax (Amemiya 1981 c^2
-					  # correction preserved) -> majority vote.
+					  # Proper posterior-predictive draw for multinomial probit: one
+					  # MCMC iteration -> per-cell softmax (Amemiya 1981 c^2 correction
+					  # preserved) -> draw a class. A single draw (K = 1); .cat_mode
+					  # over the one-column matrix is a no-op hook.
 					  n_iter <- nrow(as.matrix(model$Sol))
 					  K <- 1L
 					  i_samps <- sample.int(n_iter, K)

@@ -180,9 +180,14 @@ evaluate_one_rep <- function(ds_name, rep_id, mcmc = MCMC) {
     cor_mat <- ape::vcv(rb$tree, corr = TRUE)
     Ainv    <- solve(cor_mat)
 
+    # Mirror BACE's own gaussian prior (see R/model_functions.R .make_prior /
+    # .list_of_G): R-structure nu = 2, and a Gelman (2006) parameter-expanded
+    # G-structure. Using the old inverse-Wishart nu = 0.002 here would make the
+    # oracle posterior artificially narrow relative to BACE, so the
+    # ci_width_ratio comparison would not be apples-to-apples.
     prior_oracle <- list(
-      R = list(V = 1, nu = 0.002),
-      G = list(G1 = list(V = 1, nu = 0.002))
+      R = list(V = 1, nu = 2),
+      G = list(G1 = list(V = 1, nu = 0.002, alpha.mu = 0, alpha.V = 1e4))
     )
     oracle_fit <- tryCatch(
       MCMCglmm::MCMCglmm(
