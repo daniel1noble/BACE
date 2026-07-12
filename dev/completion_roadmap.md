@@ -82,11 +82,20 @@ pathway: bace_imp -> bace_final_imp -> with_imputations(gls) -> pool_mi(). Compa
 oracle / complete-case / BACE on slope recovery (bias, 95% coverage), marginal-mean
 recovery (the MAR signature), and hidden-cell correlation.
 
-8-rep smoke (n=60): under MAR, complete-case marginal-mean bias = **-0.20** while BACE
-= **+0.00** (MI corrects the MAR selection); under MCAR both ~0. BACE slope tracks the
-oracle (MAR -0.099 vs -0.098). cell correlation 0.64 (MAR) - 0.84 (MCAR).
-- [ ] **Production run** (RECOV_REPS=50+, larger n, production MCMC) for stable coverage
-  estimates -> a manuscript figure. Currently only an 8-rep smoke.
+DONE 2026-07-11 — two production studies, full report in
+`dev/simulation_results/SIMULATION_REPORT.md`:
+- **Study A** (dev/12, 40 reps, gaussian, known b1): BACE slope 95% coverage 0.925 (MAR)
+  / 1.00 (MCAR) = nominal; slope bias equals the oracle's (unbiased vs full data); under
+  MAR complete-case mean bias -0.26 vs BACE +0.005 (MI corrects MAR selection).
+- **Study B** (dev/13, 300 datasets, 5 response types x MCAR/MAR x 30 reps, 0 failures,
+  18.2 min): recovery stable across MCAR/MAR. Ranking ordinal (acc 0.82, ord_mae 0.17) >
+  binary (0.63) > gaussian/poisson (cor ~0.4) > **categorical (bal-acc 0.35-0.39, near
+  chance — FLAGGED)**. Timing 15-18 s/run except categorical ~42 s. Cell-level PI
+  coverage 0.73-0.89 (mild under-coverage at n=80 weak-signal).
+- [ ] **Follow-up: categorical sub-study** — dial multinomial signal strength + n, test
+  ovr on/off, to see if weak multinomial recovery is a DGP artifact or a real limitation
+  before any paper claim.
+- [ ] Optional: larger-n runs for tighter cell-PI coverage.
 
 ---
 

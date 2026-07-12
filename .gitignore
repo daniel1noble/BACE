@@ -32,7 +32,7 @@ docs/
 po/*~
 # RStudio Connect folder
 rsconnect/
-
+simulation_results/
 .lintr
 .DS_Store
 */zzz/
@@ -69,8 +69,17 @@ dev/testing_data/hoarding/
 .claude/worktrees/jovial-hermann/
 .claude/scheduled_tasks.lock
 
-# Simulation outputs (regenerable, potentially very large RDS artefacts)
-dev/simulation_results/
+# Simulation outputs. Large raw bundles (reference datasets, eval RDS,
+# per-run artefacts) stay ignored; the summarised, inspectable report
+# artifacts are tracked via the negations below.
+dev/simulation_results/*
+!dev/simulation_results/README.md
+!dev/simulation_results/SIMULATION_REPORT.md
+!dev/simulation_results/*.csv
+!dev/simulation_results/recovery_simulation.rds
+!dev/simulation_results/response_type_simulation.rds
+!dev/simulation_results/figures/
+!dev/simulation_results/logs/
 dev/benchmark_results/
 
 # Local planning notes — not tracked, not built into the package
