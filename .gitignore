@@ -69,9 +69,12 @@ dev/testing_data/hoarding/
 .claude/worktrees/jovial-hermann/
 .claude/scheduled_tasks.lock
 
-# Simulation outputs. Large raw bundles (reference datasets, eval RDS,
-# per-run artefacts) stay ignored; the summarised, inspectable report
-# artifacts are tracked via the negations below.
+# Simulation outputs. `simulation_results/` above (line ~35) would ignore the
+# whole dev/simulation_results tree; re-include the directory here so the
+# summarised report artifacts + raw per-cell chunks are tracked ("go back"
+# recoverability). Large raw bundles (reference datasets, eval RDS) stay
+# ignored via the `*` child-exclude with no matching negation.
+!dev/simulation_results/
 dev/simulation_results/*
 !dev/simulation_results/README.md
 !dev/simulation_results/SIMULATION_REPORT.md
@@ -80,6 +83,7 @@ dev/simulation_results/*
 !dev/simulation_results/response_type_simulation.rds
 !dev/simulation_results/figures/
 !dev/simulation_results/logs/
+!dev/simulation_results/response_type_chunks/
 dev/benchmark_results/
 
 # Local planning notes — not tracked, not built into the package
