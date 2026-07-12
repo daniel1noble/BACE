@@ -11,6 +11,19 @@ Manuscript `ms/ms.qmd` is a 98-line skeleton whose bib/template assets are missi
 
 ---
 
+## Robustness bugs surfaced by the n=1000 simulation (2026-07-12)
+
+- [ ] **P1 (priority). Poisson imputation emits catastrophic counts.** 3.4% of
+  poisson replicates produce astronomically large imputed counts (max standardised
+  bias 217,838). Cause: `.predict_bace()` poisson branch clips the RATE at 1e6
+  (`rate_k <- pmin(rate_k, 1e6)`) so a large `Liab` draw gives `rpois(1e6)` ≈ a
+  million-count. Fix: clip the imputed COUNT to a data-adaptive ceiling (small
+  multiple of max observed count), not the rate to 1e6. Add a regression test.
+  See `dev/simulation_results/SIMULATION_REPORT.md` §5.
+- [ ] **P2. Continuous/count 95% PI under-coverage** (gaussian cell-PI 0.76 at
+  n=80, high signal). Intervals too narrow → residual-variance posterior too tight
+  in this regime. Follow-up on the R-structure prior / n dependence.
+
 ## Track A — Numerical-correctness hardening  (DONE 2026-07-11)
 
 Cheap, high-value, and exactly the "accuracy + testing" emphasis. Hardened the
