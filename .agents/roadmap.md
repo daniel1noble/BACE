@@ -19,7 +19,7 @@ Manuscript `ms/ms.qmd` is a 98-line skeleton whose bib/template assets are missi
   (`rate_k <- pmin(rate_k, 1e6)`) so a large `Liab` draw gives `rpois(1e6)` ≈ a
   million-count. Fix: clip the imputed COUNT to a data-adaptive ceiling (small
   multiple of max observed count), not the rate to 1e6. Add a regression test.
-  See `dev/simulation_results/SIMULATION_REPORT.md` §5.
+  See `dev/simulation_results/SIMULATION_REPORT.qmd` §5.
 - [ ] **P2. Continuous/count 95% PI under-coverage** (gaussian cell-PI 0.76 at
   n=80, high signal). Intervals too narrow → residual-variance posterior too tight
   in this regime. Follow-up on the R-structure prior / n dependence.
@@ -73,7 +73,7 @@ pipeline before spending compute on it (Track B). Full suite after: 1274 pass /
 
 ## Track D — Rubin's-rules pooling pathway  (D1/D2/D4 DONE 2026-07-11)
 
-Model-agnostic MI layer + free choice of combiner. Plan: `dev/pool_mi_rubin_plan.md`.
+Model-agnostic MI layer + free choice of combiner. Plan: `.agents/plans/pool_mi_rubin.md`.
 
 - [x] **D1. `with_imputations(object, .f, tree=)`** (`R/with_imputations.R`) — fits any
   model (frequentist or MCMCglmm) per imputed dataset; accepts bace_complete /
@@ -96,7 +96,7 @@ oracle / complete-case / BACE on slope recovery (bias, 95% coverage), marginal-m
 recovery (the MAR signature), and hidden-cell correlation.
 
 DONE 2026-07-11 — two production studies, full report in
-`dev/simulation_results/SIMULATION_REPORT.md`:
+`dev/simulation_results/SIMULATION_REPORT.qmd`:
 - **Study A** (dev/12, 40 reps, gaussian, known b1): BACE slope 95% coverage 0.925 (MAR)
   / 1.00 (MCAR) = nominal; slope bias equals the oracle's (unbiased vs full data); under
   MAR complete-case mean bias -0.26 vs BACE +0.005 (MI corrects MAR selection).

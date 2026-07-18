@@ -1,0 +1,9 @@
+"dataset","trait","type","scale","n_hidden","nrmse","mae_fit","mae_raw","correlation","coverage95","accuracy","balanced_accuracy","brier","mae_level"
+"pantheria","body_mass_g","continuous","log",20,1.98288091910376,4.60648321640795,24059.267517061,0.905688087715323,0,NA,NA,NA,NA
+"pantheria","head_body_length_mm","continuous","log",11,3.54722715901585,3.62063117663911,309.030887595322,0.856944909461193,0,NA,NA,NA,NA
+"pantheria","gestation_d","continuous","log",7,2.95139587349899,2.78922605992924,100.491765762165,0.875206330898197,0,NA,NA,NA,NA
+"pantheria","max_longevity_m","continuous","log",5,3.73895782928633,3.52251020244697,235.992189886159,0.570185140225133,0,NA,NA,NA,NA
+"pantheria","litter_size","count","raw",14,1.3453603107587,1.75,1.53571428571429,0.568848131463658,0.285714285714286,NA,NA,NA,NA
+"pantheria","diet_breadth","ordinal","categorical",11,NA,NA,NA,NA,NA,0.545454545454545,0.375,0.636363636363636,0.636363636363636
+"pantheria","habitat_breadth","ordinal","categorical",16,NA,NA,NA,NA,NA,0.8125,0.464285714285714,0.3125,0.1875
+"pantheria","terrestriality","binary","categorical",15,NA,NA,NA,NA,NA,1,1,0,NA

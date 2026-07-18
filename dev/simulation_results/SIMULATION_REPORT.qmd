@@ -1,0 +1,276 @@
+---
+title: "BACE simulation study: does it recover the truth under missing data?"
+date: 2026-07-12
+format:
+  html:
+    embed-resources: true
+    html-math-method: katex
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    theme: cosmo
+    fig-width: 8
+    fig-height: 4.4
+    code-fold: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(ggplot2)
+OUT <- "."   # rendered from dev/simulation_results/
+A <- readRDS(file.path(OUT, "recovery_simulation.rds"))       # Study A
+B <- readRDS(file.path(OUT, "response_type_simulation.rds"))  # Study B
+Ap <- A$per_rep
+Bp <- B$per_rep[B$per_rep$status == "ok", ]
+A_REPS <- A$cfg$reps
+B_REPS <- B$cfg$reps
+
+OK <- c(MCAR = "#56B4E9", MAR = "#D55E00")
+
+# Monte Carlo standard errors
+se_mean <- function(v) { v <- v[is.finite(v)]; sd(v) / sqrt(length(v)) }
+se_prop <- function(v) { v <- v[is.finite(v)]; p <- mean(v); sqrt(p * (1 - p) / length(v)) }
+med_se  <- function(v) { v <- v[is.finite(v)]; 1.2533 * mad(v) / sqrt(length(v)) }
+
+# nominal-coverage Monte Carlo band: a perfectly calibrated method's estimated
+# coverage should fall within 0.95 +/- 1.96*sqrt(.95*.05/n) across n replicates
+cov_band <- function(n) 1.96 * sqrt(0.95 * 0.05 / n)
+
+theme_dw <- theme_minimal(base_size = 12) +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.y = element_blank(),
+        plot.title = element_text(size = 12),
+        legend.position = "top", legend.title = element_blank())
+
+# generic point-range summariser: est +/- 1.96*MCSE by (group, mechanism)
+summ <- function(df, group, col, stat = c("mean","prop","median")) {
+  stat <- match.arg(stat)
+  do.call(rbind, lapply(split(df, list(df[[group]], df$mechanism), drop = TRUE),
+    function(g) {
+      v <- g[[col]]
+      est  <- switch(stat, mean = mean(v[is.finite(v)]),
+                     prop = mean(v[is.finite(v)]), median = median(v[is.finite(v)]))
+      mcse <- switch(stat, mean = se_mean(v), prop = se_prop(v), median = med_se(v))
+      data.frame(group = g[[group]][1], mechanism = g$mechanism[1],
+                 est = est, lo = est - 1.96 * mcse, hi = est + 1.96 * mcse)
+    }))
+}
+dwplot <- function(d, xlab, order, title) {
+  d$group <- factor(d$group, levels = order)
+  ggplot(d, aes(est, group, xmin = lo, xmax = hi, colour = mechanism)) +
+    geom_pointrange(position = position_dodge(width = 0.5), fatten = 3) +
+    scale_colour_manual(values = OK) +
+    labs(x = xlab, y = NULL, title = title) + theme_dw
+}
+```
+
+# Aims
+
+Evaluate whether **BACE recovers the truth** when data are missing: are its
+imputed values and the parameters estimated from them **unbiased**, are its
+uncertainty intervals **calibrated**, and does this hold **across response
+distributions** and **missingness mechanisms**? Simulation lets us compare
+BACE's output to a *known* truth over many independent datasets.
+
+# Questions
+
+1. **Bias** — does BACE recover the true values / parameters on average, or is it
+   systematically off?
+2. **Calibration** — do BACE's 95% intervals contain the truth 95% of the time?
+3. **Distribution** — how does recovery differ across gaussian, count, binary,
+   ordinal and categorical responses?
+4. **Mechanism** — is BACE valid under **MAR**, not just MCAR?
+5. **Cost** — how long does it take per dataset?
+
+# What simulations we did
+
+Two studies, both on `sim_bace()` with production MCMC
+(`nitt` 4–5k, `burnin` 0.8–1k, `thin` 4–5, `n_final` 15–20).
+
+| Study | Response | Mechanisms | Replicates | Purpose |
+|---|---|---|---|---|
+| **A** | gaussian, known slope | MCAR, MAR | **`r A_REPS`** each | parameter recovery: slope bias + CI coverage, vs an oracle and complete-case |
+| **B** | gaussian, poisson, binary, ordinal, categorical | MCAR, MAR | **`r B_REPS`** each | value recovery, bias, and interval calibration for every response type |
+
+Study B is `r length(unique(Bp$type))` types × 2 mechanisms × `r B_REPS` reps =
+**`r format(5*2*B_REPS, big.mark=",")` datasets** (`r nrow(Bp)` completed).
+
+# Measures (what they mean)
+
+For each replicate we hide 30% of the response, impute with BACE, and compare to
+the known truth. We then average each measure over replicates and report its
+**Monte Carlo standard error (MCSE)** — the uncertainty in that average due to
+using a finite number of simulations.
+
+- **Bias** (standardised): $\big(\overline{\hat y} - \overline{y}\big)/\mathrm{SD}(y)$ on the hidden
+  cells — the average prediction error in standard-deviation units. **0 = unbiased.**
+  For categorical (unordered) there is no signed bias, so we report the
+  **total-variation distance** $\tfrac12\sum_k|\hat p_k - p_k|$ between imputed and
+  true class proportions (**0 = perfect**).
+- **Coverage** (calibration): the fraction of hidden cells whose truth falls inside
+  the imputation's **95% interval** (continuous/count: the 2.5–97.5% range of the
+  `n_final` draws) or **95% prediction set** (discrete: the smallest set of classes
+  whose imputation-frequency reaches 0.95). **Correct = 0.95.**
+- **Recovery**: **correlation** between imputed and true values (continuous/count),
+  or **accuracy** and **balanced accuracy** = mean per-class recall (discrete;
+  chance = 1/K).
+- **MCSE**: $\mathrm{SD}(\text{across reps})/\sqrt{n_\text{sim}}$ (for a coverage/proportion,
+  $\sqrt{p(1-p)/n_\text{sim}}$). Plotted as the whisker $\text{estimate}\pm1.96\times\text{MCSE}$.
+- **Runtime**: BACE wall-clock seconds per dataset.
+
+# Simulation model and parameter truths
+
+A phylogeny of $n$ = `r B$cfg$nspp` species is drawn (birth–death). Let
+$C = \mathrm{vcv(tree, corr=TRUE)}$ be the phylogenetic correlation matrix. Two
+fully observed gaussian predictors $x_1, x_2$ and the response share a
+**phylogenetic mixed model**. Each variable has a phylogenetic random effect
+
+$$u \sim \mathcal{N}\!\big(\mathbf 0,\; \sigma^2_{\text{phylo}}\,C\big),\qquad
+\sigma^2_{\text{phylo}} = \frac{\lambda}{1-\lambda}\,\big(\sigma^2_{\text{sp}}+\sigma^2_{\varepsilon}\big),$$
+
+so **$\lambda$ = Pagel's phylogenetic signal** = the fraction of latent variance
+that is phylogenetic. The response linear predictor is
+
+$$\eta_i = \beta_0 + \beta_1 x_{1i} + \beta_2 x_{2i} + u_i,$$
+
+and the observed response follows a type-appropriate family / link:
+
+| Type | Family / link | Draw |
+|---|---|---|
+| gaussian | identity | $y = \eta + \varepsilon,\ \varepsilon\sim\mathcal N(0,\sigma^2_\varepsilon)$ |
+| poisson | log | $y \sim \mathrm{Poisson}(e^{\eta})$ |
+| binary | logit | $y \sim \mathrm{Bernoulli}(\mathrm{logit}^{-1}\eta)$ |
+| ordinal (3) | cumulative threshold | latent $z=\eta+\varepsilon$; $y=k$ if $\tau_{k-1}<z\le\tau_k$ |
+| categorical (3) | multinomial | $K\!-\!1$ latent liabilities; $y=\arg\max$ |
+
+**Parameter truths we set** (Study B): phylogenetic signal
+**$\lambda = `r B$cfg$phylo`$** (high) on all variables; slopes
+**$\beta = (0.9,\,-0.6)$** (poisson tamed to $(0.35,-0.25)$ so $e^{\eta}$ stays
+finite); missingness **30%**. **MCAR**: $\Pr(\text{miss})=0.3$ constant.
+**MAR**: $\Pr(\text{miss}_i)=\mathrm{logit}^{-1}\!\big(a + 2\,z(x_{1i})\big)$ with
+$a$ set so the marginal rate is 0.3 — missingness depends only on the *observed*
+$x_1$. Study A additionally dials a known slope $\beta_1 = 0.8$ and, after
+imputation, fits a phylogenetic GLS per imputation and pools with Rubin's rules.
+
+# Results
+
+## Study A — parameter recovery (gaussian slope, `r A_REPS` reps)
+
+Under **MAR**, complete-case analysis is a biased sample of the response; BACE
+removes that bias and its 95% CI covers the true slope at the nominal rate.
+
+```{r figA, fig.height=3.6}
+mlab <- c(oracle="oracle", complete_case="complete-case", bace="BACE")
+Ap$grp <- mlab[Ap$method]
+cov <- summ(transform(Ap, mechanism=Ap$mechanism), "grp", "covered", "prop")
+mb  <- summ(Ap, "grp", "mean_bias", "mean")
+ord <- c("oracle","complete-case","BACE")
+band <- cov_band(A_REPS)
+p1 <- dwplot(cov, "95% CI coverage of true slope", ord, "Slope coverage") +
+  annotate("rect", xmin=0.95-band, xmax=0.95+band, ymin=-Inf, ymax=Inf,
+           alpha=0.12, fill="grey30") +
+  geom_vline(xintercept=0.95, linetype=2) + xlim(0.7, 1.02)
+p2 <- dwplot(mb, "bias in estimated mean of y", ord, "Marginal-mean bias") +
+  geom_vline(xintercept=0, linetype=2)
+patchwork::wrap_plots(p1, p2, nrow=1) & theme_dw
+```
+
+*Grey band = the range in which a correctly-calibrated method's coverage should
+fall given `r A_REPS` replicates (0.95 ± 1.96·MCSE). Dashed line = the nominal
+benchmark (0.95 for coverage, 0 for bias).*
+
+```{r tabA}
+agg <- do.call(rbind, lapply(split(Ap, list(Ap$grp, Ap$mechanism)), function(g)
+  data.frame(Method=g$grp[1], Mech=g$mechanism[1],
+    `Slope bias`=round(mean(g$slope_est)-0.8,3),
+    `Coverage`=round(mean(g$covered),3),
+    `Mean bias`=round(mean(g$mean_bias),3), check.names=FALSE)))
+knitr::kable(agg[order(agg$Mech, agg$Method),], row.names=FALSE)
+```
+
+## Study B — recovery, bias, calibration by response type (`r B_REPS` reps each)
+
+```{r figB_rec, fig.height=3.8}
+cont <- c("poisson","gaussian"); disc <- c("categorical","binary","ordinal")
+rc <- summ(Bp[Bp$type %in% cont,], "type", "recovery", "mean")
+rd <- summ(Bp[Bp$type %in% disc,], "type", "balanced_accuracy", "mean")
+q1 <- dwplot(rc, "correlation (imputed vs truth)", cont, "Continuous / count: recovery") + xlim(0,1)
+q2 <- dwplot(rd, "balanced accuracy", disc, "Discrete: recovery") +
+  geom_vline(xintercept=1/3, linetype=3, colour="grey50") + xlim(0.25,1)
+patchwork::wrap_plots(q1, q2, nrow=1) & theme_dw
+```
+
+*Dotted line = chance (balanced accuracy 1/3 for 3 classes).*
+
+```{r figB_bias, fig.height=4}
+allt <- c("categorical","ordinal","binary","poisson","gaussian")
+bi <- summ(Bp, "type", "bias", "median")           # robust: poisson has a heavy tail
+cv <- summ(Bp, "type", "cover95", "mean")
+band <- cov_band(B_REPS)
+b1 <- dwplot(bi, "median standardised bias (categorical: TV)", allt, "Bias") +
+  geom_vline(xintercept=0, linetype=2)
+b2 <- dwplot(cv, "95% interval / set coverage", allt, "Interval calibration") +
+  annotate("rect", xmin=0.95-band, xmax=0.95+band, ymin=-Inf, ymax=Inf,
+           alpha=0.12, fill="grey30") +
+  geom_vline(xintercept=0.95, linetype=2) + xlim(0.5,1.0)
+patchwork::wrap_plots(b1, b2, nrow=1) & theme_dw
+```
+
+*Grey band = correct-calibration range (0.95 ± 1.96·MCSE at `r B_REPS` reps).
+Dashed lines = nominal benchmarks (bias 0, coverage 0.95).*
+
+```{r tabB}
+agg <- do.call(rbind, lapply(split(Bp, list(Bp$type, Bp$mechanism)), function(g)
+  data.frame(Type=g$type[1], Mech=g$mechanism[1], n=nrow(g),
+    Recovery=round(mean(g$recovery,na.rm=TRUE),3),
+    `Bal.acc`=round(mean(g$balanced_accuracy,na.rm=TRUE),3),
+    `Median bias`=round(median(g$bias[is.finite(g$bias)]),3),
+    Coverage=round(mean(g$cover95,na.rm=TRUE),3),
+    `Runtime (s)`=round(mean(g$runtime_sec,na.rm=TRUE),1), check.names=FALSE)))
+ord <- c("gaussian","poisson","binary","ordinal","categorical")
+agg <- agg[order(match(agg$Type,ord), agg$Mech),]
+knitr::kable(agg, row.names=FALSE)
+```
+
+**Read-out.** Gaussian, binary and ordinal are **unbiased** (median bias ≈ 0) and
+recover strongly (0.86–0.88). **Binary and ordinal calibration are at/above the
+nominal 0.95**. Recovery is essentially identical under MCAR and MAR — BACE is
+robust to MAR.
+
+## Timing
+
+```{r figT, fig.height=3.2}
+tm <- do.call(rbind, lapply(split(Bp, Bp$type), function(g)
+  data.frame(group=g$type[1], mechanism="MCAR",
+             est=mean(g$runtime_sec), lo=NA, hi=NA)))
+tm$group <- factor(tm$group, levels=c("gaussian","poisson","binary","ordinal","categorical"))
+ggplot(tm, aes(est, group)) +
+  geom_point(colour="#0072B2", size=3) +
+  geom_text(aes(label=sprintf("%.1fs", est)), hjust=-0.3, size=3.4) +
+  labs(x="mean BACE runtime (s per dataset)", y=NULL,
+       title="Timing by response type") + xlim(0, max(tm$est)*1.2) + theme_dw
+```
+
+Categorical (multinomial probit) is the ~2.5× bottleneck. (MCSE is negligible at
+`r B_REPS` reps.)
+
+# Two robustness issues the simulation surfaced
+
+1. **Poisson emits catastrophic counts.** Poisson is unbiased *typically* (median
+   bias ≈ 0) but **`r round(100*mean(abs(Bp$bias[Bp$type=="poisson" & is.finite(Bp$bias)])>5),1)`%** of poisson replicates produce
+   astronomically large imputed counts (max standardised bias
+   `r format(round(max(abs(Bp$bias[Bp$type=="poisson" & is.finite(Bp$bias)]))), big.mark=",")`).
+   Cause: `.predict_bace()` clips the Poisson *rate* at 1e6, so a large latent
+   draw yields `rpois(1e6)` ≈ a million-count. **Fix:** clip the imputed *count*
+   to a data-adaptive ceiling.
+2. **Continuous/count intervals under-cover.** Gaussian 95% PI coverage is
+   `r round(mean(Bp$cover95[Bp$type=="gaussian"]),2)` — the per-cell intervals are
+   too narrow. Discrete set-coverage is well calibrated, so the issue is specific
+   to the continuous predictive-interval width.
+
+*Reproduce:* `Rscript dev/12_recovery_simulation.R`,
+`dev/13_response_type_simulation.R`, then render this file with
+`quarto render dev/simulation_results/SIMULATION_REPORT.qmd`.

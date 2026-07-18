@@ -28,12 +28,10 @@ vignettes/*.pdf
 .Renviron
 # pkgdown site
 docs/
-dev/
 # translation temp files
 po/*~
 # RStudio Connect folder
 rsconnect/
-
 .lintr
 .DS_Store
 */zzz/
@@ -81,3 +79,11 @@ dev/*.html
 dev/*_files/
 *.html
 *_files/
+# but DO track the shared, self-contained simulation report in .agents/
+!.agents/*.html
+
+# Oversized, regenerable benchmark artifacts (exceed GitHub's 100MB limit).
+# The rest of dev/simulation_results/ (report, figures, CSVs, small RDS,
+# reference_datasets) IS tracked and shared.
+dev/simulation_results/demo/
+dev/simulation_results/avonet_regression/

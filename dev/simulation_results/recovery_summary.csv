@@ -1,0 +1,7 @@
+"mechanism","method","n","slope_bias","slope_cov95","slope_ci_width","mean_bias","cell_cor"
+"MAR","bace",40,0.076,0.925,1.594,0.005,0.693
+"MAR","complete_case",40,0.098,0.95,1.688,-0.259,NA
+"MAR","oracle",40,0.071,0.95,1.408,0,NA
+"MCAR","bace",40,0.068,1,1.691,0,0.803
+"MCAR","complete_case",40,0.045,0.975,1.653,-0.002,NA
+"MCAR","oracle",40,0.057,1,1.457,0,NA

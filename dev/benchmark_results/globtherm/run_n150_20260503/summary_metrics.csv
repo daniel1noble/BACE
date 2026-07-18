@@ -1,0 +1,6 @@
+"dataset","trait","type","scale","n_hidden","nrmse","mae_fit","mae_raw","correlation","coverage95","accuracy","balanced_accuracy","brier","mae_level"
+"globtherm","Tmax","continuous","raw",11,0.62503923438872,3.68860631512648,3.31814652236902,0.727813980992502,0.272727272727273,NA,NA,NA,NA
+"globtherm","Tmin","continuous","raw",10,0.901913014005949,8.7482261728304,8.6643263006422,0.58876111761469,0.1,NA,NA,NA,NA
+"globtherm","lat_max","continuous","raw",11,1.19111960305423,34.5207781257923,29.9979774350335,0.22540242063892,0.181818181818182,NA,NA,NA,NA
+"globtherm","long_max","continuous","raw",11,0.986786193912654,77.6022767832809,72.8554106154332,0.62198394396444,0.181818181818182,NA,NA,NA,NA
+"globtherm","elevation_max","continuous","raw",8,0.754499256921944,507.665714457103,457.541840745149,0.40574215134106,0.375,NA,NA,NA,NA

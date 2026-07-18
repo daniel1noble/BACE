@@ -1,0 +1,44 @@
+Response-type sim v2: 5 types x 2 mech x 1000 reps | nspp=80 phylo=0.90 nitt=4000 n_final=15 cores=7
+Started: 2026-07-12 10:26:54 
+[10:48] gaussian    MCAR : 1000/1000 ok, 21.5 min
+[11:12] gaussian    MAR  : 1000/1000 ok, 24.3 min
+[11:40] poisson     MCAR : 1000/1000 ok, 27.8 min
+[12:08] poisson     MAR  : 998/1000 ok, 28.1 min
+[12:38] binary      MCAR : 1000/1000 ok, 29.7 min
+[13:08] binary      MAR  : 1000/1000 ok, 30.4 min
+[13:41] ordinal     MCAR : 1000/1000 ok, 32.3 min
+[14:12] ordinal     MAR  : 999/1000 ok, 31.6 min
+[15:23] categorical MCAR : 1000/1000 ok, 71.2 min
+[16:38] categorical MAR  : 1000/1000 ok, 74.7 min
+
+=== Per-response-type recovery (mean over replicates) ===
+        type mechanism    n runtime_s recovery balanced_accuracy    bias
+    gaussian       MAR 1000      10.2    0.831               NaN   0.003
+    gaussian      MCAR 1000       9.0    0.880               NaN  -0.004
+     poisson       MAR  998      11.7    0.580               NaN 552.022
+     poisson      MCAR 1000      11.6    0.620               NaN   0.457
+      binary       MAR 1000      12.7    0.856             0.783  -0.014
+      binary      MCAR 1000      12.5    0.859             0.829   0.001
+     ordinal       MAR  999      13.2    0.878             0.826   0.001
+     ordinal      MCAR 1000      13.5    0.876             0.841  -0.001
+ categorical       MAR 1000      31.3    0.501             0.428   0.221
+ categorical      MCAR 1000      29.8    0.516             0.456   0.170
+ bias_mcse cover95 cover95_mcse
+    0.0062   0.756       0.0034
+    0.0039   0.784       0.0032
+  267.1890   0.691       0.0049
+    0.1147   0.880       0.0028
+    0.0083   0.944       0.0020
+    0.0061   0.947       0.0017
+    0.0047   0.968       0.0014
+    0.0033   0.968       0.0013
+    0.0039   0.751       0.0042
+    0.0029   0.769       0.0040
+
+9997 ok / 10000 total. Wallclock: 371.8 min.
+Failures:
+
+                              error: argument is of length zero 
+                                                              1 
+error: Mixed model equations singular: use a (stronger) prior\n 
+                                                              2 

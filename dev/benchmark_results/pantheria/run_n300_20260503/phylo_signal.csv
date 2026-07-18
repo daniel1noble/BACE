@@ -1,0 +1,9 @@
+"dataset","trait","type","lambda","K","D"
+"pantheria","body_mass_g","continuous",0.782434328270115,0.118209803259501,NA
+"pantheria","head_body_length_mm","continuous",0.879188322943113,0.276257832432548,NA
+"pantheria","gestation_d","continuous",0.943809992388597,0.512737620250532,NA
+"pantheria","max_longevity_m","continuous",0.896757856902151,0.327485909463272,NA
+"pantheria","litter_size","count",0.670753065857302,0.0423653678848646,NA
+"pantheria","diet_breadth","ordinal",NA,NA,NA
+"pantheria","habitat_breadth","ordinal",NA,NA,NA
+"pantheria","terrestriality","binary",NA,NA,NA

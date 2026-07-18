@@ -1,0 +1,20 @@
+Recovery sim: reps=40 nspp=80 nitt=5000 n_final=20 b1=0.80 cores=2
+
+=== Recovery summary (aggregated across reps) ===
+ mechanism        method  n slope_bias slope_cov95 slope_ci_width mean_bias
+       MAR          bace 40      0.076       0.925          1.594     0.005
+       MAR complete_case 40      0.098       0.950          1.688    -0.259
+       MAR        oracle 40      0.071       0.950          1.408     0.000
+      MCAR          bace 40      0.068       1.000          1.691     0.000
+      MCAR complete_case 40      0.045       0.975          1.653    -0.002
+      MCAR        oracle 40      0.057       1.000          1.457     0.000
+ cell_cor
+    0.693
+      NaN
+      NaN
+    0.803
+      NaN
+      NaN
+
+Targets: slope_bias ~ 0, slope_cov95 ~ 0.95, BACE mean_bias ~ 0.
+Under MAR, complete_case mean_bias should be non-zero; BACE should correct it.

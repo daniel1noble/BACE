@@ -1,0 +1,6 @@
+"dataset","trait","type","lambda","K","D"
+"globtherm","Tmax","continuous",0.716013934968515,0.0571289881174718,NA
+"globtherm","Tmin","continuous",0.881927466480752,0.150569433300476,NA
+"globtherm","lat_max","continuous",0.517033278851046,0.029730610496335,NA
+"globtherm","long_max","continuous",0.283905387276151,0.0140498002402866,NA
+"globtherm","elevation_max","continuous",0.354987091568407,0.0380691252059355,NA

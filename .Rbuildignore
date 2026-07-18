@@ -27,5 +27,7 @@ test_mcmc_demo.R
 ^SETUP_INSTRUCTIONS\.md$
 ^UPDATE_MCMCGLMM_CLASS\.md$
 ^CLAUDE\.md$
+^AGENTS\.md$
 ^\.claude$
+^\.agents$
 ^notes/

@@ -1,0 +1,26 @@
+{
+  "run_tag": "src-853db0ff-dirty_n300_20260419",
+  "date": "2026-04-19T22:06:39",
+  "bace_source": "load_all",
+  "bace_version": "0.0.0.9000",
+  "git_head": "853db0ff9001277dc1c627474e9df14599b06d02",
+  "git_dirty": true,
+  "n_species": 300,
+  "subset_n": 300,
+  "cont_traits": ["Mass", "Wing.Length", "Beak.Length_Culmen", "Tarsus.Length", "Tail.Length", "Range.Size", "Centroid.Latitude", "Centroid.Longitude"],
+  "log_traits": ["Mass", "Wing.Length", "Beak.Length_Culmen", "Tarsus.Length", "Tail.Length", "Range.Size"],
+  "cat_traits": ["Trophic.Level", "Primary.Lifestyle"],
+  "cat_miss_rate": 0.1,
+  "mcmc": {
+    "nitt": 20000,
+    "thin": 15,
+    "burnin": 4000,
+    "runs": 5,
+    "n_final": 10,
+    "max_attempts": 2
+  },
+  "runtime_min": 23.7,
+  "converged": true,
+  "n_attempts": 2,
+  "seed": 2026
+}

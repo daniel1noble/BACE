@@ -1,0 +1,2 @@
+"dataset","n_species","n_traits","runtime_min","converged","n_attempts","nitt","thin","burnin","runs","n_final"
+"globtherm",150,5,0.1,FALSE,1,1500,5,500,2,2
