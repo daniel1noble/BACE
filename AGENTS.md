@@ -78,15 +78,19 @@ see `dev/benchmark_report_2026-04-19.md`).
 | `.agents/` | **shared agent/onboarding knowledge** — start at `.agents/README.md` |
 | `CLAUDE.md` | Claude-Code entry (imports this file) |
 
-## Current state (2026-07-12)
+## Current state (2026-08-08)
 
-- Package healthy: `devtools::test()` = **1300+ pass / 0 fail / 0 warn**. R 4.4.2, MCMCglmm 2.36.
-- **Done this cycle:** Track A numerical-correctness hardening; Track D Rubin's-rules
-  pathway (`with_imputations()` + `pool_mi()`, golden-tested vs `mice::pool`); two
-  simulation studies validating recovery + calibration under MCAR/MAR (n up to 1000/cell).
-- **Open / priority:** see [.agents/roadmap.md](.agents/roadmap.md). Notably a **poisson
-  imputation bug** (log-link extrapolation on MAR-hidden high-leverage cells → catastrophic
-  counts; fix = PMM or latent-scale clipping) and continuous-interval under-coverage.
+- Package healthy: `devtools::test()` = **1337 pass / 0 fail**. R 4.4.2, MCMCglmm 2.36.
+- **Done this cycle:** the 2026-07 Study B performance failures (gaussian coverage
+  0.76, poisson 0.69 + catastrophic counts, categorical near chance) were root-caused
+  and **fixed** — six defects, headlined by `bace_final_imp` fitting on point-imputed
+  data as if observed (improper MI). Full write-up:
+  [.agents/investigation-2026-08.md](.agents/investigation-2026-08.md). Note the
+  categorical "failure" was mostly a degenerate sim DGP (Bayes ceiling ~0.50), and
+  `ovr_categorical` now defaults to FALSE (true multinomial).
+- **Open / priority:** see [.agents/roadmap.md](.agents/roadmap.md). Full Study A/B
+  re-runs with the fixed code + SIMULATION_REPORT before/after update; then Track B
+  (competitor benchmark) and Track C (manuscript).
 - Full simulation write-up: [.agents/simulation-report.html](.agents/simulation-report.html)
   (self-contained) / source `dev/simulation_results/SIMULATION_REPORT.qmd`.
 

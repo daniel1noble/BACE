@@ -13,16 +13,38 @@ Manuscript `ms/ms.qmd` is a 98-line skeleton whose bib/template assets are missi
 
 ## Robustness bugs surfaced by the n=1000 simulation (2026-07-12)
 
-- [ ] **P1 (priority). Poisson imputation emits catastrophic counts.** 3.4% of
-  poisson replicates produce astronomically large imputed counts (max standardised
-  bias 217,838). Cause: `.predict_bace()` poisson branch clips the RATE at 1e6
-  (`rate_k <- pmin(rate_k, 1e6)`) so a large `Liab` draw gives `rpois(1e6)` ≈ a
-  million-count. Fix: clip the imputed COUNT to a data-adaptive ceiling (small
-  multiple of max observed count), not the rate to 1e6. Add a regression test.
-  See `dev/simulation_results/SIMULATION_REPORT.qmd` §5.
-- [ ] **P2. Continuous/count 95% PI under-coverage** (gaussian cell-PI 0.76 at
-  n=80, high signal). Intervals too narrow → residual-variance posterior too tight
-  in this regime. Follow-up on the R-structure prior / n dependence.
+**RESOLVED 2026-08-08** — the 4-agent investigation found the true root causes
+(P1/P2 as stated below were both partially misdiagnosed); all six defects are
+fixed and regression-tested. See
+[investigation-2026-08.md](investigation-2026-08.md). Summary:
+
+- [x] **P1. Poisson catastrophic counts.** Deeper than the rate clip: the point
+  estimate was an UNclipped mean-of-exponentials (`.pred_count`), one chain
+  excursion dominated it, and the (now fixed) improper final phase froze the
+  catastrophic point into every dataset. Fixed via median-based point estimate +
+  data-adaptive rate guard (3·max_obs+5) + NA reinstatement + poisson-specific
+  priors. Rep 587: 1,039,177 → 17.
+- [x] **P2. Continuous 95% PI under-coverage.** NOT a too-tight residual
+  posterior (nu=2 actually *inflates* it). Real causes: (a) `bace_final_imp`
+  fit models on point-imputed data as if observed (improper MI — the dominant
+  bug, hurt every type); (b) the evaluation's n_final=15 quantile interval has
+  a ~0.845 ceiling even for a perfect imputer. Fixed (a) + added
+  ceiling-free `cover95_t` / prob-based set metrics; R prior reverted to
+  Hadfield's nu=0.002.
+- [x] **New: poisson/gaussian type detection** raced marginal AICs and silently
+  imputed strong-signal count variables as gaussian (negative "counts").
+  Now deterministic: non-negative integers → poisson.
+- [x] **Re-validation (2026-08-09)**: full Study A/B re-runs complete (9,997/10,000
+  ok, same seeds). Gaussian t-interval coverage **0.949/0.947** (nominal);
+  quantile coverage at its 0.845 metric ceiling. Poisson recovery 0.58→0.69
+  (MAR), max |std bias| 217,838→**5.3**. Categorical accuracy 0.50→0.81, at
+  ~89% of its Bayes ceiling. Study A MAR slope coverage 0.925→0.950.
+  SIMULATION_REPORT re-rendered with before/after section. Numbers in
+  [project-state.md](project-state.md).
+- [ ] **Minor follow-ups from re-validation**: poisson MAR t-coverage 0.916
+  (log-link extrapolation; consider reporting asymmetric quantile intervals at
+  n_final=50 for the ms run) + mild positive poisson mean bias; 3/10,000 rep
+  failures (2 "argument is of length zero", 1 singular-MME) worth a trace.
 
 ## Track A — Numerical-correctness hardening  (DONE 2026-07-11)
 
@@ -105,9 +127,12 @@ DONE 2026-07-11 — two production studies, full report in
   binary (0.63) > gaussian/poisson (cor ~0.4) > **categorical (bal-acc 0.35-0.39, near
   chance — FLAGGED)**. Timing 15-18 s/run except categorical ~42 s. Cell-level PI
   coverage 0.73-0.89 (mild under-coverage at n=80 weak-signal).
-- [ ] **Follow-up: categorical sub-study** — dial multinomial signal strength + n, test
-  ovr on/off, to see if weak multinomial recovery is a DGP artifact or a real limitation
-  before any paper claim.
+- [x] **Follow-up: categorical sub-study** — RESOLVED by the 2026-08
+  investigation: it was a DGP artifact (degenerate shared-liability multinomial
+  DGP + silently weak random betas; Bayes ceiling ≈ 0.50, so 0.43–0.46 was
+  near-optimal). DGP de-degenerated (`beta_resp_liab`), dev/13 now reports the
+  per-rep Bayes ceiling, AND the OVR default was genuinely miscalibrated —
+  flipped to true multinomial (better calibrated, ~2.6× faster).
 - [ ] Optional: larger-n runs for tighter cell-PI coverage.
 
 ---

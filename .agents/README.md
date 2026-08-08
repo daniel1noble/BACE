@@ -8,6 +8,7 @@ build/test). Then:
 |---|---|
 | [`roadmap.md`](roadmap.md) | Everything remaining to reach a submittable manuscript + release. Tracks A–D, priorities, known bugs. **Start here for "what next".** |
 | [`project-state.md`](project-state.md) | Snapshot of where things stand: what's done, test status, open items. |
+| [`investigation-2026-08.md`](investigation-2026-08.md) | **The 2026-08 performance investigation**: six root causes of the Study B coverage/accuracy failures (improper final-phase MI, finite-draw metric ceiling, poisson point-estimate/clip, mis-scaled priors, degenerate multinomial DGP, AIC-race type detection) and the fixes. |
 | [`pigauto.md`](pigauto.md) | The companion package (Nakagawa): how it works, and how BACE differs. Manuscript positioning. |
 | [`plans/pool_mi_rubin.md`](plans/pool_mi_rubin.md) | Design of the Rubin's-rules pooling pathway (`with_imputations()` + `pool_mi()`). |
 | [`simulation-report.html`](simulation-report.html) | Self-contained simulation study (aims, model + formulas, results with mean±MCSE). Open in a browser. Source: `../dev/simulation_results/SIMULATION_REPORT.qmd`. |
