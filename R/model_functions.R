@@ -263,6 +263,9 @@
 #' @param nu A numeric specifying the nu parameter for the prior.
 #' @param par_expand A logical indicating whether to use parameter expansion.
 #' @param diag An integer specifying the dimension of the variance-covariance matrix.
+#' @param alpha_V Scale of the parameter-expanded working-prior variance on the
+#'   random-effect standard deviation (alpha.V = alpha_V * I). Default 1e4
+#'   (identity-link scales); log-link callers (poisson) pass 1.
 #' @return A list of G priors for the MCMCglmm model.
 
 .list_of_G <- function(n_rand, nu = NULL, par_expand = TRUE, diag = 1,

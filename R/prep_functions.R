@@ -136,15 +136,29 @@
     # Gaussian / Continuous
     if(sum_var$is_numeric == TRUE & sum_var$is_integer == FALSE){type <- "gaussian"}
 
-		# Poisson?
+		# Poisson (counts): non-negative integers. The pre-2026-08 rule raced
+		# intercept-only MARGINAL glm AICs (gaussian vs poisson) and picked
+		# poisson only when it won by >= 2. That is the wrong tool for choosing
+		# the CONDITIONAL imputation family: a count trait with strong
+		# phylogenetic signal is marginally overdispersed (lognormal-Poisson),
+		# so plain-Poisson loses the marginal AIC race precisely when the
+		# signal BACE exploits is strongest — the variable then silently gets
+		# imputed as gaussian on the identity scale (non-integer and even
+		# negative "counts"), and the chosen family flip-flopped between
+		# datasets of the same structure. The conditional model handles the
+		# overdispersion itself (the units variance is an observation-level
+		# random effect on the log link), so integer storage + non-negativity
+		# is the right deterministic rule. Integer columns containing negative
+		# values are treated as integer-coded continuous (gaussian); users with
+		# integer-coded continuous non-negative variables should store them as
+		# doubles.
 		if(sum_var$is_numeric == TRUE & sum_var$is_integer == TRUE){
-			
-			fit_norm <- suppressWarnings(stats::glm(x_complete ~ 1, family = "gaussian"))
-			fit_pois <- suppressWarnings(stats::glm(x_complete ~ 1, family = "poisson"))
-			
-			if((stats::AIC(fit_norm) - stats::AIC(fit_pois) >= 2)){
-				type <- "poisson" } else {type <- "gaussian"}			
-		} 
+			if (all(x_complete >= 0)) {
+				type <- "poisson"
+			} else {
+				type <- "gaussian"
+			}
+		}
     
 		# Multinomial categorical
 		if(sum_var$is_factor == TRUE && sum_var$is_ordered == FALSE && sum_var$n_levels > 2){type <- "categorical"}
