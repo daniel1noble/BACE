@@ -38,6 +38,18 @@
 #'   - A named list where each element is either a single value OR a vector of
 #'     K-1 coefficients for multinomialK predictors (direct specification)
 #'   Example: list(x1 = 0.5, x2 = c(-0.3, 0.2, 0.5), x3 = 0.1) for a multinomial4 x2
+#' @param beta_resp_liab Optional per-liability slopes for a multinomialK
+#'   RESPONSE: a named list (one element per predictor) of length K-1 numeric
+#'   vectors, e.g. list(x1 = c(0.9, -0.4), x2 = c(-0.6, 0.5)) for multinomial3.
+#'   When supplied, liability k uses the k-th element of each predictor's
+#'   vector as its slope instead of the shared beta_resp slope, so the K-1 liabilities carry
+#'   DISTINCT fixed-effect signals (a non-degenerate multinomial DGP: with
+#'   shared slopes the class probabilities are deterministically linked, e.g.
+#'   p(C) = exp(0.5) * p(B) for every observation, and one class can never be
+#'   the Bayes argmax). Only supported with non-factor predictors. Regardless
+#'   of this argument, each liability now receives its OWN independent
+#'   phylogenetic, species and residual draws (sharing them makes the
+#'   difference between two non-baseline liabilities deterministic given x).
 #' @param beta_sparsity Proportion of coefficients in beta_matrix to set to zero (default 0.7)
 #' @param ix_matrix Interaction matrix (lower triangular) defining interactions.
 #'   Rows/columns correspond to predictors (x1, x2, ...) with response (y) as last row.
@@ -116,6 +128,7 @@ sim_bace <- function(
     var_names = NULL,
     beta_matrix = NULL,
     beta_resp = NULL,
+    beta_resp_liab = NULL,
     beta_sparsity = 0.7,
     ix_matrix = NULL,
     beta_ix = NULL,
@@ -585,6 +598,7 @@ sim_bace <- function(
   }
 
   # Generate response based on type
+  response_true_probs <- NULL   # set for multinomial responses only
   if (response_type == "gaussian") {
     response <- linear_pred_resp
   } else if (response_type == "binary") {
@@ -600,10 +614,63 @@ sim_bace <- function(
     n_liab <- n_cats - 1
     liabilities <- matrix(0, nrow = n_cases, ncol = n_liab)
 
+    # Each of the K-1 liabilities gets its OWN independent phylogenetic,
+    # species and residual draws (same variance components as the response).
+    # The pre-2026-08 construction reused one shared linear predictor and one
+    # shared set of random draws for every liability, differing only by fixed
+    # intercept offsets: the class probabilities were then deterministically
+    # linked (p ratios constant across observations) and the difference
+    # between two non-baseline liabilities was deterministic given x — a
+    # degenerate multinomial DGP whose Bayes balanced-accuracy ceiling was
+    # ~0.5 for 3 classes.
+    shared_random <- as.numeric(Z %*% u_species[[1]]) +
+      as.numeric(Z %*% u_phylo[[1]]) + residuals[[1]]
+    fixed_extras <- linear_pred_resp - shared_random   # X*beta (+ slopes/interactions)
+
+    # Optional per-liability slopes (see @param beta_resp_liab).
+    b_liab <- NULL
+    if (!is.null(beta_resp_liab)) {
+      if (any(grepl("^multinomial|^threshold|^binary", predictor_types))) {
+        stop("beta_resp_liab is only supported with non-factor predictors")
+      }
+      if (!is.list(beta_resp_liab) ||
+          !all(predictor_names %in% names(beta_resp_liab)) ||
+          !all(vapply(beta_resp_liab[predictor_names], length, integer(1)) == n_liab)) {
+        stop("beta_resp_liab must be a named list with one length-", n_liab,
+             " numeric vector per predictor (", paste(predictor_names, collapse = ", "), ")")
+      }
+      # n_liab x n_predictors matrix, columns ordered as X_resp's slope columns
+      b_liab <- do.call(cbind, beta_resp_liab[predictor_names])
+    }
+    X_noint <- X_resp[, -1, drop = FALSE]
+
     for (k in 1:n_liab) {
       liab_intercept <- intercepts$response + (k - n_liab / 2) * 0.5
-      liabilities[, k] <- liab_intercept + linear_pred_resp - intercepts$response
+      fixed_k <- if (is.null(b_liab)) {
+        fixed_extras
+      } else {
+        # Swap the shared slope contribution for liability k's own slopes.
+        fixed_extras - as.numeric(X_noint %*% beta_resp_full[-1]) +
+          as.numeric(X_noint %*% b_liab[k, ])
+      }
+      u_sp_k <- sample_random_effects(sigma2_species[1], n_species_actual,
+                                      cor_matrix = NULL)
+      u_ph_k <- if (sigma2_phylo[1] > 0) {
+        sample_random_effects(sigma2_phylo[1], n_species_actual,
+                              cor_matrix = cor_phylo)
+      } else {
+        rep(0, n_species_actual)
+      }
+      e_k <- rnorm(n_cases, mean = 0, sd = sqrt(sigma2_residual[1]))
+      liabilities[, k] <- (liab_intercept - intercepts$response) + fixed_k +
+        as.numeric(Z %*% u_sp_k) + as.numeric(Z %*% u_ph_k) + e_k
     }
+
+    # True class probabilities (softmax with reference class in column 1),
+    # returned so simulation studies can compute the Bayes-classifier ceiling.
+    liab_full <- cbind(0, liabilities)
+    response_true_probs <- exp(liab_full) / rowSums(exp(liab_full))
+    colnames(response_true_probs) <- categories
 
     response <- mnom_liab2cat(liabilities, categories)
   } else if (grepl("^threshold", response_type)) {
@@ -663,6 +730,7 @@ sim_bace <- function(
     beta_matrix = beta_matrix,
     beta_resp = beta_resp_stored,  # Store the expanded/validated list format
     beta_resp_full = beta_resp_full,  # Store full coefficient vector with intercept
+    beta_resp_liab = beta_resp_liab,  # Per-liability slopes (multinomial response)
     ix_matrix = ix_matrix,
     ix_betas = ix_betas,
     parsed_interactions = parsed_interactions,
@@ -763,7 +831,8 @@ sim_bace <- function(
     complete_data = out_data_complete,
     tree = tree,
     params = params,
-    random_effects = random_effects
+    random_effects = random_effects,
+    response_probs = response_true_probs   # true class probs (multinomial only)
   ))
 }
 
