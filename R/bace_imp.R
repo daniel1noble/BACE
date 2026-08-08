@@ -45,8 +45,13 @@
 #'   categorical models proportionally longer chains.
 #' @param ovr_categorical Logical. If TRUE, categorical variables are modelled using
 #'   one-vs-rest binary threshold MCMCglmm models (J models per variable, one per level)
-#'   instead of a single multinomial probit. Binary threshold models mix more reliably
-#'   and are the recommended default. Default is TRUE.
+#'   instead of a single multinomial probit. Default is FALSE: in the common
+#'   one-observation-per-species regime the OVR binary models are prone to
+#'   quasi-separation (the phylogenetic variance escapes upward and the
+#'   normalized probabilities become overconfident and jointly incoherent),
+#'   while the single multinomial probit is both better calibrated and faster
+#'   (it avoids the J-fold refit). Set to TRUE only if a specific multinomial
+#'   model mixes too poorly to use (check effective sample sizes first).
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
 #' @return A list containing imputed datasets and model summaries.
 #' @examples \dontrun{
@@ -110,7 +115,7 @@
 #' )
 #' }
 #' @export
-bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, species = FALSE, verbose = TRUE, nitt_cat_mult = 1L, ovr_categorical = TRUE, ...){
+bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, species = FALSE, verbose = TRUE, nitt_cat_mult = 1L, ovr_categorical = FALSE, ...){
 	#---------------------------------------------#
 	# Preparation steps & Checks
 	#---------------------------------------------#

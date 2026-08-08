@@ -21,13 +21,19 @@
 #'   categorical models proportionally longer chains.
 #' @param ovr_categorical Logical. If TRUE, categorical variables are modelled using
 #'   one-vs-rest binary threshold MCMCglmm models (J models per variable, one per level)
-#'   instead of a single multinomial probit. Binary threshold models mix more reliably
-#'   and are the recommended default. Default is TRUE.
+#'   instead of a single multinomial probit. Default is FALSE: in the common
+#'   one-observation-per-species regime the OVR binary models are prone to
+#'   quasi-separation (overconfident, jointly incoherent normalized
+#'   probabilities), while the single multinomial probit is both better
+#'   calibrated and faster. Set to TRUE only if a specific multinomial model
+#'   mixes too poorly to use.
 #'   (serial). Values > 1 use \code{parallel::mclapply}. The function falls back to serial
 #'   automatically if any parallel worker returns an error.
 #' @param ... Additional arguments passed to modeling functions
 #' @return A list of class 'bace_final' containing:
 #'   - all_models: List of length n_final, each containing models for all variables
+#'   - all_ovr_models: List of length n_final; for variables imputed via the
+#'     one-vs-rest path, the J per-level binary MCMCglmm models (empty otherwise)
 #'   - all_datasets: List of length n_final with imputed datasets
 #'   - formulas: The formulas used
 #'   - types: Variable types
@@ -42,7 +48,7 @@
 bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
                            nitt = 6000, thin = 5, burnin = 1000,
                            n_final = 50, species = FALSE, verbose = TRUE,
-                           n_cores = 1, nitt_cat_mult = 1L, ovr_categorical = TRUE, ...) {
+                           n_cores = 1, nitt_cat_mult = 1L, ovr_categorical = FALSE, ...) {
 
   # Check inputs
   if (!inherits(bace_object, "bace")) {
@@ -103,14 +109,29 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
   .one_final_run <- function(run, data_start, worker_verbose) {
     data_current <- data_start
     models_this_run <- list()
+    ovr_models_this_run <- list()   # per-level binary models for OVR categorical vars
     prob_preds_this_run <- list()   # probability matrices for cat/threshold vars
 
     for (i in seq_along(formulas)) {
 
       response_var <- all.vars(formulas[[i]][[2]])
 
+      # Reinstate NAs on the current response (mirroring bace_imp) so that
+      # MCMCglmm performs data augmentation on the originally missing cells
+      # rather than conditioning on the convergence chain's point estimates
+      # as if they were observed data. Without this the final "posterior-
+      # predictive" draws are anchored to the deterministic fills: the
+      # residual variance is deflated, the BLUPs are anchored, and the
+      # between-imputation variance collapses (improper MI; Rubin 1987 Ch.4).
+      # Predictors keep their most recent imputed values.
+      data_for_model <- data_current
+      resp_na_rows <- miss_dat[miss_dat$colname == response_var, "row"]
+      if (length(resp_na_rows) > 0) {
+        data_for_model[resp_na_rows, response_var] <- NA
+      }
+
       dat_prep <- .data_prep(
-        data = data_current,
+        data = data_for_model,
         formula = formulas[[i]],
         types = types,
         ran_cluster = phylo_ran[["cluster"]]
@@ -161,7 +182,11 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
             dat_prep     = dat_prep,
             sample       = TRUE   # draw from posterior predictive each final run
           )
+          # Keep the per-variable slot NULL so pool_posteriors() (which
+          # expects one MCMCglmm object per variable) skips OVR variables,
+          # but retain the J per-level binary models for diagnostics.
           models_this_run[[response_var]] <- NULL
+          ovr_models_this_run[[response_var]] <- predictions[["models"]]
 
         } else {
           model <- .model_fit(
@@ -220,7 +245,8 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
       }
     }
 
-    list(models = models_this_run, dataset = data_current, prob_preds = prob_preds_this_run)
+    list(models = models_this_run, dataset = data_current,
+         prob_preds = prob_preds_this_run, ovr_models = ovr_models_this_run)
   }
 
   # Run serially or in parallel
@@ -259,12 +285,14 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
   all_models     <- lapply(results_list, `[[`, "models")
   all_datasets   <- lapply(results_list, `[[`, "dataset")
   all_prob_preds <- lapply(results_list, `[[`, "prob_preds")
+  all_ovr_models <- lapply(results_list, `[[`, "ovr_models")
 
   # Prepare output
   out <- list(
     all_models     = all_models,
     all_datasets   = all_datasets,
     all_prob_preds = all_prob_preds,   # prob matrices per run, for pooled prediction
+    all_ovr_models = all_ovr_models,   # per-level binary models per run (OVR path only)
     formulas = formulas,
     types = types,
     phylo_ran = phylo_ran,

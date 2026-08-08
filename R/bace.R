@@ -51,8 +51,13 @@
 #'   categorical models proportionally longer chains.
 #' @param ovr_categorical Logical. If TRUE, categorical variables are modelled using
 #'   one-vs-rest binary threshold MCMCglmm models (J models per variable, one per level)
-#'   instead of a single multinomial probit. Binary threshold models mix more reliably
-#'   and are the recommended default. Default is TRUE.
+#'   instead of a single multinomial probit. Default is FALSE: in the common
+#'   one-observation-per-species regime the OVR binary models are prone to
+#'   quasi-separation (the phylogenetic variance escapes upward and the
+#'   normalized probabilities become overconfident and jointly incoherent),
+#'   while the single multinomial probit is both better calibrated and faster
+#'   (it avoids the J-fold refit). Set to TRUE only if a specific multinomial
+#'   model mixes too poorly to use (check effective sample sizes first).
 #' @param phylo_signal Logical. If TRUE, run \code{\link{phylo_signal_summary}} for every
 #'   variable in the formula instead of performing the full BACE imputation pipeline. The
 #'   function returns the signal-only preview object (class \code{c("phylo_signal",
@@ -109,7 +114,7 @@ bace <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5,
                 burnin = 1000, runs = 10, n_final = 50, species = FALSE,
                 verbose = TRUE, plot = FALSE, max_attempts = 3, skip_conv = FALSE,
                 sample_size = NULL, n_cores = 1L,
-                nitt_cat_mult = 1L, ovr_categorical = TRUE,
+                nitt_cat_mult = 1L, ovr_categorical = FALSE,
                 phylo_signal = FALSE, ...) {
 
 ##-----------------------##

@@ -265,26 +265,34 @@
 #' @param diag An integer specifying the dimension of the variance-covariance matrix.
 #' @return A list of G priors for the MCMCglmm model.
 
-.list_of_G <- function(n_rand, nu = NULL, par_expand = TRUE, diag = 1) {
+.list_of_G <- function(n_rand, nu = NULL, par_expand = TRUE, diag = 1,
+                       alpha_V = 1e4) {
   # par_expand defaults to TRUE so random-effect variances get Gelman's
   # 2006 parameter-expanded prior by default:
-  #   list(V = I, nu = nu, alpha.mu = 0, alpha.V = 1e4 * I)
+  #   list(V = I, nu = nu, alpha.mu = 0, alpha.V = alpha_V * I)
   # This is the weakly-informative prior Hadfield's MCMCglmm course notes
   # (Chapter 8) and Gelman 2006 (Bayesian Analysis 1:515) recommend.
   # The previous default (par_expand = FALSE -> list(V = I, nu = 0.002))
   # is the standard inverse-Wishart that Gelman specifically criticises
   # for being biased toward near-zero variances when data is scarce,
   # which artificially narrows the posterior and collapses coverage.
-  
+  #
+  # alpha_V scales the working-prior variance of the half-t on the
+  # random-effect SD. 1e4 (SD ~100) is appropriate for identity-link
+  # scales; log-link (poisson) callers pass alpha_V = 1, since a log-scale
+  # phylogenetic SD of 100 corresponds to rates spanning ~e^±200 and the
+  # diffuse working prior permits variance excursions that exp() amplifies
+  # into catastrophic counts.
+
   if(is.null(nu)) {nu <- 0.002}
-  
+
   prior_G <- list()
 
   if (par_expand) {
     for (i in 1:n_rand) {
       prior_G[[i]] <- list(
         V = diag(diag), nu = nu,
-        alpha.mu = rep(0, diag), alpha.V = 1e4 * diag(diag)
+        alpha.mu = rep(0, diag), alpha.V = alpha_V * diag(diag)
       )
     }
   } else {
@@ -292,7 +300,7 @@
       prior_G[[i]] <- list(V = diag(diag), nu = nu)
     }
   }
-  
+
   return(prior_G)
 }
 
@@ -337,15 +345,20 @@
     }
 
     prior_G <- .list_of_G(n_rand, nu, par_expand)
-    # R-structure nu = 1 is Hadfield's MCMCglmm-course-notes-recommended
-    # weakly informative value for residual variance. The long-standing
-    # BACE default (nu = 0.002 with V = 1) concentrates prior mass near
-    # zero and, per Gelman 2006 Bayesian Analysis 1:515, can dominate
-    # the likelihood when per-species data is thin - producing posteriors
-    # with wildly underestimated residual variance (we observed a ~12x
-    # underestimate in the simulated benchmark before this change).
+    # R-structure: Hadfield's standard weakly-informative residual prior
+    # (V = 1, nu = 0.002). The 2026-04 excursion to nu = 2 was motivated by
+    # a ~12x residual-variance underestimate in the then-current benchmark,
+    # but the 2026-08 re-analysis showed that underestimate was caused by
+    # the (since fixed) improper final-imputation phase and the K=3
+    # median-of-draws guard, not by the prior. On z-scored data in a
+    # high-phylogenetic-signal regime the true units variance is small
+    # (~0.1); IW(V=1, nu=2) places essentially zero mass there
+    # (P(v < 0.1) ~ 4.5e-5), inflating the residual variance ~3x and
+    # deflating the phylogenetic variance / Pagel's lambda. With the
+    # parameter-expanded G priors (which nu = 0.002 predated), the weak R
+    # prior recovers both components without near-zero collapse.
     prior <- list(
-      R = list(V = 1, nu = 2),
+      R = list(V = 1, nu = 0.002),
       G = prior_G
     )
   }
@@ -354,10 +367,18 @@
     if (is.null(nu)) {
       nu <- 0.02
     }
-    prior_G <- .list_of_G(n_rand, nu, par_expand)
-    # Same rationale as gaussian branch.
+    # Log-link latent scale: the units variance is latent overdispersion,
+    # typically ~0.1-0.5 on the log scale. The gaussian-copied IW(V=1, nu=2)
+    # prior effectively forbade small values (P(v < 0.1) ~ 4.5e-5),
+    # inflating the latent noise that exp() amplifies into the catastrophic
+    # count tail. V = 0.1, nu = 1 centres the prior on a plausible
+    # overdispersion scale while remaining weakly informative. The
+    # parameter-expanded G working prior is likewise tightened to
+    # alpha_V = 1 (half-normal SD 1 on the log scale) — SD ~100 makes no
+    # sense for a log-link phylogenetic effect.
+    prior_G <- .list_of_G(n_rand, nu, par_expand, alpha_V = 1)
     prior <- list(
-      R = list(V = 1, nu = 2),
+      R = list(V = 0.1, nu = 1),
       G = prior_G
     )
   }
@@ -549,8 +570,10 @@
     pred_values <- .impute_levels(prob_mat, level_names, sample = FALSE)
   }
 
+  names(models_list) <- level_names
   list(full_prediction = prob_mat,
-       pred_values     = pred_values)
+       pred_values     = pred_values,
+       models          = models_list)
 }
 
 
@@ -633,6 +656,18 @@
 			     }
 
 				 if(type == "poisson"){
+					# Data-adaptive rate guard. Log-link extrapolation on high-leverage
+					# cells (which MAR preferentially hides) plus rare chain excursions
+					# can produce rates orders of magnitude above the observed support
+					# (e.g. exp(20) with max observed count 2). Cap the RATE at a small
+					# multiple of the maximum observed count rather than a fixed 1e6:
+					# rpois() around the cap still allows counts above it, so genuine
+					# (moderate) extrapolation survives while astronomical imputations
+					# cannot occur.
+					obs_counts <- suppressWarnings(as.numeric(dat_prep[[1]][[response_var]]))
+					obs_counts <- obs_counts[is.finite(obs_counts)]
+					rate_cap   <- if (length(obs_counts) > 0) 3 * max(obs_counts) + 5 else 1e6
+
 					if (sample) {
 					  # Proper posterior predictive for counts: pick one iteration i,
 					  # rate_i = exp(Liab_i), then draw Y_i ~ Poisson(rate_i). Restores
@@ -645,15 +680,17 @@
 					  draws   <- matrix(NA_integer_, nrow = K, ncol = n_obs)
 					  for (k in seq_len(K)) {
 					    rate_k <- exp(as.numeric(liab[i_samps[k], ]))
-					    # Guard against numerical overflow from rare chain excursions.
-					    rate_k <- pmin(rate_k, 1e6)
+					    rate_k <- pmin(rate_k, rate_cap)
 					    draws[k, ] <- rpois(n_obs, lambda = rate_k)
 					  }
 					  pred_values <- apply(draws, 2L, stats::median)
 					} else {
-					  # Predict from model and round to nearest integer to retain count data
-					  pred_prob   <- .pred_count(model)                    # Full prediction
-					  pred_values <- round(pred_prob[, 1], digits = 0)    # Extract posterior mean and round
+					  # Point estimate: median-based rate (exp of the median liability),
+					  # NOT the mean of exp(Liab) — the lognormal mean is dominated by
+					  # single chain excursions and produced catastrophic point
+					  # imputations that the final phase then froze into every dataset.
+					  pred_prob   <- .pred_count(model)                            # Full prediction
+					  pred_values <- round(pmin(pred_prob[, "post_median"], rate_cap), digits = 0)
 					}
 				 }
 
@@ -1462,11 +1499,17 @@
 
   ci <- t(apply(mu, 2, stats::quantile, probs = c(0.025, 0.975), na.rm = TRUE))
 
+  # post_median: exp() of the per-cell median liability (equal to the median
+  # of exp(liab) by monotonicity). The mean of exp(liab) is a mean of
+  # lognormals and is dominated by single chain excursions — one exp(20) draw
+  # out of 800 adds ~1e6 to the mean — so the median is the robust point
+  # estimate for imputation; the mean is retained for posterior summaries.
   out <- data.frame(
-    post_mean = as.numeric(colMeans(mu, na.rm = TRUE)),
-    post_sd   = as.numeric(apply(mu, 2, stats::sd, na.rm = TRUE)),
-    ci_lower  = as.numeric(ci[, 1]),
-    ci_upper  = as.numeric(ci[, 2])
+    post_mean   = as.numeric(colMeans(mu, na.rm = TRUE)),
+    post_median = as.numeric(exp(apply(liab, 2, stats::median, na.rm = TRUE))),
+    post_sd     = as.numeric(apply(mu, 2, stats::sd, na.rm = TRUE)),
+    ci_lower    = as.numeric(ci[, 1]),
+    ci_upper    = as.numeric(ci[, 2])
   )
 
   rownames(out) <- paste0("Obs_", seq_len(nrow(out)))
