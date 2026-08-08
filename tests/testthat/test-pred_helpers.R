@@ -85,7 +85,8 @@ test_that(".pred_count returns posterior summary with expected columns", {
   m <- mock_count_model(n_obs = 10, n_iter = 100)
   out <- BACE:::.pred_count(m)
   expect_s3_class(out, "data.frame")
-  expect_named(out, c("post_mean", "post_sd", "ci_lower", "ci_upper"))
+  expect_named(out, c("post_mean", "post_median", "post_sd",
+                      "ci_lower", "ci_upper"))
   expect_equal(nrow(out), 10L)
 })
 
