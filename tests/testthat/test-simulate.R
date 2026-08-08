@@ -14,7 +14,7 @@ test_that("sim_bace_gaussian returns a list with expected structure", {
   ))
   expect_type(out, "list")
   expect_named(out, c("data", "complete_data", "tree", "params",
-                       "random_effects"))
+                       "random_effects", "response_probs"))
   expect_s3_class(out$tree, "phylo")
   expect_s3_class(out$data, "data.frame")
   expect_equal(nrow(out$data), 60L)
@@ -55,7 +55,7 @@ test_that("sim_bace handles mixed predictor types", {
     n_cases         = 40, n_species = 12
   ))
   expect_named(out, c("data", "complete_data", "tree", "params",
-                       "random_effects"))
+                       "random_effects", "response_probs"))
   # Predictor columns should match their declared types
   for (i in seq_along(out$params$predictor_types)) {
     col <- out$params$var_names[i + 1]

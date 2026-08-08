@@ -92,17 +92,26 @@ test_that(".get_type() correctly identifies continuous variables", {
 })
 
 test_that(".get_type() correctly identifies count variables", {
-  # Create a clearly Poisson-distributed count variable
+  # Non-negative integers are ALWAYS poisson (deterministic rule; the old
+  # marginal-AIC race silently flipped overdispersed counts to gaussian).
   set.seed(123)
   data <- data.frame(
     count = rpois(100, lambda = 5)
   )
-  
+
   summary_df <- .summarise_var_types(data)
   type <- .get_type(summary_df, "count", data)
-  
-  # Should be either poisson or gaussian depending on AIC comparison
-  expect_true(type %in% c("poisson", "gaussian"))
+  expect_identical(type, "poisson")
+
+  # Strongly overdispersed counts (phylo-signal-like marginal) stay poisson.
+  data2 <- data.frame(count = as.integer(rpois(100, exp(rnorm(100, 1, 1.5)))))
+  type2 <- .get_type(.summarise_var_types(data2), "count", data2)
+  expect_identical(type2, "poisson")
+
+  # Integer-coded variables with negative values are gaussian.
+  data3 <- data.frame(count = as.integer(round(rnorm(100, 0, 5))))
+  type3 <- .get_type(.summarise_var_types(data3), "count", data3)
+  expect_identical(type3, "gaussian")
 })
 
 test_that(".get_type() correctly identifies categorical variables", {
