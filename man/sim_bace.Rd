@@ -10,6 +10,7 @@ sim_bace(
   var_names = NULL,
   beta_matrix = NULL,
   beta_resp = NULL,
+  beta_resp_liab = NULL,
   beta_sparsity = 0.7,
   ix_matrix = NULL,
   beta_ix = NULL,
@@ -54,6 +55,19 @@ across levels for multinomial predictors)
 K-1 coefficients for multinomialK predictors (direct specification)
 Example: list(x1 = 0.5, x2 = c(-0.3, 0.2, 0.5), x3 = 0.1) for a multinomial4 x2
 }}
+
+\item{beta_resp_liab}{Optional per-liability slopes for a multinomialK
+RESPONSE: a named list (one element per predictor) of length K-1 numeric
+vectors, e.g. list(x1 = c(0.9, -0.4), x2 = c(-0.6, 0.5)) for multinomial3.
+When supplied, liability k uses the k-th element of each predictor's
+vector as its slope instead of the shared beta_resp slope, so the K-1 liabilities carry
+DISTINCT fixed-effect signals (a non-degenerate multinomial DGP: with
+shared slopes the class probabilities are deterministically linked, e.g.
+p(C) = exp(0.5) * p(B) for every observation, and one class can never be
+the Bayes argmax). Only supported with non-factor predictors. Regardless
+of this argument, each liability now receives its OWN independent
+phylogenetic, species and residual draws (sharing them makes the
+difference between two non-baseline liabilities deterministic given x).}
 
 \item{beta_sparsity}{Proportion of coefficients in beta_matrix to set to zero (default 0.7)}
 

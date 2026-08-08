@@ -4,7 +4,7 @@
 \alias{.list_of_G}
 \title{.list_of_G}
 \usage{
-.list_of_G(n_rand, nu = NULL, par_expand = TRUE, diag = 1)
+.list_of_G(n_rand, nu = NULL, par_expand = TRUE, diag = 1, alpha_V = 10000)
 }
 \arguments{
 \item{n_rand}{An integer specifying the number of random effects in the model.}
@@ -14,6 +14,10 @@
 \item{par_expand}{A logical indicating whether to use parameter expansion.}
 
 \item{diag}{An integer specifying the dimension of the variance-covariance matrix.}
+
+\item{alpha_V}{Scale of the parameter-expanded working-prior variance on the
+random-effect standard deviation (alpha.V = alpha_V * I). Default 1e4
+(identity-link scales); log-link callers (poisson) pass 1.}
 }
 \value{
 A list of G priors for the MCMCglmm model.

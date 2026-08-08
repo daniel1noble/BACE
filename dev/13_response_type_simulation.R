@@ -1,5 +1,28 @@
 # =============================================================================
-# 13_response_type_simulation.R  (v2)
+# 13_response_type_simulation.R  (v3, 2026-08)
+#
+# v3 changes (post bug-fix re-validation):
+#  * Metrics now separate MODEL calibration from FINITE-DRAW artifacts.
+#    The v2 continuous "cover95" (empirical 2.5-97.5% quantiles of n_final
+#    draws) has a hard ceiling of ~0.845 at n_final=15 even for a PERFECTLY
+#    calibrated imputer (order statistics: the [min,max] of m draws covers
+#    (m-1)/(m+1)); the v2 discrete "95% set" degenerates to the full draw
+#    support at 1/15 resolution. v3 keeps both v2 metrics (comparability with
+#    the 2026-07 run) and adds:
+#      cover95_t     (cont): mean +/- t_{m-1,.975} * sd(draws) * sqrt(1+1/m)
+#                    — a Rubin-style interval NOT capped by finite m.
+#      recovery_spearman, recovery_log (cont): rank / log1p-scale recovery,
+#                    since Pearson-on-raw-counts is tail-dominated for poisson.
+#      *_prob (disc): metrics from the models' AVERAGED class-probability
+#                    matrices (fin$all_prob_preds) instead of draw frequencies:
+#                    point = argmax, 95% set = smallest cumulative-prob set.
+#      bayes_bal_acc (categorical): per-rep Bayes-classifier balanced accuracy
+#                    computed from the TRUE simulated class probabilities
+#                    (sim_bace$response_probs) — the DGP ceiling to report
+#                    balanced accuracy against.
+#  * Categorical DGP de-degenerated: explicit strong per-liability betas via
+#    beta_resp_liab (the v2 run silently used runif(-0.5,0.5) shared slopes,
+#    whose Bayes ceiling was ~0.50 balanced accuracy for 3 classes).
 #
 # Comprehensive per-response-type recovery study. For EVERY response type
 # (gaussian, poisson/count, binary, categorical/multinomial, ordinal/threshold)
@@ -75,20 +98,24 @@ post_process <- function(d, type) {
 simulate_one <- function(type, cfg, seed) {
   set.seed(seed)
   # KNOWN predictor effects. Poisson uses a gentler linear predictor so exp()
-  # does not produce runaway counts; multinomial auto-generates K-1 betas.
-  br <- if (TYPES[[type]]$resp == "multinomial3") NULL
-        else if (type == "poisson") list(x1 = 0.35, x2 = -0.25)
+  # does not produce runaway counts. Categorical uses KNOWN strong
+  # per-liability betas (distinct per liability, so the multinomial DGP is
+  # non-degenerate; see sim_bace beta_resp_liab).
+  is_cat <- TYPES[[type]]$resp == "multinomial3"
+  br <- if (type == "poisson") list(x1 = 0.35, x2 = -0.25)
         else list(x1 = 0.9, x2 = -0.6)
+  bl <- if (is_cat) list(x1 = c(0.9, -0.4), x2 = c(-0.6, 0.5)) else NULL
   sim <- suppressMessages(sim_bace(
     response_type   = TYPES[[type]]$resp,
     predictor_types = c("gaussian", "gaussian"),
     var_names       = c("y", "x1", "x2"),
-    beta_resp       = br, beta_sparsity = 0.0,
+    beta_resp       = br, beta_resp_liab = bl, beta_sparsity = 0.0,
     phylo_signal    = rep(cfg$phylo, 3),
     n_cases = cfg$nspp, n_species = cfg$nspp, missingness = c(0, 0, 0)))
   d <- sim$complete_data
   names(d)[names(d) == "species"] <- "Species"
-  list(data = post_process(d, type), tree = sim$tree)
+  list(data = post_process(d, type), tree = sim$tree,
+       true_probs = sim$response_probs)
 }
 apply_missing <- function(d, mechanism, cfg, seed) {
   set.seed(seed); n <- nrow(d)
@@ -114,24 +141,48 @@ apply_missing <- function(d, mechanism, cfg, seed) {
 .sdiv <- function(num, s) if (!is.finite(s) || s == 0) NA_real_ else num / s
 metrics_cont <- function(true_v, imp_mat) {
   point <- rowMeans(imp_mat)
+  m <- ncol(imp_mat)
   lo <- apply(imp_mat, 1, stats::quantile, 0.025, names = FALSE)
   hi <- apply(imp_mat, 1, stats::quantile, 0.975, names = FALSE)
+  # t-interval: not capped by the finite-draw quantile ceiling (m-1)/(m+1)
+  sdd  <- apply(imp_mat, 1, stats::sd)
+  half <- stats::qt(0.975, df = m - 1) * sdd * sqrt(1 + 1 / m)
   list(recovery = suppressWarnings(stats::cor(point, true_v)),
+       recovery_spearman = suppressWarnings(
+         stats::cor(point, true_v, method = "spearman")),
+       recovery_log = suppressWarnings(
+         stats::cor(log1p(pmax(point, 0)), log1p(pmax(true_v, 0)))),
        bias = .sdiv(mean(point - true_v), stats::sd(true_v)),
-       cover95 = mean(true_v >= lo & true_v <= hi))
+       cover95 = mean(true_v >= lo & true_v <= hi),
+       cover95_t = mean(true_v >= point - half & true_v <= point + half))
 }
-metrics_disc <- function(true_v, imp_mat, levs, kind) {
+.greedy_setcov <- function(P, true_v, levs) {
+  mean(vapply(seq_len(nrow(P)), function(i) {
+    o <- order(P[i, ], decreasing = TRUE); k <- which(cumsum(P[i, o]) >= 0.95)[1]
+    true_v[i] %in% levs[o[seq_len(k)]] }, logical(1)))
+}
+.bal_acc <- function(point, true_v, levs) {
+  rec <- vapply(levs, function(l) { i <- true_v == l
+    if (!any(i)) NA_real_ else mean(point[i] == l) }, numeric(1))
+  mean(rec, na.rm = TRUE)
+}
+metrics_disc <- function(true_v, imp_mat, levs, kind, P_model = NULL) {
   P <- t(apply(imp_mat, 1, function(r)
     as.numeric(table(factor(r, levels = levs))) / length(r)))
   colnames(P) <- levs
   point <- levs[max.col(P, ties.method = "first")]
   acc <- mean(point == true_v)
-  rec <- vapply(levs, function(l) { i <- true_v == l
-    if (!any(i)) NA_real_ else mean(point[i] == l) }, numeric(1))
-  bal <- mean(rec, na.rm = TRUE)
-  setcov <- mean(vapply(seq_len(nrow(P)), function(i) {
-    o <- order(P[i, ], decreasing = TRUE); k <- which(cumsum(P[i, o]) >= 0.95)[1]
-    true_v[i] %in% levs[o[seq_len(k)]] }, logical(1)))
+  bal <- .bal_acc(point, true_v, levs)
+  setcov <- .greedy_setcov(P, true_v, levs)
+  # Probability-based variants from the models' averaged class-probability
+  # matrices (not limited by 1/n_final draw-frequency resolution).
+  acc_p <- bal_p <- setcov_p <- NA_real_
+  if (!is.null(P_model)) {
+    point_p  <- levs[max.col(P_model, ties.method = "first")]
+    acc_p    <- mean(point_p == true_v)
+    bal_p    <- .bal_acc(point_p, true_v, levs)
+    setcov_p <- .greedy_setcov(P_model, true_v, levs)
+  }
   if (kind == "categorical") {
     phat <- colMeans(P)
     ptrue <- as.numeric(table(factor(true_v, levels = levs))) / length(true_v)
@@ -145,7 +196,9 @@ metrics_disc <- function(true_v, imp_mat, levs, kind) {
     pnum <- as.numeric(P %*% ranks)
     bias <- .sdiv(mean(pnum) - mean(tnum), stats::sd(tnum))
   }
-  list(recovery = acc, balanced_accuracy = bal, bias = bias, cover95 = setcov)
+  list(recovery = acc, balanced_accuracy = bal, bias = bias, cover95 = setcov,
+       recovery_prob = acc_p, balanced_accuracy_prob = bal_p,
+       cover95_prob = setcov_p)
 }
 
 # ---- one replicate ----------------------------------------------------------
@@ -169,29 +222,68 @@ run_rep <- function(type, mechanism, rep_id, cfg) {
   runtime <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
 
   hidden <- which(miss)
+  na <- NA_real_
   if (TYPES[[type]]$kind == "cont") {
     true_v <- as.numeric(d$y[hidden])
     imp_mat <- vapply(fin$all_datasets, function(z) as.numeric(z$y[hidden]),
                       numeric(length(hidden)))
-    m <- metrics_cont(true_v, imp_mat); bal <- NA_real_
+    m <- metrics_cont(true_v, imp_mat)
+    out <- list(recovery = m$recovery, balanced_accuracy = na,
+      bias = m$bias, cover95 = m$cover95, cover95_t = m$cover95_t,
+      recovery_spearman = m$recovery_spearman, recovery_log = m$recovery_log,
+      recovery_prob = na, balanced_accuracy_prob = na, cover95_prob = na,
+      bayes_bal_acc = na)
   } else {
     levs <- levels(d$y)
     true_v <- as.character(d$y[hidden])
     imp_mat <- vapply(fin$all_datasets, function(z) as.character(z$y[hidden]),
                       character(length(hidden)))
-    m <- metrics_disc(true_v, imp_mat, levs, kind = type)
-    bal <- m$balanced_accuracy
+    # Average class-probability matrix over the n_final runs (rows = hidden
+    # cells in miss_dat row order = ascending, matching which(miss)).
+    P_model <- tryCatch({
+      mats <- lapply(fin$all_prob_preds, function(pp) {
+        pm <- pp[["y"]]
+        if (is.null(pm) || nrow(pm) != length(hidden) ||
+            !all(levs %in% colnames(pm))) return(NULL)
+        as.matrix(pm[, levs, drop = FALSE])
+      })
+      mats <- Filter(Negate(is.null), mats)
+      if (length(mats) == 0) NULL else Reduce(`+`, mats) / length(mats)
+    }, error = function(e) NULL)
+    m <- metrics_disc(true_v, imp_mat, levs, kind = type, P_model = P_model)
+    # DGP ceiling (categorical only): Bayes classifier from the TRUE
+    # simulated class probabilities, scored on the same hidden cells.
+    bayes <- na
+    if (type == "categorical" && !is.null(sim$true_probs)) {
+      tp <- sim$true_probs[hidden, , drop = FALSE]
+      bayes_point <- colnames(tp)[max.col(tp, ties.method = "first")]
+      bayes <- .bal_acc(bayes_point, true_v, levs)
+    }
+    out <- list(recovery = m$recovery, balanced_accuracy = m$balanced_accuracy,
+      bias = m$bias, cover95 = m$cover95, cover95_t = na,
+      recovery_spearman = na, recovery_log = na,
+      recovery_prob = m$recovery_prob,
+      balanced_accuracy_prob = m$balanced_accuracy_prob,
+      cover95_prob = m$cover95_prob, bayes_bal_acc = bayes)
   }
   data.frame(type = type, mechanism = mechanism, rep_id = rep_id, status = "ok",
-    runtime_sec = runtime, recovery = m$recovery, balanced_accuracy = bal,
-    bias = m$bias, cover95 = m$cover95, n_missing = length(hidden),
+    runtime_sec = runtime, recovery = out$recovery,
+    balanced_accuracy = out$balanced_accuracy,
+    bias = out$bias, cover95 = out$cover95, cover95_t = out$cover95_t,
+    recovery_spearman = out$recovery_spearman, recovery_log = out$recovery_log,
+    recovery_prob = out$recovery_prob,
+    balanced_accuracy_prob = out$balanced_accuracy_prob,
+    cover95_prob = out$cover95_prob, bayes_bal_acc = out$bayes_bal_acc,
+    n_missing = length(hidden),
     stringsAsFactors = FALSE, row.names = NULL)
 }
 
 err_row <- function(type, mech, rep_id, msg) data.frame(type = type,
   mechanism = mech, rep_id = rep_id, status = paste("error:", msg),
   runtime_sec = NA, recovery = NA, balanced_accuracy = NA, bias = NA,
-  cover95 = NA, n_missing = NA, stringsAsFactors = FALSE)
+  cover95 = NA, cover95_t = NA, recovery_spearman = NA, recovery_log = NA,
+  recovery_prob = NA, balanced_accuracy_prob = NA, cover95_prob = NA,
+  bayes_bal_acc = NA, n_missing = NA, stringsAsFactors = FALSE)
 
 # ---- main: run each cell, save its chunk, resume if present -----------------
 cat(sprintf("Response-type sim v2: %d types x %d mech x %d reps | nspp=%d phylo=%.2f nitt=%d n_final=%d cores=%d\n",
@@ -222,14 +314,22 @@ utils::write.csv(res, file.path(OUT, "response_type_per_rep.csv"), row.names = F
 
 ok <- res[res$status == "ok", ]
 se <- function(x) stats::sd(x, na.rm = TRUE) / sqrt(sum(is.finite(x)))
+mn <- function(x) round(mean(x, na.rm = TRUE), 3)
 agg <- do.call(rbind, lapply(split(ok, list(ok$type, ok$mechanism), drop = TRUE), function(g)
   data.frame(type = g$type[1], mechanism = g$mechanism[1], n = nrow(g),
     runtime_s = round(mean(g$runtime_sec), 1),
-    recovery = round(mean(g$recovery, na.rm = TRUE), 3),
-    balanced_accuracy = round(mean(g$balanced_accuracy, na.rm = TRUE), 3),
-    bias = round(mean(g$bias, na.rm = TRUE), 3),
+    recovery = mn(g$recovery),
+    recovery_spearman = mn(g$recovery_spearman),
+    recovery_log = mn(g$recovery_log),
+    balanced_accuracy = mn(g$balanced_accuracy),
+    balanced_accuracy_prob = mn(g$balanced_accuracy_prob),
+    bayes_bal_acc = mn(g$bayes_bal_acc),
+    bias = round(median(g$bias[is.finite(g$bias)]), 3),   # robust: poisson tail
+    bias_mean = mn(g$bias),
     bias_mcse = round(se(g$bias), 4),
-    cover95 = round(mean(g$cover95, na.rm = TRUE), 3),
+    cover95 = mn(g$cover95),
+    cover95_t = mn(g$cover95_t),
+    cover95_prob = mn(g$cover95_prob),
     cover95_mcse = round(se(g$cover95), 4), row.names = NULL)))
 agg <- agg[order(match(agg$type, names(TYPES)), agg$mechanism), ]
 utils::write.csv(agg, file.path(OUT, "response_type_summary.csv"), row.names = FALSE)

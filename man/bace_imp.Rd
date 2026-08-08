@@ -16,7 +16,7 @@ bace_imp(
   species = FALSE,
   verbose = TRUE,
   nitt_cat_mult = 1L,
-  ovr_categorical = TRUE,
+  ovr_categorical = FALSE,
   ...
 )
 }
@@ -47,8 +47,13 @@ categorical models proportionally longer chains.}
 
 \item{ovr_categorical}{Logical. If TRUE, categorical variables are modelled using
 one-vs-rest binary threshold MCMCglmm models (J models per variable, one per level)
-instead of a single multinomial probit. Binary threshold models mix more reliably
-and are the recommended default. Default is TRUE.}
+instead of a single multinomial probit. Default is FALSE: in the common
+one-observation-per-species regime the OVR binary models are prone to
+quasi-separation (the phylogenetic variance escapes upward and the
+normalized probabilities become overconfident and jointly incoherent),
+while the single multinomial probit is both better calibrated and faster
+(it avoids the J-fold refit). Set to TRUE only if a specific multinomial
+model mixes too poorly to use (check effective sample sizes first).}
 
 \item{...}{Additional arguments to be passed to the underlying modeling functions.}
 }

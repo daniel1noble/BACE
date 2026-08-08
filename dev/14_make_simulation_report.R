@@ -21,7 +21,12 @@ B <- readRDS(file.path(OUT, "response_type_simulation.rds"))  # Study B (dev/13)
 utils::write.csv(A$per_rep, file.path(OUT, "recovery_per_rep.csv"), row.names = FALSE)
 utils::write.csv(A$summary, file.path(OUT, "recovery_summary.csv"), row.names = FALSE)
 utils::write.csv(B$per_rep, file.path(OUT, "response_type_per_rep.csv"), row.names = FALSE)
-utils::write.csv(B$summary, file.path(OUT, "response_type_summary.csv"), row.names = FALSE)
+# dev/13 writes response_type_summary.csv itself and does not store a $summary
+# element in the RDS; only overwrite it here if one exists (writing NULL used
+# to blank the file).
+if (!is.null(B$summary)) {
+  utils::write.csv(B$summary, file.path(OUT, "response_type_summary.csv"), row.names = FALSE)
+}
 
 A_REPS <- A$cfg$reps      # replicates per scenario, Study A
 B_REPS <- B$cfg$reps      # replicates per scenario, Study B

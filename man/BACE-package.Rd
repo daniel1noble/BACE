@@ -13,6 +13,7 @@ Bayesian Augmentation using Chained Equations (BACE) for imputing missing data i
 
 Authors:
 \itemize{
+  \item Shinichi Nakagawa \email{s.nakagawa@unsw.edu.au}
   \item Szymek Drobniak \email{szymek.drobniak@gmail.com}
   \item Daniel Noble \email{daniel.noble@anu.edu.au}
 }

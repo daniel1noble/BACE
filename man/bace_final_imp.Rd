@@ -17,7 +17,7 @@ bace_final_imp(
   verbose = TRUE,
   n_cores = 1,
   nitt_cat_mult = 1L,
-  ovr_categorical = TRUE,
+  ovr_categorical = FALSE,
   ...
 )
 }
@@ -55,8 +55,12 @@ categorical models proportionally longer chains.}
 
 \item{ovr_categorical}{Logical. If TRUE, categorical variables are modelled using
 one-vs-rest binary threshold MCMCglmm models (J models per variable, one per level)
-instead of a single multinomial probit. Binary threshold models mix more reliably
-and are the recommended default. Default is TRUE.
+instead of a single multinomial probit. Default is FALSE: in the common
+one-observation-per-species regime the OVR binary models are prone to
+quasi-separation (overconfident, jointly incoherent normalized
+probabilities), while the single multinomial probit is both better
+calibrated and faster. Set to TRUE only if a specific multinomial model
+mixes too poorly to use.
 (serial). Values > 1 use \code{parallel::mclapply}. The function falls back to serial
 automatically if any parallel worker returns an error.}
 
@@ -66,6 +70,8 @@ automatically if any parallel worker returns an error.}
 A list of class 'bace_final' containing:
 \itemize{
 \item all_models: List of length n_final, each containing models for all variables
+\item all_ovr_models: List of length n_final; for variables imputed via the
+one-vs-rest path, the J per-level binary MCMCglmm models (empty otherwise)
 \item all_datasets: List of length n_final with imputed datasets
 \item formulas: The formulas used
 \item types: Variable types
