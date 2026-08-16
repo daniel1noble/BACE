@@ -41,10 +41,18 @@ fixed and regression-tested. See
   ~89% of its Bayes ceiling. Study A MAR slope coverage 0.925→0.950.
   SIMULATION_REPORT re-rendered with before/after section. Numbers in
   [project-state.md](project-state.md).
-- [ ] **Minor follow-ups from re-validation**: poisson MAR t-coverage 0.916
-  (log-link extrapolation; consider reporting asymmetric quantile intervals at
-  n_final=50 for the ms run) + mild positive poisson mean bias; 3/10,000 rep
-  failures (2 "argument is of length zero", 1 singular-MME) worth a trace.
+- [ ] **Minor follow-ups from re-validation**: poisson t-coverage decomposed
+  (2026-08-09 MC check): the t-interval assumes a normal predictive, so a
+  PERFECT count imputer scores only ~0.93–0.94 when the predictive is skewed
+  (latent SD 0.6–1.0); observed poisson MCAR 0.932 is therefore AT its metric
+  ceiling, and MAR 0.916 carries only a ~1.5–2.5pp real gap (log-link
+  extrapolation, matching the +0.15 SD mean bias). For the ms run use a
+  skew-respecting interval for counts: per-cell mixture predictive CDF over
+  the per-imputation rate draws, P(Y<=y) = mean_k Ppois(y; lambda_k), exact
+  quantiles from that (count analogue of cover95_prob — no normality
+  assumption, no draw-count ceiling); or asymmetric quantile intervals at
+  n_final=50. Also: mild positive poisson mean bias; 3/10,000 rep failures
+  (2 "argument is of length zero", 1 singular-MME) worth a trace.
 
 ## Track A — Numerical-correctness hardening  (DONE 2026-07-11)
 
