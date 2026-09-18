@@ -154,6 +154,11 @@ DONE 2026-07-11 — two production studies, full report in
 
 ## Already done (context, not TODO)
 
+- **Tutorial/vignette modernised + BACE function-map figure (2026-09-18)** —
+  `vignettes/figs/bace_function_map.{svg,png}`, post-2026-08 API updates
+  (`Species` column, type-detection rules, `ovr_categorical`, `n_final`), new
+  Rubin's-rules section (`with_imputations()` + `pool_mi()`), 8 missing bib
+  entries added. Details in project-state.md.
 - Coverage-calibration investigation + fix (`dev/benchmark_report_2026-04-19.md`).
 - Reference-dataset generation pipeline (`dev/09`) + eval/aggregate scripts (`dev/10`,
   `dev/11`) + sharded GHA workflow. Datasets on disk (180 reps).

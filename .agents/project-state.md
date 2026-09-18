@@ -64,6 +64,33 @@ categorical prediction sets slightly conservative (0.984); 3/10,000 replicate
 failures (2 length-zero-argument errors, 1 singular mixed-model equations) —
 low-priority follow-up.
 
+## Tutorial / vignette modernisation (2026-09-18)
+- **New workflow figure**: `vignettes/figs/bace_function_map.{svg,png}` — a
+  bayesTLS-Figure-S1-style function map (stage chips, solid main pipeline,
+  dashed optional/advanced routes, `bace()` wrapper band with the auto-retry
+  loop, and the `with_imputations()` → `pool_mi()` Rubin branch). Edit the SVG,
+  regenerate the PNG with `rsvg::rsvg_png(svg, png, width = 4200)`.
+- **`vignettes/bace.qmd` updated for the post-2026-08 API**: `sim_bace()` now
+  returns the species column as **`Species`** (capital S) — every chunk's
+  `ran_phylo_form`/`species_col` was updated (the old lowercase forms all
+  errored); deterministic type-detection table added to the types callout
+  (integer ≥ 0 → poisson; store integer-coded continuous as doubles);
+  `ovr_categorical = FALSE` default documented; `n_final = 50` default
+  documented (executed examples pin `n_final = 10` for build speed, with a
+  note); new top-level section *Downstream analysis with Rubin's rules*
+  (`with_imputations()` + `pool_mi()`, smoke-tested end-to-end with a poisson
+  GLM); the `species = TRUE` no-replicates error demo now actually errors
+  (`error: true` chunk); outcome-dependent convergence prose made robust.
+- **`bib/BACE.bib`**: added 8 entries the vignette cited but the bib lacked
+  (pagel1999, blomberg2003, fritz2010, zhou2010, gelman2013, rubin1987,
+  barnard1999, vanbuuren2018). All keys verified to resolve via a dummy render.
+- **Local build gotcha**: `/usr/local/bin/pandoc` on this machine is a broken
+  x86 binary ("Bad CPU type"); render the vignette with quarto's bundled ARM
+  pandoc: `export RSTUDIO_PANDOC=/Applications/quarto/bin/tools/aarch64` (and/or
+  prepend that dir to PATH) before `quarto render vignettes/bace.qmd`. The
+  rendered self-contained `vignettes/index.html` is copied to the repo root
+  `index.html` (the GitHub-Pages tutorial).
+
 ## Open / priority (details in roadmap.md)
 - **Track B** — production reference benchmark + competitor arm
   (missForest / Rphylopars). **Track C** — manuscript (restore missing bib
