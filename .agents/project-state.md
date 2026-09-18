@@ -84,12 +84,25 @@ low-priority follow-up.
 - **`bib/BACE.bib`**: added 8 entries the vignette cited but the bib lacked
   (pagel1999, blomberg2003, fritz2010, zhou2010, gelman2013, rubin1987,
   barnard1999, vanbuuren2018). All keys verified to resolve via a dummy render.
+- **Rendered and published (2026-09-18)**: full render completed against the
+  current package (all executed chunks ok, figure + Rubin section + error demo
+  verified in the output); `vignettes/index.html` copied to root `index.html`
+  and pushed (commit 7502548).
+- **CI incident + fix (2026-09-18)**: the tutorial commits initially broke
+  `R-CMD-check` — new files under `vignettes/` (figs/, an accidentally
+  committed `bace.rmarkdown` Quarto intermediate) leaked into the package
+  tarball because `.Rbuildignore` only excluded `vignettes/*.qmd`, triggering
+  the fatal-under-`error-on: warning` "no VignetteBuilder" WARNING. Fixed
+  (commit 4aec764): `.Rbuildignore` now has `^vignettes$` (tutorial is a
+  Pages site, not a package vignette), the intermediate is untracked, and
+  `vignettes/.gitignore` ignores `*.rmarkdown` / `/index.html` /
+  `index_files/`. Verified by tarball inspection; CI green again.
 - **Local build gotcha**: `/usr/local/bin/pandoc` on this machine is a broken
   x86 binary ("Bad CPU type"); render the vignette with quarto's bundled ARM
   pandoc: `export RSTUDIO_PANDOC=/Applications/quarto/bin/tools/aarch64` (and/or
   prepend that dir to PATH) before `quarto render vignettes/bace.qmd`. The
   rendered self-contained `vignettes/index.html` is copied to the repo root
-  `index.html` (the GitHub-Pages tutorial).
+  `index.html` (the GitHub-Pages tutorial). A full render takes ~1.5 h of MCMC.
 
 ## Open / priority (details in roadmap.md)
 - **Track B** — production reference benchmark + competitor arm
