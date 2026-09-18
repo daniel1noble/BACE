@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="2800" height="1200" viewBox="0 0 2800 1200" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2f3b4c"/>
+    </marker>
+    <marker id="arrowGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7a8490"/>
+    </marker>
+    <marker id="arrowAmber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#a16207"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="2800" height="1200" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="80" y="78" font-size="40" font-weight="700" fill="#1f2937">BACE function map</text>
+  <text x="80" y="118" font-size="19" fill="#6b7280">Core user-facing workflow. bace() runs the four shaded steps end-to-end; each can also be called directly for finer control.</text>
+
+  <!-- Stage chips -->
+  <g font-size="20" font-weight="700" text-anchor="middle">
+    <rect x="135" y="180" width="120" height="44" rx="4" fill="#d6e8d5"/>
+    <text x="195" y="209" fill="#3a5a40">DATA</text>
+    <rect x="510" y="180" width="300" height="44" rx="4" fill="#dae8fc"/>
+    <text x="660" y="209" fill="#2b4c7e">CHAINED IMPUTATION</text>
+    <rect x="1020" y="180" width="300" height="44" rx="4" fill="#ffe9c9"/>
+    <text x="1170" y="209" fill="#8a5a10">CONVERGENCE CHECK</text>
+    <rect x="1540" y="180" width="280" height="44" rx="4" fill="#d0e0e3"/>
+    <text x="1680" y="209" fill="#2f5d62">FINAL IMPUTATIONS</text>
+    <rect x="2130" y="180" width="120" height="44" rx="4" fill="#e1d5e7"/>
+    <text x="2190" y="209" fill="#5b3e6b">POOL</text>
+    <rect x="2495" y="180" width="250" height="44" rx="4" fill="#f8cecc"/>
+    <text x="2620" y="209" fill="#8c3b36">ANALYSE / ACCESS</text>
+  </g>
+
+  <!-- Pre-flight helper (dashed) -->
+  <g>
+    <rect x="480" y="250" width="360" height="130" rx="8" fill="#f4f5f7" stroke="#9aa3ad" stroke-width="1.5" stroke-dasharray="7 5"/>
+    <text x="660" y="288" font-size="19" font-weight="700" fill="#374151" text-anchor="middle">pre-flight signal check</text>
+    <text x="660" y="320" font-size="16" fill="#6b7280" text-anchor="middle">phylo_signal_summary()</text>
+    <text x="660" y="346" font-size="16" fill="#6b7280" text-anchor="middle">or bace(phylo_signal = TRUE)</text>
+    <line x1="660" y1="380" x2="660" y2="424" stroke="#7a8490" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrowGray)"/>
+  </g>
+
+  <!-- bace() wrapper band -->
+  <rect x="450" y="400" width="1955" height="360" rx="16" fill="#f8fafc" stroke="#aeb8c2" stroke-width="1.5"/>
+  <text x="475" y="740" font-size="18" fill="#5b6470" font-style="italic">bace() — runs Steps 1–4 in one call; auto-retries Steps 1–2 on non-convergence (up to max_attempts, 1.5&#215; more runs each retry)</text>
+
+  <!-- Raw data box -->
+  <g>
+    <rect x="70" y="445" width="250" height="160" rx="6" fill="#ffffff" stroke="#9aa3ad" stroke-width="1.5"/>
+    <text x="195" y="503" font-size="22" font-weight="700" fill="#1f2937" text-anchor="middle">raw data + tree</text>
+    <text x="195" y="537" font-size="16" fill="#6b7280" text-anchor="middle">comparative data with NAs;</text>
+    <text x="195" y="561" font-size="16" fill="#6b7280" text-anchor="middle">phylogeny covering the taxa</text>
+  </g>
+
+  <!-- Step 1: bace_imp() -->
+  <g>
+    <rect x="480" y="430" width="360" height="190" rx="6" fill="#dae8fc" stroke="#2f3b4c" stroke-width="2"/>
+    <text x="660" y="478" font-size="26" font-weight="700" fill="#1f2937" text-anchor="middle">bace_imp()</text>
+    <text x="660" y="514" font-size="16" fill="#4b5563" text-anchor="middle">Step 1 — chained equations: one</text>
+    <text x="660" y="538" font-size="16" fill="#4b5563" text-anchor="middle">phylogenetic MCMCglmm per variable;</text>
+    <text x="660" y="562" font-size="16" fill="#4b5563" text-anchor="middle">deterministic point imputations</text>
+    <text x="660" y="586" font-size="16" fill="#4b5563" text-anchor="middle">let the chain settle</text>
+  </g>
+
+  <!-- Step 2: assess_convergence() -->
+  <g>
+    <rect x="990" y="430" width="360" height="190" rx="6" fill="#ffe9c9" stroke="#2f3b4c" stroke-width="2"/>
+    <text x="1170" y="478" font-size="26" font-weight="700" fill="#1f2937" text-anchor="middle">assess_convergence()</text>
+    <text x="1170" y="514" font-size="16" fill="#4b5563" text-anchor="middle">Step 2 — has the sequence of</text>
+    <text x="1170" y="538" font-size="16" fill="#4b5563" text-anchor="middle">imputed datasets stabilised</text>
+    <text x="1170" y="562" font-size="16" fill="#4b5563" text-anchor="middle">across chained iterations?</text>
+    <text x="1170" y="586" font-size="16" fill="#4b5563" text-anchor="middle">(%-change + trend + ACF)</text>
+  </g>
+
+  <!-- Step 3: bace_final_imp() -->
+  <g>
+    <rect x="1500" y="430" width="360" height="190" rx="6" fill="#d0e0e3" stroke="#2f3b4c" stroke-width="2"/>
+    <text x="1680" y="478" font-size="26" font-weight="700" fill="#1f2937" text-anchor="middle">bace_final_imp()</text>
+    <text x="1680" y="514" font-size="16" fill="#4b5563" text-anchor="middle">Step 3 — n_final independent</text>
+    <text x="1680" y="538" font-size="16" fill="#4b5563" text-anchor="middle">posterior-predictive imputations</text>
+    <text x="1680" y="562" font-size="16" fill="#4b5563" text-anchor="middle">(proper multiple imputation;</text>
+    <text x="1680" y="586" font-size="16" fill="#4b5563" text-anchor="middle">parallel via n_cores)</text>
+  </g>
+
+  <!-- Step 4: pool_posteriors() -->
+  <g>
+    <rect x="2010" y="430" width="360" height="190" rx="6" fill="#e1d5e7" stroke="#2f3b4c" stroke-width="2"/>
+    <text x="2190" y="478" font-size="26" font-weight="700" fill="#1f2937" text-anchor="middle">pool_posteriors()</text>
+    <text x="2190" y="514" font-size="16" fill="#4b5563" text-anchor="middle">Step 4 — stack the per-imputation</text>
+    <text x="2190" y="538" font-size="16" fill="#4b5563" text-anchor="middle">MCMC chains into the marginal</text>
+    <text x="2190" y="562" font-size="16" fill="#4b5563" text-anchor="middle">posterior (Bayesian MI combiner;</text>
+    <text x="2190" y="586" font-size="16" fill="#4b5563" text-anchor="middle">not Rubin&#8217;s rules)</text>
+  </g>
+
+  <!-- Accessor: get_pooled_model() -->
+  <g>
+    <rect x="2480" y="430" width="280" height="190" rx="6" fill="#f8cecc" stroke="#2f3b4c" stroke-width="2"/>
+    <text x="2620" y="486" font-size="23" font-weight="700" fill="#1f2937" text-anchor="middle">get_pooled_model()</text>
+    <text x="2620" y="522" font-size="16" fill="#4b5563" text-anchor="middle">pooled MCMCglmm-style</text>
+    <text x="2620" y="546" font-size="16" fill="#4b5563" text-anchor="middle">object per variable:</text>
+    <text x="2620" y="570" font-size="16" fill="#4b5563" text-anchor="middle">summary(), plot(), $Sol</text>
+  </g>
+
+  <!-- Accessor: get_imputed_data() -->
+  <g>
+    <rect x="2480" y="665" width="280" height="150" rx="6" fill="#f8cecc" stroke="#2f3b4c" stroke-width="2"/>
+    <text x="2620" y="714" font-size="23" font-weight="700" fill="#1f2937" text-anchor="middle">get_imputed_data()</text>
+    <text x="2620" y="750" font-size="16" fill="#4b5563" text-anchor="middle">the M completed datasets</text>
+    <text x="2620" y="774" font-size="16" fill="#4b5563" text-anchor="middle">as a list or stacked data.frame</text>
+  </g>
+
+  <!-- Main workflow arrows -->
+  <g stroke="#2f3b4c" stroke-width="2.5" fill="none">
+    <line x1="320" y1="525" x2="472" y2="525" marker-end="url(#arrow)"/>
+    <line x1="840" y1="525" x2="982" y2="525" marker-end="url(#arrow)"/>
+    <line x1="1350" y1="525" x2="1492" y2="525" marker-end="url(#arrow)"/>
+    <line x1="1860" y1="525" x2="2002" y2="525" marker-end="url(#arrow)"/>
+    <line x1="2370" y1="525" x2="2472" y2="525" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- Retry loop (dashed amber) -->
+  <path d="M 1090 620 L 1090 672 L 740 672 L 740 628" stroke="#a16207" stroke-width="2" fill="none" stroke-dasharray="7 5" marker-end="url(#arrowAmber)"/>
+  <text x="915" y="695" font-size="15" fill="#a16207" text-anchor="middle">not converged &#8594; re-run the chain with more runs</text>
+
+  <!-- Elbow: final imputations -> get_imputed_data -->
+  <path d="M 1770 620 L 1770 740 L 2472 740" stroke="#2f3b4c" stroke-width="2.5" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Rubin's-rules pathway -->
+  <text x="2175" y="838" font-size="16" fill="#6b7280" text-anchor="middle" font-style="italic">fit your own analysis model per imputation, then pool with Rubin&#8217;s rules</text>
+  <path d="M 1650 620 L 1650 950 L 1732 950" stroke="#2f3b4c" stroke-width="2.5" fill="none" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="1740" y="860" width="360" height="180" rx="6" fill="#e1d5e7" stroke="#2f3b4c" stroke-width="2"/>
+    <text x="1920" y="908" font-size="26" font-weight="700" fill="#1f2937" text-anchor="middle">with_imputations()</text>
+    <text x="1920" y="944" font-size="16" fill="#4b5563" text-anchor="middle">fit any model to each imputed</text>
+    <text x="1920" y="968" font-size="16" fill="#4b5563" text-anchor="middle">dataset — lm, gls, phylolm,</text>
+    <text x="1920" y="992" font-size="16" fill="#4b5563" text-anchor="middle">MCMCglmm, &#8230;; tree = passes</text>
+    <text x="1920" y="1016" font-size="16" fill="#4b5563" text-anchor="middle">the phylogeny to every fit</text>
+  </g>
+  <line x1="2100" y1="950" x2="2242" y2="950" stroke="#2f3b4c" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="2250" y="860" width="360" height="180" rx="6" fill="#e1d5e7" stroke="#2f3b4c" stroke-width="2"/>
+    <text x="2430" y="908" font-size="26" font-weight="700" fill="#1f2937" text-anchor="middle">pool_mi()</text>
+    <text x="2430" y="944" font-size="16" fill="#4b5563" text-anchor="middle">Rubin&#8217;s rules: pooled estimate,</text>
+    <text x="2430" y="968" font-size="16" fill="#4b5563" text-anchor="middle">SE, Barnard&#8211;Rubin df, fmi, riv</text>
+    <text x="2430" y="992" font-size="16" fill="#4b5563" text-anchor="middle">(matches mice::pool)</text>
+  </g>
+
+  <!-- Helper: simulate benchmark data (dashed) -->
+  <g>
+    <rect x="70" y="700" width="250" height="140" rx="8" fill="#f4f5f7" stroke="#9aa3ad" stroke-width="1.5" stroke-dasharray="7 5"/>
+    <text x="195" y="742" font-size="19" font-weight="700" fill="#374151" text-anchor="middle">simulate test data</text>
+    <text x="195" y="774" font-size="16" fill="#6b7280" text-anchor="middle">sim_bace(), sim_tree()</text>
+    <text x="195" y="798" font-size="16" fill="#6b7280" text-anchor="middle">known truth for benchmarking</text>
+    <line x1="195" y1="700" x2="195" y2="613" stroke="#7a8490" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrowGray)"/>
+  </g>
+
+  <!-- Helper: MCMC control + diagnostics (dashed) -->
+  <g>
+    <rect x="480" y="860" width="360" height="180" rx="8" fill="#f4f5f7" stroke="#9aa3ad" stroke-width="1.5" stroke-dasharray="7 5"/>
+    <text x="660" y="900" font-size="19" font-weight="700" fill="#374151" text-anchor="middle">MCMC control &amp; diagnostics</text>
+    <text x="660" y="932" font-size="16" fill="#6b7280" text-anchor="middle">nitt / thin / burnin (per-model lists);</text>
+    <text x="660" y="956" font-size="16" fill="#6b7280" text-anchor="middle">species = TRUE dual random effects;</text>
+    <text x="660" y="980" font-size="16" fill="#6b7280" text-anchor="middle">summary(), plot(), coda:: on</text>
+    <text x="660" y="1004" font-size="16" fill="#6b7280" text-anchor="middle">$models_last_run</text>
+    <line x1="560" y1="860" x2="560" y2="628" stroke="#7a8490" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrowGray)"/>
+  </g>
+
+  <!-- Helper: convergence visualisations (dashed) -->
+  <g>
+    <rect x="990" y="860" width="360" height="180" rx="8" fill="#f4f5f7" stroke="#9aa3ad" stroke-width="1.5" stroke-dasharray="7 5"/>
+    <text x="1170" y="900" font-size="19" font-weight="700" fill="#374151" text-anchor="middle">convergence visualisations</text>
+    <text x="1170" y="932" font-size="16" fill="#6b7280" text-anchor="middle">plot(&lt;bace_convergence&gt;);</text>
+    <text x="1170" y="956" font-size="16" fill="#6b7280" text-anchor="middle">plot_trace / _density / _acf /</text>
+    <text x="1170" y="980" font-size="16" fill="#6b7280" text-anchor="middle">_pct_change / _wasserstein /</text>
+    <text x="1170" y="1004" font-size="16" fill="#6b7280" text-anchor="middle">_energy_convergence()</text>
+    <line x1="1250" y1="860" x2="1250" y2="628" stroke="#7a8490" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrowGray)"/>
+  </g>
+
+  <!-- Bottom annotations -->
+  <text x="80" y="1120" font-size="17" fill="#5b6470">Two phases, two kinds of draws: bace_imp() imputes with deterministic point predictions (sample = FALSE) so the chained loop can settle;</text>
+  <text x="80" y="1148" font-size="17" fill="#5b6470">bace_final_imp() draws from the posterior predictive (sample = TRUE) so the M imputations carry missing-data uncertainty.</text>
+  <text x="2720" y="1148" font-size="17" fill="#6b7280" text-anchor="end">Solid arrows = main workflow&#160;&#160;&#160;&#160;Dashed = optional / advanced</text>
+</svg>
