@@ -11,7 +11,7 @@ dev/
 ms/
 .vscode/
 ^\.Rhistory$
-^vignettes/.*\.qmd$
+^vignettes$
 ^index.html
 testing.R
 ^SPECIES_EFFECTS_IMPLEMENTATION\.md$
