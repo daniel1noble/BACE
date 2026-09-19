@@ -15,6 +15,11 @@ plot_bace_imputation_comparison(bace_object, variable, n_iter = NULL, ...)
 
 \item{...}{Additional plotting arguments}
 }
+\value{
+Called for its side effect of drawing the plot. Invisibly returns the
+underlying graphics call's value: a \code{\link[graphics]{boxplot}} statistics
+list (gaussian/poisson) or \code{\link[graphics]{barplot}} bar midpoints (categorical).
+}
 \description{
 Compare imputed values across iterations
 }

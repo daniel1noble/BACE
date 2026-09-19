@@ -11,6 +11,11 @@
 
 \item{...}{Additional arguments passed to MCMCglmm print method}
 }
+\value{
+Invisibly returns the model object \code{x} (with class set to
+\code{MCMCglmm} for method dispatch), called for its side effect of printing
+a pooling header followed by the standard \code{MCMCglmm} print output.
+}
 \description{
 Print method for individual pooled MCMCglmm model objects
 }

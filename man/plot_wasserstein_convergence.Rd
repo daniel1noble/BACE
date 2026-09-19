@@ -13,6 +13,10 @@ plot_wasserstein_convergence(conv_object, variables = NULL, ...)
 
 \item{...}{Additional plotting arguments}
 }
+\value{
+Invisibly returns \code{NULL}; called for its side effect of drawing
+Wasserstein-distance panels (one per variable) on the current graphics device.
+}
 \description{
 Plot Wasserstein distance evolution for each variable
 }

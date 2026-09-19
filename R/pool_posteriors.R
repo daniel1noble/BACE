@@ -311,6 +311,8 @@ pool_posteriors <- function(bace_final_object, variable = NULL, sample_size = NU
 #' @description Print method for bace_pooled objects
 #' @param x Object of class bace_pooled
 #' @param ... Additional arguments
+#' @return Invisibly returns \code{x} (the \code{bace_pooled} object), called for
+#'   its side effect of printing a summary of the pooled models to the console.
 #' @export
 print.bace_pooled <- function(x, ...) {
   cat("\n=== BACE Pooled Posterior Results ===\n\n")
@@ -355,6 +357,9 @@ print.bace_pooled <- function(x, ...) {
 #' @description Print method for individual pooled MCMCglmm model objects
 #' @param x Object of class bace_pooled_MCMCglmm
 #' @param ... Additional arguments passed to MCMCglmm print method
+#' @return Invisibly returns the model object \code{x} (with class set to
+#'   \code{MCMCglmm} for method dispatch), called for its side effect of printing
+#'   a pooling header followed by the standard \code{MCMCglmm} print output.
 #' @export
 print.bace_pooled_MCMCglmm <- function(x, ...) {
   # Add header indicating this is a pooled model
@@ -390,6 +395,9 @@ print.bace_pooled_MCMCglmm <- function(x, ...) {
 #' @description Summary method for individual pooled MCMCglmm model objects
 #' @param object Object of class bace_pooled_MCMCglmm
 #' @param ... Additional arguments passed to MCMCglmm summary method
+#' @return Called for its side effect: prints a pooling header followed by the
+#'   \code{summary.MCMCglmm} output for the stacked draws. Returns \code{NULL}
+#'   invisibly (the summary object is printed, not returned).
 #' @export
 summary.bace_pooled_MCMCglmm <- function(object, ...) {
   # Add header indicating this is a pooled model

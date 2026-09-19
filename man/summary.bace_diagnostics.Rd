@@ -11,6 +11,10 @@
 
 \item{...}{Additional arguments (not used)}
 }
+\value{
+The input \code{bace_diagnostics} object \code{object}, invisibly.
+Called for its side effect of printing per-variable diagnostic tables to the console.
+}
 \description{
 Detailed summary method for MCMC diagnostics
 }

@@ -11,6 +11,11 @@
 
 \item{...}{Additional arguments}
 }
+\value{
+No return value (invisibly returns \code{NULL}); called for its
+side effect of printing a summary of the \code{bace_final} object to the
+console.
+}
 \description{
 Print method for bace_final objects
 }

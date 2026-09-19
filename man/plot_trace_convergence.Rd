@@ -13,6 +13,10 @@ plot_trace_convergence(conv_object, variables = NULL, ...)
 
 \item{...}{Additional plotting arguments}
 }
+\value{
+Invisibly returns \code{NULL}; called for its side effect of drawing
+base-graphics trace plots (one panel per variable) on the current device.
+}
 \description{
 Plot trace plots of summary statistics across iterations
 }

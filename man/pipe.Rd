@@ -3,6 +3,9 @@
 \name{\%>\%}
 \alias{\%>\%}
 \title{Pipe operator}
+\value{
+The result of calling \code{rhs(lhs)}.
+}
 \description{
 See magrittr::\%>\% for details.
 }

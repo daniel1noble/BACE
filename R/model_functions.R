@@ -1678,6 +1678,8 @@
 #' @description Print method for MCMC diagnostics from bace_imp models
 #' @param x A bace_diagnostics object from .check_mcmc_diagnostics()
 #' @param ... Additional arguments (not used)
+#' @return The input \code{bace_diagnostics} object \code{x}, invisibly.
+#'   Called for its side effect of printing a diagnostics summary to the console.
 #' @export
 print.bace_diagnostics <- function(x, ...) {
   
@@ -1770,6 +1772,8 @@ print.bace_diagnostics <- function(x, ...) {
 #' @description Detailed summary method for MCMC diagnostics
 #' @param object A bace_diagnostics object from .check_mcmc_diagnostics()
 #' @param ... Additional arguments (not used)
+#' @return The input \code{bace_diagnostics} object \code{object}, invisibly.
+#'   Called for its side effect of printing per-variable diagnostic tables to the console.
 #' @export
 summary.bace_diagnostics <- function(object, ...) {
   

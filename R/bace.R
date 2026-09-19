@@ -352,6 +352,8 @@ return(out)
 #' @description Print method for bace_complete objects
 #' @param x Object of class bace_complete
 #' @param ... Additional arguments
+#' @return No return value (\code{NULL}, invisibly); called for its side effect
+#'   of printing a summary of the \code{bace_complete} object to the console.
 #' @export
 print.bace_complete <- function(x, ...) {
   cat("\n=== BACE Complete Analysis Results ===\n\n")

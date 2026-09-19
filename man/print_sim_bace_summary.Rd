@@ -9,6 +9,10 @@ print_sim_bace_summary(sim_output)
 \arguments{
 \item{sim_output}{Output from sim_bace function}
 }
+\value{
+The input \code{sim_output} list, invisibly. Called for its side
+effect of printing a summary of the simulation to the console.
+}
 \description{
 Prints a summary of the simulated data
 }

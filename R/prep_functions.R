@@ -331,6 +331,7 @@ return(list = (list(data_i,
 #' @name %>%
 #' @rdname pipe
 #' @keywords internal
+#' @return The result of calling `rhs(lhs)`.
 #' @export
 #' @importFrom magrittr %>%
 NULL

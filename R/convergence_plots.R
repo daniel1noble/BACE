@@ -59,6 +59,8 @@ plot.bace_convergence <- function(x,
 #' @param conv_object Object of class bace_convergence
 #' @param variables Variables to plot
 #' @param ... Additional plotting arguments
+#' @return Invisibly returns \code{NULL}; called for its side effect of drawing
+#'   base-graphics trace plots (one panel per variable) on the current device.
 #' @export
 plot_trace_convergence <- function(conv_object, variables = NULL, ...) {
   
@@ -151,6 +153,8 @@ plot_trace_convergence <- function(conv_object, variables = NULL, ...) {
 #' @param conv_object Object of class bace_convergence  
 #' @param variables Variables to plot
 #' @param ... Additional plotting arguments
+#' @return Invisibly returns \code{NULL}; called for its side effect of drawing
+#'   density-evolution panels (one per variable) on the current graphics device.
 #' @export
 plot_density_convergence <- function(conv_object, variables = NULL, ...) {
   
@@ -214,6 +218,8 @@ plot_density_convergence <- function(conv_object, variables = NULL, ...) {
 #' @param conv_object Object of class bace_convergence
 #' @param variables Variables to plot
 #' @param ... Additional plotting arguments
+#' @return Invisibly returns \code{NULL}; called for its side effect of drawing
+#'   percentage-change panels (one per variable) on the current graphics device.
 #' @export
 plot_pct_change_convergence <- function(conv_object, variables = NULL, ...) {
   
@@ -309,6 +315,8 @@ plot_pct_change_convergence <- function(conv_object, variables = NULL, ...) {
 #' @param conv_object Object of class bace_convergence
 #' @param variables Variables to plot
 #' @param ... Additional plotting arguments
+#' @return Invisibly returns \code{NULL}; called for its side effect of drawing
+#'   autocorrelation (ACF) panels (one per variable) on the current graphics device.
 #' @export
 plot_acf_convergence <- function(conv_object, variables = NULL, ...) {
   
@@ -359,6 +367,8 @@ plot_acf_convergence <- function(conv_object, variables = NULL, ...) {
 #' @description Plot energy distance evolution
 #' @param conv_object Object of class bace_convergence
 #' @param ... Additional plotting arguments
+#' @return Invisibly returns \code{NULL}; called for its side effect of drawing
+#'   the energy-distance trace plot on the current graphics device.
 #' @export
 plot_energy_convergence <- function(conv_object, ...) {
   
@@ -397,8 +407,9 @@ plot_energy_convergence <- function(conv_object, ...) {
                      "[X] Not Converged")
     mtext(status, side = 3, line = 0.5, col = col_indicator, cex = 0.9)
   }
-  
+
   grid()
+  invisible(NULL)
 }
 
 
@@ -407,6 +418,8 @@ plot_energy_convergence <- function(conv_object, ...) {
 #' @param conv_object Object of class bace_convergence
 #' @param variables Variables to plot
 #' @param ... Additional plotting arguments
+#' @return Invisibly returns \code{NULL}; called for its side effect of drawing
+#'   Wasserstein-distance panels (one per variable) on the current graphics device.
 #' @export
 plot_wasserstein_convergence <- function(conv_object, variables = NULL, ...) {
   
@@ -471,8 +484,11 @@ plot_wasserstein_convergence <- function(conv_object, variables = NULL, ...) {
 #' @param variable Variable name to visualize
 #' @param n_iter Number of iterations to display. Default is all
 #' @param ... Additional plotting arguments
+#' @return Called for its side effect of drawing the plot. Invisibly returns the
+#'   underlying graphics call's value: a \code{\link[graphics]{boxplot}} statistics
+#'   list (gaussian/poisson) or \code{\link[graphics]{barplot}} bar midpoints (categorical).
 #' @export
-plot_bace_imputation_comparison <- function(bace_object, 
+plot_bace_imputation_comparison <- function(bace_object,
                                             variable,
                                             n_iter = NULL,
                                             ...) {
@@ -580,6 +596,8 @@ plot_bace_imputation_comparison <- function(bace_object,
 #' @description Create a comprehensive summary plot of convergence diagnostics
 #' @param conv_object Object of class bace_convergence
 #' @param ... Additional plotting arguments
+#' @return Invisibly returns \code{NULL}; called for its side effect of drawing
+#'   a 2x2 multi-panel convergence summary on the current graphics device.
 #' @export
 plot_convergence_summary <- function(conv_object, ...) {
   
@@ -671,4 +689,5 @@ plot_convergence_summary <- function(conv_object, ...) {
     legend("topright", legend = var_cols, col = colors, lwd = 2, cex = 0.6)
     grid()
   }
+  invisible(NULL)
 }

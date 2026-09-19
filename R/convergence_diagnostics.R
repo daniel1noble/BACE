@@ -749,6 +749,8 @@ assess_convergence <- function(bace_object,
 #' @description Print method for bace_convergence objects
 #' @param x Object of class bace_convergence
 #' @param ... Additional arguments
+#' @return Invisibly returns \code{NULL}; called for its side effect of
+#'   printing the convergence assessment to the console.
 #' @export
 print.bace_convergence <- function(x, ...) {
   cat("\n=== BACE Imputation Convergence Assessment ===\n\n")

@@ -11,6 +11,10 @@ plot_energy_convergence(conv_object, ...)
 
 \item{...}{Additional plotting arguments}
 }
+\value{
+Invisibly returns \code{NULL}; called for its side effect of drawing
+the energy-distance trace plot on the current graphics device.
+}
 \description{
 Plot energy distance evolution
 }

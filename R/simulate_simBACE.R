@@ -903,6 +903,8 @@ sim_bace_binary <- function(n_predictors = 3, n_cases = 200, n_species = 75,
 #' @title Print summary of sim_bace output
 #' @description Prints a summary of the simulated data
 #' @param sim_output Output from sim_bace function
+#' @return The input \code{sim_output} list, invisibly. Called for its side
+#'   effect of printing a summary of the simulation to the console.
 #' @export
 print_sim_bace_summary <- function(sim_output) {
   cat("=== sim_bace Simulation Summary ===\n\n")

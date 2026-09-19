@@ -316,6 +316,9 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
 #' @description Print method for bace_final objects
 #' @param x Object of class bace_final
 #' @param ... Additional arguments
+#' @return No return value (invisibly returns \code{NULL}); called for its
+#'   side effect of printing a summary of the \code{bace_final} object to the
+#'   console.
 #' @export
 print.bace_final <- function(x, ...) {
   cat("\n=== BACE Final Imputation Results ===\n\n")

@@ -13,6 +13,10 @@ plot_density_convergence(conv_object, variables = NULL, ...)
 
 \item{...}{Additional plotting arguments}
 }
+\value{
+Invisibly returns \code{NULL}; called for its side effect of drawing
+density-evolution panels (one per variable) on the current graphics device.
+}
 \description{
 Plot density evolution across iterations
 }

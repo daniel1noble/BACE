@@ -4,16 +4,24 @@
 \name{BACE-package}
 \alias{BACE}
 \alias{BACE-package}
-\title{BACE: Bayesian Augmentation using Chained Equations (BACE)}
+\title{BACE: Bayesian Augmentation by Chained Equations for Phylogenetic Comparative Data}
 \description{
-Bayesian Augmentation using Chained Equations (BACE) for imputing missing data in comparative datasets.
+Multiple imputation of missing data in phylogenetic comparative datasets by chained equations, where every per-variable imputation model is a Bayesian phylogenetic mixed model fitted with 'MCMCglmm' (Hadfield 2010 \doi{10.18637/jss.v033.i02}), so that closely related taxa inform each other's imputations. Handles continuous, count, binary, ordinal and unordered categorical traits. Final inference draws multiple independent posterior-predictive imputations, which are combined either by pooling the per-imputation posterior draws (Zhou and Reiter 2010 \doi{10.1198/tast.2010.09109}) or, for arbitrary downstream models, by Rubin's rules (Rubin 1987 \doi{10.1002/9780470316696}; Barnard and Rubin 1999 \doi{10.1093/biomet/86.4.948}). Also provides diagnostics for convergence of the chained-equations loop, per-variable phylogenetic signal summaries, and simulation of phylogenetically structured benchmark data.
+}
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/daniel1noble/BACE}
+  \item \url{https://daniel1noble.github.io/BACE/}
+  \item Report bugs at \url{https://github.com/daniel1noble/BACE/issues}
+}
+
 }
 \author{
 \strong{Maintainer}: Shinichi Nakagawa \email{s.nakagawa@unsw.edu.au}
 
 Authors:
 \itemize{
-  \item Shinichi Nakagawa \email{s.nakagawa@unsw.edu.au}
   \item Szymek Drobniak \email{szymek.drobniak@gmail.com}
   \item Daniel Noble \email{daniel.noble@anu.edu.au}
 }

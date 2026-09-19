@@ -87,3 +87,4 @@ dev/*_files/
 # reference_datasets) IS tracked and shared.
 dev/simulation_results/demo/
 dev/simulation_results/avonet_regression/
+Rplots.pdf

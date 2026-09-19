@@ -109,7 +109,7 @@ model mixes too poorly to use (check effective sample sizes first).}
 \item{phylo_signal}{Logical. If TRUE, run \code{\link{phylo_signal_summary}} for every
 variable in the formula instead of performing the full BACE imputation pipeline. The
 function returns the signal-only preview object (class \code{c("phylo_signal",
-"bace_preview")}); no call to \code{bace_imp()}, \code{bace_final_imp()}, or
+  "bace_preview")}); no call to \code{bace_imp()}, \code{bace_final_imp()}, or
 \code{pool_posteriors()} is made. Use this to check whether the data carry enough
 phylogenetic signal to justify a full BACE run. Default is FALSE.}
 

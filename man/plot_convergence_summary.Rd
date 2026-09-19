@@ -11,6 +11,10 @@ plot_convergence_summary(conv_object, ...)
 
 \item{...}{Additional plotting arguments}
 }
+\value{
+Invisibly returns \code{NULL}; called for its side effect of drawing
+a 2x2 multi-panel convergence summary on the current graphics device.
+}
 \description{
 Create a comprehensive summary plot of convergence diagnostics
 }
