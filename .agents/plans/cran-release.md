@@ -24,13 +24,17 @@ CRAN submission. Baseline: `R CMD check --as-cran` is already **Status: OK**
 - Deliberately skipped: `\value` for `.extract_imputed_datasets` /
   `.mcmcglmm_fixef_idx` (become `@noRd` in Step 2) and `BACE-package.Rd`
   (overview page; no `\value` needed).
-- Noted for later cleanup (non-blocking; CI --as-cran is clean):
-  (a) 8 Rd pages contain non-ASCII em-dashes (checkRd level -1; UTF-8 is
-  declared, but ASCII "--" is CRAN-preferred);
-  (b) the print.* methods return `invisible(NULL)` (via `cat()`) rather than
-  the base-R convention `invisible(x)` — docs now state this accurately, but
-  CRAN reviewers sometimes ask print methods to return the object invisibly;
-  consider switching in Step 2 (behaviour change, near-zero risk).
+- [x] Step 1b (commit 73be417): CRAN conventions done. print methods return
+  `x` invisibly; `summary.bace_pooled_MCMCglmm` returns the summary invisibly
+  (its step-1 doc wrongly said "printed, not returned");
+  `plot.bace_convergence` got a real \value + `invisible(NULL)`; ALL roxygen
+  non-ASCII converted to ASCII; `tools::checkRd()` clean on all 90 Rd pages
+  (also fixed Lost-braces itemize + a period-terminated title);
+  `bace_option_defaults` docs corrected (claimed verbose FALSE / gelman 1,
+  code returns verbose TRUE / gelman 2). Tests 1337/0.
+- Remaining known cosmetics (deliberate): ~735 non-ASCII chars in R code
+  strings/comments (cat() box-drawing etc.) — R CMD check --as-cran does not
+  flag them (CI Status: OK); revisit only if CRAN incoming complains.
 
 ## Step 2 — Trim exported surface (roadmap C4)
 
