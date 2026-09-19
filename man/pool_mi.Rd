@@ -68,10 +68,27 @@ phylogenetic signal / heritability with \code{pool_mi()}} -- their posteriors
 are skewed and bounded; use \code{\link{pool_posteriors}} for those.
 }
 \examples{
-\dontrun{
-fits <- with_imputations(res, function(d) lm(y ~ x1 + x2, data = d))
-pool_mi(fits)
-}
+# Toy demonstration with M = 3 mean-imputed completions of a small
+# dataset. In a real analysis the completed datasets come from
+# bace() / bace_final_imp(); any list of data.frames works here.
+set.seed(1)
+dat <- data.frame(x = rnorm(30))
+dat$y <- 1 + 2 * dat$x + rnorm(30)
+dat$x[c(3, 11, 19)] <- NA
+
+imps <- lapply(1:3, function(i) {
+  d <- dat
+  miss <- is.na(d$x)
+  d$x[miss] <- mean(d$x, na.rm = TRUE) + rnorm(sum(miss), 0, 0.2)
+  d
+})
+
+fits <- with_imputations(imps, function(d) lm(y ~ x, data = d))
+pooled <- pool_mi(fits)
+pooled
+
+# Barnard & Rubin (1999) small-sample df via the complete-data df:
+pool_mi(fits, df_fun = stats::df.residual)
 }
 \references{
 Rubin DB (1987). \emph{Multiple Imputation for Nonresponse in Surveys}. Wiley.

@@ -133,35 +133,26 @@ Wrapper function to perform complete Bayesian imputation using BACE with
 convergence checking and posterior pooling across multiple imputations.
 }
 \examples{
-\dontrun{
-# Complete BACE analysis with convergence checking and posterior pooling
-result <- bace(
-  fixformula = "y ~ x1 + x2",
-  ran_phylo_form = "~1|Species",
-  phylo = phylo_tree,
-  data = my_data,
-  runs = 10,
-  n_final = 10
-)
+\donttest{
+# Minimal end-to-end run on simulated data. The settings below are
+# deliberately small so the example runs quickly; for real analyses use
+# the defaults (runs = 10, n_final = 50, nitt = 6000, burnin = 1000)
+# and do not set skip_conv = TRUE.
+set.seed(1)
+sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
+                phylo_signal = c(0.6, 0.6), missingness = c(0.2, 0),
+                n_cases = 40, n_species = 40)
 
-# With posterior sampling to reduce memory usage
-result <- bace(
-  fixformula = "y ~ x1 + x2",
-  ran_phylo_form = "~1|Species",
-  phylo = phylo_tree,
-  data = my_data,
-  runs = 10,
-  n_final = 10,
-  sample_size = 1000  # Sample 1000 draws from each imputation
-)
+res <- bace(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
+            phylo = sim$tree, data = sim$data,
+            runs = 2, n_final = 2, nitt = 600, burnin = 100, thin = 2,
+            skip_conv = TRUE, verbose = FALSE)
 
-# Access pooled results
-summary(result$pooled_models$models$y)
+# Pooled posterior model for the response (standard MCMCglmm methods apply)
+pooled_y <- get_pooled_model(res, "y")
+summary(pooled_y)
 
-# Access final imputed datasets
-imputed_data1 <- result$imputed_datasets[[1]]
-
-# Check convergence
-print(result$convergence)
+# First completed (imputed) dataset
+head(res$imputed_datasets[[1]])
 }
 }

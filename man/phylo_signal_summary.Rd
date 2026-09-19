@@ -184,3 +184,16 @@ multinomial GLMM tutorial,
 \url{https://ayumi-495.github.io/multinomial-GLMM-tutorial/#nominal}.
 }
 
+\examples{
+\donttest{
+set.seed(1)
+sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
+                phylo_signal = c(0.6, 0.6), missingness = c(0, 0),
+                n_cases = 40, n_species = 40)
+sig <- phylo_signal_summary(data = sim$data, tree = sim$tree,
+                            species_col = "Species", quick = TRUE,
+                            verbose = FALSE)
+sig
+}
+
+}

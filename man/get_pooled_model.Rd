@@ -28,23 +28,23 @@ posteriors pooled across all final imputation runs so that inference properly
 accounts for imputation uncertainty.
 }
 \examples{
-\dontrun{
-# Run a full bace analysis
-result <- bace(fixformula = "y ~ x1 + x2",
-               ran_phylo_form = "~1|species",
-               phylo = tree, data = data)
+\donttest{
+# Tiny toy analysis; use far larger nitt/burnin/runs/n_final in practice
+set.seed(1)
+sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
+                phylo_signal = c(0.6, 0.6), missingness = c(0.2, 0),
+                n_cases = 40, n_species = 40)
+result <- bace(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
+               phylo = sim$tree, data = sim$data,
+               runs = 3, nitt = 600, burnin = 100, thin = 2,
+               n_final = 2, skip_conv = TRUE, verbose = FALSE)
 
-# Extract pooled model for the response variable
+# Extract the pooled model for the response variable
 y_model <- get_pooled_model(result, variable = "y")
 summary(y_model)
-plot(y_model)
 
 # Extract all pooled models as a named list
 all_models <- get_pooled_model(result)
 names(all_models)
-
-# Also works with bace_pooled objects directly
-pooled <- pool_posteriors(final_results)
-y_model <- get_pooled_model(pooled, variable = "y")
 }
 }

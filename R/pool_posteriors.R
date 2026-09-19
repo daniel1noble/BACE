@@ -75,26 +75,29 @@
 #'   Rubin, D.B. (2013) \emph{Bayesian Data Analysis}, 3rd edition, Chapter 18.
 #'   Chapman & Hall/CRC.
 #' @importFrom coda as.mcmc
-#' @examples \dontrun{
-#' # After running bace_final_imp
-#' final <- bace_final_imp(bace_obj, ...)
+#' @examples \donttest{
+#' # Minimal pipeline (tiny MCMC settings for speed; increase for real use)
+#' set.seed(1)
+#' sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
+#'                 phylo_signal = c(0.6, 0.6), missingness = c(0.2, 0),
+#'                 n_cases = 40, n_species = 40)
 #'
-#' # Stack all draws from every imputation (may create large objects)
+#' fit <- bace_imp(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
+#'                 phylo = sim$tree, data = sim$data,
+#'                 runs = 3, nitt = 600, burnin = 100, thin = 2, verbose = FALSE)
+#'
+#' conv <- assess_convergence(fit, method = "summary")
+#'
+#' final <- bace_final_imp(fit, fixformula = "y ~ x1",
+#'                         ran_phylo_form = "~ 1 | Species",
+#'                         phylo = sim$tree, n_final = 2, nitt = 600,
+#'                         burnin = 100, thin = 2, verbose = FALSE)
+#'
+#' # Stack the per-imputation posterior draws into a marginal posterior
 #' pooled <- pool_posteriors(final)
 #'
-#' # Stack with per-imputation subsampling to reduce memory footprint
-#' pooled <- pool_posteriors(final, sample_size = 1000)
-#'
-#' # Extract the pooled model for a specific variable -- standard MCMCglmm
-#' # methods operate on the concatenated chain.
-#' pooled_y <- pooled$models$y
-#' summary(pooled_y)
-#' plot(pooled_y)
-#'
-#' # Before trusting pooled summaries, sanity-check a few of the
-#' # per-imputation fits for MCMC convergence:
-#' plot(final$all_models[[1]]$y)
-#' coda::effectiveSize(final$all_models[[1]]$y$Sol)
+#' # Standard MCMCglmm methods operate on the concatenated chain
+#' summary(pooled$models$y)
 #' }
 #' @export
 pool_posteriors <- function(bace_final_object, variable = NULL, sample_size = NULL) {

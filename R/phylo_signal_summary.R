@@ -128,6 +128,18 @@
 #'   `$warnings`, `$call`, `$species`, `$n_sim`. Print with
 #'   `print(x)` for a formatted table.
 #'
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
+#'                 phylo_signal = c(0.6, 0.6), missingness = c(0, 0),
+#'                 n_cases = 40, n_species = 40)
+#' sig <- phylo_signal_summary(data = sim$data, tree = sim$tree,
+#'                             species_col = "Species", quick = TRUE,
+#'                             verbose = FALSE)
+#' sig
+#' }
+#'
 #' @importFrom stats as.formula complete.cases setNames
 #' @importFrom coda effectiveSize geweke.diag HPDinterval as.mcmc
 #' @export
@@ -656,8 +668,8 @@ phylo_signal_summary <- function(
 #' Per-level Pagel-style lambda for multinomial categorical traits.
 #'
 #' For each non-baseline category k, computes
-#'   lambda_k = (G_phylo[k,k] / (1 + c_k)) / (G_phylo[k,k]/(1 + c_k) + 1)
-#' where c_k = c2 * IJ[k,k] = c2 * 2/(J+1) is the Amemiya c^2 correction
+#'   `lambda_k = (G_phylo[k,k] / (1 + c_k)) / (G_phylo[k,k]/(1 + c_k) + 1)`
+#' where `c_k = c2 * IJ[k,k] = c2 * 2/(J+1)` is the Amemiya c^2 correction
 #' (Amemiya 1981) and J = K-1 is the number of non-baseline levels,
 #' c2 = (16*sqrt(3)/(15*pi))^2 ~ 0.3458.
 #'

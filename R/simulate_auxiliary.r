@@ -6,6 +6,7 @@
 #' @description Generates default variable names if not provided
 #' @param n_predictors Number of predictor variables
 #' @return Character vector of variable names (y, x1, x2, ...)
+#' @noRd
 var_name_gen <- function(n_predictors) {
   c("y", paste0("x", seq_len(n_predictors)))
 }
@@ -52,6 +53,7 @@ sim_tree <- function(n_species, birth, death, n_cases, str_len = 5) {
 #' @param predictor_types Character vector of predictor types
 #' @param beta_matrix Matrix indicating dependencies between predictors
 #' @return List with ns (number of parameters per predictor) and sim_order
+#' @noRd
 design_size <- function(predictor_types, beta_matrix) {
   n_pred <- length(predictor_types)
 
@@ -122,6 +124,7 @@ design_size <- function(predictor_types, beta_matrix) {
 #' @param ns Vector of parameter counts per predictor
 #' @param default_beta Default beta value if using placeholders
 #' @return Vector of beta coefficients
+#' @noRd
 beta_generator <- function(beta_row, ns, default_beta = 0.5) {
   vars <- which(beta_row != 0)
   betas <- numeric()
@@ -150,7 +153,7 @@ beta_generator <- function(beta_row, ns, default_beta = 0.5) {
 #' @param sparsity Proportion of zero entries (default 0.7)
 #' @param beta_range Range for non-zero beta values
 #' @return Square matrix of beta coefficients
-#' @export
+#' @noRd
 generate_default_beta_matrix <- function(n_predictors, sparsity = 0.7,
                                          beta_range = c(-0.5, 0.5)) {
   if (n_predictors < 1L) {
@@ -180,7 +183,7 @@ generate_default_beta_matrix <- function(n_predictors, sparsity = 0.7,
 #' @param liability Matrix of liabilities (n_cases x K-1 for K categories)
 #' @param categories Vector of category labels
 #' @return Character vector of sampled categories
-#' @export
+#' @noRd
 mnom_liab2cat <- function(liability, categories) {
   n_cats <- length(categories)
   n_cases <- nrow(liability)
@@ -207,7 +210,7 @@ mnom_liab2cat <- function(liability, categories) {
 #' @param n_cats Number of ordered categories
 #' @param threshold_spread Controls spread of thresholds (default 1.5)
 #' @return Integer vector of ordered categories (1, 2, ..., n_cats)
-#' @export
+#' @noRd
 ordinal_liab2cat <- function(liability, n_cats, threshold_spread = 1.5) {
   n_cases <- length(liability)
 
@@ -235,6 +238,7 @@ ordinal_liab2cat <- function(liability, n_cats, threshold_spread = 1.5) {
 #' @param n Number of levels
 #' @param cor_matrix Correlation matrix (for phylogenetic effects)
 #' @return Vector of random effect values
+#' @noRd
 sample_random_effects <- function(sigma2, n, cor_matrix = NULL) {
   if (is.null(cor_matrix)) {
     # Independent random effects
@@ -256,6 +260,7 @@ sample_random_effects <- function(sigma2, n, cor_matrix = NULL) {
 #' @param x Vector or column to apply missingness to
 #' @param prop Proportion of values to set as missing
 #' @return Vector with NA values
+#' @noRd
 apply_missingness <- function(x, prop) {
   if (prop <= 0) {
     return(x)
@@ -348,6 +353,7 @@ parse_ix_matrix <- function(ix_matrix, var_names) {
 #' @param beta_ix User-specified interaction coefficients (named list or NULL)
 #' @param beta_range Range for random coefficient generation
 #' @return Named list of interaction coefficients
+#' @noRd
 generate_ix_betas <- function(interactions, beta_ix = NULL, beta_range = c(-0.3, 0.3)) {
   ix_betas <- list()
   
@@ -384,6 +390,7 @@ generate_ix_betas <- function(interactions, beta_ix = NULL, beta_range = c(-0.3,
 #' @param covars Data frame of covariate values
 #' @param interaction_pair Character vector of length 2 with variable names
 #' @return Numeric vector of interaction values (or matrix for categorical)
+#' @noRd
 calculate_ix_term <- function(covars, interaction_pair) {
   var1 <- interaction_pair[1]
   var2 <- interaction_pair[2]
@@ -414,6 +421,7 @@ calculate_ix_term <- function(covars, interaction_pair) {
 #' @return Named list with:
 #'   - beta_full: full coefficient vector including intercept
 #'   - beta_resp_stored: standardized list format for storage
+#' @noRd
 expand_beta_resp <- function(beta_resp, predictor_types, var_names, intercept = 0) {
   n_predictors <- length(predictor_types)
   predictor_names <- var_names[-1]

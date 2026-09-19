@@ -83,9 +83,24 @@ one-vs-rest path, the J per-level binary MCMCglmm models (empty otherwise)
 Run final imputation iterations starting from converged data, saving all models
 }
 \examples{
-\dontrun{
-# After running bace_imp and checking convergence
-result <- bace_imp(fixformula = "y ~ x1 + x2", ...)
-final <- bace_final_imp(result, fixformula = "y ~ x1 + x2", ...)
+\donttest{
+# Simulate a small phylogenetic dataset with missing values
+set.seed(1)
+sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
+                phylo_signal = c(0.6, 0.6), missingness = c(0.2, 0),
+                n_cases = 40, n_species = 40)
+
+# Convergence chain (deterministic point estimates)
+fit <- bace_imp(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
+                phylo = sim$tree, data = sim$data,
+                runs = 3, nitt = 600, burnin = 100, thin = 2, verbose = FALSE)
+conv <- assess_convergence(fit, method = "summary")
+
+# Final independent posterior-predictive imputations
+final <- bace_final_imp(fit, fixformula = "y ~ x1",
+                        ran_phylo_form = "~ 1 | Species",
+                        phylo = sim$tree, n_final = 2, nitt = 600,
+                        burnin = 100, thin = 2, verbose = FALSE)
+length(final$all_datasets)
 }
 }

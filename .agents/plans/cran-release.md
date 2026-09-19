@@ -50,11 +50,26 @@ CRAN submission. Baseline: `R CMD check --as-cran` is already **Status: OK**
   with the 132 existing `BACE:::` uses in the suite. 1337 pass / 0 fail.
 - [x] Verified no `BACE::.` double-colon usage anywhere; dev/ scripts using
   internals rely on `devtools::load_all()` and are unaffected for CRAN.
-- [ ] **Decision (open)**: borderline non-dot exports — `mnom_liab2cat`,
-  `ordinal_liab2cat`, `generate_default_beta_matrix`,
-  `print_sim_bace_summary`, `sim_bace_gaussian/poisson/binary`, `sim_tree`:
-  keep exported (documented, benign) or internalise for a tighter v0.1 API?
-- [x] Gate: CI R-CMD-check --as-cran on the commit.
+- [x] **Decision (2026-09-20, Dan): tight API.** All 15 sim-machinery /
+  converter exports internalised (`@noRd`; man pages removed; helper-aliased
+  for tests). Final public API = 23 exports: the pipeline (bace, bace_imp,
+  bace_final_imp, assess_convergence, pool_posteriors, pool_mi,
+  with_imputations), accessors (get_pooled_model, get_imputed_data),
+  phylo_signal_summary, options (bace_options, bace_option_defaults),
+  simulation (sim_bace, sim_tree), the 8 plot_* functions, and the pipe.
+- [x] Gate: CI R-CMD-check --as-cran green on steps 1, 1b, 2.
+
+## Step 3 — Examples  (DONE 2026-09-20)
+
+- [x] Zero `\dontrun` remains. 9 MCMC pages got minimal verified `\donttest`
+  pipelines (adapted from a pre-validated ~5 s template; sim_bace n=40 +
+  nitt=600); pool_mi / with_imputations / bace_options got fully runnable
+  unwrapped examples (no MCMC); phylo_signal_summary gained its first
+  example. All examples EXECUTED locally via
+  `devtools::run_examples(run_donttest = TRUE)`: exit 0, ~9 s wall total —
+  comfortably inside CRAN limits even though --as-cran runs donttest.
+- [x] Fixed a roxygen link warning (`[k,k]` linkified in
+  phylo_signal_summary docs).
 
 ## Step 3 — Examples
 

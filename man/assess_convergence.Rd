@@ -53,10 +53,17 @@ A list containing:
 Assess convergence of BACE imputation using multiple diagnostic criteria
 }
 \examples{
-\dontrun{
-# After running bace_imp
-result <- bace_imp(fixformula = "y ~ x1 + x2", ...)
-conv <- assess_convergence(result, method = "all")
-print(conv$converged)
+\donttest{
+# Simulate a small phylogenetic dataset with missing values, run a short
+# bace_imp() convergence chain, then assess chained-equations convergence
+set.seed(1)
+sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
+                phylo_signal = c(0.6, 0.6), missingness = c(0.2, 0),
+                n_cases = 40, n_species = 40)
+fit <- bace_imp(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
+                phylo = sim$tree, data = sim$data,
+                runs = 3, nitt = 600, burnin = 100, thin = 2, verbose = FALSE)
+conv <- assess_convergence(fit, method = "summary")
+conv$converged
 }
 }

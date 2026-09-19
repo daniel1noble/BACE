@@ -30,11 +30,16 @@ or \code{bace_final} object. These are the datasets produced during the final
 imputation runs after convergence, with all missing values filled in.
 }
 \examples{
-\dontrun{
-# Run a full bace analysis
-result <- bace(fixformula = "y ~ x1 + x2",
-               ran_phylo_form = "~1|species",
-               phylo = tree, data = data)
+\donttest{
+# Tiny toy analysis; use far larger nitt/burnin/runs/n_final in practice
+set.seed(1)
+sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
+                phylo_signal = c(0.6, 0.6), missingness = c(0.2, 0),
+                n_cases = 40, n_species = 40)
+result <- bace(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
+               phylo = sim$tree, data = sim$data,
+               runs = 3, nitt = 600, burnin = 100, thin = 2,
+               n_final = 2, skip_conv = TRUE, verbose = FALSE)
 
 # Get imputed datasets as a list
 imp_list <- get_imputed_data(result)
@@ -44,9 +49,5 @@ head(imp_list[[1]])    # first imputed dataset
 # Get as a single stacked data frame
 imp_df <- get_imputed_data(result, format = "data.frame")
 table(imp_df$.imputation)
-
-# Also works with bace_final objects directly
-final <- bace_final_imp(bace_obj, ...)
-imp_list <- get_imputed_data(final)
 }
 }

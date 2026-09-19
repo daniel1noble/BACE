@@ -26,3 +26,21 @@
 .pred_threshold_forward      <- BACE:::.pred_threshold_forward
 .predict_bace                <- BACE:::.predict_bace
 .summarise_var_types         <- BACE:::.summarise_var_types
+
+# sim_bace machinery internalised for v0.1.0 (tight public API: sim_bace +
+# sim_tree are the simulation interface); tests exercise the pieces directly.
+apply_missingness            <- BACE:::apply_missingness
+design_size                  <- BACE:::design_size
+expand_beta_resp             <- BACE:::expand_beta_resp
+beta_generator               <- BACE:::beta_generator
+calculate_ix_term            <- BACE:::calculate_ix_term
+generate_ix_betas            <- BACE:::generate_ix_betas
+sample_random_effects        <- BACE:::sample_random_effects
+var_name_gen                 <- BACE:::var_name_gen
+generate_default_beta_matrix <- BACE:::generate_default_beta_matrix
+mnom_liab2cat                <- BACE:::mnom_liab2cat
+ordinal_liab2cat             <- BACE:::ordinal_liab2cat
+print_sim_bace_summary       <- BACE:::print_sim_bace_summary
+sim_bace_gaussian            <- BACE:::sim_bace_gaussian
+sim_bace_poisson             <- BACE:::sim_bace_poisson
+sim_bace_binary              <- BACE:::sim_bace_binary

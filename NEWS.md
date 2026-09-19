@@ -28,4 +28,7 @@ First public release.
   applicable, with MCMC reliability flags).
 * Simulation engine `sim_bace()` for phylogenetically structured mixed-type
   datasets with known ground truth, missingness mechanisms, and optional
-  within-species replication.
+  within-species replication (`sim_tree()` simulates the phylogeny alone).
+* The public API is deliberately small: imputation pipeline, pooling,
+  accessors, diagnostics/plots, signal screening, and the two simulation
+  entry points. All other helpers are internal and unexported.

@@ -57,10 +57,28 @@
 #' van Buuren S (2018). \emph{Flexible Imputation of Data}, 2nd ed., Sec 2.3-2.4.
 #'
 #' @seealso \code{\link{with_imputations}}, \code{\link{pool_posteriors}}
-#' @examples \dontrun{
-#' fits <- with_imputations(res, function(d) lm(y ~ x1 + x2, data = d))
-#' pool_mi(fits)
-#' }
+#' @examples
+#' # Toy demonstration with M = 3 mean-imputed completions of a small
+#' # dataset. In a real analysis the completed datasets come from
+#' # bace() / bace_final_imp(); any list of data.frames works here.
+#' set.seed(1)
+#' dat <- data.frame(x = rnorm(30))
+#' dat$y <- 1 + 2 * dat$x + rnorm(30)
+#' dat$x[c(3, 11, 19)] <- NA
+#'
+#' imps <- lapply(1:3, function(i) {
+#'   d <- dat
+#'   miss <- is.na(d$x)
+#'   d$x[miss] <- mean(d$x, na.rm = TRUE) + rnorm(sum(miss), 0, 0.2)
+#'   d
+#' })
+#'
+#' fits <- with_imputations(imps, function(d) lm(y ~ x, data = d))
+#' pooled <- pool_mi(fits)
+#' pooled
+#'
+#' # Barnard & Rubin (1999) small-sample df via the complete-data df:
+#' pool_mi(fits, df_fun = stats::df.residual)
 #' @export
 pool_mi <- function(fits, conf.level = 0.95,
                     coef_fun = NULL, vcov_fun = NULL, df_fun = NULL) {

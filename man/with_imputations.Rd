@@ -58,11 +58,19 @@ GLS). This also leaves room for a future posterior-tree workflow without an
 API change.
 }
 \examples{
-\dontrun{
-res  <- bace("y ~ x1 + x2", "~1|Species", tree, dat, n_final = 50)
-fits <- with_imputations(res, function(d) lm(y ~ x1 + x2, data = d))
+# with_imputations() also accepts a plain list of completed data.frames,
+# so the fit-and-pool steps can be shown without running MCMC. In the
+# full workflow, `object` is the result of bace() or bace_final_imp().
+set.seed(1)
+imps <- lapply(1:3, function(i) {
+  d <- data.frame(x1 = rnorm(30))
+  d$y <- 1 + 0.5 * d$x1 + rnorm(30, sd = 0.2)
+  d
+})
+fits <- with_imputations(imps, function(d) lm(y ~ x1, data = d),
+                         .progress = FALSE)
+fits
 pool_mi(fits)
-}
 }
 \seealso{
 \code{\link{pool_mi}}, \code{\link{pool_posteriors}}

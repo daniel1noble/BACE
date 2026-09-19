@@ -849,7 +849,7 @@ sim_bace <- function(
 #' @param phylo_signal Single phylogenetic signal value applied to all variables
 #' @param beta_sparsity Proportion of coefficients in beta_matrix to set to zero (default 0.7)
 #' @return simBACE output list
-#' @export
+#' @noRd
 sim_bace_gaussian <- function(n_predictors = 3, n_cases = 200, n_species = 75,
                              phylo_signal = 0, beta_sparsity = 0.7) {
   sim_bace(
@@ -869,7 +869,7 @@ sim_bace_gaussian <- function(n_predictors = 3, n_cases = 200, n_species = 75,
 #' @param n_species Number of species
 #' @param phylo_signal Single phylogenetic signal value applied to all variables
 #' @return simBACE output list
-#' @export
+#' @noRd
 sim_bace_poisson <- function(n_predictors = 3, n_cases = 200, n_species = 75,
                             phylo_signal = 0) {
   sim_bace(
@@ -888,7 +888,7 @@ sim_bace_poisson <- function(n_predictors = 3, n_cases = 200, n_species = 75,
 #' @param n_species Number of species
 #' @param phylo_signal Single phylogenetic signal value applied to all variables
 #' @return simBACE output list
-#' @export
+#' @noRd
 sim_bace_binary <- function(n_predictors = 3, n_cases = 200, n_species = 75,
                            phylo_signal = 0) {
   sim_bace(
@@ -905,7 +905,7 @@ sim_bace_binary <- function(n_predictors = 3, n_cases = 200, n_species = 75,
 #' @param sim_output Output from sim_bace function
 #' @return The input \code{sim_output} list, invisibly. Called for its side
 #'   effect of printing a summary of the simulation to the console.
-#' @export
+#' @noRd
 print_sim_bace_summary <- function(sim_output) {
   cat("=== sim_bace Simulation Summary ===\n\n")
 

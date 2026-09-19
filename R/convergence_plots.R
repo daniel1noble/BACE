@@ -9,11 +9,17 @@
 #' @param ... Additional arguments passed to plotting functions
 #' @return No return value (\code{NULL}, invisibly); called for its side
 #'   effect of drawing the requested convergence diagnostic plot(s).
-#' @examples \dontrun{
-#' conv <- assess_convergence(bace_result)
-#' plot(conv, type = "all")
-#' plot(conv, type = "trace", variables = c("y", "x2"))
-#' plot(conv, type = "pct_change")
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
+#'                 phylo_signal = c(0.6, 0.6), missingness = c(0.2, 0),
+#'                 n_cases = 40, n_species = 40)
+#' fit <- bace_imp(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
+#'                 phylo = sim$tree, data = sim$data,
+#'                 runs = 3, nitt = 600, burnin = 100, thin = 2, verbose = FALSE)
+#' conv <- assess_convergence(fit, method = "summary")
+#' plot(conv, type = "trace")
 #' }
 #' @export
 plot.bace_convergence <- function(x, 

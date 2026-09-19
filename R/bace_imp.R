@@ -55,65 +55,19 @@
 #'   model mixes too poorly to use (check effective sample sizes first).
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
 #' @return A list containing imputed datasets and model summaries.
-#' @examples \dontrun{
-#' set.seed(123)
-#' # Example phylogenetic tree with 30 tips
-#' phylo <- phytools::force.ultrametric(ape::rtree(30))
-#' phylo  <- ape::compute.brlen(phylo, method = "Grafen")
-#' data <- data.frame(
-#'   y = rpois(30, lambda = 5),
-#'   x1 = factor(rep(c("A", "B","A"), length.out = 30)),
-#'   x2 = rnorm(30, 10, 2),
-#'   x3 = factor(rep(c("A", "B", "C", "D", "E"), length.out = 30)),
-#'   x4 = factor(
-#'     rep(c("A", "B", "C", "D", "E"), length.out = 30),
-#'     levels = c("B", "A", "C", "D", "E"),
-#'     ordered = TRUE
-#'   ),
-#'   Species = phylo$tip.label
-#' )
-#' # Introduce some missing data
-#' missing_indices <- sample(1:30, 10)
-#' data$y[missing_indices] <- NA
-#' data$x1[sample(1:30, 5)] <- NA
-#' data$x2[sample(1:30, 5)] <- NA	
-#' data$x3[sample(1:30, 5)] <- NA
-#' data$x4[sample(1:30, 5)] <- NA	
-#' # Run BACE imputation with default MCMC settings
-#' mod1 <- bace_imp(
-#'   fixformula = "y ~ x1 + x2",
-#'   ran_phylo_form = "~ 1 |Species",
-#'   phylo = phylo,
-#'   data = data
-#' )
-#' # Run with multiple formulas and single MCMC settings (applied to all)
-#' mod2 <- bace_imp(
-#'   fixformula = list(
-#'     "y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2",
-#'     "x3 ~ x1 + x2", "x4 ~ x1 + x2"
-#'   ),
-#'   ran_phylo_form = "~ 1 |Species",
-#'   phylo = phylo,
-#'   data = data,
-#'   runs = 5,
-#'   nitt = 8000,
-#'   thin = 10,
-#'   burnin = 2000
-#' )
-#' # Run with model-specific MCMC settings (list for each formula)
-#' mod3 <- bace_imp(
-#'   fixformula = list(
-#'     "y ~ x1 + x2", "x2 ~ x1", "x1 ~ x2",
-#'     "x3 ~ x1 + x2", "x4 ~ x1 + x2"
-#'   ),
-#'   ran_phylo_form = "~ 1 |Species",
-#'   phylo = phylo,
-#'   data = data,
-#'   runs = 5,
-#'   nitt = list(10000, 6000, 6000, 8000, 8000),
-#'   thin = list(10, 5, 5, 8, 8),
-#'   burnin = list(2000, 1000, 1000, 1500, 1500)
-#' )
+#' @examples
+#' \donttest{
+#' # Simulate a small phylogenetic dataset with missing values, then run the
+#' # BACE convergence chain (deliberately short MCMC settings to keep the
+#' # example fast; use the defaults for real analyses).
+#' set.seed(1)
+#' sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
+#'                 phylo_signal = c(0.6, 0.6), missingness = c(0.2, 0),
+#'                 n_cases = 40, n_species = 40)
+#' fit <- bace_imp(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
+#'                 phylo = sim$tree, data = sim$data,
+#'                 runs = 3, nitt = 600, burnin = 100, thin = 2, verbose = FALSE)
+#' str(fit$types)
 #' }
 #' @export
 bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, species = FALSE, verbose = TRUE, nitt_cat_mult = 1L, ovr_categorical = FALSE, ...){

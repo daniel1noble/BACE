@@ -18,15 +18,15 @@ A named list of effective option values (after defaults + overrides).
 Get or set BACE options
 }
 \examples{
-\dontrun{
-# get current options
+# show the current (effective) options
 bace_options()
-#' # set verbose to TRUE
-bace_options(verbose = TRUE)
-bace_options()
-# reset all options to defaults
+
+# set one option
+bace_options(digits = 4)
+
+# read it back
+bace_options()$digits
+
+# reset all BACE options to their defaults
 bace_options(.reset = TRUE)
-# user overriden option
-getOption("BACE.verbose")
-}
 }
