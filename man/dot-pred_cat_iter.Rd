@@ -23,7 +23,7 @@ categorical class probability matrix computed at a single MCMC
 iteration (no cross-iteration averaging). Used by \code{.predict_bace}
 when \code{sample = TRUE} so that n_final imputations are genuine
 posterior predictive draws rather than samples from the
-posterior-mean probability row (see Rubin 1987; van Buuren 2018 §3.2).
+posterior-mean probability row (see Rubin 1987; van Buuren 2018 Section 3.2).
 Retains the Amemiya (1981) c^2 scaling factor used by \code{.pred_cat}.
 }
 \keyword{internal}

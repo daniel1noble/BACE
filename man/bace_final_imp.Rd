@@ -37,7 +37,7 @@ bace_final_imp(
 \item{burnin}{An integer or list specifying the burn-in iterations. Default is 1000}
 
 \item{n_final}{An integer specifying the number of final imputation runs.
-Default is 50 — large enough that the empirical 2.5 and 97.5 percent
+Default is 50 -- large enough that the empirical 2.5 and 97.5 percent
 quantiles of per-cell imputed values give a reasonable estimate of the
 95 percent posterior predictive interval. Smaller values undercover:
 n_final = 5 gives roughly 67 percent effective coverage, n_final = 20

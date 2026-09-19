@@ -12,8 +12,8 @@
 \item{...}{Additional arguments}
 }
 \value{
-Invisibly returns \code{NULL}; called for its side effect of
-printing the convergence assessment to the console.
+Returns \code{x} invisibly; called for its side effect of printing
+the convergence assessment to the console.
 }
 \description{
 Print method for bace_convergence objects

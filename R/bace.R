@@ -26,7 +26,7 @@
 #'   for posterior pooling and to estimate per-cell prediction intervals. The
 #'   default is set high enough that the empirical 2.5 and 97.5 percent
 #'   quantiles of the per-cell imputed values give a reasonable estimate of the
-#'   95 percent posterior predictive interval — at small n_final the empirical
+#'   95 percent posterior predictive interval -- at small n_final the empirical
 #'   quantile shrinks toward the per-cell min and max and undercovers (e.g.
 #'   n_final = 5 gives roughly 67 percent effective coverage, n_final = 50
 #'   gives roughly 92 percent, asymptotic 95 percent). Reduce only if compute
@@ -352,8 +352,8 @@ return(out)
 #' @description Print method for bace_complete objects
 #' @param x Object of class bace_complete
 #' @param ... Additional arguments
-#' @return No return value (\code{NULL}, invisibly); called for its side effect
-#'   of printing a summary of the \code{bace_complete} object to the console.
+#' @return Returns \code{x} invisibly; called for its side effect of printing
+#'   a summary of the \code{bace_complete} object to the console.
 #' @export
 print.bace_complete <- function(x, ...) {
   cat("\n=== BACE Complete Analysis Results ===\n\n")
@@ -382,4 +382,5 @@ print.bace_complete <- function(x, ...) {
   cat("  summary(result$pooled_models$models$y)\n")
   cat("  print(result$pooled_models$models$y)\n")
   cat("  plot(result$pooled_models$models$y)\n")
+  invisible(x)
 }

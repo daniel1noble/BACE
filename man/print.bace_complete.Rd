@@ -12,8 +12,8 @@
 \item{...}{Additional arguments}
 }
 \value{
-No return value (\code{NULL}, invisibly); called for its side effect
-of printing a summary of the \code{bace_complete} object to the console.
+Returns \code{x} invisibly; called for its side effect of printing
+a summary of the \code{bace_complete} object to the console.
 }
 \description{
 Print method for bace_complete objects

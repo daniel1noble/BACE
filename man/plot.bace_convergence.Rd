@@ -21,7 +21,8 @@
 \item{...}{Additional arguments passed to plotting functions}
 }
 \value{
-Plots convergence diagnostics
+No return value (\code{NULL}, invisibly); called for its side
+effect of drawing the requested convergence diagnostic plot(s).
 }
 \description{
 Plot convergence diagnostics for BACE imputation

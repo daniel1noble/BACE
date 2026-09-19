@@ -58,7 +58,7 @@
 #'       Geweke) on a handful of the per-imputation fits in
 #'       `bace_final_object$all_models` before trusting pooled summaries.
 #'     \item The chained-equations loop has reached its own stationary
-#'       distribution over imputed values — i.e. the sequence of imputed
+#'       distribution over imputed values -- i.e. the sequence of imputed
 #'       datasets is no longer drifting. Use `assess_convergence()` on the
 #'       initial `bace_imp()` output for this.
 #'   }
@@ -85,7 +85,7 @@
 #' # Stack with per-imputation subsampling to reduce memory footprint
 #' pooled <- pool_posteriors(final, sample_size = 1000)
 #'
-#' # Extract the pooled model for a specific variable — standard MCMCglmm
+#' # Extract the pooled model for a specific variable -- standard MCMCglmm
 #' # methods operate on the concatenated chain.
 #' pooled_y <- pooled$models$y
 #' summary(pooled_y)
@@ -395,9 +395,9 @@ print.bace_pooled_MCMCglmm <- function(x, ...) {
 #' @description Summary method for individual pooled MCMCglmm model objects
 #' @param object Object of class bace_pooled_MCMCglmm
 #' @param ... Additional arguments passed to MCMCglmm summary method
-#' @return Called for its side effect: prints a pooling header followed by the
-#'   \code{summary.MCMCglmm} output for the stacked draws. Returns \code{NULL}
-#'   invisibly (the summary object is printed, not returned).
+#' @return Returns the \code{summary.MCMCglmm} object for the stacked draws
+#'   invisibly, after printing a pooling header followed by the standard
+#'   \code{MCMCglmm} summary, so the summary can be captured and inspected.
 #' @export
 summary.bace_pooled_MCMCglmm <- function(object, ...) {
   # Add header indicating this is a pooled model
@@ -428,6 +428,7 @@ summary.bace_pooled_MCMCglmm <- function(object, ...) {
   class(object) <- "MCMCglmm"
   result <- summary(object, ...)
   
-  # Return invisibly so it can be captured if needed
+  # Print, then return the summary invisibly so it can be captured if needed
   print(result)
+  invisible(result)
 }

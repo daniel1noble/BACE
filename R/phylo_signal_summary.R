@@ -1,14 +1,14 @@
 #' @title phylo_signal_summary
 #' @description Diagnostic summary of phylogenetic signal for every variable
 #'   in a comparative dataset, fit as univariate phylogenetic mixed models with
-#'   MCMCglmm. Returns posterior-mean phylogenetic heritability H² (plus 95%
+#'   MCMCglmm. Returns posterior-mean phylogenetic heritability H^2 (plus 95%
 #'   HPD), and optionally classical metrics (Pagel's lambda, Blomberg's K,
 #'   Fritz-Purvis D). Designed as a cheap pre-flight check before committing
 #'   to a full `bace()` imputation run.
 #'
 #' @section Caveat (important):
 #' Phylogenetic signal is *necessary but not sufficient* for good imputation.
-#' A high-H² trait can still impute poorly under MNAR missingness; a low-H²
+#' A high-H^2 trait can still impute poorly under MNAR missingness; a low-H^2
 #' trait can still impute well if tightly coupled to an observed predictor.
 #' The table sets expectations; it does not predict imputation performance.
 #'
@@ -18,7 +18,7 @@
 #' random effect, `species = FALSE`) or `~Species + Species2` (dual random
 #' effects: phylogenetic + non-phylogenetic species effect, `species = TRUE`).
 #' The random-effect structure mirrors what BACE itself fits per variable, so
-#' H² reported here is the same quantity BACE sees internally.
+#' H^2 reported here is the same quantity BACE sees internally.
 #'
 #' Priors follow `.make_prior()`: gaussian/poisson use
 #' `R = list(V = 1, nu = 2)` and Gelman 2006 parameter-expanded G; threshold
@@ -42,8 +42,8 @@
 #' more often in quick mode.
 #'
 #' @section Tree-size warnings:
-#' Defaults are calibrated for 50–500 species. Smaller trees make phylogenetic
-#' variance weakly identifiable (H² pulled toward prior mean ~0.5; HPD very
+#' Defaults are calibrated for 50-500 species. Smaller trees make phylogenetic
+#' variance weakly identifiable (H^2 pulled toward prior mean ~0.5; HPD very
 #' wide); larger trees have slower per-iteration MCMC. The function emits
 #' `small_tree` (n_species < 30) and `large_tree` (n_species > 1000) warnings
 #' automatically, both attached to the returned object's `$warnings` slot.
@@ -53,11 +53,11 @@
 #' on all non-fixed variance components. Rows with `min_ess < min_ess`
 #' threshold are flagged `low_ess`; rows with any `|z| > 2` are flagged
 #' `geweke_fail`; either triggers `unreliable` in the `flag` column. Do not
-#' interpret H² cells with either flag as data-driven estimates.
+#' interpret H^2 cells with either flag as data-driven estimates.
 #'
-#' @section H² formulas:
+#' @section H^2 formulas:
 #' With V_A = phylo variance, V_S = non-phylo species variance (dual RE
-#' only), V_R = residual variance, the latent-scale H² formulas are:
+#' only), V_R = residual variance, the latent-scale H^2 formulas are:
 #'
 #' * gaussian / poisson single RE: V_A / (V_A + V_R)
 #' * gaussian / poisson dual RE:   V_A / (V_A + V_S + V_R)
@@ -70,21 +70,21 @@
 #' Schielzeth 2013 *Methods Ecol Evol* 4:133; Hadfield & Nakagawa 2010
 #' *J Evol Biol* 23:494; Lynch 1991 *Evolution* 45:1065.
 #'
-#' @section Multinomial: H² versus lambda_nominal:
+#' @section Multinomial: H^2 versus lambda_nominal:
 #' For `categorical` traits the table reports BOTH `H2_*` and
 #' `lambda_nominal_*`. They measure related but DIFFERENT quantities and
-#' typically disagree by 0.1-0.2 — that gap is expected, not a bug.
+#' typically disagree by 0.1-0.2 -- that gap is expected, not a bug.
 #'
 #' * `H2_mean` is trace-based on MCMCglmm's working scale: residuals
 #'   take their MCMCglmm-reported diagonal `2/(J+1)` per non-baseline
 #'   level, with no rescaling. Faithful to the model's own variance
 #'   decomposition; useful for within-categorical reporting.
-#' * `lambda_nominal_mean` applies the Hadfield (2010 §3.7) / Amemiya
-#'   (1981) c² correction to put each level on the standard probit
+#' * `lambda_nominal_mean` applies the Hadfield (2010 Section 3.7) / Amemiya
+#'   (1981) c^2 correction to put each level on the standard probit
 #'   scale (residual = 1 per level), then averages
 #'   `lambda_k = G'_kk / (G'_kk + 1)` with
-#'   `G'_kk = G_phylo[k,k] / (1 + c²·2/(J+1))`. This is the
-#'   Pagel-comparable statistic — same scale and interpretation as
+#'   `G'_kk = G_phylo[k,k] / (1 + c^2*2/(J+1))`. This is the
+#'   Pagel-comparable statistic -- same scale and interpretation as
 #'   Pagel's lambda for continuous traits, so it can be compared
 #'   across trait types in a multi-trait phylo_signal table.
 #'
@@ -105,7 +105,7 @@
 #'   effect; `TRUE` = dual (phylo + non-phylo species). Dual requires
 #'   within-species replication.
 #' @param methods character; which metrics to compute. Default `"auto"` picks
-#'   per-type (H² always; lambda/K for gaussian; D for binary). Or pass
+#'   per-type (H^2 always; lambda/K for gaussian; D for binary). Or pass
 #'   `c("H2","lambda","K","D")`.
 #' @param ovr_categorical logical; if `TRUE`, multinomial variables are fit as
 #'   J binary threshold models (one-vs-rest) instead of a multinomial probit.
@@ -593,7 +593,7 @@ phylo_signal_summary <- function(
 }
 
 
-#' Posterior H² draws and summaries, depending on type and RE structure.
+#' Posterior H^2 draws and summaries, depending on type and RE structure.
 #' @keywords internal
 #' @noRd
 .compute_H2_stats <- function(model, type, species, species_col, n_levels) {
@@ -657,15 +657,15 @@ phylo_signal_summary <- function(
 #'
 #' For each non-baseline category k, computes
 #'   lambda_k = (G_phylo[k,k] / (1 + c_k)) / (G_phylo[k,k]/(1 + c_k) + 1)
-#' where c_k = c2 * IJ[k,k] = c2 * 2/(J+1) is the Amemiya c² correction
+#' where c_k = c2 * IJ[k,k] = c2 * 2/(J+1) is the Amemiya c^2 correction
 #' (Amemiya 1981) and J = K-1 is the number of non-baseline levels,
-#' c2 = (16*sqrt(3)/(15*pi))^2 ≈ 0.3458.
+#' c2 = (16*sqrt(3)/(15*pi))^2 ~ 0.3458.
 #'
 #' Each lambda_k has the same Pagel interpretation as for continuous
 #' traits: fraction of LATENT-scale variance for category k that is
 #' phylogenetic. Useful when the per-category interpretation matters
 #' (some categories may have strong phylogenetic signal, others weak).
-#' Differs from the trace-based H² returned alongside, which is one
+#' Differs from the trace-based H^2 returned alongside, which is one
 #' summary number across the whole multinomial.
 #'
 #' Returns the average across non-baseline levels plus per-level
@@ -674,7 +674,7 @@ phylo_signal_summary <- function(
 #'
 #' Reference: Ayumi (2024) multinomial GLMM tutorial,
 #' \url{https://ayumi-495.github.io/multinomial-GLMM-tutorial/#nominal};
-#' Hadfield (2010) §3.7; Amemiya (1981) Econometrica 49:1483.
+#' Hadfield (2010) Section 3.7; Amemiya (1981) Econometrica 49:1483.
 #' @keywords internal
 #' @noRd
 .compute_lambda_nominal <- function(model, species_col, n_levels) {

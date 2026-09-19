@@ -45,9 +45,9 @@ bace_options <- function(..., .reset = FALSE) {
 #' default option values
 #' @description Internal function returning default option values. Currently:
 #' \itemize{
-#'   \item{verbose: FALSE}
-#'   \item{digits: 3L}
-#'   \item{gelman: 1}
+#'   \item verbose: TRUE
+#'   \item digits: 3L
+#'   \item gelman: 2 (pseudo-Gelman prior scaling)
 #' }
 #' @return named list of default option values
 #' @export

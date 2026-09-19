@@ -7,7 +7,8 @@
 #' @param type Type of plot: "trace", "density", "acf", "pct_change", "energy", "all"
 #' @param variables Character vector of variable names to plot. If NULL (default), plots all
 #' @param ... Additional arguments passed to plotting functions
-#' @return Plots convergence diagnostics
+#' @return No return value (\code{NULL}, invisibly); called for its side
+#'   effect of drawing the requested convergence diagnostic plot(s).
 #' @examples \dontrun{
 #' conv <- assess_convergence(bace_result)
 #' plot(conv, type = "all")
@@ -51,6 +52,7 @@ plot.bace_convergence <- function(x,
   } else if (type == "energy") {
     plot_energy_convergence(x, ...)
   }
+  invisible(NULL)
 }
 
 

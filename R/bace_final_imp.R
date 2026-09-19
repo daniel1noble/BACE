@@ -8,7 +8,7 @@
 #' @param thin An integer or list specifying the thinning rate. Default is 5
 #' @param burnin An integer or list specifying the burn-in iterations. Default is 1000
 #' @param n_final An integer specifying the number of final imputation runs.
-#'   Default is 50 — large enough that the empirical 2.5 and 97.5 percent
+#'   Default is 50 -- large enough that the empirical 2.5 and 97.5 percent
 #'   quantiles of per-cell imputed values give a reasonable estimate of the
 #'   95 percent posterior predictive interval. Smaller values undercover:
 #'   n_final = 5 gives roughly 67 percent effective coverage, n_final = 20
@@ -316,9 +316,8 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
 #' @description Print method for bace_final objects
 #' @param x Object of class bace_final
 #' @param ... Additional arguments
-#' @return No return value (invisibly returns \code{NULL}); called for its
-#'   side effect of printing a summary of the \code{bace_final} object to the
-#'   console.
+#' @return Returns \code{x} invisibly; called for its side effect of printing
+#'   a summary of the \code{bace_final} object to the console.
 #' @export
 print.bace_final <- function(x, ...) {
   cat("\n=== BACE Final Imputation Results ===\n\n")
@@ -327,4 +326,5 @@ print.bace_final <- function(x, ...) {
       length(x$all_models[[1]]), "\n")
   cat("Variables:", paste(names(x$all_models[[1]]), collapse = ", "), "\n\n")
   cat("Use pool_posteriors() to combine model results across imputations\n")
+  invisible(x)
 }

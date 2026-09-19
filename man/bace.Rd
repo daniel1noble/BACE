@@ -60,7 +60,7 @@ perform after convergence is achieved. Default is 50. These runs are used
 for posterior pooling and to estimate per-cell prediction intervals. The
 default is set high enough that the empirical 2.5 and 97.5 percent
 quantiles of the per-cell imputed values give a reasonable estimate of the
-95 percent posterior predictive interval — at small n_final the empirical
+95 percent posterior predictive interval -- at small n_final the empirical
 quantile shrinks toward the per-cell min and max and undercovers (e.g.
 n_final = 5 gives roughly 67 percent effective coverage, n_final = 50
 gives roughly 92 percent, asymptotic 95 percent). Reduce only if compute

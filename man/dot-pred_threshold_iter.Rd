@@ -20,7 +20,7 @@ Data frame (n_obs x n_levels) of per-iteration probabilities.
 Per-iteration variant of \code{.pred_threshold}. Computes
 threshold/ordinal class probabilities using the latent liability and
 cut-points at a single MCMC iteration, without cross-iteration
-averaging. Per Hadfield's MCMCglmm course notes (§3.7), threshold-
+averaging. Per Hadfield's MCMCglmm course notes (Section 3.7), threshold-
 model probabilities are \code{Phi(CP_k - eta) - Phi(CP_{k-1} - eta)};
 here \code{eta} is the per-iteration liability.
 }

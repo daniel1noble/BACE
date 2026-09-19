@@ -2,7 +2,7 @@
 % Please edit documentation in R/model_functions.R
 \name{.align_levels_to_probs}
 \alias{.align_levels_to_probs}
-\title{Reconcile a level vector with the column count of a probability matrix.}
+\title{Reconcile a level vector with the column count of a probability matrix}
 \usage{
 .align_levels_to_probs(
   levels_declared,

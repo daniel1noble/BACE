@@ -75,7 +75,7 @@ standard MCMCglmm diagnostics (trace plots, effective sample size,
 Geweke) on a handful of the per-imputation fits in
 \code{bace_final_object$all_models} before trusting pooled summaries.
 \item The chained-equations loop has reached its own stationary
-distribution over imputed values — i.e. the sequence of imputed
+distribution over imputed values -- i.e. the sequence of imputed
 datasets is no longer drifting. Use \code{assess_convergence()} on the
 initial \code{bace_imp()} output for this.
 }
@@ -96,7 +96,7 @@ pooled <- pool_posteriors(final)
 # Stack with per-imputation subsampling to reduce memory footprint
 pooled <- pool_posteriors(final, sample_size = 1000)
 
-# Extract the pooled model for a specific variable — standard MCMCglmm
+# Extract the pooled model for a specific variable -- standard MCMCglmm
 # methods operate on the concatenated chain.
 pooled_y <- pooled$models$y
 summary(pooled_y)

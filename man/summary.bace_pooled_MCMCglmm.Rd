@@ -12,9 +12,9 @@
 \item{...}{Additional arguments passed to MCMCglmm summary method}
 }
 \value{
-Called for its side effect: prints a pooling header followed by the
-\code{summary.MCMCglmm} output for the stacked draws. Returns \code{NULL}
-invisibly (the summary object is printed, not returned).
+Returns the \code{summary.MCMCglmm} object for the stacked draws
+invisibly, after printing a pooling header followed by the standard
+\code{MCMCglmm} summary, so the summary can be captured and inspected.
 }
 \description{
 Summary method for individual pooled MCMCglmm model objects

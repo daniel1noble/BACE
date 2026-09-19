@@ -819,7 +819,7 @@
                   pred_values = pred_values))
 }
 
-#' Reconcile a level vector with the column count of a probability matrix.
+#' Reconcile a level vector with the column count of a probability matrix
 #'
 #' MCMCglmm threshold / categorical fits internally re-index the
 #' response to consecutive integers \code{1:K_eff} where \code{K_eff}
@@ -978,7 +978,7 @@
 #'   iteration (no cross-iteration averaging). Used by \code{.predict_bace}
 #'   when \code{sample = TRUE} so that n_final imputations are genuine
 #'   posterior predictive draws rather than samples from the
-#'   posterior-mean probability row (see Rubin 1987; van Buuren 2018 §3.2).
+#'   posterior-mean probability row (see Rubin 1987; van Buuren 2018 Section 3.2).
 #'   Retains the Amemiya (1981) c^2 scaling factor used by \code{.pred_cat}.
 #' @param model MCMCglmm categorical model object.
 #' @param baseline_name String name for the baseline / reference category.
@@ -1246,7 +1246,7 @@
 #' @description Per-iteration variant of \code{.pred_threshold}. Computes
 #'   threshold/ordinal class probabilities using the latent liability and
 #'   cut-points at a single MCMC iteration, without cross-iteration
-#'   averaging. Per Hadfield's MCMCglmm course notes (§3.7), threshold-
+#'   averaging. Per Hadfield's MCMCglmm course notes (Section 3.7), threshold-
 #'   model probabilities are \code{Phi(CP_k - eta) - Phi(CP_{k-1} - eta)};
 #'   here \code{eta} is the per-iteration liability.
 #' @param model MCMCglmm threshold/ordinal model (fit with pl=TRUE).
