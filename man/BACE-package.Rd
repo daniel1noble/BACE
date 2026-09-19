@@ -18,12 +18,14 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Shinichi Nakagawa \email{s.nakagawa@unsw.edu.au}
+\strong{Maintainer}: Daniel Noble \email{daniel.noble@anu.edu.au}
 
 Authors:
 \itemize{
-  \item Szymek Drobniak \email{szymek.drobniak@gmail.com}
-  \item Daniel Noble \email{daniel.noble@anu.edu.au}
+  \item Ayumi Mizuno
+  \item Patrice Pottier
+  \item Szymon Drobniak \email{szymek.drobniak@gmail.com}
+  \item Shinichi Nakagawa \email{s.nakagawa@unsw.edu.au}
 }
 
 }

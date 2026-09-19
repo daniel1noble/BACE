@@ -9,7 +9,7 @@ bace_options(..., .reset = FALSE)
 \arguments{
 \item{...}{Named options to set. If empty, returns current options.}
 
-\item{.reset}{Logical; if TRUE, reset all mypkg.* options (in this session) to defaults.}
+\item{.reset}{Logical; if TRUE, reset all BACE.* options (in this session) to defaults.}
 }
 \value{
 A named list of effective option values (after defaults + overrides).

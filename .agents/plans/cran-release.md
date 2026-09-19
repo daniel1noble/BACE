@@ -77,15 +77,34 @@ CRAN submission. Baseline: `R CMD check --as-cran` is already **Status: OK**
   `\donttest{}` for MCMC-heavy ones (CRAN policy: `\dontrun` only for code
   that genuinely cannot run).
 
-## Step 4 — Final gates
+## Step 4 — Final gates  (2026-09-20)
 
-- [ ] `cran-comments.md` (test environments, R CMD check results, first
-  submission note).
-- [ ] `spelling::spell_check_package()`, `urlchecker::url_check()`.
-- [ ] win-builder (`devtools::check_win_devel()`) + R-hub.
-- [ ] `inst/CITATION` (cite package + Hadfield 2010; add preprint DOI when
-  available).
-- [ ] Submit; `cre` must confirm the submission email.
+- [x] **Maintainer decision (Dan)**: `cre` switched to Daniel Noble.
+  Authors@R reordered to match the paper team: Noble (aut, cre), Mizuno
+  (aut), Pottier (aut), Drobniak (aut), Nakagawa (aut) — Ayumi Mizuno and
+  Patrice Pottier added as package authors per Dan.
+- [x] `inst/CITATION` updated: package title corrected ("by Chained
+  Equations ... Phylogenetic Comparative Data"), five authors in the order
+  Noble, Mizuno, Pottier, Drobniak, Nakagawa; Hadfield (2010) kept as
+  second entry. Parses and renders cleanly. Add the preprint DOI as a third
+  entry when available.
+- [x] `cran-comments.md` written (environments, 0E/0W/0N, first-submission
+  notes).
+- [x] Spelling: `Language: en-GB` declared; genuine typo fixed
+  (`mypkg.*` -> `BACE.*` template leftover in bace_options docs);
+  `inst/WORDLIST` (90 jargon/surname terms); spell check now clean.
+- [x] `urlchecker::url_check()`: all URLs correct.
+- [x] win-builder R-devel upload via `devtools::check_win_devel()` —
+  results email goes to Dan (new cre) in ~15-60 min. CHECK THE EMAIL before
+  submitting.
+- R-hub skipped deliberately: CI already covers ubuntu (devel/release/
+  oldrel-1) + macOS + windows with --as-cran, and R-hub v2 needs
+  interactive GitHub auth. Revisit only if CRAN flags a platform we
+  don't cover (e.g. special Solaris/clang builds).
+- [ ] **Submit**: after win-builder comes back clean —
+  https://cran.r-project.org/submit.html with the built tarball and
+  cran-comments.md; Dan confirms the email. (Or `devtools::release()`
+  interactively.)
 
 ## Open decisions
 

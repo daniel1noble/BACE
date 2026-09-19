@@ -1,7 +1,7 @@
 #' Get or set BACE options
 #'
 #' @param ... Named options to set. If empty, returns current options.
-#' @param .reset Logical; if TRUE, reset all mypkg.* options (in this session) to defaults.
+#' @param .reset Logical; if TRUE, reset all BACE.* options (in this session) to defaults.
 #' @return A named list of effective option values (after defaults + overrides).
 #' @examples
 #' # show the current (effective) options
