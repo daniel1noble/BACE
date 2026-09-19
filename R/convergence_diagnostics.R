@@ -168,6 +168,7 @@ assess_convergence <- function(bace_object,
 #' @param pct_change_threshold Threshold for mean absolute percentage change (default 0.05)
 #' @param criterion Which specific criterion to use (NULL for all, "acf", "percentage", "trend", or "geweke")
 #' @return List with convergence assessment
+#' @noRd
 .assess_summary_convergence <- function(imputed_data, types, miss_dat, 
                                         variables = NULL,
                                         use_all_data = FALSE,
@@ -365,6 +366,7 @@ assess_convergence <- function(bace_object,
 #' @param frac1 Fraction of chain for first window. Default 0.1
 #' @param frac2 Fraction of chain for second window. Default 0.5
 #' @return List with convergence status and z-score
+#' @noRd
 .geweke_test <- function(x, alpha = 0.05, frac1 = 0.1, frac2 = 0.5) {
   n <- length(x)
   
@@ -423,6 +425,7 @@ assess_convergence <- function(bace_object,
 #' @param use_all_data Logical. Use all data (TRUE) or only imputed values (FALSE)
 #' @param alpha Significance level
 #' @return List with convergence assessment
+#' @noRd
 .assess_energy_convergence <- function(imputed_data, miss_dat, 
                                        variables = NULL,
                                        use_all_data = FALSE, alpha = 0.05) {
@@ -489,6 +492,7 @@ assess_convergence <- function(bace_object,
 #' @param x1 Matrix or data frame (first sample)
 #' @param x2 Matrix or data frame (second sample)
 #' @return Numeric energy distance
+#' @noRd
 .energy_distance <- function(x1, x2) {
   
   # Convert to matrix if needed
@@ -578,6 +582,7 @@ assess_convergence <- function(bace_object,
 #' @param use_all_data Logical. Use all data (TRUE) or only imputed values (FALSE)
 #' @param alpha Significance level
 #' @return List with convergence assessment
+#' @noRd
 .assess_wasserstein_convergence <- function(imputed_data, miss_dat, types, 
                                             variables = NULL,
                                             use_all_data = FALSE, alpha = 0.05) {
@@ -677,6 +682,7 @@ assess_convergence <- function(bace_object,
 #' @param x First sample
 #' @param y Second sample
 #' @return Numeric Wasserstein distance
+#' @noRd
 .wasserstein_1d <- function(x, y) {
   x <- sort(x)
   y <- sort(y)
@@ -705,6 +711,7 @@ assess_convergence <- function(bace_object,
 #' @param variables Character vector of variables to extract, or NULL for all
 #' @param use_all_data Logical. If TRUE, extract all data; if FALSE, extract only imputed values
 #' @return Matrix of values
+#' @noRd
 .extract_imputed_values <- function(data, miss_dat, variables = NULL, use_all_data = FALSE) {
   
   vars <- unique(miss_dat$colname)

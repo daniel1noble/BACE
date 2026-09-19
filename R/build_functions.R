@@ -7,7 +7,7 @@
 #' \dontrun{
 #' .build_formula("y ~ x1 + x2")
 #' }
-#' @export
+#' @noRd
 
 .build_formula <- function(x) {
 
@@ -34,7 +34,7 @@
 #' .build_formula_string("y ~ x1 + x2:x3")
 #' .build_formula_string("y ~ x1 + x2 + x3 + x1:x2 + x1:x3 + x2:x3 + x1:x2:x3")
 #' }
-#' @export
+#' @noRd
 .build_formula_string <- function(x) {
 
   f <- if (inherits(x, "formula")) x else stats::as.formula(x)
@@ -76,6 +76,7 @@
 #' @param expr An expression
 #' @param map A named list specifying the replacements to be made
 #' @return An expression with the symbol names replaced
+#' @noRd
 .replace_symbols <- function(expr, map) {
   if (is.null(expr)) return(expr)
 
@@ -100,6 +101,7 @@
 #' @param b The second symbol name to swap
 #' @param tmp A temporary symbol name used during the swap
 #' @return An expression with the two symbol names swapped
+#' @noRd
 .swap_symbols <- function(expr, a, b, tmp = ".TMP_SWAP_SYMBOL") {
   if (identical(a, b)) return(expr)
 
@@ -121,7 +123,7 @@
 #' .build_formula_string_random("~ 1 | Species", species = TRUE)
 #' .build_formula_string_random("~ us(1 + x):Species", species = FALSE)
 #' }
-#' @export	
+#' @noRd
 .build_formula_string_random <- function(ran_phylo_form, species = FALSE) {
 
   f <- if (inherits(ran_phylo_form, "formula")) {

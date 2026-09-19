@@ -41,7 +41,7 @@
 #' # Random effects with special characters
 #' form <- "~ 1 + var.one | cluster_name"
 #' .get_variables(form, fix = FALSE)}
-#' @export
+#' @noRd
 .get_variables <- function(x, fix = TRUE) {
 
   # Ensure x is a character string
@@ -119,7 +119,7 @@
 #' @param data The dataframe containing the variables
 #' @return Returns a character string specifying the class of the variable. 
 #' @keywords internal
-#' @export
+#' @noRd
 .get_type <- function(x, var, data) {
 	
       x_complete <- data[[var]][!is.na(data[[var]])]
@@ -180,7 +180,7 @@
 #' types <- list(y = "gaussian", x1 = "categorical", x2 = "gaussian")
 #' data_prep(formula, data, types)
 #' }	
-#' @export
+#' @noRd
 .data_prep  <- function(formula, data, types, ran_cluster) {
 				# Identify response variable in formula
 			response_var <- all.vars(formula[[2]])
@@ -247,7 +247,7 @@ return(list = (list(data_i,
 #' types <- list(y = "gaussian", x1 = "categorical", x2 = "gaussian")
 #' extract_gaussian_attrs(data, types)
 #' }
-#' @export
+#' @noRd
 .extract_gaussian_attrs <- function(data, types) {
   out <- lapply(names(types), function(v) {
     if (!is.null(types[[v]]) && types[[v]] == "gaussian") {
@@ -275,7 +275,7 @@ return(list = (list(data_i,
 #' data <- data.frame(y = c(1,2,3,NA,5), x1 = factor(c("A","B","A","B","A")), x2 = c(10,20,30,NA,50))
 #' summarise_var_types(data)
 #' }
-#' @export
+#' @noRd
 .summarise_var_types <- function(df, store_levels = TRUE, max_levels_store = 200) {
   
   stopifnot(is.data.frame(df))
@@ -308,6 +308,7 @@ return(list = (list(data_i,
   #' @param store_levels A logical indicating whether to store levels
   #' @param max_levels_store An integer specifying the maximum number of levels to store
   #' @return A vector of levels or NULL if not applicable
+  #' @noRd
   .get_levels <- function(x, store_levels, max_levels_store) {
     if (!store_levels) return(NULL)
     if (inherits(x, c("Date", "POSIXct", "POSIXlt"))) return(NULL)

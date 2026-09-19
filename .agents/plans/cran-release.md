@@ -36,16 +36,25 @@ CRAN submission. Baseline: `R CMD check --as-cran` is already **Status: OK**
   strings/comments (cat() box-drawing etc.) — R CMD check --as-cran does not
   flag them (CI Status: OK); revisit only if CRAN incoming complains.
 
-## Step 2 — Trim exported surface (roadmap C4)
+## Step 2 — Trim exported surface (roadmap C4)  (DONE 2026-09-19 except decision item)
 
-- [ ] Un-export the 19 dot-prefixed internals (`.predict_bace`, `.pred_*`,
-  `.make_prior`, `.build_formula*`, `.data_prep`, `.get_type`, ...):
-  `@export` → `@keywords internal` + `@noRd`; regenerate NAMESPACE.
-- [ ] Update tests that call them to use `BACE:::`.
-- [ ] Review borderline non-dot exports (`mnom_liab2cat`, `ordinal_liab2cat`,
-  `generate_default_beta_matrix`, `print_sim_bace_summary`,
-  `sim_bace_gaussian/poisson/binary`, `sim_tree`): keep, or internalise?
-- [ ] Full `devtools::check()` after.
+- [x] All 19 dot-prefixed internals un-exported; NAMESPACE 49 → 30 exports
+  (verified: exactly 19 `export()` lines removed, 0 added). Extended the
+  sweep: EVERY dot-function roxygen block is now `@noRd` (docs stay in
+  source), so all 41 `dot-*.Rd` pages are gone and man/ is purely
+  user-facing — this also disposed of the two `\value`-less internal pages.
+  `phylo_signal_summary.R`'s 14 internals already had `@noRd`.
+- [x] Tests: `tests/testthat/helper-internals.R` aliases the 19 via
+  `BACE:::` once, so the 78 bare call sites (test-prep_functions,
+  test-species_effects, test-track-a-hardening) run unchanged; consistent
+  with the 132 existing `BACE:::` uses in the suite. 1337 pass / 0 fail.
+- [x] Verified no `BACE::.` double-colon usage anywhere; dev/ scripts using
+  internals rely on `devtools::load_all()` and are unaffected for CRAN.
+- [ ] **Decision (open)**: borderline non-dot exports — `mnom_liab2cat`,
+  `ordinal_liab2cat`, `generate_default_beta_matrix`,
+  `print_sim_bace_summary`, `sim_bace_gaussian/poisson/binary`, `sim_tree`:
+  keep exported (documented, benign) or internalise for a tighter v0.1 API?
+- [x] Gate: CI R-CMD-check --as-cran on the commit.
 
 ## Step 3 — Examples
 

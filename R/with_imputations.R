@@ -108,6 +108,7 @@ with_imputations <- function(object, .f, ..., tree = NULL,
 
 #' Extract the list of completed datasets from a BACE object
 #' @keywords internal
+#' @noRd
 .extract_imputed_datasets <- function(object) {
   if (inherits(object, "bace_complete")) return(object$imputed_datasets)
   if (inherits(object, "bace_final"))    return(object$all_datasets)

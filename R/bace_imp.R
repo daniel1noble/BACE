@@ -5,6 +5,7 @@
 #' @param n_models The number of models/formulas
 #' @param param_name The name of the parameter (for error messages)
 #' @return A list of length n_models with the parameter values
+#' @noRd
 .standardize_mcmc_params <- function(param, n_models, param_name) {
 	if (is.list(param)) {
 		if (length(param) != n_models) {

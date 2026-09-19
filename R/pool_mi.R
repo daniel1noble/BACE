@@ -191,6 +191,7 @@ pool_mi <- function(fits, conf.level = 0.95,
 
 #' Column indices of the fixed effects in an MCMCglmm Sol matrix
 #' @keywords internal
+#' @noRd
 .mcmcglmm_fixef_idx <- function(model) {
   sol <- as.matrix(model$Sol)
   nfl <- tryCatch(model$Fixed$nfl, error = function(e) NULL)
@@ -202,6 +203,7 @@ pool_mi <- function(fits, conf.level = 0.95,
 }
 
 #' @keywords internal
+#' @noRd
 .mcmcglmm_fixef_mean <- function(model) {
   sol <- as.matrix(model$Sol)
   idx <- .mcmcglmm_fixef_idx(model)
@@ -209,6 +211,7 @@ pool_mi <- function(fits, conf.level = 0.95,
 }
 
 #' @keywords internal
+#' @noRd
 .mcmcglmm_fixef_vcov <- function(model) {
   sol <- as.matrix(model$Sol)
   idx <- .mcmcglmm_fixef_idx(model)

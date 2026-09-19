@@ -11,7 +11,7 @@
 #' @param prior A list specifying the prior distributions for the MCMCglmm model.
 #' @return A list of draws from the posterior distribution of the model parameters.
 #' @importFrom methods as
-#' @export
+#' @noRd
 
 .model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 6000, thin = 5, burnin = 1000) {
 
@@ -222,7 +222,7 @@
 #' @details For categorical models, MCMCglmm internally expands the formula to 
 #'          J = n_levels - 1 traits. This function creates a temporary 'trait' variable,
 #'          builds the expanded formula, and counts resulting coefficients.
-#' @export
+#' @noRd
 .count_categorical_fixef <- function(fixform, data, n_levels) {
 
   J <- n_levels - 1  # Number of non-baseline traits
@@ -267,6 +267,7 @@
 #'   random-effect standard deviation (alpha.V = alpha_V * I). Default 1e4
 #'   (identity-link scales); log-link callers (poisson) pass 1.
 #' @return A list of G priors for the MCMCglmm model.
+#' @noRd
 
 .list_of_G <- function(n_rand, nu = NULL, par_expand = TRUE, diag = 1,
                        alpha_V = 1e4) {
@@ -320,7 +321,7 @@
 #' @param gelman A logical indicating whether to use Gelman prior for fixed effects in categorical models. Default is TRUE.
 #' @return A list of priors for the MCMCglmm model.
 #' @importFrom stats complete.cases
-#' @export
+#' @noRd
 
 # TODO: Fix the gelamn prior definition for categorical models
 .make_prior <- function(
@@ -490,6 +491,7 @@
 #' @param dat_prep Output of .data_prep (used to extract factor levels)
 #' @param sample Logical; if TRUE sample from probability distribution, else argmax
 #' @return Named list with full_prediction (n_obs x J probability matrix) and pred_values
+#' @noRd
 .fit_predict_ovr <- function(data_i, response_var, fixformula, phylo,
                               ran_phylo_form, nitt, thin, burnin,
                               n_rand_eff, cluster_col, dat_prep, sample = FALSE) {
@@ -595,7 +597,7 @@
 #' @param cluster_col Name of the random-effect grouping column (default "animal").
 #' @param ... Additional arguments (not used).
 #' @return A vector of predicted values from the MCMCglmm model.
-#' @export
+#' @noRd
 .predict_bace <- function(model, dat_prep, response_var, type = NULL, sample = FALSE,
                            formula = NULL, data_full = NULL, cluster_col = "animal", ...) {
 
@@ -839,6 +841,7 @@
 #' @param response_var Name of the response, used in messages.
 #' @return Level vector matching \code{n_cols} entries.
 #' @keywords internal
+#' @noRd
 .align_levels_to_probs <- function(levels_declared, n_cols,
                                     levels_observed = levels_declared,
                                     response_var = "(unknown)") {
@@ -862,6 +865,7 @@
 #' @param levels_var A character vector specifying the names of the levels/categories
 #' @param sample A logical indicating whether to sample from the distribution or take the maximum probability
 #' @return A vector of predicted levels for each observation
+#' @noRd
 .impute_levels <- function(pred_prob, levels_var, sample = FALSE) {
   # If pred_prob carries level names in its column order (categorical
   # case), align by name; else fall back to position-based alignment
@@ -890,6 +894,7 @@
 #'   posterior-predictive class draws (see .predict_bace, sample = TRUE).
 #' @param mat Character matrix (n rows, K columns of class draws).
 #' @return Character vector of length n with the per-row mode.
+#' @noRd
 .cat_mode <- function(mat) {
   apply(mat, 1L, function(row) {
     row <- row[!is.na(row)]
@@ -905,7 +910,7 @@
 #' @param model A MCMCglmm model object
 #' @param baseline_name A string specifying the name of the baseline category
 #' @return A data frame of predicted probabilities for each category
-#' @export
+#' @noRd
 .pred_cat <- function(model, baseline_name = "Baseline") {
 
   # 1. Basic Dimensions
@@ -986,6 +991,7 @@
 #' @return Data frame (n_obs x n_levels) of predicted probabilities at the
 #'   chosen iteration, columns ordered alphabetically to match \code{.pred_cat}.
 #' @keywords internal
+#' @noRd
 .pred_cat_iter <- function(model, baseline_name = "Baseline", iteration) {
   n_obs    <- model$Residual$nrl
   n_traits <- ncol(model$Liab) / n_obs
@@ -1034,7 +1040,7 @@
 #' @param cluster_col Name of the random-effect grouping column (e.g. "animal")
 #' @param baseline_name Name for the baseline (reference) category
 #' @return Data frame with nrow(data_i) rows of predicted probabilities per category
-#' @export
+#' @noRd
 .pred_cat_forward <- function(model, formula, data_i, cluster_col = "animal",
                                baseline_name = "Baseline") {
 
@@ -1140,6 +1146,7 @@
 #' @return Data frame (n_obs x n_levels) of probabilities at the chosen
 #'   iteration; columns ordered as (baseline, then non-baseline levels).
 #' @keywords internal
+#' @noRd
 .pred_cat_forward_iter <- function(model, formula, data_i, cluster_col = "animal",
                                     baseline_name = "Baseline", iteration) {
 
@@ -1213,7 +1220,7 @@
 #' @param model A MCMCglmm model object
 #' @param level_names A character vector specifying the names of the levels/categories
 #' @return A data frame of predicted probabilities for each category
-#' @export
+#' @noRd
 .pred_threshold <- function(model, level_names = NULL) {
 
   n_obs <- model$Residual$nrl
@@ -1254,6 +1261,7 @@
 #' @param iteration Integer MCMC iteration index to use.
 #' @return Data frame (n_obs x n_levels) of per-iteration probabilities.
 #' @keywords internal
+#' @noRd
 .pred_threshold_iter <- function(model, level_names = NULL, iteration) {
   n_obs <- model$Residual$nrl
   if (!is.null(model$CP)) {
@@ -1289,7 +1297,7 @@
 #' @param cluster_col Name of the random-effect grouping column (e.g. "animal")
 #' @param level_names Character vector of ordered level names
 #' @return Data frame with nrow(data_i) rows of predicted probabilities per category
-#' @export
+#' @noRd
 .pred_threshold_forward <- function(model, formula, data_i,
                                      cluster_col = "animal",
                                      level_names = NULL) {
@@ -1371,6 +1379,7 @@
 #' @param iteration Integer MCMC iteration index.
 #' @return Data frame (n_obs x n_levels) of per-iteration probabilities.
 #' @keywords internal
+#' @noRd
 .pred_threshold_forward_iter <- function(model, formula, data_i,
                                           cluster_col = "animal",
                                           level_names = NULL, iteration) {
@@ -1437,7 +1446,7 @@
 #' @param model A MCMCglmm model object
 #' @return A data frame with columns: post_mean, post_sd, ci_lower, ci_upper
 #'         (one row per observation used in the fit)
-#' @export
+#' @noRd
 .pred_cont <- function(model) {
 
   # Need X and Sol (and Z if you want conditional fitted values)
@@ -1492,7 +1501,7 @@
 #' @param model A MCMCglmm model object
 #' @return A data frame with columns: post_mean, post_sd, ci_lower, ci_upper
 #'         (one row per observation)
-#' @export
+#' @noRd
 .pred_count <- function(model) {
 
   if (is.null(model$Liab)) stop("model$Liab is missing.")
@@ -1531,7 +1540,7 @@
 #'   \item Autocorrelation at lag 1
 #'   \item Summary statistics for fixed and random effects
 #' }
-#' @export
+#' @noRd
 .check_mcmc_diagnostics <- function(bace_output) {
   
   if (!inherits(bace_output, "bace")) {
