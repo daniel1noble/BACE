@@ -101,9 +101,27 @@ CRAN submission. Baseline: `R CMD check --as-cran` is already **Status: OK**
   (b) "possibly misspelled" DESCRIPTION words are reference surnames
   (Hadfield, Zhou, Reiter) + "phylogenetically" — unavoidable, explained in
   cran-comments.md.
-- [x] win-builder round 2 re-uploaded after the fix — expect only the
-  standard incoming/new-submission + surname NOTE. CHECK THE EMAIL before
-  submitting.
+- [x] win-builder rounds 2-3 (2026-09-20): BOTH still reported the
+  'Rplots.pdf' / 'cran-comments.md' top-level NOTE — **proven to be
+  win-builder-side residue, not the package**. Evidence chain: (i) the
+  uploaded tarball (sha1 0f9d0acac80742e0f6d04b770357e4190c3826bf, 101
+  members) verifiably contains neither file; (ii) the 06:35 result
+  demonstrably checked that tarball (Drobniak-second Authors@R in its built
+  zip); (iii) the identical tarball through a pristine local
+  `R CMD check --as-cran` produces NO non-standard-files complaint — only
+  the unavoidable incoming NOTE (new submission + reference surnames).
+  Mechanism: round-1's genuinely dirty tarball unpacked into win-builder's
+  reused per-package work dir; later unpacks overwrite matches but never
+  delete strays (a check run cannot invent cran-comments.md). All other
+  Windows R-devel checks pass (examples, tests 16 s, Rd, manual).
+- [ ] **Decision (Dan, 2026-09-20): wait ~72 h** for win-builder's auto-
+  cleanup (files removed ~2026-09-23), then re-upload for a clean log and
+  submit. Re-upload: rebuild from the repo (state is fully committed) with
+  `R CMD build --no-manual .` and
+  `curl -T BACE_0.1.0.tar.gz ftp://win-builder.r-project.org/R-devel/`;
+  verify the tarball manifest first (expect 101 members, no Rplots.pdf /
+  cran-comments.md). Note: win-builder FTP was intermittently unreachable
+  on 2026-09-20; retry politely if it times out.
 - R-hub skipped deliberately: CI already covers ubuntu (devel/release/
   oldrel-1) + macOS + windows with --as-cran, and R-hub v2 needs
   interactive GitHub auth. Revisit only if CRAN flags a platform we
