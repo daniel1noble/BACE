@@ -4,16 +4,16 @@ c(
     title = "BACE: Bayesian Augmentation by Chained Equations for Phylogenetic Comparative Data",
     author = c(
       person("Daniel W. A.", "Noble"),
+      person("Szymon M.", "Drobniak"),
       person("Ayumi", "Mizuno"),
       person("Patrice", "Pottier"),
-      person("Szymon M.", "Drobniak"),
       person("Shinichi", "Nakagawa")
     ),
     year = format(Sys.Date(), "%Y"),
     note = sprintf("R package version %s", meta$Version),
     url = "https://github.com/daniel1noble/BACE",
     textVersion = paste0(
-      "Noble, D.W.A., Mizuno, A., Pottier, P., Drobniak, S.M., and Nakagawa, S. ",
+      "Noble, D.W.A., Drobniak, S.M., Mizuno, A., Pottier, P., and Nakagawa, S. ",
       sprintf("(%s). ", format(Sys.Date(), "%Y")),
       "BACE: Bayesian Augmentation by Chained Equations for Phylogenetic Comparative Data. ",
       sprintf("R package version %s. ", meta$Version),

@@ -3,9 +3,9 @@ Title: Bayesian Augmentation by Chained Equations for Phylogenetic Comparative D
 Version: 0.1.0
 Authors@R: c(
     person("Daniel", "Noble", email = "daniel.noble@anu.edu.au", role = c("aut", "cre")),
+    person("Szymon", "Drobniak", email = "szymek.drobniak@gmail.com", role = "aut"),
     person("Ayumi", "Mizuno", role = "aut"),
     person("Patrice", "Pottier", role = "aut"),
-    person("Szymon", "Drobniak", email = "szymek.drobniak@gmail.com", role = "aut"),
     person("Shinichi", "Nakagawa", email = "s.nakagawa@unsw.edu.au", role = "aut"))
 Description: Multiple imputation of missing data in phylogenetic comparative
     datasets by chained equations, where every per-variable imputation model is
