@@ -94,8 +94,15 @@ CRAN submission. Baseline: `R CMD check --as-cran` is already **Status: OK**
   (`mypkg.*` -> `BACE.*` template leftover in bace_options docs);
   `inst/WORDLIST` (90 jargon/surname terms); spell check now clean.
 - [x] `urlchecker::url_check()`: all URLs correct.
-- [x] win-builder R-devel upload via `devtools::check_win_devel()` —
-  results email goes to Dan (new cre) in ~15-60 min. CHECK THE EMAIL before
+- [x] win-builder round 1 (R-devel, 2026-09-20): **2 NOTEs**.
+  (a) top-level `cran-comments.md` + stray local `Rplots.pdf` leaked into
+  the tarball — FIXED (commit f7755d3: both .Rbuildignore'd, plus repaired
+  a fused `^notes/` pattern; rebuilt tarball verified clean);
+  (b) "possibly misspelled" DESCRIPTION words are reference surnames
+  (Hadfield, Zhou, Reiter) + "phylogenetically" — unavoidable, explained in
+  cran-comments.md.
+- [x] win-builder round 2 re-uploaded after the fix — expect only the
+  standard incoming/new-submission + surname NOTE. CHECK THE EMAIL before
   submitting.
 - R-hub skipped deliberately: CI already covers ubuntu (devel/release/
   oldrel-1) + macOS + windows with --as-cran, and R-hub v2 needs
