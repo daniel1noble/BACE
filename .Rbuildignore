@@ -31,3 +31,5 @@ test_mcmc_demo.R
 ^\.claude$
 ^\.agents$
 ^notes/
+^cran-comments\.md$
+^Rplots\.pdf$

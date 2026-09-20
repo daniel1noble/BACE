@@ -23,4 +23,7 @@
   tests use very small chains, and the heaviest scenarios are additionally
   guarded with skip_on_cran().
 * Words flagged by spell checking are statistical/phylogenetics terminology,
-  author surnames, and R package names (see inst/WORDLIST).
+  author surnames, and R package names (see inst/WORDLIST). In particular,
+  the DESCRIPTION words flagged by win-builder — Hadfield, Zhou, Reiter —
+  are surnames from the method references, and "phylogenetically" is
+  standard phylogenetics terminology.
