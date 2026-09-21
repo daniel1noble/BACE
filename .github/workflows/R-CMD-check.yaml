@@ -18,7 +18,12 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {os: macos-latest,   r: 'release'}
+          # macOS pinned to R 4.5 temporarily: CRAN's mac builder ships
+          # zstd-compressed binaries under contrib/4.6+, which pak (stable
+          # and devel, as of 2026-09-21) cannot extract ("unknown archive
+          # type"). The 4.5 binary tree is still gzip. Revert to 'release'
+          # once pak handles zstd.
+          - {os: macos-latest,   r: '4.5'}
           - {os: windows-latest, r: 'release'}
           - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest,   r: 'release'}
