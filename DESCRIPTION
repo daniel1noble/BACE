@@ -20,7 +20,7 @@ Description: Multiple imputation of missing data in phylogenetic comparative
     1999 <doi:10.1093/biomet/86.4.948>). Also provides diagnostics for
     convergence of the chained-equations loop, per-variable phylogenetic signal
     summaries, and simulation of phylogenetically structured benchmark data.
-License: LGPL (>= 3)
+License: GPL (>= 3)
 Language: en-GB
 URL: https://github.com/daniel1noble/BACE, https://daniel1noble.github.io/BACE/
 BugReports: https://github.com/daniel1noble/BACE/issues
