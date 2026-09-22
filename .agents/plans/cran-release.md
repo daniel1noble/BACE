@@ -114,7 +114,15 @@ CRAN submission. Baseline: `R CMD check --as-cran` is already **Status: OK**
   reused per-package work dir; later unpacks overwrite matches but never
   delete strays (a check run cannot invent cran-comments.md). All other
   Windows R-devel checks pass (examples, tests 16 s, Rd, manual).
-- [ ] **Decision (Dan, 2026-09-20): wait ~72 h** for win-builder's auto-
+- [x] **win-builder round 4 (2026-09-23): CLEAN** — Status: 1 NOTE, and it
+  is only the unavoidable incoming-feasibility notice (New submission +
+  reference surnames); `checking top-level files ... OK`. Residue theory
+  confirmed. Checked tarball: sha1
+  7ee38766f74906d8e7d8fd8eeb313064b38a400a (101 members, GPL >= 3,
+  final author order). A copy sits at the repo root (gitignored).
+  **READY TO SUBMIT**: https://cran.r-project.org/submit.html with that
+  tarball + cran-comments.md; Dan confirms CRAN's follow-up email.
+- [x] (superseded) Decision (Dan, 2026-09-20): wait ~72 h for win-builder's auto-
   cleanup (files removed ~2026-09-23), then re-upload for a clean log and
   submit. Re-upload: rebuild from the repo (state is fully committed) with
   `R CMD build --no-manual .` and
