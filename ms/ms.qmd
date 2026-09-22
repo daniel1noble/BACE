@@ -1,6 +1,6 @@
 ---
 title: "Bayesian augmentation by chained equations for phylogenetic comparative data: the BACE R package"
-bibliography: ../bib/refs.bib
+bibliography: ../bib/BACE.bib
 csl: ../bib/trends-in-ecology-and-evolution.csl
 format:
   docx:
@@ -92,8 +92,99 @@ crossref:
 
 ## Typical user pipeline (pseudo-code)
 ```{r}
-# 1) Prepare data and tree
-# 2) Define imputation model / recipe
-# 3) Run imputation
-# 4) Diagnostics and export
+#| label: pipeline-pseudocode
+#| echo: true
+#| eval: false
+
+# 1) Prepare data and tree (rows = taxa; factors declared; counts as integers)
+# 2) Run the full workflow: chained imputation -> convergence check ->
+#    n_final posterior-predictive imputations -> pooled posteriors
+res <- bace(fixformula     = "y ~ x1 + x2",
+            ran_phylo_form = "~ 1 | Species",
+            phylo          = tree,
+            data           = dat,
+            runs           = 10, n_final = 50)
+
+# 3) Diagnostics
+plot(assess_convergence(res$initial_results))
+
+# 4a) Bayesian route: pooled MCMCglmm posteriors
+summary(get_pooled_model(res, "y"))
+
+# 4b) Rubin's-rules route: any downstream model per imputed dataset
+fits <- with_imputations(res, function(d) lm(y ~ x1 + x2, data = d))
+pool_mi(fits)
 ```
+
+## Convergence diagnostics
+*(Structure only — content to write. See tutorial "Two kinds of convergence".)*
+- Within-chain MCMC convergence of each per-variable model vs convergence of the chained-equations loop (the imputed-data sequence).
+- `assess_convergence()` criteria (%-change + trend + ACF) and the `plot_*_convergence()` family.
+
+## Pooling pathways: stacked posteriors and Rubin's rules
+*(Structure only. Sources: `.agents/plans/pool_mi_rubin.md`; tutorial "Interpreting the pooled output"; Zhou & Reiter 2010; BDA3 Ch. 18.)*
+- `pool_posteriors()`: stacking per-imputation chains approximates the marginal posterior; not Rubin's rules; O(1/M) difference at small M.
+- `with_imputations()` + `pool_mi()`: model-agnostic Rubin's rules (Barnard–Rubin df, fmi/riv); matches `mice::pool` to machine precision.
+- When to use which (variance components never via Rubin).
+
+![*(Caption to write.)* Core user-facing BACE function map.](../vignettes/figs/bace_function_map.png){#fig-function-map}
+
+# Performance evaluation
+
+## Simulation design
+*(Structure only. Sources: `dev/12_recovery_simulation.R`, `dev/13_response_type_simulation.R`, `dev/simulation_results/SIMULATION_REPORT.qmd`; design details in `.agents/simulation-report.html`.)*
+- Study A: parameter recovery (gaussian slope) under MCAR/MAR; oracle and complete-case comparators.
+- Study B: five response types x MCAR/MAR; per-type accuracy/coverage metrics and their finite-draw/metric ceilings (`cover95_t`, prob-based sets, Bayes ceiling for categorical).
+
+## Parameter recovery and inferential calibration (Study A)
+<!-- TODO(authors): numbers in .agents/project-state.md "Re-validation" -
+     MAR slope coverage 0.950, MCAR 0.975; complete-case MAR mean bias
+     -0.259 vs BACE +0.011; CI width ratio. Figure candidate:
+     dev/simulation_results/ figures. -->
+
+## Imputation accuracy across response types (Study B)
+<!-- TODO(authors): per-type table - recovery, coverage vs ceiling; pre/post
+     bug-fix contrast if wanted (archive_2026-07_prebugfix). Numbers in
+     .agents/project-state.md table. -->
+
+```{r}
+#| label: tbl-studyb
+#| eval: false
+# TODO(analysis): build the Study B summary table from
+# dev/simulation_results/response_type_per_rep.csv (per-rep metrics).
+```
+
+## Benchmark against existing tools
+*(Pending Track B3: missForest, Rphylopars, mice as feasible. Note: pigauto is a companion package, not a competitor — see `.agents/pigauto.md` for positioning.)*
+
+# Worked example
+*(Pending Track B4: AVONET at production MCMC settings; 300-species subset exists from the April benchmark.)*
+
+# Discussion
+*(Structure only.)*
+- What BACE adds relative to existing MI and phylogenetic-prediction tools.
+- Honest limitations <!-- TODO(authors): from .agents/project-state.md -
+     poisson MAR t-interval 0.916 (log-link extrapolation; metric ceiling
+     ~0.93-0.94 for skewed predictives), categorical sets slightly
+     conservative (0.984), MNAR out of scope, runtime scaling. -->
+- Practical guidance (pre-flight signal screening; when BACE is the wrong tool).
+- Relationship to pigauto (division of labour).
+
+# Availability and reproducibility
+*(Structure only.)*
+- Package: GitHub (daniel1noble/BACE), tutorial site, CRAN (pending).
+- Simulation reproduction: `dev/12`, `dev/13`, `dev/14`, `SIMULATION_REPORT.qmd` (commands in `.agents/README.md`).
+
+# Acknowledgements
+*(To write.)*
+
+# Author contributions
+*(To write — CRediT.)*
+
+# Data and code availability
+*(To write.)*
+
+# References
+
+::: {#refs}
+:::

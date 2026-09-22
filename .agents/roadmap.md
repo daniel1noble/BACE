@@ -92,9 +92,16 @@ pipeline before spending compute on it (Track B). Full suite after: 1274 pass /
 
 ## Track C — Manuscript + release
 
-- [ ] **C1. Restore missing bib/template assets** — `ms/ms.qmd` references
-  `bib/refs.bib`, a `.csl`, and `template.docx` that don't exist (only `bib/BACE.bib`
-  is present), so it won't render. Blocking for any write-up.
+- [x] **C1. Restore missing bib/template assets** — DONE 2026-09-22.
+  `ms/ms.qmd` now points at the shared `bib/BACE.bib` (one bibliography for
+  package + tutorial + ms); `bib/trends-in-ecology-and-evolution.csl` fetched
+  (the official Trends-journals parent style); `bib/template.docx` is
+  pandoc's default reference doc (restyle in Word as desired). Renders to
+  both HTML and docx. The skeleton was also extended into a full
+  scaffold (headers + pointer-placeholders + figure/table stubs incl. the
+  function-map figure; pipeline pseudo-code uses the real API) — **no prose
+  written; all text is the authors' to write** (placeholders point at where
+  the numbers live in `.agents/`).
 - [ ] **C2. Draft Methods + Results** around Track B outputs (currently a bullet skeleton).
 - [ ] **C3. Pooling section** — write up stacking vs Rubin with the O(1/M) table, and
   the pigauto companion-package positioning (division of labour, not rivalry).
