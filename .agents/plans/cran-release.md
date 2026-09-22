@@ -114,8 +114,10 @@ CRAN submission. Baseline: `R CMD check --as-cran` is already **Status: OK**
   confirmed. Checked tarball: sha1
   7ee38766f74906d8e7d8fd8eeb313064b38a400a (101 members, GPL >= 3,
   final author order). A copy sits at the repo root (gitignored).
-  **READY TO SUBMIT**: https://cran.r-project.org/submit.html with that
-  tarball + cran-comments.md; Dan confirms CRAN's follow-up email.
+  **STATUS: ready for CRAN — passes win-builder (clean, 2026-09-23). Not
+  yet submitted.** When the team is ready:
+  https://cran.r-project.org/submit.html with that tarball +
+  cran-comments.md; Dan confirms CRAN's follow-up email.
 - [x] (superseded) Decision (Dan, 2026-09-20): wait ~72 h for win-builder's auto-
   cleanup (files removed ~2026-09-23), then re-upload for a clean log and
   submit. Re-upload: rebuild from the repo (state is fully committed) with
