@@ -1,7 +1,7 @@
 ---
 title: "Bayesian augmentation by chained equations for phylogenetic comparative data: the BACE R package"
 bibliography: ../bib/BACE.bib
-csl: ../bib/trends-in-ecology-and-evolution.csl
+csl: ../bib/methods-in-ecology-and-evolution.csl
 format:
   docx:
     reference-doc: ../bib/template.docx
