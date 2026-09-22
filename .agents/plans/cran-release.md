@@ -71,12 +71,6 @@ CRAN submission. Baseline: `R CMD check --as-cran` is already **Status: OK**
 - [x] Fixed a roxygen link warning (`[k,k]` linkified in
   phylo_signal_summary docs).
 
-## Step 3 — Examples
-
-- [ ] Replace `\dontrun{}` (17 pages) with runnable examples where fast, or
-  `\donttest{}` for MCMC-heavy ones (CRAN policy: `\dontrun` only for code
-  that genuinely cannot run).
-
 ## Step 4 — Final gates  (2026-09-20)
 
 - [x] **Maintainer decision (Dan)**: `cre` switched to Daniel Noble.
