@@ -127,6 +127,58 @@ Two studies, both on `sim_bace()` with production MCMC
 Study B is `r length(unique(Bp$type))` types × 2 mechanisms × `r B_REPS` reps =
 **`r format(5*2*B_REPS, big.mark=",")` datasets** (`r nrow(Bp)` completed).
 
+# Settings, model structure, and provenance {#sec-provenance}
+
+**Simulated model structure.**
+
+- **Study A** (`dev/12_recovery_simulation.R`): pure-birth tree
+  (`ape::rtree`, Grafen branch lengths, depth-normalised to 1);
+  phylogenetically correlated predictor $x \sim \mathrm{MVN}(0, R)$ and
+  phylogenetic effect $u \sim \mathrm{MVN}(0, R)$ on the tree correlation
+  matrix $R$; response $y = b_0 + b_1 x + u + \varepsilon$,
+  $\varepsilon \sim N(0, \sigma_e^2)$ (true values in the table below).
+  Missingness on $y$ only: MCAR at a constant rate; MAR with
+  $\Pr(\text{missing}) = \mathrm{plogis}\{a + \text{mar\_slope}\cdot z(x)\}$
+  — depends on the *observed* predictor. Analysis pipeline per replicate:
+  `bace_imp()` → `assess_convergence()` → `bace_final_imp()` →
+  `with_imputations(gls)` → `pool_mi()`, against **oracle** (full data) and
+  **complete-case** comparators.
+- **Study B** (`dev/13_response_type_simulation.R`, v3): data from
+  `sim_bace()` — one response (gaussian / poisson / binary / `threshold3`
+  ordinal / `multinomial3` categorical) plus two gaussian predictors, all
+  three variables with the phylogenetic-signal proportion below; known
+  predictor effects $\beta_{x_1}, \beta_{x_2}$ (below); one row per species.
+  Discrete responses are generated on the latent liability scale (the
+  multinomial DGP draws distinct per-liability slopes and random effects and
+  records the per-replicate Bayes ceiling). Missingness on the response
+  only, same MCAR/MAR mechanisms as Study A (MAR depends on observed $x_1$).
+
+**Settings actually used** (printed from the saved run objects, so these are
+the production values, not script defaults):
+
+```{r cfg-tables}
+cfgtab <- function(cfg, study) {
+  cfg <- lapply(cfg, function(v) paste(unlist(v), collapse = ", "))
+  data.frame(Study = study, Setting = names(cfg),
+             Value = unlist(cfg), row.names = NULL)
+}
+knitr::kable(rbind(cfgtab(A$cfg, "A"), cfgtab(B$cfg, "B")))
+```
+
+**File map** (all under `dev/` unless noted):
+
+| File | Role |
+|---|---|
+| `12_recovery_simulation.R` | Study A generator + analysis (env-var scaled; DGP and pipeline above) |
+| `13_response_type_simulation.R` | Study B generator + analysis (resumable per-cell chunks in `simulation_results/response_type_chunks/`) |
+| `14_make_simulation_report.R` | per-rep CSV extraction + standalone figures |
+| `simulation_results/recovery_simulation.rds` / `response_type_simulation.rds` | full results incl. the `cfg` printed above |
+| `simulation_results/recovery_per_rep.csv`, `response_type_per_rep.csv` | per-replicate metrics (what this report plots) |
+| `simulation_results/*_summary.csv` | aggregated summaries |
+| `simulation_results/archive_2026-07_prebugfix/` | pre-fix run for @sec-beforeafter |
+| `.agents/investigation-2026-08.md` | root-cause write-up behind the six fixes |
+| `R/simulate_simBACE.R` (`sim_bace()`) | the Study B data-generating engine |
+
 # Measures (what they mean)
 
 For each replicate we hide 30% of the response, impute with BACE, and compare
