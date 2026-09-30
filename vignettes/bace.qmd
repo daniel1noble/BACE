@@ -792,6 +792,8 @@ Across the full 20-replicate sweep at default `n_final = 50` settings (see `dev/
 
 The `dev/sim_accuracy_results/multirep_v1_n20/` directory of the package source contains the per-replicate CSVs and aggregated summary used to build this table.
 
+{{< include amphibian_ctmax/_amphibian_ctmax.qmd >}}
+
 # Citation and further reading
 
 If you use *BACE* in a publication, please cite both the package (see `citation("BACE")`) and the underlying `MCMCglmm` engine [@hadfield2010]. Phylogenetic comparative methods and phylogenetic mixed models are reviewed in @cornwell2017, @devillemereuil2014a and @halliwell2025. The broader motivation for imputation in comparative biology — data gaps, trait databases, and the cost of complete-case analysis — is discussed in @daliaa.conde2019 and @pottier2024. For a related Rubin's-rules-based approach that handles *phylogenetic* uncertainty (rather than missing trait data), see @nakagawa2018.

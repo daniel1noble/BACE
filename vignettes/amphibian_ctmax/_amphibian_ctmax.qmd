@@ -1,0 +1,435 @@
+# Worked example: heat tolerance of amphibians {#sec-amphibian}
+
+```{r}
+#| label: amph-setup
+#| include: false
+# This section reads precomputed results. The scripts in vignettes/amphibian_ctmax/
+# (01_prepare_data.R, 02_run_cv.R, 03_run_full.R) regenerate them.
+library(ggplot2)
+library(patchwork)
+amph_dir   <- "amphibian_ctmax"
+ctmax_data <- readRDS(file.path(amph_dir, "data/ctmax_data.rds"))
+ctmax_tree <- readRDS(file.path(amph_dir, "data/ctmax_tree.rds"))
+amph_full  <- readRDS(file.path(amph_dir, "results/full_imputation.rds"))
+amph_cv    <- lapply(1:5, function(k) readRDS(file.path(amph_dir, sprintf("results/cv_fold%d.rds", k))))
+
+amph_exp  <- ctmax_data[ctmax_data$row_type == "experimental", ]
+amph_n_sp <- table(amph_exp$species)
+fmt  <- function(x, d = 2) formatC(x, format = "f", digits = d, big.mark = ",")
+fmt0 <- function(x) formatC(x, format = "d", big.mark = ",")
+
+amph_cols  <- c(experimental = "#21918c", imputed = "#CE5B97")
+amph_theme <- theme_classic(base_size = 11) +
+  theme(panel.border = element_rect(fill = NA, colour = "black"),
+        legend.position = "none")
+```
+
+In this example, we use BACE to impute the heat tolerance of the world's amphibians. @pottier2025 compiled `r fmt0(nrow(amph_exp))` estimates of the critical thermal maximum (CTmax), a proxy for heat tolerance limits, across `r length(amph_n_sp)` species of amphibians. Below, we show how to use BACE to impute the CTmax of `r fmt0(ape::Ntip(ctmax_tree))` species, and how to cross-validate imputed values against experimental data.
+
+## The data
+
+The dataset contains two types of rows. Experimental rows are CTmax estimates from published heat-tolerance assays. These assays differ in their methods, such as acclimation temperature and duration, heating rate, and the endpoint used to define CTmax. Because these methods affect CTmax, raw estimates are not directly comparable across species.
+
+Standardised rows make estimates comparable across species. Each standardised row describes an assay performed under identical conditions. Adults are acclimated for 10 days and heated at 1 °C per minute in water, and CTmax is recorded at the onset of spasms. These conditions were the median or most common values in the experimental data [@pottier2025]. Each species has three standardised rows, which differ only in acclimation temperature. These temperatures correspond to the 5th, 50th and 95th percentiles of the operative body temperatures that each species experiences across its range. CTmax is unknown in all `r fmt0(sum(ctmax_data$row_type == "standardised"))` standardised rows, and BACE imputes it using the experimental data and the phylogeny.
+
+```{r}
+#| label: amph-data
+#| echo: true
+# Data and phylogeny are bundled in vignettes/amphibian_ctmax/data/
+ctmax_data <- readRDS("amphibian_ctmax/data/ctmax_data.rds")
+ctmax_tree <- readRDS("amphibian_ctmax/data/ctmax_tree.rds")
+table(ctmax_data$row_type)
+
+# Experimental and standardised rows for one species, Cope's grey treefrog
+amph_example <- ctmax_data[ctmax_data$species == "Dryophytes chrysoscelis",
+                           c("row_type", "CTmax", "acclimation_temp", "ramping", "endpoint", "life_stage")]
+print(amph_example, digits = 3, row.names = FALSE)
+```
+
+One of the covariates is the medium in which temperature was recorded during CTmax trials. Studies recorded either the body temperature of the animals, the water temperature, or the ambient temperature. The medium is unknown for 36 of the `r fmt0(nrow(amph_exp))` experimental rows. For demonstration purposes, we assume that these assays recorded body or water temperature, as did 2,574 of the 2,625 assays with a known medium. We do so because imputing this covariate is computationally demanding: ambient temperature is so rare that its imputation model needs very long MCMC chains. However, BACE can impute this variable if needed [see @pottier2025].
+
+```{r}
+#| label: amph-medium
+#| echo: true
+ctmax_data$medium[is.na(ctmax_data$medium)] <- "body_water"
+```
+
+## Checking phylogenetic signal
+
+Before running BACE, we checked whether the variables with missing data show phylogenetic signal (see *Pre-flight: check phylogenetic signal* above).
+
+```{r}
+#| label: amph-signal
+#| echo: true
+#| eval: false
+exp_rows <- ctmax_data$row_type == "experimental"
+signal <- phylo_signal_summary(
+  data        = ctmax_data[exp_rows, ],
+  tree        = ape::keep.tip(ctmax_tree, unique(ctmax_data$species[exp_rows])),
+  species_col = "species",
+  variables   = c("CTmax", "ln_sd_CTmax", "ln_acclimation_time", "ramping"),
+  species     = TRUE,
+  nitt = 105000, burnin = 5000, thin = 50)
+signal
+```
+
+```{r}
+#| label: amph-signal-output
+#| echo: false
+amph_signal <- readRDS(file.path(amph_dir, "results/phylo_signal.rds"))
+amph_signal
+```
+
+```{r}
+#| label: amph-signal-numbers
+#| include: false
+amph_sig_ct  <- amph_signal$table[amph_signal$table$variable == "CTmax", ]
+amph_sig_cov <- amph_signal$table[amph_signal$table$variable != "CTmax", ]
+```
+
+CTmax showed high phylogenetic signal (H² = `r fmt(amph_sig_ct$H2_mean)`, 95% CI: `r fmt(amph_sig_ct$H2_lo)` to `r fmt(amph_sig_ct$H2_hi)`), and the three covariates showed moderate signal (H² = `r fmt(min(amph_sig_cov$H2_mean))` to `r fmt(max(amph_sig_cov$H2_mean))`). The phylogeny therefore carries information for every imputation model.
+
+## Running BACE
+
+We fitted one imputation model for each variable with missing data, following @pottier2025. We modelled CTmax as a function of acclimation temperature, acclimation duration, heating rate, test medium, endpoint, acclimation status (laboratory-acclimated or field-fresh), life stage and ecotype. Acclimation duration and heating rate are missing for 379 and 173 of the `r fmt0(nrow(amph_exp))` experimental rows, respectively, so each has its own imputation model. We also included the standard deviation of CTmax as an auxiliary variable. It does not predict CTmax, but it helps impute the missing assay settings. Acclimation duration and the standard deviation of CTmax were log-transformed because both were right-skewed.
+
+All models included phylogenetic and non-phylogenetic random intercepts for species (`species = TRUE`), because many species have several estimates (`r sum(amph_n_sp > 1)` of the `r length(amph_n_sp)` tested species). @pottier2025 also fitted random slopes for acclimation temperature, which BACE does not yet support. In this example, all species therefore share the same effect of acclimation temperature on CTmax.
+
+```{r}
+#| label: amph-models
+#| echo: true
+#| eval: false
+ctmax_formulas <- list(
+  "ln_sd_CTmax ~ life_stage + acclimation_temp + endpoint + acclimated + ln_acclimation_time + medium + ramping + CTmax",
+  "ln_acclimation_time ~ life_stage + ln_sd_CTmax + CTmax",
+  "ramping ~ life_stage + ln_sd_CTmax + CTmax",
+  "CTmax ~ acclimation_temp + ln_acclimation_time + ramping + medium + endpoint + acclimated + life_stage + ecotype"
+)
+ctmax_vars <- c("species", "CTmax", "acclimation_temp", "ln_acclimation_time", "ramping",
+                "ln_sd_CTmax", "medium", "endpoint", "acclimated", "life_stage", "ecotype")
+
+amph_bace <- bace(fixformula     = ctmax_formulas,
+                  ran_phylo_form = "~ 1 | species",
+                  phylo          = ctmax_tree,
+                  data           = ctmax_data[, ctmax_vars],
+                  species        = TRUE,
+                  runs = 10, n_final = 50,
+                  nitt = 15000, burnin = 3000, thin = 24)
+```
+
+BACE chose the model for each variable from how it is stored (see the table of variable types above). All four imputed variables are stored as numbers, so BACE fitted Gaussian models to them. The factors are complete, so they enter the models as predictors only; their listed types would apply if they had missing values.
+
+```{r}
+#| label: amph-types
+#| echo: true
+#| eval: false
+unlist(amph_bace$initial_results$types)
+```
+
+```{r}
+#| label: amph-types-output
+#| echo: false
+unlist(amph_full$types)
+```
+
+:::{.callout-note}
+## Run time
+
+This analysis is computationally demanding. On a desktop computer, the chained phase took `r fmt(amph_full$minutes[["chained"]] / 60, 1)` hours and the `r amph_full$settings$n_final` final imputations took `r fmt(amph_full$minutes[["final"]] / 60, 1)` core-hours. Because `bace()` keeps every fitted model in memory (about `r fmt(amph_full$mem_mb_per_imputation * amph_full$settings$n_final / 1024, 0)` GB here), we ran the same steps in chunks with `bace_imp()` and `bace_final_imp()`. The scripts are in `vignettes/amphibian_ctmax/`.
+:::
+
+## Checking convergence
+
+We checked both kinds of convergence (see *Two kinds of convergence* above). First, we used `assess_convergence()` to check whether the imputed values stabilised across the `r amph_full$settings$runs` chained iterations.
+
+```{r}
+#| label: amph-convergence-code
+#| echo: true
+#| eval: false
+converge <- assess_convergence(amph_bace$initial_results, method = "summary")
+converge
+plot(converge)
+```
+
+```{r}
+#| label: amph-convergence
+#| echo: false
+converge <- amph_full$convergence
+converge
+```
+
+```{r}
+#| label: fig-amph-convergence
+#| echo: false
+#| results: hide
+#| message: false
+#| fig-width: 10
+#| fig-height: 7
+#| fig-cap: "Convergence of the chained-equations loop. Each panel tracks a summary of the imputed values of one variable across chained iterations."
+plot(converge)
+```
+
+`r if (isTRUE(converge$converged)) "The chained loop converged" else "The chained loop did not converge"` (@fig-amph-convergence). Second, we checked how well each MCMC chain mixed. With `verbose = TRUE`, BACE prints a diagnostics summary for the models of the last chained iteration, which is also stored in the output:
+
+```{r}
+#| label: amph-diagnostics-code
+#| echo: true
+#| eval: false
+amph_bace$initial_results$diagnostics
+```
+
+```{r}
+#| label: amph-diagnostics
+#| echo: false
+amph_full$mcmc_diagnostics
+```
+
+```{r}
+#| label: amph-diagnostics-numbers
+#| include: false
+amph_diag  <- amph_full$mcmc_diagnostics$all_diagnostics
+amph_check <- amph_diag[amph_diag$convergence != "Good", ]
+amph_labels <- c(CTmax = "CTmax", ln_sd_CTmax = "the standard deviation of CTmax",
+                 ln_acclimation_time = "acclimation duration", ramping = "heating rate")
+amph_flagged <- amph_labels[unique(amph_check$response_variable)]
+amph_pooled_ess <- min(coda::effectiveSize(amph_full$pooled_model$Sol),
+                       coda::effectiveSize(amph_full$pooled_model$VCV))
+```
+
+The summary flagged `r nrow(amph_check)` of the `r nrow(amph_diag)` parameters, all in the models for `r paste(amph_flagged, collapse = " and for ")`. BACE flags a parameter when its ESS is 200 or less, or when a Geweke test suggests that its chain has not settled (*p* ≤ 0.05). Here, `r sum(amph_check$ess <= 200)` of the `r nrow(amph_check)` flags came from low ESS, mainly for the variance components and for the effects of ecotype on CTmax. Close relatives often share an ecotype (3,943 of 5,089 species in genera with several species, 77%, share the most common ecotype of their genus). The effects of ecotype therefore probably overlap with the phylogenetic effect, which slows the sampler.
+
+We can check how the chain mixed with trace plots. A chain that mixes well looks like a fuzzy caterpillar without trends, whereas a chain that mixes slowly wanders. For example, @fig-amph-trace-sd shows the model for the standard deviation of CTmax, from one final imputation:
+
+```{r}
+#| label: amph-trace-sd-code
+#| echo: true
+#| eval: false
+first_fit <- amph_bace$final_results$all_models[[1]]
+plot(first_fit$ln_sd_CTmax)
+```
+
+```{r}
+#| label: fig-amph-trace-sd
+#| echo: false
+#| fig-width: 10.5
+#| fig-height: 16
+#| fig-cap: "Trace and density of the parameters of the imputation model for the standard deviation of CTmax (`ln_sd_CTmax`), from one final imputation of 500 draws. The last three rows of panels are the phylogenetic (species), non-phylogenetic (species2) and residual (units) variances."
+amph_sd_fit <- amph_full$extra_imputation$ln_sd_CTmax
+amph_sd_ess <- c(coda::effectiveSize(amph_sd_fit$Sol), coda::effectiveSize(amph_sd_fit$VCV))
+amph_sd_other <- amph_sd_ess[!names(amph_sd_ess) %in% c("species", "species2")]
+par(mfrow = c(7, 4))
+plot(coda::mcmc(cbind(as.matrix(amph_sd_fit$Sol), as.matrix(amph_sd_fit$VCV))), auto.layout = FALSE)
+```
+
+Most parameters show a fuzzy caterpillar structure, with ESS between `r fmt0(round(min(amph_sd_other)))` and `r fmt0(round(max(amph_sd_other)))` out of `r coda::niter(amph_sd_fit$VCV)` draws. The phylogenetic variance (species) is the exception. Its chain wanders slowly between `r fmt(min(amph_sd_fit$VCV[, "species"]), 1)` and `r fmt(max(amph_sd_fit$VCV[, "species"]), 1)` (ESS = `r fmt0(round(amph_sd_ess[["species"]]))`), and the non-phylogenetic variance (species2) also mixes slowly (ESS = `r fmt0(round(amph_sd_ess[["species2"]]))`).
+
+Slow mixing within a chain matters less for the imputed values, because each final imputation comes from an independent chain. Pooled across the `r amph_full$settings$n_final` chains, the ESS of every parameter of the CTmax model exceeds `r fmt0(floor(amph_pooled_ess / 100) * 100)` (see `eff.samp` in the summary below). In your own analyses, increase `nitt` and `burnin` when ESS is low.
+
+## The pooled CTmax model
+
+As in the examples above, `get_pooled_model()` returns the model for a variable, with the posterior draws of the `r amph_full$settings$n_final` final imputations stacked together.
+
+```{r}
+#| label: amph-pooled-get
+#| echo: true
+#| eval: false
+ctmax_model <- get_pooled_model(amph_bace, variable = "CTmax")
+```
+
+```{r}
+#| label: amph-pooled-load
+#| include: false
+ctmax_model <- amph_full$pooled_model
+```
+
+```{r}
+#| label: amph-pooled-summary
+#| echo: true
+summary(ctmax_model)
+```
+
+BACE fits Gaussian models to standardised (z-transformed) variables, so these coefficients are expressed in standard deviations. For example, the coefficient of acclimation temperature converts to °C of CTmax per °C of acclimation temperature as follows:
+
+```{r}
+#| label: amph-pooled-arr
+#| echo: true
+acc_effect <- ctmax_model$Sol[, "acclimation_temp"] *
+  sd(ctmax_data$CTmax, na.rm = TRUE) / sd(ctmax_data$acclimation_temp)
+round(c(mean = mean(acc_effect), quantile(acc_effect, c(0.025, 0.975))), 3)
+```
+
+On average, CTmax increased by `r fmt(mean(acc_effect), 3)` °C (95% credible interval: `r fmt(quantile(acc_effect, 0.025), 3)` to `r fmt(quantile(acc_effect, 0.975), 3)`) per °C of acclimation temperature. The trace and density plots show the posterior draws of the fixed effects (@fig-amph-trace-fixed) and variance components (@fig-amph-trace-vcv).
+
+```{r}
+#| label: fig-amph-trace-fixed
+#| echo: true
+#| fig-width: 10.5
+#| fig-height: 16
+#| fig-cap: "Trace and density of the fixed effects of the pooled CTmax model, on the standardised scale."
+par(mfrow = c(7, 4))
+plot(ctmax_model$Sol, auto.layout = FALSE)
+```
+
+```{r}
+#| label: fig-amph-trace-vcv
+#| echo: true
+#| fig-width: 9
+#| fig-height: 7
+#| fig-cap: "Trace (left) and density (right) of the variance components of the pooled CTmax model: phylogenetic (species), non-phylogenetic (species2) and residual (units) variance, on the standardised scale."
+plot(ctmax_model$VCV)
+```
+
+## Imputed CTmax
+
+Each final imputation is a complete dataset, so each imputed CTmax value has `r amph_full$settings$n_final` draws. We summarised these draws with a mean and a 95% credible interval.
+
+```{r}
+#| label: amph-extract
+#| echo: true
+#| eval: false
+imp   <- get_imputed_data(amph_bace, format = "list")
+draws <- sapply(imp, function(d) d$CTmax)             # rows x imputations
+ctmax_mean <- rowMeans(draws)
+ctmax_pi95 <- apply(draws, 1, quantile, c(0.025, 0.975))
+```
+
+```{r}
+#| label: amph-imputed
+#| echo: true
+#| code-fold: true
+amph_imp <- amph_full$imputed[amph_full$imputed$temp_level == "p50", ]   # median temperature
+amph_imp$data <- factor(ifelse(amph_imp$species %in% amph_exp$species, "experimental", "imputed"),
+                        levels = names(amph_cols))
+amph_imp$width <- amph_imp$upper95 - amph_imp$lower95
+amph_w <- tapply(amph_imp$width, amph_imp$data, median)
+amph_s <- tapply(amph_imp$CTmax_mean, amph_imp$data, sd)
+amph_n <- table(amph_imp$data)
+```
+
+At the median acclimation temperature, imputed CTmax averaged `r fmt(mean(amph_imp$CTmax_mean), 1)` °C across the `r fmt0(nrow(amph_imp))` species (@fig-amph-imputed). Imputations were more uncertain for species without experimental data. The median 95% credible interval spanned `r fmt(amph_w[["experimental"]], 1)` °C for the `r fmt0(amph_n[["experimental"]])` species with experimental data, but `r fmt(amph_w[["imputed"]], 1)` °C for the `r fmt0(amph_n[["imputed"]])` species without. The imputed means of species without data were also less variable (s.d. = `r fmt(amph_s[["imputed"]], 1)` vs `r fmt(amph_s[["experimental"]], 1)` °C), because BACE predicts their CTmax from their relatives only.
+
+```{r}
+#| label: fig-amph-imputed
+#| echo: true
+#| code-fold: true
+#| fig-width: 9
+#| fig-height: 3.8
+#| fig-cap: "Imputed CTmax at the median acclimation temperature of each species. (a) Imputed means for species with and without experimental data. (b) Width of the 95% credible interval of the imputed values."
+amph_lab <- c(experimental = sprintf("Species with experimental data (n = %s)", fmt0(amph_n[["experimental"]])),
+              imputed = sprintf("Species without experimental data (n = %s)", fmt0(amph_n[["imputed"]])))
+p_a <- ggplot(amph_imp, aes(CTmax_mean, fill = data)) +
+  geom_density(alpha = 0.6, colour = NA) +
+  scale_fill_manual(values = amph_cols, labels = amph_lab, name = NULL) +
+  labs(x = "Imputed CTmax (°C)", y = "Density", tag = "(a)") +
+  amph_theme + theme(legend.position = "top", legend.direction = "vertical")
+p_b <- ggplot(amph_imp, aes(data, width, colour = data)) +
+  geom_jitter(width = 0.2, height = 0, alpha = 0.15, size = 0.6) +
+  geom_boxplot(fill = NA, colour = "black", outlier.shape = NA, width = 0.4) +
+  scale_colour_manual(values = amph_cols) +
+  scale_x_discrete(labels = c(experimental = "With data", imputed = "Without data")) +
+  labs(x = NULL, y = "Width of 95% credible interval (°C)", tag = "(b)") +
+  amph_theme
+p_a + p_b + plot_layout(widths = c(1.4, 1))
+```
+
+## Cross-validation {#sec-amph-cv}
+
+We assessed the accuracy of the imputations by cross-validation, following @pottier2025. We generated five datasets in which the experimental data of 16 species (~5% of the dataset) tested under conditions comparable to the imputed estimates were assigned as NA. These were estimates from adults ramped at 1 °C per minute, with CTmax recorded as the onset of spasms. We removed all entries missing CTmax, besides the observations we aimed to cross-validate, since the validation was done on experimental data. In @pottier2025, the cross-validation was done on the larger dataset (including data-deficient species), but this should not impact the accuracy of the cross-validation procedure since data-deficient species do not inform the imputation of CTmax. We then ran BACE on each cross-validation dataset, and compared the imputed values to the experimental estimates that were artificially taken as missing values.
+
+```{r}
+#| label: amph-cv-run
+#| echo: true
+#| eval: false
+cv_folds <- readRDS("amphibian_ctmax/data/cv_folds.rds")
+
+cv_results <- lapply(cv_folds, function(fold) {
+  # Experimental rows, with the CTmax of the test species hidden
+  d <- ctmax_data[ctmax_data$row_type == "experimental", ]
+  hidden   <- d$row_n %in% fold$rows_masked
+  observed <- d$CTmax[hidden]
+  d$CTmax[hidden] <- NA
+  tree <- ape::keep.tip(ctmax_tree, unique(d$species))
+
+  fit <- bace(fixformula = ctmax_formulas, ran_phylo_form = "~ 1 | species",
+              phylo = tree, data = d[, ctmax_vars], species = TRUE,
+              runs = 10, n_final = 50, nitt = 15000, burnin = 3000, thin = 24)
+
+  # Mean and 95% credible interval of the 50 imputations of each hidden estimate
+  draws <- sapply(get_imputed_data(fit, format = "list"), function(x) x$CTmax[hidden])
+  data.frame(row_n = d$row_n[hidden], observed = observed, imputed = rowMeans(draws),
+             lower = apply(draws, 1, quantile, 0.025),
+             upper = apply(draws, 1, quantile, 0.975))
+})
+```
+
+```{r}
+#| label: amph-cv-summary
+#| echo: true
+#| code-fold: true
+# Results of the five folds, as returned by the code above
+amph_cv_df <- do.call(rbind, lapply(amph_cv, function(f) data.frame(
+  fold = f$fold, row_n = f$row_n, species = f$species, observed = f$truth,
+  imputed = rowMeans(f$draws),
+  lower = apply(f$draws, 1, quantile, 0.025),
+  upper = apply(f$draws, 1, quantile, 0.975))))
+
+# Three species were hidden in two folds; count each hidden estimate once
+twice <- amph_cv_df$row_n[duplicated(amph_cv_df$row_n)]
+amph_cv_df <- amph_cv_df[!(amph_cv_df$row_n %in% twice & amph_cv_df$fold == 5), ]
+amph_cv_df$error <- amph_cv_df$imputed - amph_cv_df$observed
+
+amph_cv_tab <- data.frame(
+  n          = nrow(amph_cv_df),
+  r          = cor(amph_cv_df$observed, amph_cv_df$imputed),
+  RMSE       = sqrt(mean(amph_cv_df$error^2)),
+  mean_error = mean(amph_cv_df$error),
+  coverage95 = mean(amph_cv_df$observed >= amph_cv_df$lower & amph_cv_df$observed <= amph_cv_df$upper))
+
+```
+
+```{r}
+#| label: tbl-amph-cv
+#| echo: false
+#| tbl-cap: "Accuracy of imputed CTmax for the experimental estimates hidden in cross-validation. r: correlation between imputed and experimental values. RMSE: root-mean-square error (°C). Mean error: imputed minus experimental CTmax (°C). Coverage: percentage of hidden estimates within the 95% credible interval of the imputed values."
+amph_cv_show <- amph_cv_tab
+amph_cv_show$coverage95 <- sprintf("%.0f%%", 100 * amph_cv_show$coverage95)
+knitr::kable(amph_cv_show, digits = 2, align = "rrrrr",
+             col.names = c("n", "r", "RMSE", "Mean error", "Coverage"))
+```
+
+BACE imputed the `r fmt0(amph_cv_tab$n)` hidden estimates of `r length(unique(amph_cv_df$species))` species with r = `r fmt(amph_cv_tab$r)` and a root-mean-square error (RMSE) of `r fmt(amph_cv_tab$RMSE)` °C (@tbl-amph-cv; @fig-amph-cv). The 95% credible intervals contained `r sum(amph_cv_df$observed >= amph_cv_df$lower & amph_cv_df$observed <= amph_cv_df$upper)` of the `r fmt0(amph_cv_tab$n)` hidden estimates (`r round(100 * amph_cv_tab$coverage95)`%), close to the nominal 95%.
+
+On average, imputed values were `r fmt(abs(amph_cv_tab$mean_error))` °C `r if (amph_cv_tab$mean_error < 0) "lower" else "higher"` than experimental values (`r fmt(mean(amph_cv_df$imputed))` ± `r fmt(sd(amph_cv_df$imputed))` vs `r fmt(mean(amph_cv_df$observed))` ± `r fmt(sd(amph_cv_df$observed))` °C). Here, imputations primarily underestimated the heat tolerance of the most tolerant species, but there was overall good congruence with the experimental dataset.
+
+Because BACE does not fit random slopes, all species share the same effect of acclimation temperature on CTmax. Some deviations could therefore arise because we underestimated or overestimated the plasticity of some species. Fitting random slopes for acclimation temperature could help the cross-validation, because species differ in their acclimation capacity. BACE currently does not allow such models, but see @pottier2025 for further details.
+
+```{r}
+#| label: fig-amph-cv
+#| echo: true
+#| code-fold: true
+#| fig-width: 9
+#| fig-height: 4.2
+#| fig-cap: "Imputed against experimental CTmax for the 375 estimates hidden in cross-validation. (a) Each point is one hidden estimate, with the 95% credible interval of its imputed values; the dashed line shows perfect agreement. (b) Distributions of experimental and imputed values."
+lims <- range(amph_cv_df[, c("observed", "lower", "upper")])
+p_a <- ggplot(amph_cv_df, aes(observed, imputed)) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+  geom_linerange(aes(ymin = lower, ymax = upper), colour = amph_cols[["imputed"]], alpha = 0.25) +
+  geom_point(colour = amph_cols[["imputed"]], alpha = 0.7, size = 1.6) +
+  annotate("text", x = lims[1] + 0.5, y = lims[2] - 0.5, hjust = 0, vjust = 1, size = 3.3,
+           label = sprintf("n = %d\nr = %.2f\nRMSE = %.2f °C",
+                           amph_cv_tab$n, amph_cv_tab$r, amph_cv_tab$RMSE)) +
+  scale_x_continuous(breaks = seq(20, 50, 5)) +
+  scale_y_continuous(breaks = seq(20, 50, 5)) +
+  coord_equal(xlim = lims, ylim = lims) +
+  labs(x = "Experimental CTmax (°C)", y = "Imputed CTmax (°C)", tag = "(a)") +
+  amph_theme
+amph_long <- rbind(data.frame(source = "experimental", CTmax = amph_cv_df$observed),
+                   data.frame(source = "imputed", CTmax = amph_cv_df$imputed))
+p_b <- ggplot(amph_long, aes(CTmax, fill = source)) +
+  geom_density(alpha = 0.6, colour = NA) +
+  scale_fill_manual(values = amph_cols, name = NULL,
+                    labels = c(experimental = "Experimental", imputed = "Imputed")) +
+  labs(x = "CTmax (°C)", y = "Density", tag = "(b)") +
+  amph_theme + theme(legend.position = c(0.02, 0.98), legend.justification = c(0, 1))
+p_a + p_b + plot_layout(widths = c(1, 1.2))
+```
