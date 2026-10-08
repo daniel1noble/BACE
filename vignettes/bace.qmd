@@ -145,7 +145,7 @@ Before committing to a full BACE run (which can take minutes to hours for larger
 - **D** (binary variables only) — Fritz-Purvis D [@fritz2010], via `caper::phylo.d()`.
 - **Convergence flags** — every fit is checked with `coda::effectiveSize()` and `coda::geweke.diag()`; rows with low effective sample size or failed Geweke tests are flagged `unreliable` and marked with an asterisk in the printout. Do not interpret flagged rows as data-driven estimates.
 
-The same H² formulas that BACE's own per-variable models imply are used here, so the number is directly informative about the imputation model's structure. The function honours BACE's two-RE modes: `species = FALSE` fits a single phylogenetic random effect; `species = TRUE` fits the dual structure (phylogenetic + non-phylogenetic species) that BACE uses when there are within-species replicates.
+The same H² formulas that BACE's own per-variable models imply are used here, so the number is directly informative about the imputation model's structure. The function automatically updates these statistics depending on BACE's two-RE modes: `species = FALSE` fits a single phylogenetic random effect; `species = TRUE` fits the dual structure (phylogenetic + non-phylogenetic species) which BACE uses when there are within-species replicates.
 
 ```{r}
 #| label: phylo_signal_preflight
@@ -189,10 +189,14 @@ preview <- bace(
 - 0.2 ≤ H² < 0.5 = **moderate** signal.
 - H² ≥ 0.5 = **high** signal — the phylogenetic random effect carries substantial information; BACE's phylogenetic structure is expected to help.
 
-**Reviewer's caveat (important):** phylogenetic signal is *necessary but not sufficient* for good imputation. A high-H² trait can still impute poorly if the data are missing-not-at-random (MNAR); a low-H² trait can still impute well if it is tightly coupled to an observed predictor. The signal table sets expectations; it does not predict imputation accuracy.
+::: {.callout-important}
+Phylogenetic signal is *necessary but not sufficient* for good imputation. A high-H² trait can still impute poorly if the data are missing-not-at-random (MNAR); a low-H² trait can still impute well if it is tightly coupled to an observed predictor. The signal table sets expectations; it does not predict imputation accuracy.
+
+If you have weak phylogenetic signal in some variables all is not lost so long as you have auxillary variables you can include in the imputation model. 
+:::
 
 ## Using *BACE* for Imputation
-Now that we have the data and the phylogenetic tree we can run the imputation. For almost all users this means a single call to `bace()`; the step functions such as `bace_imp()` exist for finer stepwise control and are covered in @sec-advanced.
+Now that we have the data and the phylogenetic tree we can run the imputation. For almost all users this means a single call to `bace()`; the sub-functions such as `bace_imp()` exist for finer stepwise control and are covered in @sec-advanced.
 
 :::::: {.callout-caution}
 It's very important to ensure that all variables are correctly classified in the dataset (e.g., factors for categorical variables, numeric for continuous variables, etc.) before running the imputation. *BACE* will fit different models for different variable types, and so, if they have not been correctly classified you will be modeling the variable incorrectly.
@@ -210,7 +214,7 @@ It's very important to ensure that all variables are correctly classified in the
 
 Two consequences of these rules deserve emphasis:
 
-- **Integer storage means counts.** A column stored as `integer` whose values are all non-negative is imputed as a Poisson count — deliberately so, with no goodness-of-fit "race" against the gaussian family, because a count trait with strong phylogenetic signal is marginally overdispersed and a marginal-fit comparison would silently (and wrongly) pick gaussian exactly when the phylogenetic signal is strongest. If you have an integer-*coded* variable that is really continuous (e.g. body mass recorded to the nearest gram), store it as a double (`as.numeric()`) before running *BACE*. Conversely, true counts must be stored as integers to get the Poisson model.
+- **Integer storage means counts.** A column stored as `integer` whose values are all non-negative is imputed as a Poisson count. If you have an integer-*coded* variable that is really continuous (e.g. body mass recorded to the nearest gram), store it as a double (`as.numeric()`) before running *BACE*. Conversely, true counts must be stored as integers to get the Poisson model.
 - **Unordered factors with ≥ 3 levels get a true multinomial probit model** by default (`ovr_categorical = FALSE`). Setting `ovr_categorical = TRUE` instead fits one-vs-rest binary threshold models per category — this is retained for backwards compatibility, but the multinomial parameterisation is both better calibrated and substantially faster in our simulations, so we recommend the default.
 
 If you want to see what *BACE* has classified each variable as, you can inspect the `types` element of any fitted `bace_imp()` or `bace()` object. For example, after running the simple workflow below you can do:
@@ -228,9 +232,9 @@ Importantly, users also need to think carefully about the distributions of the v
 :::
 
 
-There are two ways you can use `bace/bace_imp`. The first is to specify a list of all the formulas for each variable you would like to fit. It is important here that, if you provide a list, that any variable with missing data is found as a response variable. This must be the case because *BACE* will not automatically build models for other variables if you provide a list of formulas (but see below). 
+There are two ways you can use `bace/bace_imp`. The first is to specify a list of all the formulas for each variable you would like to fit. It is important here that, if you provide a list, that **any variable with missing data is found as a response variable**. This must be the case because *BACE* will not automatically build models for other variables if you provide a list of formulas (but see below). 
 
-For now, we'll focus on the simplified `bace` workflow because it does the full process for users, but later we will show how different components of the workflow can be run separately for more control over the imputation process.
+For now, we'll focus on the simplified `bace` workflow because it does the full process for you, but later we will show how different components of the workflow can be run separately for more control over the imputation process.
 
 ## Simple BACE Workflow
 
