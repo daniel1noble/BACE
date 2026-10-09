@@ -238,7 +238,9 @@ For now, we'll focus on the simplified `bace` workflow because it does the full 
 
 ## Simple BACE Workflow
 
-The `bace()` function is the main function to conduct a *BACE* analysis running each of the core steps: 1) initial imputations to reach convergence in imputed data; 2) convergence assessment to ensure that imputed data has reached a stable state; 3) imputing missing data `n_final` times (50 by default) by drawing from the posterior predictive distribution of the final models, re-fitting and estimating parameters and then pooling posteriors across the final runs. If convergence is not achieved, it will automatically restart the initial steps to allow chains to converge before running the final set of models. You can also specify the number of runs, MCMC parameters, and whether to plot the results. The final output will include pooled models that account for imputation uncertainty.
+The `bace()` function is the main function to conduct a *BACE* analysis running each of the core steps: 1) initial imputations to reach convergence in imputed data; 2) convergence assessment to ensure that imputed data has reached a stable state; 3) imputing missing data `n_final` times (50 by default) by drawing from the posterior predictive distribution of the final models, re-fitting and estimating parameters and then pooling posteriors across the final runs. 
+
+If convergence is not achieved, it will automatically restart the initial steps to allow chains to converge before running the final set of models. You can also specify the number of runs, MCMC parameters, and whether to plot the results. The final output will include pooled models that account for imputation uncertainty.
 
 ```{r}
 #| label: simple_bace_workflow1
@@ -258,7 +260,7 @@ bace_final1 <- bace(fixformula = "y ~ x1 + x2",
                                runs = 15, nitt = 100000, burnin = 10000, thin = 10, n_final = 10, plot = TRUE, skip_conv = FALSE, sample_size = 1000)
 ```
 
-As promised in the callout above, we can now check what *BACE* classified each variable as:
+We can now check what *BACE* classified each variable as to just make sure they have been modelled correctly:
 
 ```{r}
 #| label: show_variable_types
@@ -269,7 +271,11 @@ As promised in the callout above, we can now check what *BACE* classified each v
 bace_final1$initial_results$types
 ```
 
-As we can see `bace` provides a comprehensive overview of the imputation process including each of the core steps. This includes the initial set of runs to allow data to converge, followed by convergence assessment checks both across runs and within parameters of models. Note that, if convergence is not achieved, the function will automatically restart the initial steps to allow chains to converge before running the final set of models. However, users should be aware that sometimes convergence fail yet convergence is likely achieved. If you think this is the case than you can do initial runs and skip the convergence assessment (see below). Note, it is also not always the case that parameter checks signal problems with the models. Users will need to explore final models carefully before adjusting MCMC parameters or the number of runs. More on this below.
+As we can see `bace` provides a comprehensive overview of the imputation process including each of the core steps. This includes the initial set of runs to allow data to converge, followed by convergence assessment checks both across runs and within parameters of models. 
+
+::: {.callout-note}
+If convergence is not achieved, the function will automatically restart the initial steps to allow chains to converge before running the final set of models. However, users should be aware that the check can sometimes fail even when convergence has likely been achieved. If you think this is the case then you can do the initial runs and skip the convergence assessment (see below). It is also not always the case that parameter checks signal problems with the models. Users will need to explore final models carefully before adjusting MCMC parameters or the number of runs. More on this below.
+:::
 
 It's worth highlighting a few key arguments within `bace`. 
 
@@ -295,7 +301,9 @@ plot(y_model)
 
 hist(y_model$Sol[, "x1"], main = "Posterior distribution for x1", xlab = "x1 coefficient")
 
-# You can also extract all pooled models at once
+# The same accessor without the 'variable' argument returns the full named
+# list of pooled models (one per imputed variable) - so all_models$y is
+# identical to y_model above.
 all_models <- get_pooled_model(bace_final1)
 names(all_models)
 
@@ -324,9 +332,9 @@ table(imputed_df$.imputation)
 
 ## Interpreting the pooled output {#sec-pooled-output}
 
-It is worth being precise about what the pooled posterior returned by `bace()` actually is, because the terminology in the multiple-imputation literature can trip people up.
+It is worth being precise about what the pooled posterior returned by `bace()` actually is, because the terminology in the multiple-imputation literature can be confusing.
 
-`pool_posteriors()` **concatenates** the MCMC draws from the `n_final` per-imputation fits into a single set of draws per parameter. Each per-imputation chain targets the *conditional* posterior $p(\theta \mid Y_{\text{obs}}, Y_{\text{mis}}^{(m)})$, where $Y_{\text{mis}}^{(m)}$ is the m-th complete imputed dataset. Stacking these chains is a Monte Carlo approximation to the *marginal* posterior
+`pool_posteriors()` **concatenates** the MCMC draws from the `n_final` per-imputation fits into a single set of draws per parameter. Each per-imputation chain targets the *conditional* posterior $p(\theta \mid Y_{\text{obs}}, Y_{\text{mis}}^{(m)})$, where $Y_{\text{mis}}^{(m)}$ is the m-th complete imputed dataset. Stacking these chains is an approximation to the *marginal* posterior
 $$
 p(\theta \mid Y_{\text{obs}}) = \int p(\theta \mid Y_{\text{obs}}, Y_{\text{mis}})\, p(Y_{\text{mis}} \mid Y_{\text{obs}})\, dY_{\text{mis}},
 $$
@@ -334,7 +342,7 @@ which integrates over uncertainty in the imputed values as well as over paramete
 
 Two practical notes follow from this:
 
-1. **This is not Rubin's rules.** Rubin's rules combine *scalar* point estimates and variances from each imputation using a specific within/between-imputation variance decomposition, and are the right tool when the per-imputation analysis produces frequentist estimates rather than full posterior draws. When you have posterior draws, stacking is both simpler and more faithful — do not apply Rubin's formulas *on top of* the stacked `bace()` posteriors. If your downstream analysis model is frequentist (an `lm`, `glm`, `nlme::gls`, `phylolm`, ...), *BACE* does provide a first-class Rubin's-rules pathway — `with_imputations()` + `pool_mi()` — see @sec-rubins-rules.
+1. **This is not Rubin's rules.** Rubin's rules combine *scalar* point estimates and variances from each imputation using a specific within/between-imputation variance decomposition. *BACE* does provide a Rubin's-rules pathway if desired — `with_imputations()` + `pool_mi()` — see @sec-rubins-rules.
 2. **Validity depends on per-imputation MCMC convergence.** Because each per-imputation chain is supposed to target its own conditional posterior, the stacked draws inherit any bias from chains that have not converged. Before trusting pooled summaries, spot-check a handful of the per-imputation fits with standard diagnostics. For example:
 
 ```{r}
