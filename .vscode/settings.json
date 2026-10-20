@@ -2,5 +2,8 @@
   "r.lsp.diagnostics": false,
   "[r]": {
     "editor.rulers": []
-  }
+  },
+  "cSpell.words": [
+    "contiuous"
+  ]
 }
