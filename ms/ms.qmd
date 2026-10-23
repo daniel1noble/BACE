@@ -41,10 +41,10 @@ crossref:
 
 # Abstract
 
-1. Missing trait data are pervasive in comparative datasets limiting the types of questions that can be tested and compromising the power of comparative analyses. Standard approaches, such as complete-case analyses and single imputation, can bias inference and underestimate uncertainty, particularly when missing data is non-random. While robust imputation methods exits, many existing software are restricted to imputing only continuous or count variables and lack the capacity to impute discrete / categorical traits (e.g., multinomial, ordered categorical), which are common trait types in comparative datasets. Such limitations have prevented the  widespread use of imputation approaches in comparative biology.
-2. We introduce **BACE**, an R package implementing **Bayesian Augmentation by Chained Equations** for phylogenetic comparative data, enabling imputation with phylogeny-informed covariance that can account for both phylogenetic and non-phylogenetic  species effects and mixed data types in a fully Bayesian pipeline. *BACE* provides substantial flexibility in the imputation models fit and propagates both parameter and imputation uncertainty in subsequent downstream analyses. 
-3. **Performance:** *(2–3 sentences)* Using simulations spanning phylogenetic signal, trait correlations, and missingness patterns, we evaluate imputation accuracy and inferential calibration, and compare BACE to leading alternatives (e.g., multilevel FCS-based tools).
-4. **Availability:** *(1 sentence)* BACE is open-source with vignettes, reproducible workflows, and archived releases.
+1. Missing trait data are pervasive in comparative datasets limiting the types of questions that can be tested and compromising the power of comparative analyses. Standard approaches, such as complete-case analyses and single imputation, can bias inference and underestimate uncertainty, particularly when missing data is non-random. While robust imputation methods exits, many existing software are restricted to imputing only continuous or count variables and lack the capacity to impute discrete / categorical traits (e.g., multinomial, ordered categorical), which are common trait types in comparative datasets. Such limitations have prevented the widespread use of imputation approaches in comparative biology.
+2. We introduce *BACE*, an R package implementing Bayesian Augmentation by Chained Equations for phylogenetic comparative data. *BACE* enables imputation with phylogeny-informed covariance that can account for both phylogenetic and non-phylogenetic species effects, along with mixed data types, in a fully Bayesian pipeline. *BACE* provides substantial flexibility in the imputation models fit, can decouple imputation models from analysis models, and propagates both parameter and imputation uncertainty in subsequent downstream analyses. 
+3. We show using simulations that *BACE* recovers missing trait values with a high degree of accuracy. Additionally, it recovers model parameters with little bias and nominal coverage when the phylogenetic signal of traits is moderate to high compared to complete case . 
+4. 
 
 # Introduction
 
@@ -64,7 +64,7 @@ crossref:
 - **BACE contribution:** MI for phylogenetic comparative data with multilevel structure + mixed data types (as supported), designed for downstream comparative analyses.
 
 # Overview of the BACE framework
-
+*BACE* provides options for direct imputation and parameter recovery of a given model with missing trait data or imputed trait data which can be pooled in downstream analyses such that the imputation and analysis models are different.
 ## Concept: Bayesian augmentation by chained equations
 - Describe the iterative cycle (variable-by-variable conditional models).
 - Emphasise “augmentation”: draw missing values from the posterior predictive distribution each cycle.
