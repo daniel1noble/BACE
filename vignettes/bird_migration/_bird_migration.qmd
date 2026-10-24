@@ -1,0 +1,414 @@
+# Worked example: migratory behaviour of birds {#sec-migration}
+
+```{r}
+#| label: mig-setup
+#| include: false
+# This section reads precomputed results. The scripts in vignettes/bird_migration/
+# (01_prepare_data.R, 02_run_bace.R, 03_summarise.R) regenerate them.
+library(ggplot2)
+library(patchwork)
+mig_dir        <- "bird_migration"
+migration_data <- readRDS(file.path(mig_dir, "data/migration_data.rds"))
+migration_tree <- readRDS(file.path(mig_dir, "data/migration_tree.rds"))
+mig_full  <- readRDS(file.path(mig_dir, "results/full_imputation.rds"))
+mig_cv    <- readRDS(file.path(mig_dir, "results/cv_results.rds"))
+mig_mixed <- readRDS(file.path(mig_dir, "results/mixed_results.rds"))
+
+fmt  <- function(x, d = 2) formatC(x, format = "f", digits = d, big.mark = ",")
+fmt0 <- function(x) formatC(x, format = "d", big.mark = ",")
+mig_counts <- table(migration_data$migration, useNA = "ifany")
+mig_cols   <- c(sedentary = "#21918c", partial = "#E69F00", migratory = "#CE5B97")
+mig_theme  <- theme_classic(base_size = 11) +
+  theme(panel.border = element_rect(fill = NA, colour = "black"))
+```
+
+The examples above impute continuous, count and categorical variables. Here we impute an **ordinal** variable, the migratory behaviour of birds, across the `r fmt0(nrow(migration_data))` species of a global bird phylogeny. Ordinal variables have ordered categories, such as low < medium < high. BACE models them on a latent (liability) scale with a threshold model: a species' category depends on where its latent value falls relative to estimated cutpoints [@hadfield2010]. We show how to (1) impute the migratory behaviour of species without records, (2) cross-validate the imputations, and (3) impute an ordinal and a continuous variable together.
+
+## The data
+
+We took migratory behaviour, body mass and the hand-wing index from AVONET [@tobias2022], using its eBird taxonomy, and the phylogeny from the Clements/eBird tree of @mctavish2025 (version 1.6). AVONET scores migratory behaviour in three ordered categories [@tobias2019]: *sedentary*; *partially migratory*, when a minority of the population migrates long distances or most of it moves short distances, nomadically or altitudinally; and *migratory*, when most of the population migrates long distances. The categories reflect increasing migratory tendency, so we treat them as ordinal. The hand-wing index measures wing pointedness, which is associated with flight efficiency and dispersal [@sheard2020]. The bundled data in `vignettes/bird_migration/data/` are derived from these two sources, both licensed CC BY 4.0, and are redistributed under the same licence; please cite @tobias2022 and @mctavish2025 when reusing them.
+
+Most species are sedentary: `r fmt0(mig_counts[["sedentary"]])` sedentary, `r fmt0(mig_counts[["partial"]])` partially migratory and `r fmt0(mig_counts[["migratory"]])` migratory species. AVONET has no record of migratory behaviour for `r sum(is.na(migration_data$migration))` species, which we impute below.
+
+```{r}
+#| label: mig-data
+#| echo: true
+# Data and phylogeny are bundled in vignettes/bird_migration/data/
+migration_data <- readRDS("bird_migration/data/migration_data.rds")
+migration_tree <- readRDS("bird_migration/data/migration_tree.rds")
+str(migration_data[, c("species", "migration", "log_mass", "hwi")])
+table(migration_data$migration, useNA = "ifany")
+```
+
+`migration` is stored as an **ordered factor**. This is what tells BACE to fit a threshold model rather than an unordered (multinomial) one. Body mass was log-transformed because it is right-skewed.
+
+## Running BACE
+
+We imputed migratory behaviour from log body mass, the hand-wing index and the phylogeny. Because the chained phase only needs point imputations whereas the final imputations need long chains (see below), we ran the two phases separately, with different MCMC settings:
+
+```{r}
+#| label: mig-run
+#| echo: true
+#| eval: false
+mig_formula <- list("migration ~ log_mass + hwi")
+mig_vars    <- c("species", "migration", "log_mass", "hwi")
+
+# Chained phase: point imputations until the imputed values settle
+mig_chain <- bace_imp(fixformula = mig_formula, ran_phylo_form = "~ 1 | species",
+                      phylo = migration_tree, data = migration_data[, mig_vars],
+                      runs = 5, nitt = 50000, burnin = 10000, thin = 40)
+
+# Final phase: 50 posterior-predictive imputations, from long chains
+mig_final <- bace_final_imp(mig_chain, fixformula = mig_formula, ran_phylo_form = "~ 1 | species",
+                            phylo = migration_tree, n_final = 50,
+                            nitt = 500000, burnin = 50000, thin = 450, n_cores = 50)
+```
+
+This code shows the model and settings; to keep memory manageable, the numbers reported below were produced by the scripts `00_setup.R` to `03_summarise.R` in `vignettes/bird_migration/`, which run the same calls one final imputation at a time and keep only the imputed values and posterior draws. The same model can also be fitted in one call with `bace()`, which uses one set of MCMC settings for both phases. Only migratory behaviour has missing values, so a single formula is enough. A single formula string (instead of a list) would make BACE also fit models for the complete predictors, which costs time and imputes nothing.
+
+:::{.callout-note}
+## Run time
+
+This analysis is computationally demanding: each MCMCglmm fit samples a latent value and a phylogenetic effect for each of the `r fmt0(nrow(migration_data))` species. We therefore ran the two phases separately with `bace_imp()` and `bace_final_imp()`, with a short chained phase (`r fmt0(mig_full$settings$chain$nitt[[1]])` iterations per fit, `r mig_full$settings$chain$runs_ordinal` iterations of the chained loop) and long final imputations (`r fmt0(mig_full$settings$final$nitt[[1]])` iterations each), and ran the `r mig_full$settings$n_final` final imputations in parallel on a server (one process per imputation). The chained phase took `r fmt(mig_full$minutes[["chained"]], 0)` minutes and each final imputation `r fmt(mig_full$minutes[["final_mean"]], 0)` minutes (about `r fmt(mig_full$minutes[["final_mean"]] * mig_full$settings$n_final / 60, 0)` core-hours in total). Memory is the other constraint: each fitted migration model, with its latent values and random effects, takes about `r fmt(mig_full$fit_mb / 1024, 2)` GB, so `bace()` or `bace_final_imp()` would hold about `r fmt(mig_full$fit_mb * mig_full$settings$n_final / 1024, 0)` GB for 50 imputations. We therefore kept only the imputed values and the posterior draws of each imputation (each process peaked at about `r fmt(mig_full$resources$final[["max_rss_gb"]], 0)` GB). The scripts are in `vignettes/bird_migration/`.
+:::
+
+## Checking convergence
+
+As for the other examples, we checked the convergence of the chained loop and the mixing of each MCMC chain (see *Two kinds of convergence* above).
+
+```{r}
+#| label: mig-vp-cp
+#| include: false
+mig_n_draw <- nrow(mig_full$pooled$vcv) / mig_full$settings$n_final
+mig_vp_cp_cor <- median(sapply(seq_len(mig_full$settings$n_final), function(k) {
+  i <- (k - 1) * mig_n_draw + seq_len(mig_n_draw)
+  cor(log(mig_full$pooled$vcv[i, "species"]), mig_full$pooled$cp[i, 1])
+}))
+```
+
+```{r}
+#| label: mig-convergence-code
+#| echo: true
+#| eval: false
+converge <- assess_convergence(mig_chain, method = "summary")
+converge
+```
+
+```{r}
+#| label: mig-convergence
+#| echo: false
+mig_full$chain_convergence
+```
+
+Because only migratory behaviour is missing and the predictors are complete, the chained loop has little to do: every iteration fits the same model to the same data, and the share of sedentary species among the imputed values barely changed across iterations.
+
+Mixing deserves more attention. In a threshold model the residual variance is fixed at 1, because the latent scale cannot be estimated from categories alone. The phylogenetic variance and the cutpoint are therefore expressed relative to this fixed residual, and they tend to move together along the chain, which slows mixing (here, the within-chain correlation between the log phylogenetic variance and the cutpoint was `r fmt(mig_vp_cp_cor)`). Quantities that do not depend on the latent scale are easier to interpret: the latent phylogenetic heritability, $H^2 = \sigma^2_{phylo} / (\sigma^2_{phylo} + 1)$, and the cutpoint and coefficients divided by the latent standard deviation, $\sqrt{\sigma^2_{phylo} + 1}$. Note that BACE's diagnostics summary does not include the cutpoint (stored in `$CP` of each fitted model), so check it yourself.
+
+Each final imputation is an independent MCMC chain. Here, all `r mig_full$settings$n_final` chains target the same posterior, because they are fitted to the same data, so we can compare them with the Gelman–Rubin statistic ($\hat{R}$, as computed by `coda::gelman.diag()`) and pool their effective sample sizes (ESS). We checked the fixed effects, the phylogenetic variance, the cutpoint and quantities derived from them, but not the phylogenetic effects of individual species:
+
+```{r}
+#| label: mig-chain-diagnostics-code
+#| echo: true
+#| eval: false
+final_models <- lapply(mig_final$all_models, `[[`, "migration")
+chains <- coda::mcmc.list(lapply(final_models, function(m) {
+  Vp <- m$VCV[, "species"]
+  coda::mcmc(cbind(m$Sol[, 1:3], phylo_var = Vp, cutpoint2 = m$CP[, 1],
+                   h2_latent = Vp / (Vp + 1), std_cutpoint2 = m$CP[, 1] / sqrt(Vp + 1)))
+}))
+coda::gelman.diag(chains, autoburnin = FALSE, multivariate = FALSE)
+sapply(chains, coda::effectiveSize)    # ESS per chain
+```
+
+```{r}
+#| label: tbl-mig-diagnostics
+#| echo: false
+#| tbl-cap: "MCMC diagnostics of the migration model across the final imputations. R-hat: Gelman–Rubin statistic across the independent chains. ESS: effective sample size per chain (median and minimum) and pooled across chains."
+mig_diag <- mig_full$final_diagnostics
+mig_diag <- mig_diag[mig_diag$parameter %in% c("(Intercept)", "log_mass", "hwi", "phylo_var", "cutpoint2",
+                                               "h2_latent", "std_cutpoint2", "std_log_mass", "std_hwi"), ]
+knitr::kable(mig_diag[, c("parameter", "rhat", "ess_per_chain", "ess_min_chain", "ess_total")],
+             digits = c(0, 3, 0, 0, 0), row.names = FALSE,
+             col.names = c("Parameter", "R-hat", "ESS per chain (median)", "ESS per chain (min)", "ESS pooled"))
+```
+
+```{r}
+#| label: mig-diagnostics-numbers
+#| include: false
+mig_rhat_max <- max(mig_diag$rhat)
+mig_ess_vp   <- mig_diag[mig_diag$parameter == "phylo_var", ]
+```
+
+The chains agreed (all $\hat{R}$ ≤ `r fmt(mig_rhat_max, 3)`; @tbl-mig-diagnostics), and their early draws did not differ systematically from their later draws. These checks showed no sign of problems, but they are not proof that the chains explored the whole posterior: all final imputations start from the same chained-phase data and from MCMCglmm's default starting values, so they are weaker evidence than chains started from widely different values. Within each chain, however, the phylogenetic variance mixed slowly (median ESS of `r fmt0(round(mig_ess_vp$ess_per_chain))` per chain), and so did $H^2$, which is a function of it. The standardised cutpoint and hand-wing-index effect mixed somewhat better than their unstandardised counterparts. Reaching several hundred effective draws per chain for the phylogenetic variance would need chains several times longer, but pooled across the `r mig_full$settings$n_final` chains its ESS was `r fmt0(round(mig_ess_vp$ess_total))`.
+
+```{r}
+#| label: fig-mig-trace
+#| echo: false
+#| fig-width: 9
+#| fig-height: 6
+#| fig-cap: "Trace of the phylogenetic variance, the cutpoint and the latent phylogenetic heritability in four of the 50 final imputations (one colour per chain). The chains overlap and show no trend, but each wanders slowly; within each chain, the phylogenetic variance and the cutpoint are correlated."
+n_draw <- nrow(mig_full$pooled$vcv) / mig_full$settings$n_final
+trace_df <- do.call(rbind, lapply(1:4, function(k) {
+  i  <- (k - 1) * n_draw + seq_len(n_draw)
+  Vp <- mig_full$pooled$vcv[i, "species"]
+  data.frame(chain = factor(k), draw = seq_len(n_draw),
+             value = c(Vp, mig_full$pooled$cp[i, 1], Vp / (Vp + 1)),
+             parameter = rep(c("Phylogenetic variance", "Cutpoint", "Latent H2"), each = n_draw))
+}))
+trace_df$parameter <- factor(trace_df$parameter, levels = c("Phylogenetic variance", "Cutpoint", "Latent H2"))
+ggplot(trace_df, aes(draw, value, colour = chain)) +
+  geom_line(linewidth = 0.25, alpha = 0.8) +
+  facet_wrap(~ parameter, ncol = 1, scales = "free_y") +
+  labs(x = "Draw", y = NULL, colour = "Chain") + mig_theme
+```
+
+:::{.callout-warning}
+## Smaller or sparsely sampled datasets
+
+In some datasets, particularly those with sparse phylogenetic sampling, ordinal threshold models may provide limited information about the phylogenetic variance. Under BACE's default prior, this can lead to slow mixing or upward drift of the variance (latent $H^2$ approaching 1). In preliminary analyses for this example, this happened for migratory behaviour in random subsets of 500 passerine species, but not in a similar number of species from one densely sampled clade (about 600 species of a passerine superfamily) or in all 10,563 species. It also depended on the trait: for habitat density, another ordinal trait in AVONET, the phylogenetic variance drifted even with 1,251 species. Inspect the trace plots and the $\hat{R}$ and ESS of the phylogenetic variance and the cutpoint across the final imputations, rather than relying on a convergence flag alone. The imputed categories can be stable even when the phylogenetic variance is not.
+:::
+
+## The pooled migration model
+
+Stacking the draws of the final imputations gives the pooled posterior of the migration model (see *Interpreting the pooled output* above).
+
+```{r}
+#| label: tbl-mig-pooled
+#| echo: false
+#| tbl-cap: "Pooled posterior of the migration model: mean and 95% credible interval. Coefficients are on the latent scale, with the predictors standardised (z-scores); standardised values are divided by the latent standard deviation, sqrt(phylogenetic variance + 1)."
+p  <- mig_full$pooled
+Vp <- p$vcv[, "species"]; s <- sqrt(Vp + 1)
+pooled_draws <- cbind(p$sol, `Phylogenetic variance` = Vp, `Cutpoint 2` = p$cp[, 1],
+                      `Latent H2` = Vp / (Vp + 1),
+                      `log_mass (standardised)` = p$sol[, "log_mass"] / s,
+                      `hwi (standardised)` = p$sol[, "hwi"] / s)
+pooled_tab <- data.frame(Parameter = colnames(pooled_draws), Mean = colMeans(pooled_draws),
+                         Lower = apply(pooled_draws, 2, quantile, 0.025),
+                         Upper = apply(pooled_draws, 2, quantile, 0.975))
+knitr::kable(pooled_tab, digits = 3, row.names = FALSE, col.names = c("Parameter", "Mean", "2.5%", "97.5%"))
+mig_h2  <- pooled_draws[, "Latent H2"]
+mig_hwi <- pooled_draws[, "hwi (standardised)"]
+```
+
+Migratory behaviour showed strong phylogenetic signal on the latent scale ($H^2$ = `r fmt(mean(mig_h2))`, 95% CI: `r fmt(quantile(mig_h2, 0.025))` to `r fmt(quantile(mig_h2, 0.975))`; @tbl-mig-pooled), and species with more pointed wings were more migratory (standardised effect of the hand-wing index: `r fmt(mean(mig_hwi))`, 95% CI: `r fmt(quantile(mig_hwi, 0.025))` to `r fmt(quantile(mig_hwi, 0.975))`), consistent with the link between wing shape and dispersal [@sheard2020].
+
+## Imputed migratory behaviour
+
+For an ordinal variable, each final imputation draws one category per species, so the `r mig_full$settings$n_final` imputed datasets give the number of imputations in each category:
+
+```{r}
+#| label: mig-imputed-code
+#| echo: true
+#| eval: false
+imp   <- get_imputed_data(mig_final, format = "list")
+miss  <- is.na(migration_data$migration)
+draws <- sapply(imp, function(d) as.character(d$migration[miss]))      # species x imputations
+t(apply(draws, 1, function(x) table(factor(x, levels = levels(migration_data$migration)))))
+```
+
+The probability of each category can also be computed from each fitted model, by averaging over its posterior draws. With the residual variance fixed at 1, the probability that species *i* falls in category *k* at one draw is $\Phi(c_k - \eta_i) - \Phi(c_{k-1} - \eta_i)$, where $\eta_i$ is its latent prediction (fixed effects plus phylogenetic effect) and $c_0 = -\infty$, $c_1 = 0$, $c_2$ and $c_3 = \infty$ are the cutpoints. Averaging these probabilities over draws and imputations is more precise than counting categories (`category_probabilities()` in `vignettes/bird_migration/00_setup.R`):
+
+```{r}
+#| label: mig-probabilities-code
+#| echo: true
+#| eval: false
+category_probs <- function(fit, rows, species) {
+  X    <- as.matrix(fit$X)[rows, c("(Intercept)", "log_mass", "hwi"), drop = FALSE]
+  beta <- as.matrix(fit$Sol[, c("(Intercept)", "log_mass", "hwi")])
+  u    <- as.matrix(fit$Sol[, paste0("species.", species), drop = FALSE])
+  eta  <- beta %*% t(X) + u                     # posterior draws x species
+  c2   <- as.numeric(fit$CP[, 1])
+  cbind(sedentary = colMeans(pnorm(-eta)),
+        partial   = colMeans(pnorm(c2 - eta) - pnorm(-eta)),
+        migratory = colMeans(1 - pnorm(c2 - eta)))
+}
+rows  <- which(miss)
+probs <- lapply(mig_final$all_models, function(m)
+  category_probs(m$migration, rows, migration_data$species[rows]))
+Reduce(`+`, probs) / length(probs)              # average over the 50 imputations
+```
+
+```{r}
+#| label: tbl-mig-imputed
+#| echo: false
+#| tbl-cap: "Imputed migratory behaviour of the species without records in AVONET: posterior probability of each category (averaged over the final imputations) and the number of the 50 imputed datasets in which the species received each category."
+imp_tab <- mig_full$imputed
+imp_tab$species <- gsub("_", " ", imp_tab$species)
+knitr::kable(imp_tab[order(-imp_tab$migratory - imp_tab$partial),
+                     c("species", "taxon_family", "sedentary", "partial", "migratory",
+                       "n_sedentary", "n_partial", "n_migratory")],
+             digits = 2, row.names = FALSE,
+             col.names = c("Species", "Family", "P(sedentary)", "P(partial)", "P(migratory)",
+                           "n sedentary", "n partial", "n migratory"))
+```
+
+Most of these species were imputed as sedentary with high probability, in line with their relatives and wing shape. The two swifts (*Apus*) and the Red Sea swallow (*Petrochelidon perdita*) are the exceptions: none of their congeners with known behaviour is sedentary, and their wings are among the most pointed of all birds, so BACE assigns substantial probability to the partially migratory and migratory categories. For such species, the imputed datasets carry this uncertainty into downstream analyses, which is the point of multiple imputation.
+
+## Cross-validation {#sec-mig-cv}
+
+We assessed the imputations by five-fold cross-validation. We split the `r fmt0(sum(!is.na(migration_data$migration)))` species with known behaviour into five random folds, hid the behaviour of one fold at a time (about 2,100 species, 20% of the data), ran BACE (`n_final = 20`), and scored the imputations of the hidden species. We compared BACE with three simple baselines fitted to the species with known behaviour: the observed category frequencies (whose most likely category is "sedentary" for every species); an ordinal probit regression on log body mass and the hand-wing index without phylogeny (`MASS::polr()`); and the category frequencies among each species' five closest relatives.
+
+Because species were hidden at random, most hidden species have close relatives with known behaviour in the data. The cross-validation therefore measures how well BACE fills gaps scattered across a well-sampled phylogeny, which is the typical use of imputation; it does not measure how well BACE predicts the behaviour of whole clades without any data. Nor does it directly validate the imputations of the 17 species without records: these species may be missing for reasons related to their behaviour (for example, being poorly known), whereas the hidden species were chosen at random.
+
+Because the imputations are probabilities over ordered categories, we scored them with the ranked probability score (RPS), which compares predicted and observed cumulative probabilities and penalises predictions more the further they are from the observed category (0 is perfect). We also report the accuracy of the most likely category.
+
+```{r}
+#| label: tbl-mig-cv
+#| echo: false
+#| tbl-cap: "Cross-validation of migratory behaviour across five folds. RPS: ranked probability score (lower is better). Accuracy: proportion of hidden species whose most likely category was correct. Recall: the same proportion within each observed category (sedentary, partially migratory, migratory); balanced accuracy is their mean. Mean max. probability: average imputed probability of the most likely category; for well-calibrated predictions it is close to the accuracy."
+cv_tab <- mig_cv$scores[mig_cv$scores$method %in% c("bace", "bace_imputed_frequency", "marginal", "polr", "nearest_relatives"), ]
+cv_tab$method <- c(bace = "BACE, probabilities averaged over posterior draws",
+                   bace_imputed_frequency = "BACE, category frequencies across the 20 imputed datasets",
+                   marginal = "Observed frequencies", polr = "Ordinal regression (no phylogeny)",
+                   nearest_relatives = "Five closest relatives")[cv_tab$method]
+knitr::kable(cv_tab[, c("method", "rps", "accuracy", "recall_sedentary", "recall_partial", "recall_migratory",
+                        "balanced_accuracy", "mean_max_probability")],
+             digits = 3, row.names = FALSE,
+             col.names = c("Method", "RPS", "Accuracy", "Recall: sed.", "Recall: partial", "Recall: migr.",
+                           "Balanced accuracy", "Mean max. probability"))
+mig_nn_score <- mig_cv$scores[mig_cv$scores$method == "nearest_relatives", ]
+mig_bace_score <- mig_cv$scores[mig_cv$scores$method == "bace", ]
+mig_gain <- mig_cv$rps_gain
+```
+
+```{r}
+#| label: mig-cv-numbers
+#| include: false
+mig_fold_rps <- mig_cv$scores_by_fold$rps[mig_cv$scores_by_fold$method == "bace"]
+mig_cv_fam   <- table(migration_data$taxon_family[match(unlist(lapply(mig_cv$folds, `[[`, "species")),
+                                                        migration_data$species)])
+mig_n_fam      <- length(mig_cv_fam)
+mig_fam_median <- median(mig_cv_fam)
+mig_fam_top10  <- round(100 * sum(sort(mig_cv_fam, decreasing = TRUE)[1:10]) / sum(mig_cv_fam))
+mig_flagged  <- which(!sapply(mig_cv$chain_convergence, `[[`, "converged"))
+mig_flag_text <- if (length(mig_flagged) > 0) {
+  k  <- mig_flagged[1]
+  sh <- mig_cv$chain_convergence[[k]]$method_results$summary$stats_df$migration
+  n_imp <- length(mig_cv$folds[[k]]$truth) + sum(is.na(migration_data$migration))
+  paste0("The chained-loop check (assess_convergence()) flagged fold ", paste(mig_flagged, collapse = ", "),
+         ", because the share of sedentary species among the imputed values rose slightly across the five ",
+         "chained iterations (from ", fmt(sh[1], 3), " to ", fmt(sh[length(sh)], 3), ", about ",
+         round(abs(diff(range(sh))) * n_imp), " species). With only five iterations the trend ",
+         "test is sensitive to such small drifts. We kept this fold, because its final imputations were as ",
+         "consistent as those of the other folds (all R-hat < 1.01) and its scores were similar to theirs.")
+} else ""
+```
+
+As probabilistic predictions, BACE's imputations scored better than all three baselines (@tbl-mig-cv), whether they were summarised as probabilities averaged over the posterior draws or as category frequencies across the imputed datasets (as returned by `get_imputed_data()`), and consistently across folds (RPS from `r fmt(min(mig_fold_rps), 3)` to `r fmt(max(mig_fold_rps), 3)`). Its RPS was `r fmt(mig_bace_score$rps, 3)`, lower than that of the ordinal regression without phylogeny by `r fmt(mig_gain$rps_gain[mig_gain$baseline == "polr"], 3)` and lower than that of the closest-relatives rule by `r fmt(mig_gain$rps_gain[mig_gain$baseline == "nearest_relatives"], 3)`. Because related species are not independent, we computed intervals for these differences by resampling whole families (with replacement) rather than species (95% intervals: `r fmt(mig_gain$lower95_family[mig_gain$baseline == "polr"], 3)` to `r fmt(mig_gain$upper95_family[mig_gain$baseline == "polr"], 3)` and `r fmt(mig_gain$lower95_family[mig_gain$baseline == "nearest_relatives"], 3)` to `r fmt(mig_gain$upper95_family[mig_gain$baseline == "nearest_relatives"], 3)`). The hidden species belong to `r mig_n_fam` families of very unequal size (median `r mig_fam_median` species; the ten largest families hold `r mig_fam_top10`% of the species). Resampling families accounts for dependence within families but not for dependence among related families, so these intervals are approximate and should be read as a sensitivity check rather than exact confidence intervals.
+
+The accuracy of the most likely category tells a more mixed story. About 80% of species are sedentary, so the overall accuracy (`r fmt(mig_bace_score$accuracy)`) mostly reflects that category. Within categories, BACE recovered `r round(100 * mig_bace_score$recall_sedentary)`% of sedentary, `r round(100 * mig_bace_score$recall_migratory)`% of migratory, but only `r round(100 * mig_bace_score$recall_partial)`% of partially migratory species (balanced accuracy `r fmt(mig_bace_score$balanced_accuracy)`). The closest-relatives rule recovered more partially migratory species (`r round(100 * mig_nn_score$recall_partial)`%) and fewer migratory ones (`r round(100 * mig_nn_score$recall_migratory)`%), with a slightly higher balanced accuracy (`r fmt(mig_nn_score$balanced_accuracy)`). Although BACE achieved a lower RPS, it had lower recall for partially migratory species than the closest-relatives rule: improvements in probabilistic prediction do not necessarily translate into better classification of every category. Note also that BACE's imputed datasets do not use the most likely category; each final imputation draws a category from its predicted probabilities.
+
+```{r}
+#| label: fig-mig-cv
+#| echo: true
+#| code-fold: true
+#| fig-width: 9
+#| fig-height: 4
+#| fig-cap: "Cross-validation of migratory behaviour. (a) Observed versus most likely imputed category of the hidden species (row percentages). (b) Calibration: mean imputed probability of each category against the observed proportion of hidden species in that category, in bins of imputed probability (point size: number of species); the dashed line shows perfect calibration."
+conf <- as.data.frame(mig_cv$confusion$bace)
+conf$percent <- 100 * conf$Freq / ave(conf$Freq, conf$observed, FUN = sum)
+p_a <- ggplot(conf, aes(predicted, observed, fill = percent)) +
+  geom_tile(colour = "white") +
+  geom_text(aes(label = sprintf("%.0f%%\n(%s)", percent, fmt0(Freq))), size = 3) +
+  scale_fill_gradient(low = "white", high = "#21918c", guide = "none") +
+  scale_y_discrete(limits = rev) +
+  labs(x = "Imputed (most likely)", y = "Observed", tag = "(a)") + mig_theme
+cal <- mig_cv$calibration[mig_cv$calibration$n > 0, ]
+cal$category <- factor(cal$category, levels = names(mig_cols))
+p_b <- ggplot(cal, aes(mean_predicted, observed, colour = category)) +
+  geom_abline(linetype = "dashed") +
+  geom_line() + geom_point(aes(size = n)) +
+  scale_colour_manual(values = mig_cols, name = NULL) +
+  scale_size_area(max_size = 4, guide = "none") +
+  coord_equal(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Imputed probability", y = "Observed proportion", tag = "(b)") + mig_theme
+p_a + p_b
+```
+
+Most errors were between neighbouring categories, and partially migratory species were the hardest to impute (@fig-mig-cv a): most of them were imputed as sedentary or migratory. This category is the most heterogeneous of the three: it groups species in which a minority migrates long distances with species that move short distances, nomadically or altitudinally. The imputed probabilities were nevertheless well calibrated overall (@fig-mig-cv b): averaged over the hidden species, the probability of the most likely category was `r fmt(mig_bace_score$mean_max_probability)`, close to the proportion of correct categories (`r fmt(mig_bace_score$accuracy)`). The probability of the partially migratory category rarely exceeded 0.5, and where it was highest it slightly underestimated how often species were partially migratory.
+
+`r mig_flag_text`
+
+:::{.callout-tip}
+## Probabilities of imputed categories
+
+BACE (version 0.1.0) also stores, for each final imputation, the probabilities of the categories of each imputed value (`prob_preds`). These are computed by plugging the posterior means of the latent predictions and cutpoints into the threshold model, rather than by averaging the probabilities over the posterior draws, so they do not include the uncertainty in the model parameters. In the cross-validation, the probability of the most likely category averaged `r fmt(mig_cv$scores$mean_max_probability[mig_cv$scores$method == "bace_plugin"])` with `prob_preds`, although only `r fmt(mig_cv$scores$accuracy[mig_cv$scores$method == "bace_plugin"])` of these categories were correct, and their RPS was `r fmt(mig_cv$scores$rps[mig_cv$scores$method == "bace_plugin"], 3)`, against `r fmt(mig_bace_score$rps, 3)` for probabilities averaged over the posterior draws, and the most likely categories of `prob_preds` were correct less often than their probabilities implied (@fig-mig-plugin). To quantify the uncertainty of imputed categories, use the imputed datasets, or average the category probabilities over the posterior draws of each model as shown above.
+:::
+
+```{r}
+#| label: fig-mig-plugin
+#| echo: false
+#| fig-width: 5
+#| fig-height: 4
+#| fig-cap: "Calibration of the probability of the most likely category in the cross-validation, for probabilities averaged over the posterior draws and for BACE's plug-in `prob_preds`. Points: mean predicted probability against the proportion of correct predictions, in bins of predicted probability (point size: number of species); the dashed line shows perfect calibration."
+truth_all <- unlist(lapply(mig_cv$folds, `[[`, "truth"))
+plugin_cal <- do.call(rbind, lapply(c(averaged = "bace", plug_in = "bace_plugin"), function(m) {
+  p <- do.call(rbind, lapply(mig_cv$folds, function(f) f$probs[[m]]))
+  top <- apply(p, 1, max); correct <- max.col(p, ties.method = "first") == truth_all
+  bin <- cut(top, breaks = seq(0.3, 1, by = 0.05), include.lowest = TRUE)
+  data.frame(method = m, mean_predicted = tapply(top, bin, mean), observed = tapply(correct, bin, mean),
+             n = as.numeric(table(bin)))
+}))
+plugin_cal <- plugin_cal[plugin_cal$n > 0, ]
+plugin_cal$method <- factor(plugin_cal$method, levels = c("bace", "bace_plugin"),
+                            labels = c("Averaged over posterior draws", "Plug-in (prob_preds)"))
+ggplot(plugin_cal, aes(mean_predicted, observed, colour = method)) +
+  geom_abline(linetype = "dashed") + geom_line() + geom_point(aes(size = n)) +
+  scale_colour_manual(values = c("#21918c", "#CE5B97"), name = NULL) +
+  scale_size_area(max_size = 4, guide = "none") +
+  coord_equal(xlim = c(0.3, 1), ylim = c(0.3, 1)) +
+  labs(x = "Probability of most likely category", y = "Proportion correct") +
+  mig_theme + theme(legend.position = "bottom", legend.direction = "vertical")
+```
+
+## Imputing an ordinal and a continuous variable together {#sec-mig-mixed}
+
+BACE imputes several variables at once by chaining their imputation models. To illustrate, we also hid the hand-wing index of `r fmt0(length(mig_mixed$hwi_true))` species (20%, drawn at random among species whose index was measured rather than inferred in AVONET), in addition to the migratory behaviour of the species of the first cross-validation fold. Each variable with missing data then gets its own model, and each model uses the other variable as a predictor:
+
+```{r}
+#| label: mig-mixed-run
+#| echo: true
+#| eval: false
+# Hide the hand-wing index of 20% of species and the behaviour of the first CV fold
+cv_folds   <- readRDS("bird_migration/data/cv_folds.rds")
+hwi_mask   <- readRDS("bird_migration/data/hwi_mask.rds")
+mixed_data <- migration_data[, mig_vars]
+mixed_data$hwi[mixed_data$species %in% hwi_mask] <- NA
+mixed_data$migration[mixed_data$species %in% cv_folds$fold1] <- NA
+
+mixed_formulas <- list("migration ~ log_mass + hwi",
+                       "hwi ~ log_mass + migration")
+mixed_chain <- bace_imp(fixformula = mixed_formulas, ran_phylo_form = "~ 1 | species",
+                        phylo = migration_tree, data = mixed_data, runs = 10,
+                        nitt = list(50000, 20000), burnin = list(10000, 5000), thin = list(40, 15))
+mixed_final <- bace_final_imp(mixed_chain, fixformula = mixed_formulas, ran_phylo_form = "~ 1 | species",
+                              phylo = migration_tree, n_final = 50, n_cores = 50,
+                              nitt = list(500000, 100000), burnin = list(50000, 10000), thin = list(450, 90))
+```
+
+The hand-wing index is continuous, so BACE fits a Gaussian model to it, and the ordered factor `migration` enters that model as a predictor (with polynomial contrasts). MCMC settings can be given per model as lists, in the order of the formulas; the Gaussian model mixes much faster, so its chains can be shorter. Each final imputation of this analysis needed more memory (about `r fmt(mig_mixed$resources$final[["max_rss_gb"]], 0)` GB per process), mostly while predicting the hand-wing index.
+
+```{r}
+#| label: tbl-mig-mixed
+#| echo: false
+#| tbl-cap: "Accuracy of the imputed hand-wing index for the hidden species. RMSE: root-mean-square error. r: correlation between imputed and measured values. Coverage: proportion of measured values inside the central 90% of the imputed values."
+hwi_tab <- mig_mixed$hwi_scores
+hwi_tab$method <- c(bace = "BACE (mean of imputations)", observed_mean = "Observed mean",
+                    lm_log_mass = "Linear regression on log body mass",
+                    nearest_relatives = "Mean of five closest relatives")[hwi_tab$method]
+hwi_tab$coverage90 <- ifelse(is.na(hwi_tab$coverage90), "", sprintf("%.0f%%", 100 * hwi_tab$coverage90))
+hwi_tab$correlation <- ifelse(is.na(hwi_tab$correlation), "", sprintf("%.2f", hwi_tab$correlation))
+knitr::kable(hwi_tab, digits = 2, row.names = FALSE, align = "lrrr", col.names = c("Method", "RMSE", "r", "Coverage"))
+mms <- mig_mixed$migration_scores
+mvo <- mig_mixed$mixed_vs_ordinal
+```
+
+BACE imputed the hidden hand-wing index more accurately than the baselines, and the central 90% of its imputed values contained `r round(100 * mig_mixed$hwi_scores$coverage90[1])`% of the measured values (@tbl-mig-mixed). Most of this accuracy comes from the phylogeny: close relatives have similar wings, so the five closest relatives alone did nearly as well.
+
+Missing hand-wing indices made the imputed migratory behaviour slightly less accurate. For the species of the first fold, the RPS was `r fmt(mms$rps[mms$analysis == "mixed" & mms$species_set == "all"], 3)`, against `r fmt(mms$rps[mms$analysis != "mixed" & mms$species_set == "all"], 3)` in the cross-validation, where the hand-wing index was complete. The loss was concentrated in the `r mms$n[mms$analysis == "mixed" & mms$species_set == "hwi_also_missing"]` species missing both variables (RPS `r fmt(mms$rps[mms$analysis == "mixed" & mms$species_set == "hwi_also_missing"], 3)` vs `r fmt(mms$rps[mms$analysis != "mixed" & mms$species_set == "hwi_also_missing"], 3)`; difference `r fmt(mvo$rps_difference[2], 3)`, 95% interval from resampling families `r fmt(mvo$lower95[2], 3)` to `r fmt(mvo$upper95[2], 3)`), for which BACE predicts migratory behaviour from an imputed rather than a measured wing shape. For species whose hand-wing index was observed, the difference was negligible (`r fmt(mvo$rps_difference[3], 4)`, `r fmt(mvo$lower95[3], 4)` to `r fmt(mvo$upper95[3], 4)`).
+
+:::{.callout-note}
+## How imputation uncertainty flows between variables
+
+In the final phase of BACE (version 0.1.0), the imputation models are refitted in the order of the formulas, once per final imputation, and every final imputation starts from the data of the last chained iteration. The migration model is listed first, so in every final imputation it conditions on the hand-wing index carried over from the chained phase, which is a point imputation. Across the `r mig_mixed$settings$n_final` final imputations, the hand-wing index used by the migration model did not vary (largest standard deviation across imputations: `r signif(mig_mixed$hwi_used_by_migration_max_sd, 2)`). The uncertainty in the imputed hand-wing index is therefore not passed on to the imputed migratory behaviour: the imputations of migratory behaviour still reflect the uncertainty in the parameters of its model, but not how they would change if the missing hand-wing indices took other plausible values. This may make the imputed behaviour of species missing both variables somewhat overconfident. Note that the comparison above measures the cost of using imputed rather than measured wing shapes; it does not measure the effect of not propagating their uncertainty, which would require comparing BACE with an implementation that does.
+:::
