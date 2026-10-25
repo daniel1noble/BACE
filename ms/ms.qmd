@@ -50,9 +50,30 @@ crossref:
 
 Phylogenetic comparative methods (PCMs) provide a framework for understanding how traits evolve and covary across species while accounting for their shared evolutionary history [@felsenstein1985; @grafen1989; @pagel1994; @martins1997]. Expanding trait databases, increasingly comprehensive phylogenies, and greater access to environmental data provide opportunities to investigate how evolutionary history and environmental conditions shape variation and covariation among traits allowing one to test a rich set of evolutionary hypotheses [@halliwell2025; @blomberg2025]. However, missing trait data limit the questions that can be addressed, and excluding species with incomplete records can reduce sample sizes, statistical power and precision [@nakagawa2008; @little2024; @blomberg2025]. When the availability of trait data depends on species' characteristics, this exclusion can also bias estimates of trait relationships [@nakagawa2008; @gonzalezsuarez2012]. Empirical studies illustrate these consequences: incomplete trait coverage can alter inferred relationships between mammalian traits and extinction risk [@gonzalezsuarez2012], while alternative treatments of missing observations can change estimates of reproductive performance and temporal trends in ecological monitoring [@lopucki2022].
 
-Methods for handling missing data have a long history in statistics [@schafer2002]. Approaches developed for comparative datasets include phylogenetic prediction of missing trait values in PhyloPars and Rphylopars [@bruggeman2009; @goolsby2017], as well as multiple-imputation procedures that account for phylogenetic and species-sampling uncertainty [@nakagawa2018; @blomberg2025]. Missing values can be accommodated within model fitting, for example through Bayesian data augmentation, which samples missing values alongside model parameters [@tanner1987]. Alternatively, missing data can be handled in a multiple-imputation workflow, where *m* complete datasets are generated and analysed separately. Parameter estimates and their variances are then combined, commonly using Rubin's rules, to account for both within- and between-imputation uncertainty [@rubin1987]. Data augmentation can also be used to generate the completed datasets for multiple imputation [@schafer2002]. In chained-equations approaches, conditional imputation models must also be specified carefully, because incompatible specifications can bias parameter estimates [@du2022].
+Methods for handling missing data have a long history in statistics [@schafer2002]. Approaches developed for comparative datasets include phylogenetic prediction of missing trait values in PhyloPars and Rphylopars [@bruggeman2009; @goolsby2017], as well as multiple-imputation procedures that account for phylogenetic and species-sampling uncertainty [@nakagawa2018; @blomberg2025]. Missing values can be accommodated within model fitting, for example through Bayesian data augmentation, which samples missing values alongside model parameters [@tanner1987]. Alternatively, missing data can be handled in a multiple-imputation workflow, where *m* complete datasets are generated and analysed separately. Parameter estimates and their variances are then combined, commonly using Rubin's rules, to account for both within- and between-imputation uncertainty [@rubin1987; @noble2021]. Data augmentation can also be used to generate the completed datasets for multiple imputation [@schafer2002]. In chained-equations approaches, conditional imputation models must also be specified carefully, because incompatible specifications can bias parameter estimates [@du2022].
 
 Recent work has also addressed the imputation of categorical traits. @gendre2024 benchmarked phylogenetic, machine-learning and ensemble approaches, combining phylogenetic predictions with information from other traits in the TDIP package. Their evaluation focused on the accuracy of imputed categorical states. Accurate prediction alone, however, does not establish valid downstream inference: treating a single completed dataset as fully observed can understate uncertainty in model parameters [@blomberg2025]. This distinction motivates evaluating parameter bias and interval coverage in downstream analyses alongside the accuracy of imputed values.
+
+```{r}
+#| label: fig-bace-workflow
+#| echo: false
+#| out-width: "100%"
+#| fig-cap: |
+#|   **Overview of the BACE imputation pipeline**. (1) The inputs are a
+#|   comparative dataset with missing trait values and a phylogeny covering the
+#|   species. (2) Chained imputation: each variable with missing data gets its own
+#|   phylogenetic mixed model, and the models are cycled iteratively — each
+#|   iteration replacing the missing values with point estimates (posterior
+#|   mean/mode) — until the imputed values stabilise. (3) Final imputation: starting
+#|   from the converged dataset, each missing value is drawn from its posterior
+#|   predictive distribution, independently and repeatedly, yielding multiple
+#|   completed datasets that together capture imputation uncertainty. (4) Posterior distributions pooled: If the analysis model is included in the imputation set then inferences can be done on the pooled posterior which pools uncertainty within a model fit to the compete data as well as betwene imputation uncertainty; (5) Further downstream
+#|   analysis: alternatively, a different analysis model can be fit to every completed dataset and the
+#|   posterior draws stacked (pooled) across imputations (if Bayesian) or parameter estimates and uncertainty pooled using Rubin's rules. In this way, the final posterior
+#|   reflects both parameter and imputation uncertainty.
+
+knitr::include_graphics("../vignettes/figs/bace_workflow.png")
+```
 
 ## Missing data in comparative biology: why it matters
 - Trait databases + environmental covariates + phylogenies → systematic missingness (taxonomic, geographic, trait-type).
