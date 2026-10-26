@@ -9,9 +9,13 @@
 - [x] Problem 3 (cutpoint + final-phase diagnostics) — 8a34066
 - [x] NEWS.md, investigation note (.agents/investigation-2026-10.md),
       PR #15 reply draft (.agents/pr15-reply-draft.md — Dan to review/post)
-- [ ] dev/15 sweeps calibration — RUNNING (started 2026-10-26, ~2-3 h;
-      output dev/simulation_results/sweeps_calibration.{rds,log});
-      confirm/revise sweeps default from its plateau
+- [x] dev/15 sweeps calibration — DONE 2026-10-27 (20.5 min, 200/200 reps ok).
+      **Default sweeps = 3 confirmed**: matches the 8-pass reference on every
+      metric at ~half its cost. The 1-pass arm measured the old bug — it
+      biased the slope up ~15% of its true value (incoherent y–x pairs) and
+      understated between-imputation spread. Numbers in
+      .agents/investigation-2026-10.md; raw output
+      dev/simulation_results/sweeps_calibration.{rds,log} (gitignored)
 - [ ] Study A re-run (dev/12, no-regression guard) + dev/13 categorical cells
       (quantify problem 5) — queued after calibration
 - [ ] Tutorial text updates (priors passages now true; mention sweeps) +

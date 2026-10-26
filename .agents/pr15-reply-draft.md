@@ -21,8 +21,19 @@ default costs about 1.4x the old single pass. When only one variable is
 missing, BACE skips the extra passes (one pass is exact there — which is also
 why our own single-missing-variable simulations never caught this). There is
 also a new `seed` argument that makes the final runs exactly reproducible, in
-serial or parallel. A calibration study is running to confirm the default of
-3; its sweeps = 1 arm doubles as the measurement of the old behaviour.
+serial or parallel.
+
+We also ran a calibration study to choose the number of passes rather than
+guess it: 100 simulated datasets, two variables each 30% missing, the same
+data imputed with 1, 2, 3, 5 and 8 passes. Three passes matches an
+eight-pass reference on every metric at about half its cost, so 3 stays the
+default. The one-pass arm measured the old behaviour, and it turned out to
+be worse than an uncertainty problem: the kept draws of the first variable
+were generated against other-variable values that were then replaced, so the
+imputed pairs did not belong together. In this setting that biased the
+downstream regression slope upward by about 15% of its true value, on top of
+understating the between-imputation spread. Three passes removes both
+problems.
 
 **Point 2 — plug-in probabilities.** Confirmed, and it affected binary and
 multinomial too, not just ordinal. Your 0.901-vs-0.848 overconfidence is

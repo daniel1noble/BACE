@@ -23,8 +23,13 @@ confirmed **all four** and found a fifth. Full write-up:
 4. Diagnostics never covered cutpoints or final-phase models → they do now
    (`bace_final$diagnostics`).
 5. Priors now user-settable per variable (`priors=`); defaults unchanged.
-Pending: dev/15 sweeps calibration (running), Study A no-regression re-run,
-dev/13 categorical cells, tutorial re-render, tarball + win-builder re-run.
+Sweeps calibration (dev/15) DONE 2026-10-27: **default sweeps = 3 confirmed**
+(matches the 8-pass reference on every metric at ~half the cost); the 1-pass
+arm quantified the old bug — slope biased up ~15% of truth via incoherent
+y–x pairs, between-imputation spread understated ~13–20% (full table in
+investigation-2026-10.md). Pending: Study A no-regression re-run, dev/13
+categorical cells, SIMULATION_REPORT update, R CMD check, tutorial re-render,
+tarball + win-builder re-run.
 CRAN submission remains ON HOLD until those are green.
 - **2026-08: six root causes of the Study B performance failures found, fixed,
   and regression-tested.** Full write-up: [investigation-2026-08.md](investigation-2026-08.md).

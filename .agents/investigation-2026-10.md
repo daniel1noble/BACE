@@ -69,15 +69,60 @@ approximately-stationary draw, so they keep full burn-in but a 50-draw tail
   phase), 100 reps, n_final 15. Metrics: Rubin coverage/CI width (pool_mi,
   deliberately — understated B shows directly in T = W + (1+1/M)B),
   between-imputation variance B_m, between-run SD at hidden cells, joint
-  y-x draw correlation at doubly-missing rows (≈ 0 at k=1 by construction),
+  y-x draw correlation at doubly-missing rows (predicted ≈ 0 at k=1 — wrong,
+  see results: flat ~0.28 at every k, because the second-drawn trait always
+  conditions on the first's fresh draw; the real k=1 damage is pairing bias),
   accuracy, wall time. k=1 column = published quantification of the old bug.
-  **Running 2026-10-26** → `dev/simulation_results/sweeps_calibration.rds`.
+  **Done 2026-10-27** → results below; raw output in
+  `dev/simulation_results/sweeps_calibration.{rds,log}` (currently gitignored).
 - Study A re-run (dev/12, y-only; sweeps auto-collapse) as a no-regression
   guard, and dev/13 categorical cells to quantify problem 5's cost — queued
   after calibration.
 - The 2026-08 categorical Study B numbers are **stale by construction** (they
   were produced with the phylogeny silently off) and must be regenerated for
   the manuscript.
+
+## Sweeps calibration results (2026-10-27) — default sweeps = 3 CONFIRMED
+
+Setup: 100 replicates, 60 species, x and y each 30% missing, MCAR and MAR;
+each replicate's data and chained phase shared across k ∈ {1,2,3,5,8}, so the
+k contrast is paired (only the final phase differs). nitt 3000, n_final 15,
+7 cores. 200/200 replicate rows ok; 20.5 min total. True slope b1 = 0.8.
+
+| mech | k | slope bias | cover95 | CI width | B_m  | SD at hidden y |
+|------|---|-----------:|--------:|---------:|-----:|---------------:|
+| MAR  | 1 | +0.137     | 0.96    | 2.10     | 0.142| 0.634          |
+| MAR  | 2 | +0.069     | 0.98    | 2.24     | 0.164| 0.671          |
+| MAR  | 3 | +0.030     | 0.99    | 2.26     | 0.163| 0.678          |
+| MAR  | 5 | +0.038     | 0.99    | 2.28     | 0.170| 0.677          |
+| MAR  | 8 | +0.038     | 0.98    | 2.24     | 0.162| 0.678          |
+| MCAR | 1 | +0.109     | 0.96    | 2.08     | 0.126| 0.599          |
+| MCAR | 2 | +0.055     | 0.97    | 2.19     | 0.143| 0.637          |
+| MCAR | 3 | +0.053     | 0.97    | 2.24     | 0.157| 0.645          |
+| MCAR | 5 | +0.060     | 0.97    | 2.21     | 0.148| 0.641          |
+| MCAR | 8 | +0.047     | 0.97    | 2.17     | 0.142| 0.640          |
+
+Final-phase wall time per run by k: 4.6 / 5.8 / 7.1 / 9.8 / 13.7 s
+(k=3 ≈ 1.54× k=1, ≈ half of k=8). Point accuracy (cor of imputed vs true y)
+flat across k: ~0.71 MAR / ~0.77 MCAR. Joint y–x draw correlation at
+doubly-missing rows flat ~0.27–0.29 across k.
+
+**Verdict: k = 3 sits on the k = 8 plateau on every metric** — slope bias
+(0.030 vs 0.038 MAR), B_m (0.163 vs 0.162 MAR; 0.157 vs 0.142 MCAR), SD at
+hidden cells (0.678 vs 0.678; 0.645 vs 0.640), coverage within 0.01 — at
+about half the k = 8 cost. Default stays `sweeps = 3`; no code change needed.
+
+**The k = 1 arm (the old behaviour) shows the bug was worse than an
+uncertainty problem.** The kept y draws were generated against x fills that
+were then replaced by fresh x draws, so the shipped (y, x) pairs do not
+belong together. That pairing mismatch biased the downstream slope upward by
++0.11 to +0.14 (14–17% of the true 0.8), on top of understating
+between-imputation variance by ~13–20% and the spread at hidden cells by ~7%.
+Coverage itself held at 0.96 in this DGP (Rubin's small-M t is conservative
+here, masking the understatement), so the headline harm to report is the
+bias, not coverage. One prediction was wrong and is corrected above: the
+joint y–x correlation was NOT ≈0 at k=1 — the damage mechanism is incoherent
+pairs, not missing correlation.
 
 ## Knock-on effects
 
