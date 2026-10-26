@@ -1,5 +1,25 @@
 # Plan: Fix the problems Ayumi found in BACE (and one she didn't)
 
+## Status (2026-10-26)
+
+- [x] Problem 5 (categorical phylogeny lookup) — fixed d2ac904, tests b69f268
+- [x] Problem 4 (priors argument + gelman unification) — 840eaba
+- [x] Problem 1 (sweeps + seed + fallback) — ace9ed5
+- [x] Problem 2 (posterior-averaged probabilities) — ad57001
+- [x] Problem 3 (cutpoint + final-phase diagnostics) — 8a34066
+- [x] NEWS.md, investigation note (.agents/investigation-2026-10.md),
+      PR #15 reply draft (.agents/pr15-reply-draft.md — Dan to review/post)
+- [ ] dev/15 sweeps calibration — RUNNING (started 2026-10-26, ~2-3 h;
+      output dev/simulation_results/sweeps_calibration.{rds,log});
+      confirm/revise sweeps default from its plateau
+- [ ] Study A re-run (dev/12, no-regression guard) + dev/13 categorical cells
+      (quantify problem 5) — queued after calibration
+- [ ] Tutorial text updates (priors passages now true; mention sweeps) +
+      full re-render; SIMULATION_REPORT update
+- [ ] Rebuild tarball, fresh win-builder round; CRAN stays on hold
+- Suite: 1418 pass / 0 fail (~1.4 min). Verified reproduction numbers are in
+  the investigation note.
+
 ## Background
 
 While building the bird-migration tutorial (PR #15), Ayumi reported four problems in

@@ -1,11 +1,31 @@
-# Project state (updated 2026-08-08)
+# Project state (updated 2026-10-26)
 
 Keep this current — it's the shared "where are we" so nobody re-derives it.
 
 ## Health
-- `devtools::test()` = **1337 pass / 0 fail / 0 skip** (R 4.4.2, MCMCglmm 2.36).
-  (One benign, stochastic warning from the intentional non-convergence fixture
-  in test-bace_wrapper.R.)
+- `devtools::test()` = **1418 pass / 0 fail / 0 skip** (~1.4 min; R 4.4.2,
+  MCMCglmm 2.36). (One benign, stochastic warning from the intentional
+  non-convergence fixture in test-bace_wrapper.R.)
+
+## 2026-10: Ayumi's review → five pre-release fixes (all landed on main)
+Ayumi's PR #15 review raised four implementation issues; verification
+confirmed **all four** and found a fifth. Full write-up:
+[investigation-2026-10.md](investigation-2026-10.md); plan + status:
+[plans/fixes-2026-10-ayumi.md](plans/fixes-2026-10-ayumi.md). Headlines:
+1. (worst, new) Default categorical predictions silently dropped ALL
+   phylogenetic effects (BLUP name mismatch) — the 2026-08 categorical sim
+   numbers are stale by construction and must be regenerated.
+2. Final phase understated imputation uncertainty when ≥2 variables missing
+   (one pass from a fixed start; first-listed variable saw identical
+   predictor fills in every run) → new `sweeps` (default 3) + `seed`
+   arguments on `bace_final_imp()`/`bace()`.
+3. `prob_preds` were overconfident plug-ins → posterior-averaged.
+4. Diagnostics never covered cutpoints or final-phase models → they do now
+   (`bace_final$diagnostics`).
+5. Priors now user-settable per variable (`priors=`); defaults unchanged.
+Pending: dev/15 sweeps calibration (running), Study A no-regression re-run,
+dev/13 categorical cells, tutorial re-render, tarball + win-builder re-run.
+CRAN submission remains ON HOLD until those are green.
 - **2026-08: six root causes of the Study B performance failures found, fixed,
   and regression-tested.** Full write-up: [investigation-2026-08.md](investigation-2026-08.md).
   Headline: `bace_final_imp` never reinstated response NAs, so every final

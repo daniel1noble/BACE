@@ -1,5 +1,14 @@
 # BACE completion roadmap
 
+**2026-10-26 insert — current priority:** Ayumi's PR #15 review → five
+pre-release fixes, all landed (see
+[plans/fixes-2026-10-ayumi.md](plans/fixes-2026-10-ayumi.md) for status and
+[investigation-2026-10.md](investigation-2026-10.md) for evidence). Remaining
+before CRAN: dev/15 sweeps calibration (running), Study A no-regression
+re-run, dev/13 categorical cells (the 2026-08 categorical numbers are stale —
+produced with phylogeny silently off), tutorial re-render, tarball +
+win-builder re-run. Track B/C items below resume after that. Suite: 1418/0.
+
 Consolidated view of everything remaining to take BACE from "usable research code"
 to "submittable manuscript + release-ready package". Created 2026-07-11.
 Priorities weight the user's stated emphasis: **numerical accuracy + careful testing**.
