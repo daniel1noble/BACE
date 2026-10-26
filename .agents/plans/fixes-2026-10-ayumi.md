@@ -16,8 +16,13 @@
       understated between-imputation spread. Numbers in
       .agents/investigation-2026-10.md; raw output
       dev/simulation_results/sweeps_calibration.{rds,log} (gitignored)
-- [ ] Study A re-run (dev/12, no-regression guard) + dev/13 categorical cells
-      (quantify problem 5) — queued after calibration
+- [x] Study A re-run (dev/12, production config, same data seeds) — DONE
+      2026-10-27: numerically identical to the 2026-08 run (max |Δ slope|
+      ≈ 1e-8; 240/240 replicates ok). No regression; the sweeps auto-collapse
+      on single-missing-variable data is confirmed empirically.
+- [ ] dev/13 categorical cells re-run (quantify problem 5) — RUNNING
+      2026-10-27 (~2 h; 1000 reps/cell, same seeds as 2026-08; log:
+      dev/simulation_results/logs/response_type_categorical_rerun_2026-10.log)
 - [ ] Tutorial text updates (priors passages now true; mention sweeps) +
       full re-render; SIMULATION_REPORT update
 - [ ] Rebuild tarball, fresh win-builder round; CRAN stays on hold
