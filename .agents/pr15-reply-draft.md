@@ -5,87 +5,80 @@ Audience: Ayumi, on the PR thread. Paste everything below the line.
 ---
 
 Ayumi — thank you for this. The bird-migration example is a serious piece of
-work in its own right, and the four implementation points you raised were all
-specific, evidenced, and reproducible. We went through each one against the
-code before deciding anything, and the short version is: **all four are
-confirmed, and all four are now fixed on `main`**, together with a fifth bug
-your report led us to that none of us had caught.
+work, and all four of your points were specific and reproducible. We checked
+each one against the code before deciding anything. The short version: **all
+four are confirmed, and all four are now fixed on `main`.** Your report also
+led us to a fifth bug none of us had caught.
 
-**Your point 1 (final runs condition on fixed point imputations).** Confirmed
-exactly as you described — we reproduced your SD = 0 observation with a spy on
-the model fits: the first-listed variable's model saw identical predictor
-values in every final run. The cause: one pass per run, in formula order, from
-the chained phase's point-imputed dataset. The fix is the one you hinted at:
-each final run now performs `sweeps` stochastic passes over the variables
-(default 3, `sample = TRUE` throughout), so every variable — including the
-first-listed one — conditions on fresh posterior-predictive draws of the
-others. Warm-up passes use a shortened post-burn-in tail, so the default costs
-~1.4x the old single pass rather than 3x, and when only one variable is
-missing it collapses to a single pass (exact there, and why our y-only
-simulations never caught this). Formula-order dependence disappears with the
-passes. There's also a new `seed` argument giving per-run RNG streams, so
-results are reproducible and identical in serial and parallel. A calibration
-study (`dev/15_sweeps_calibration.R`, both variables 30% missing, k in
-{1,2,3,5,8}) is running to confirm the default; the k = 1 arm doubles as the
-quantification of the old behaviour.
+**Point 1 — final runs reuse the same point imputations.** Confirmed. We
+reproduced your SD = 0 observation directly: the first-listed variable's model
+saw identical predictor values in every final run. The fix: each final run now
+cycles through the variables several times (new `sweeps` argument, default 3),
+drawing random values on every pass. By the second pass, every variable is
+imputed against fresh draws of the others, so the uncertainty propagates and
+formula order no longer matters. The early passes use shorter chains, so the
+default costs about 1.4x the old single pass. When only one variable is
+missing, BACE skips the extra passes (one pass is exact there — which is also
+why our own single-missing-variable simulations never caught this). There is
+also a new `seed` argument that makes the final runs exactly reproducible, in
+serial or parallel. A calibration study is running to confirm the default of
+3; its sweeps = 1 arm doubles as the measurement of the old behaviour.
 
-**Your point 2 (plug-in `prob_preds`).** Confirmed, and broader than ordinal —
-binary, multinomial and OVR all plugged posterior-mean coefficients into the
-probability formulas. Your 0.901-vs-0.848 overconfidence is exactly Jensen's
-inequality at work. The forward prediction paths now average the per-draw
-probabilities over the stored posterior (the imputed category draws themselves
-were already proper single-draw samples and are unchanged). `prob_preds` is
-now documented, including how to pool it across runs.
+**Point 2 — plug-in probabilities.** Confirmed, and it affected binary and
+multinomial too, not just ordinal. Your 0.901-vs-0.848 overconfidence is
+Jensen's inequality. `prob_preds` are now computed the honest way: probability
+per posterior draw, then averaged. The imputed values themselves were always
+proper draws and are unchanged. `prob_preds` is now documented, including how
+to pool it across runs.
 
-**Your point 3 (cutpoints missing from diagnostics).** Confirmed — and worse
-than you reported: the health check also never ran on the final-phase models
-at all (the ones actually pooled for inference; your Furnariidae cutpoint ESS
-of 5–22 is precisely what it would have flagged). `bace_final_imp()` results
-now carry a `$diagnostics` summary covering fixed effects, variances,
-cutpoints, and one-vs-rest sub-models, aggregated as worst-case across the
-runs, with only flagged parameters printed. We deliberately did NOT add a
-cross-run R-hat: the runs target different conditional posteriors, so
-between-run spread is imputation uncertainty doing its job, not
-non-convergence.
+**Point 3 — cutpoints missing from diagnostics.** Confirmed — and it was
+worse: the health check never ran on the final-phase models at all, and those
+are the models the results come from. Your Furnariidae cutpoint ESS of 5–22
+is exactly what it should have flagged. `bace_final_imp()` output now carries
+`$diagnostics`: every final model is checked (cutpoints and one-vs-rest
+sub-models included), summarised as the worst case across runs, and only
+flagged parameters are printed. We deliberately did not add a cross-run
+R-hat: the final runs are supposed to differ — that spread IS the imputation
+uncertainty — so a cross-run convergence statistic would flag healthy
+behaviour.
 
-**Your point 4 (priors not settable).** Confirmed (`prior = ...` silently
-vanished into `...`; the two phases even disagreed on the categorical
-fixed-effect prior). There is now a `priors` argument on `bace()`,
-`bace_imp()` and `bace_final_imp()`: a named list, one element per variable,
-supplying any of the MCMCglmm `G`/`R`/`B` blocks, which replace the defaults
-wholesale, validated before any MCMC runs. Your half-Cauchy pilot becomes:
-`priors = list(habitat = list(G = list(list(V = 1, nu = 1, alpha.mu = 0,
-alpha.V = 25))))`. One guard rail: `R` cannot be overridden for
-ordinal/categorical variables, because the prediction math hard-codes the
-fixed latent scale. We followed your suggested ordering — expose the knob
-first, revisit the default only with benchmarks; your prior-sensitivity
-pilots would be a great basis for that follow-up, and `bace()` now warns on
-unknown arguments instead of swallowing them.
+**Point 4 — priors.** Confirmed: `prior = ...` was silently discarded, and
+the two phases even used different categorical fixed-effect priors. There is
+now a `priors` argument on `bace()`, `bace_imp()` and `bace_final_imp()`: a
+named list, one element per variable, giving any of the MCMCglmm `G`/`R`/`B`
+blocks. It is validated before any model runs. Your half-Cauchy pilot becomes:
 
-**The fifth bug (found while verifying yours).** The default multinomial path
-was looking species effects up under the wrong MCMCglmm column name
-(`trait.level.<tip>` instead of `trait.level.Species.<tip>`), never matching,
-and silently using zero — i.e., non-phylogenetic imputation for categorical
-traits. Your bird example is ordinal, so **your headline results are not
-affected** (the threshold lookup was correct). It's fixed with exact prefix
-matching, a tripwire warning if naming ever drifts again, and a real-fit
-regression test; with `species = TRUE` the second species effect is now also
-included in ordinal/categorical predictions (it was silently dropped too).
+```r
+priors = list(habitat = list(G = list(list(V = 1, nu = 1,
+                                           alpha.mu = 0, alpha.V = 25))))
+```
 
-**What this means for the tutorial.** Two sections will need a re-run on the
-fixed package once the calibration lands: the mixed-variable migration + HWI
-section (point 1 — expect your 0.061 vs 0.054 RPS gap to shrink and the HWI
-SD = 0 observation to disappear) and the plug-in probability figure (point 2 —
-`prob_preds` are now the honest probabilities, so the plug-in/averaged
-contrast becomes historical). The neutral descriptions of both behaviours can
-then become "fixed in 0.1.0" notes, which is a nicer story to publish. Happy
-to coordinate on the re-run — the scripts in the PR look like they'll run
-unchanged apart from dropping your manual posterior-averaging workaround.
+One guard rail: `R` cannot be changed for ordinal/categorical variables,
+because the probability calculations rely on the fixed latent scale. We
+followed your suggested order — expose the knob first, revisit the default
+only with benchmarks. Your prior-sensitivity pilots would be a great basis
+for that follow-up.
 
-The full write-up (verification evidence, line references, test list) is in
-`.agents/investigation-2026-10.md`, and the running plan in
-`.agents/plans/fixes-2026-10-ayumi.md`. Suite is at 1418 passing tests; CRAN
-submission stays on hold until the validation campaign is green.
+**The fifth bug.** While verifying your points we found that the default
+multinomial path looked species effects up under the wrong column name, never
+found them, and silently used zero — categorical imputation was using no
+phylogenetic information at all. Your example is ordinal, so **your headline
+results are not affected** (the ordinal lookup was correct). Fixed, with a
+warning that fires if the naming ever drifts again, and a real-fit regression
+test. With `species = TRUE`, the second species effect is now also included
+in ordinal and categorical predictions (it was silently dropped too).
+
+**What this means for the tutorial.** Two sections will want a re-run on the
+fixed package: the mixed-variable migration + HWI section (point 1 — expect
+the 0.061 vs 0.054 RPS gap to shrink, and your SD = 0 observation to
+disappear) and the plug-in probability figure (point 2 — `prob_preds` are now
+the honest numbers, so your manual averaging workaround can go). The neutral
+descriptions of both behaviours can then become "fixed in 0.1.0" notes. Happy
+to coordinate on the re-run.
+
+Full verification write-up: `.agents/investigation-2026-10.md`. Test suite:
+1418 passing. CRAN submission stays on hold until the validation runs are
+green.
 
 Thank you again — this is exactly the kind of review that makes the package
 defensible.
