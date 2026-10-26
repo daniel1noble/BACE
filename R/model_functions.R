@@ -1035,15 +1035,6 @@
 }
 
 
-#' @title .pred_cat_forward
-#' @description Forward prediction of categorical probabilities for ALL rows (including
-#'   those with NA response) using posterior mean fixed + random effects from model$Sol.
-#'   Called instead of .pred_cat() when the response variable has missing values, because
-#'   MCMCglmm drops NA-response rows from model$Liab/model$X, making .pred_cat() return
-#'   fewer rows than the full dataset.
-#' @param model MCMCglmm model object (fit with pr=TRUE, saveX=TRUE)
-#' @param formula The fixed-effects formula used to fit the model
-#' @param data_i Full data frame including rows with NA response (all predictors complete)
 #' @title .gather_blups
 #' @description Gather random-effect (BLUP) posterior values for each data row
 #'   from a named coefficient vector, by exact prefix + suffix match against
@@ -1088,29 +1079,95 @@
 }
 
 
-#' @param cluster_col Name of the random-effect grouping column (e.g. "animal")
-#' @param baseline_name Name for the baseline (reference) category
-#' @return Data frame with nrow(data_i) rows of predicted probabilities per category
+#' @title .gather_blups_mat
+#' @description Matrix variant of \code{.gather_blups}: gathers the random-
+#'   effect (BLUP) contribution for every requested posterior draw at once,
+#'   by the same exact prefix + suffix match, returning a
+#'   (length(iters) x length(group_vals)) matrix. Rows whose level has no
+#'   matching column contribute 0; the same zero-match tripwire warning
+#'   applies (RE columns exist but nothing matches = internal naming
+#'   mismatch, the silent failure mode fixed in 2026-10).
+#' @param Sol Numeric matrix of posterior draws (as.matrix(model$Sol)).
+#' @param iters Integer vector of row indices into Sol.
+#' @param sol_names colnames(Sol) (passed to avoid recomputing).
+#' @param prefix Column-name prefix including the trailing dot.
+#' @param group_vals Character vector (one per data row) of grouping levels.
+#' @param warn_context NULL to suppress the warning, or a caller tag.
+#' @return Numeric matrix, length(iters) x length(group_vals).
 #' @noRd
-.pred_cat_forward <- function(model, formula, data_i, cluster_col = "animal",
-                               baseline_name = "Baseline") {
+.gather_blups_mat <- function(Sol, iters, sol_names, prefix, group_vals,
+                              warn_context = NULL) {
+  n_it  <- length(iters)
+  n_obs <- length(group_vals)
+  re_cols <- sol_names[startsWith(sol_names, prefix)]
+  if (length(re_cols) == 0L) {
+    return(matrix(0, n_it, n_obs))
+  }
+  tips <- substring(re_cols, nchar(prefix) + 1L)
+  idx  <- match(group_vals, tips)
+  if (all(is.na(idx))) {
+    if (!is.null(warn_context)) {
+      warning("Model contains ", length(re_cols),
+              " random-effect columns matching '", prefix,
+              "*' but none of the data rows matched any of them (",
+              warn_context, "). Species effects were set to 0 for ",
+              "prediction. This indicates an internal naming mismatch - ",
+              "please report it to the BACE maintainers.", call. = FALSE)
+    }
+    return(matrix(0, n_it, n_obs))
+  }
+  M  <- matrix(0, n_it, n_obs)
+  ok <- which(!is.na(idx))
+  M[, ok] <- Sol[iters, re_cols[idx[ok]], drop = FALSE]
+  M
+}
 
-  beta_mean <- colMeans(as.matrix(model$Sol))
-  sol_names <- names(beta_mean)
 
-  # MCMCglmm naming for categorical:
-  #   intercept for trait k : "trait{Response}.{Level}"                     (no suffix)
-  #   slope for predictor j : "trait{Response}.{Level}:{j}"                 (colon separator)
-  #   species BLUP          : "trait{Response}.{Level}.{REterm}.{tip}"      (e.g.
-  #                            "traity.B.Species.Accipiter_gentilis"; the random-
-  #                            effect term name sits between level and tip)
-  #
-  # Extract trait identifiers from slope columns (those containing ":").
-  # This excludes BLUP entries (no colon) which also start with "trait".
+#' @title .pred_cat_forward_core
+#' @description Forward prediction of categorical class probabilities for ALL
+#'   rows (including NA-response rows), from the fixed effects and species
+#'   BLUPs in model$Sol. With \code{iterations = NULL}, the per-draw softmax
+#'   probabilities are averaged over every stored posterior draw - the
+#'   posterior-mean PROBABILITY, which is the honest uncertainty statement;
+#'   evaluating the softmax at posterior-mean coefficients instead (the
+#'   pre-2026-10 plug-in) is overconfident by Jensen's inequality. With a
+#'   single iteration index it returns that draw's probabilities (used by
+#'   .predict_bace for proper posterior-predictive class draws). The
+#'   latent-scale c2 rescaling (Hadfield's course notes p. 97; residual
+#'   (I+J)/K) is applied per draw in both cases.
+#'
+#' MCMCglmm Sol naming for categorical models:
+#'   intercept for trait k : "trait{Response}.{Level}"               (no suffix)
+#'   slope for predictor j : "trait{Response}.{Level}:{j}"           (colon)
+#'   species BLUP          : "trait{Response}.{Level}.{REterm}.{tip}" (e.g.
+#'                            "traity.B.Species.Accipiter_gentilis")
+#' Trait identifiers are extracted from slope columns (those containing ":"),
+#' which excludes BLUP entries (no colon) that also start with "trait".
+#' @param model MCMCglmm categorical model object (fit with pr=TRUE).
+#' @param formula Fixed-effects formula used when fitting \code{model}.
+#' @param data_i Full data frame including rows with NA response.
+#' @param cluster_col Name of the random-effect grouping column.
+#' @param baseline_name Name for the baseline / reference category.
+#' @param iterations NULL (average over all stored draws) or a single
+#'   iteration index.
+#' @return Data frame (n_obs x n_levels) of probabilities; columns ordered as
+#'   (baseline, then non-baseline levels).
+#' @noRd
+.pred_cat_forward_core <- function(model, formula, data_i,
+                                   cluster_col = "animal",
+                                   baseline_name = "Baseline",
+                                   iterations = NULL) {
+
+  Sol       <- as.matrix(model$Sol)
+  sol_names <- colnames(Sol)
+  iters     <- if (is.null(iterations)) seq_len(nrow(Sol)) else iterations
+  warn_tag  <- if (is.null(iterations)) ".pred_cat_forward"
+               else ".pred_cat_forward_iter"
+
   trait_slope_cols <- sol_names[grep("^trait.*:", sol_names)]
   trait_names      <- unique(sub(":.*$", "", trait_slope_cols))
   n_traits         <- length(trait_names)
-  n_obs          <- nrow(data_i)
+  n_obs            <- nrow(data_i)
 
   # c2 scaling (same as .pred_cat)
   c2             <- (16 * sqrt(3) / (15 * pi))^2
@@ -1125,151 +1182,86 @@
     # Fallback: return uniform probabilities
     k  <- n_traits + 1
     df <- as.data.frame(matrix(1 / k, nrow = n_obs, ncol = k))
-    # Extract level names from trait_names: last dot-separated component
-    non_base <- sub(".*\\.", "", trait_names)
-    colnames(df) <- c(baseline_name, non_base)
-    return(df)
-  }
-
-  x_cols  <- colnames(X_all)
-  exp_list <- list()
-  exp_sum  <- 1
-
-  for (ki in seq_len(n_traits)) {
-    tk <- trait_names[ki]
-
-    # MCMCglmm Sol column names:
-    #   intercept (x_col == "(Intercept)") -> tk
-    #   other predictors                   -> paste0(tk, ":", x_col)
-    sol_fixed <- ifelse(x_cols == "(Intercept)", tk, paste0(tk, ":", x_cols))
-    valid     <- sol_fixed %in% sol_names
-    beta_k    <- beta_mean[sol_fixed[valid]]
-
-    # Linear predictor from fixed effects
-    eta_k <- as.numeric(X_all[, x_cols[valid], drop = FALSE] %*% beta_k)
-
-    # Species BLUPs: "trait{Response}.{Level}.{REterm}.{tip}". Gather the
-    # phylogenetic effect and, when present, the second (non-phylogenetic)
-    # species effect (REterm "<cluster_col>2", added when species = TRUE).
-    if (cluster_col %in% colnames(data_i)) {
-      species_vals <- as.character(data_i[[cluster_col]])
-      eta_k <- eta_k +
-        .gather_blups(beta_mean, sol_names,
-                      paste0(tk, ".", cluster_col, "."), species_vals,
-                      warn_context = paste0(".pred_cat_forward, ", tk)) +
-        .gather_blups(beta_mean, sol_names,
-                      paste0(tk, ".", cluster_col, "2."), species_vals)
-    }
-
-    exp_list[[ki]] <- exp(eta_k / scaling_factor[ki])
-    exp_sum        <- exp_sum + exp_list[[ki]]
-  }
-
-  # Softmax probabilities
-  prop_results <- vector("list", n_traits + 1)
-  for (ki in seq_len(n_traits)) {
-    prop_results[[ki]] <- exp_list[[ki]] / exp_sum
-  }
-  prop_results[[n_traits + 1]] <- 1 / exp_sum
-
-  # Extract category (level) names: last dot-separated component of trait identifier
-  # e.g. "traitTrophic.Level.Herbivore" -> "Herbivore"
-  non_baseline_names <- sub(".*\\.", "", trait_names)
-  all_level_names    <- c(baseline_name, non_baseline_names)
-
-  # Output columns: [baseline, trait1, ..., trait_{n_traits}] = levels_var order
-  df_final  <- as.data.frame(do.call(cbind, prop_results[c(n_traits + 1L, seq_len(n_traits))]))
-  colnames(df_final)  <- all_level_names
-  rownames(df_final)  <- paste0("Obs_", seq_len(n_obs))
-  return(df_final)
-}
-
-
-#' @title .pred_cat_forward_iter
-#' @description Per-iteration variant of \code{.pred_cat_forward}. Computes
-#'   forward-prediction class probabilities for ALL rows using fixed
-#'   effects, cut-points, and species BLUPs at a single MCMC iteration
-#'   (no cross-iteration averaging). Used by \code{.predict_bace} when
-#'   \code{sample = TRUE} to produce proper posterior predictive class
-#'   draws rather than draws from the posterior-mean probability row.
-#' @param model MCMCglmm categorical model object (fit with pr=TRUE).
-#' @param formula Fixed-effects formula used when fitting \code{model}.
-#' @param data_i Full data frame including rows with NA response.
-#' @param cluster_col Name of the random-effect grouping column.
-#' @param baseline_name Name for the baseline / reference category.
-#' @param iteration Integer index of the MCMC iteration to use.
-#' @return Data frame (n_obs x n_levels) of probabilities at the chosen
-#'   iteration; columns ordered as (baseline, then non-baseline levels).
-#' @keywords internal
-#' @noRd
-.pred_cat_forward_iter <- function(model, formula, data_i, cluster_col = "animal",
-                                    baseline_name = "Baseline", iteration) {
-
-  Sol       <- as.matrix(model$Sol)
-  beta_i    <- Sol[iteration, , drop = TRUE]
-  sol_names <- colnames(Sol)
-
-  # Same naming conventions as .pred_cat_forward.
-  trait_slope_cols <- sol_names[grep("^trait.*:", sol_names)]
-  trait_names      <- unique(sub(":.*$", "", trait_slope_cols))
-  n_traits         <- length(trait_names)
-  n_obs            <- nrow(data_i)
-
-  c2             <- (16 * sqrt(3) / (15 * pi))^2
-  IJ             <- 1 / (n_traits + 1) * (diag(n_traits) + matrix(1, n_traits, n_traits))
-  scaling_factor <- sqrt(1 + c2 * diag(IJ))
-
-  rhs   <- formula[-2]
-  X_all <- tryCatch(model.matrix(rhs, data_i), error = function(e) NULL)
-  if (is.null(X_all)) {
-    k  <- n_traits + 1
-    df <- as.data.frame(matrix(1 / k, nrow = n_obs, ncol = k))
     non_base <- sub(".*\\.", "", trait_names)
     colnames(df) <- c(baseline_name, non_base)
     rownames(df) <- paste0("Obs_", seq_len(n_obs))
     return(df)
   }
+
   x_cols <- colnames(X_all)
 
-  exp_list <- list()
-  exp_sum  <- 1
+  # Per-trait linear predictors as (n_draws x n_obs) matrices; per-draw
+  # softmax; then average over draws (colMeans of a 1-row matrix is that row,
+  # so the single-iteration path is the same code).
+  exp_list <- vector("list", n_traits)
+  exp_sum  <- matrix(1, length(iters), n_obs)
+
   for (ki in seq_len(n_traits)) {
     tk        <- trait_names[ki]
     sol_fixed <- ifelse(x_cols == "(Intercept)", tk, paste0(tk, ":", x_cols))
     valid     <- sol_fixed %in% sol_names
-    beta_k    <- beta_i[sol_fixed[valid]]
 
-    eta_k <- as.numeric(X_all[, x_cols[valid], drop = FALSE] %*% beta_k)
+    eta_mat <- Sol[iters, sol_fixed[valid], drop = FALSE] %*%
+      t(X_all[, x_cols[valid], drop = FALSE])
 
-    # Same BLUP naming as .pred_cat_forward: "trait.level.{REterm}.{tip}",
-    # plus the optional second species effect ("<cluster_col>2").
+    # Species BLUPs: phylogenetic effect plus, when present, the second
+    # (non-phylogenetic) species effect (REterm "<cluster_col>2").
     if (cluster_col %in% colnames(data_i)) {
       species_vals <- as.character(data_i[[cluster_col]])
-      eta_k <- eta_k +
-        .gather_blups(beta_i, sol_names,
-                      paste0(tk, ".", cluster_col, "."), species_vals,
-                      warn_context = paste0(".pred_cat_forward_iter, ", tk)) +
-        .gather_blups(beta_i, sol_names,
-                      paste0(tk, ".", cluster_col, "2."), species_vals)
+      eta_mat <- eta_mat +
+        .gather_blups_mat(Sol, iters, sol_names,
+                          paste0(tk, ".", cluster_col, "."), species_vals,
+                          warn_context = paste0(warn_tag, ", ", tk)) +
+        .gather_blups_mat(Sol, iters, sol_names,
+                          paste0(tk, ".", cluster_col, "2."), species_vals)
     }
 
-    exp_list[[ki]] <- exp(eta_k / scaling_factor[ki])
+    exp_list[[ki]] <- exp(eta_mat / scaling_factor[ki])
     exp_sum        <- exp_sum + exp_list[[ki]]
   }
 
   prop_results <- vector("list", n_traits + 1)
   for (ki in seq_len(n_traits)) {
-    prop_results[[ki]] <- exp_list[[ki]] / exp_sum
+    prop_results[[ki]] <- colMeans(exp_list[[ki]] / exp_sum)
   }
-  prop_results[[n_traits + 1]] <- 1 / exp_sum
+  prop_results[[n_traits + 1]] <- colMeans(1 / exp_sum)
 
+  # Category (level) names: last dot-separated component of trait identifier
   non_baseline_names <- sub(".*\\.", "", trait_names)
   all_level_names    <- c(baseline_name, non_baseline_names)
 
-  df_final <- as.data.frame(do.call(cbind, prop_results[c(n_traits + 1L, seq_len(n_traits))]))
-  colnames(df_final) <- all_level_names
-  rownames(df_final) <- paste0("Obs_", seq_len(n_obs))
+  df_final  <- as.data.frame(do.call(cbind, prop_results[c(n_traits + 1L, seq_len(n_traits))]))
+  colnames(df_final)  <- all_level_names
+  rownames(df_final)  <- paste0("Obs_", seq_len(n_obs))
   df_final
+}
+
+
+#' @title .pred_cat_forward
+#' @description Posterior-averaged forward categorical probabilities: thin
+#'   wrapper around \code{.pred_cat_forward_core(iterations = NULL)}. This is
+#'   the sample = FALSE (argmax) and prob_preds path.
+#' @return Data frame (n_obs x n_levels) of posterior-averaged probabilities.
+#' @noRd
+.pred_cat_forward <- function(model, formula, data_i, cluster_col = "animal",
+                               baseline_name = "Baseline") {
+  .pred_cat_forward_core(model, formula, data_i, cluster_col = cluster_col,
+                         baseline_name = baseline_name, iterations = NULL)
+}
+
+
+#' @title .pred_cat_forward_iter
+#' @description Single-draw forward categorical probabilities at one MCMC
+#'   iteration: thin wrapper around \code{.pred_cat_forward_core}. Used by
+#'   \code{.predict_bace} when \code{sample = TRUE} to produce proper
+#'   posterior-predictive class draws.
+#' @param iteration Integer index of the MCMC iteration to use.
+#' @return Data frame (n_obs x n_levels) of that draw's probabilities.
+#' @noRd
+.pred_cat_forward_iter <- function(model, formula, data_i, cluster_col = "animal",
+                                    baseline_name = "Baseline", iteration) {
+  .pred_cat_forward_core(model, formula, data_i, cluster_col = cluster_col,
+                         baseline_name = baseline_name, iterations = iteration)
 }
 
 
@@ -1345,24 +1337,37 @@
 }
 
 
-#' @title .pred_threshold_forward
-#' @description Forward prediction of ordinal/threshold probabilities for ALL rows (including
-#'   those with NA response) using posterior mean fixed + random effects from model$Sol.
-#'   Called instead of .pred_threshold() when the response variable has missing values.
+#' @title .pred_threshold_forward_core
+#' @description Forward prediction of ordinal/threshold/binary probabilities
+#'   for ALL rows (including NA-response rows) from the fixed effects, species
+#'   BLUPs and cut-points in the fitted model. Called instead of
+#'   .pred_threshold() when the response variable has missing values (MCMCglmm
+#'   drops NA-response rows from model$Liab). With \code{iterations = NULL}
+#'   the per-draw probabilities are averaged over every stored posterior draw
+#'   (posterior-mean probability; plugging posterior-mean coefficients into
+#'   Phi instead - the pre-2026-10 behaviour - is overconfident by Jensen's
+#'   inequality). With a single iteration index it returns that draw's
+#'   probabilities, used for posterior-predictive class draws.
 #' @param model MCMCglmm model object (fit with pr=TRUE)
 #' @param formula The fixed-effects formula used to fit the model
+#' @param iterations NULL (average over all stored draws) or a single
+#'   iteration index.
 #' @param data_i Full data frame including rows with NA response (all predictors complete)
 #' @param cluster_col Name of the random-effect grouping column (e.g. "animal")
 #' @param level_names Character vector of ordered level names
 #' @return Data frame with nrow(data_i) rows of predicted probabilities per category
 #' @noRd
-.pred_threshold_forward <- function(model, formula, data_i,
-                                     cluster_col = "animal",
-                                     level_names = NULL) {
+.pred_threshold_forward_core <- function(model, formula, data_i,
+                                         cluster_col = "animal",
+                                         level_names = NULL,
+                                         iterations = NULL) {
 
-  beta_mean <- colMeans(as.matrix(model$Sol))
-  sol_names <- names(beta_mean)
+  Sol       <- as.matrix(model$Sol)
+  sol_names <- colnames(Sol)
   n_obs     <- nrow(data_i)
+  iters     <- if (is.null(iterations)) seq_len(nrow(Sol)) else iterations
+  warn_tag  <- if (is.null(iterations)) ".pred_threshold_forward"
+               else ".pred_threshold_forward_iter"
 
   # Build fixed-effects design matrix for ALL rows
   rhs   <- formula[-2]
@@ -1379,115 +1384,46 @@
   # Fixed effect columns: X_all column names that exist in Sol (no cluster prefix)
   x_cols <- colnames(X_all)
   valid  <- x_cols %in% sol_names
-  beta_k <- beta_mean[x_cols[valid]]
 
-  # Linear predictor from fixed effects
-  eta <- as.numeric(X_all[, x_cols[valid], drop = FALSE] %*% beta_k)
+  # (n_draws x n_obs) linear predictors
+  eta_mat <- Sol[iters, x_cols[valid], drop = FALSE] %*%
+    t(X_all[, x_cols[valid], drop = FALSE])
 
-  # Add species BLUPs (posterior mean): "{REterm}.{tip}", plus the optional
-  # second (non-phylogenetic) species effect "{REterm}2.{tip}" (species = TRUE).
+  # Species BLUPs: "{REterm}.{tip}", plus the optional second
+  # (non-phylogenetic) species effect "{REterm}2.{tip}" (species = TRUE).
   if (cluster_col %in% colnames(data_i)) {
     species_vals <- as.character(data_i[[cluster_col]])
-    eta <- eta +
-      .gather_blups(beta_mean, sol_names, paste0(cluster_col, "."),
-                    species_vals, warn_context = ".pred_threshold_forward") +
-      .gather_blups(beta_mean, sol_names, paste0(cluster_col, "2."),
-                    species_vals)
+    eta_mat <- eta_mat +
+      .gather_blups_mat(Sol, iters, sol_names, paste0(cluster_col, "."),
+                        species_vals, warn_context = warn_tag) +
+      .gather_blups_mat(Sol, iters, sol_names, paste0(cluster_col, "2."),
+                        species_vals)
   }
 
-  # Cut-points: posterior mean
-  # MCMCglmm fixes the first threshold at 0; additional ones are in model$CP.
-  # Prepend 0 so cp_all = c(0, CP2_mean, CP3_mean, ...).
+  # Cut-points per draw: MCMCglmm fixes the first threshold at 0; additional
+  # ones are in model$CP. cp_mat is (n_draws x (n_levels - 1)).
   if (!is.null(model$CP) && length(model$CP) > 0) {
-    cp_all   <- c(0, colMeans(as.matrix(model$CP)))
-    n_levels <- length(cp_all) + 1
+    cp_mat   <- cbind(0, as.matrix(model$CP)[iters, , drop = FALSE])
+    n_levels <- ncol(cp_mat) + 1
   } else {
-    cp_all   <- 0          # binary: single threshold at 0
+    cp_mat   <- matrix(0, nrow = length(iters), ncol = 1)  # binary: one threshold
     n_levels <- 2
   }
 
-  # P(category j | eta_i) = Phi(CP_j - eta_i) - Phi(CP_{j-1} - eta_i)
+  # P(category j | eta) = Phi(CP_j - eta) - Phi(CP_{j-1} - eta), computed per
+  # draw (a cp column recycles down the (n_draws x n_obs) eta matrix) and then
+  # averaged over the draws. Averaging the per-draw probabilities is the
+  # posterior-mean probability; the pre-2026-10 code instead plugged the
+  # posterior-MEAN eta and cutpoints into Phi, which is overconfident by
+  # Jensen's inequality. colMeans of a 1-row matrix is that row, so the
+  # single-iteration path is the same code.
   all_probs <- vector("list", n_levels)
   for (j in seq_len(n_levels)) {
-    t_low  <- if (j == 1)        -Inf else cp_all[j - 1]
-    t_high <- if (j == n_levels)  Inf else cp_all[j]
-    all_probs[[j]] <- pnorm(t_high - eta) - pnorm(t_low - eta)
-  }
-
-  df_final <- as.data.frame(do.call(cbind, all_probs))
-  if (!is.null(level_names) && length(level_names) == n_levels) {
-    colnames(df_final) <- level_names
-  } else {
-    colnames(df_final) <- paste0("Level_", seq_len(n_levels))
-  }
-  return(df_final)
-}
-
-
-#' @title .pred_threshold_forward_iter
-#' @description Per-iteration variant of \code{.pred_threshold_forward}.
-#'   Builds class probabilities from fixed effects, cut-points, and
-#'   species BLUPs at a single MCMC iteration (no cross-iteration
-#'   averaging). Used by \code{.predict_bace} for \code{sample = TRUE} to
-#'   generate proper posterior predictive class draws.
-#' @param model MCMCglmm threshold model (fit with pr=TRUE).
-#' @param formula Fixed-effects formula.
-#' @param data_i Full data frame (may contain NA response rows).
-#' @param cluster_col Random-effect grouping column name.
-#' @param level_names Character vector of ordered level names.
-#' @param iteration Integer MCMC iteration index.
-#' @return Data frame (n_obs x n_levels) of per-iteration probabilities.
-#' @keywords internal
-#' @noRd
-.pred_threshold_forward_iter <- function(model, formula, data_i,
-                                          cluster_col = "animal",
-                                          level_names = NULL, iteration) {
-
-  Sol       <- as.matrix(model$Sol)
-  beta_i    <- Sol[iteration, , drop = TRUE]
-  sol_names <- colnames(Sol)
-  n_obs     <- nrow(data_i)
-
-  rhs   <- formula[-2]
-  X_all <- tryCatch(model.matrix(rhs, data_i), error = function(e) NULL)
-
-  if (is.null(X_all)) {
-    n_lv <- if (!is.null(model$CP)) ncol(as.matrix(model$CP)) + 2 else 2
-    df <- as.data.frame(matrix(1 / n_lv, nrow = n_obs, ncol = n_lv))
-    colnames(df) <- if (!is.null(level_names) && length(level_names) == n_lv)
-                      level_names else paste0("Level_", seq_len(n_lv))
-    return(df)
-  }
-
-  x_cols <- colnames(X_all)
-  valid  <- x_cols %in% sol_names
-  beta_k <- beta_i[x_cols[valid]]
-
-  eta <- as.numeric(X_all[, x_cols[valid], drop = FALSE] %*% beta_k)
-
-  # Same BLUP gathering as .pred_threshold_forward (incl. second species effect).
-  if (cluster_col %in% colnames(data_i)) {
-    species_vals <- as.character(data_i[[cluster_col]])
-    eta <- eta +
-      .gather_blups(beta_i, sol_names, paste0(cluster_col, "."),
-                    species_vals, warn_context = ".pred_threshold_forward_iter") +
-      .gather_blups(beta_i, sol_names, paste0(cluster_col, "2."),
-                    species_vals)
-  }
-
-  if (!is.null(model$CP) && length(model$CP) > 0) {
-    cp_i     <- c(0, as.matrix(model$CP)[iteration, ])
-    n_levels <- length(cp_i) + 1
-  } else {
-    cp_i     <- 0
-    n_levels <- 2
-  }
-
-  all_probs <- vector("list", n_levels)
-  for (j in seq_len(n_levels)) {
-    t_low  <- if (j == 1)       -Inf else cp_i[j - 1]
-    t_high <- if (j == n_levels) Inf else cp_i[j]
-    all_probs[[j]] <- pnorm(t_high - eta) - pnorm(t_low - eta)
+    p_hi <- if (j == n_levels) 1 else pnorm(cp_mat[, j] - eta_mat)
+    p_lo <- if (j == 1)        0 else pnorm(cp_mat[, j - 1] - eta_mat)
+    pj <- p_hi - p_lo
+    if (!is.matrix(pj)) pj <- matrix(pj, nrow = length(iters), ncol = n_obs)
+    all_probs[[j]] <- colMeans(pj)
   }
 
   df_final <- as.data.frame(do.call(cbind, all_probs))
@@ -1497,6 +1433,39 @@
     colnames(df_final) <- paste0("Level_", seq_len(n_levels))
   }
   df_final
+}
+
+
+#' @title .pred_threshold_forward
+#' @description Posterior-averaged forward threshold/binary probabilities:
+#'   thin wrapper around \code{.pred_threshold_forward_core(iterations =
+#'   NULL)}. This is the sample = FALSE (argmax) and prob_preds path.
+#' @return Data frame (n_obs x n_levels) of posterior-averaged probabilities.
+#' @noRd
+.pred_threshold_forward <- function(model, formula, data_i,
+                                     cluster_col = "animal",
+                                     level_names = NULL) {
+  .pred_threshold_forward_core(model, formula, data_i,
+                               cluster_col = cluster_col,
+                               level_names = level_names, iterations = NULL)
+}
+
+
+#' @title .pred_threshold_forward_iter
+#' @description Single-draw forward threshold/binary probabilities at one MCMC
+#'   iteration: thin wrapper around \code{.pred_threshold_forward_core}. Used
+#'   by \code{.predict_bace} for \code{sample = TRUE} to generate proper
+#'   posterior-predictive class draws.
+#' @param iteration Integer MCMC iteration index.
+#' @return Data frame (n_obs x n_levels) of that draw's probabilities.
+#' @noRd
+.pred_threshold_forward_iter <- function(model, formula, data_i,
+                                          cluster_col = "animal",
+                                          level_names = NULL, iteration) {
+  .pred_threshold_forward_core(model, formula, data_i,
+                               cluster_col = cluster_col,
+                               level_names = level_names,
+                               iterations = iteration)
 }
 
 

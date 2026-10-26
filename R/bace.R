@@ -114,6 +114,10 @@
 #'   - pooled_models: Pooled posterior distributions accounting for imputation uncertainty
 #'   - final_results: Results from final imputation runs (bace_final object)
 #'   - imputed_datasets: List of n_final imputed datasets from final runs (for convenient access)
+#'   - prob_preds: For categorical/threshold/binary variables, one list per final
+#'     run with each variable's posterior-averaged probability matrix at its
+#'     originally missing rows (rownames = species). Averaging a variable's
+#'     matrices across the runs gives its MI-pooled category probabilities.
 #'   - initial_results: Results from initial convergence runs (bace object)
 #'   - convergence: Convergence assessment results
 #'   - converged: Logical indicating if convergence was achieved

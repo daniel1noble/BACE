@@ -60,6 +60,12 @@
 #'   - all_ovr_models: List of length n_final; for variables imputed via the
 #'     one-vs-rest path, the J per-level binary MCMCglmm models (empty otherwise)
 #'   - all_datasets: List of length n_final with imputed datasets
+#'   - all_prob_preds: List of length n_final; per run, for each categorical/
+#'     threshold/binary variable, the probability matrix at that variable's
+#'     originally missing rows (rownames = species), with category
+#'     probabilities averaged over the model's posterior draws (NOT evaluated
+#'     at posterior-mean coefficients, which would be overconfident). The
+#'     across-run average gives MI-pooled probabilities.
 #'   - formulas: The formulas used
 #'   - types: Variable types
 #'   - phylo_ran: Phylogenetic random effects structure

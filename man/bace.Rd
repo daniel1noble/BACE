@@ -139,6 +139,10 @@ A list of class 'bace_complete' containing:
 \item pooled_models: Pooled posterior distributions accounting for imputation uncertainty
 \item final_results: Results from final imputation runs (bace_final object)
 \item imputed_datasets: List of n_final imputed datasets from final runs (for convenient access)
+\item prob_preds: For categorical/threshold/binary variables, one list per final
+run with each variable's posterior-averaged probability matrix at its
+originally missing rows (rownames = species). Averaging a variable's
+matrices across the runs gives its MI-pooled category probabilities.
 \item initial_results: Results from initial convergence runs (bace object)
 \item convergence: Convergence assessment results
 \item converged: Logical indicating if convergence was achieved

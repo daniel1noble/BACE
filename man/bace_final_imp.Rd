@@ -104,6 +104,12 @@ A list of class 'bace_final' containing:
 \item all_ovr_models: List of length n_final; for variables imputed via the
 one-vs-rest path, the J per-level binary MCMCglmm models (empty otherwise)
 \item all_datasets: List of length n_final with imputed datasets
+\item all_prob_preds: List of length n_final; per run, for each categorical/
+threshold/binary variable, the probability matrix at that variable's
+originally missing rows (rownames = species), with category
+probabilities averaged over the model's posterior draws (NOT evaluated
+at posterior-mean coefficients, which would be overconfident). The
+across-run average gives MI-pooled probabilities.
 \item formulas: The formulas used
 \item types: Variable types
 \item phylo_ran: Phylogenetic random effects structure

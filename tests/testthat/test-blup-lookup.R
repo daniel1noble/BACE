@@ -1,24 +1,33 @@
-# Regression tests for the 2026-10 BLUP-lookup fix.
+# Regression tests for the 2026-10 BLUP-lookup fix and the posterior-averaged
+# forward probabilities.
 #
-# Bug: the categorical forward helpers built species-effect column names as
-# "trait.level.<tip>" but MCMCglmm names them "trait.level.<REterm>.<tip>",
-# so the lookup never matched and every species effect was silently 0 - the
-# default categorical path did non-phylogenetic imputation. The threshold
-# helpers matched the phylo effect but never added the second species effect
-# ("<REterm>2", species = TRUE). All four forward helpers now gather BLUPs
-# via .gather_blups (exact prefix + suffix match) with a zero-match tripwire.
+# Bug 1 (lookup): the categorical forward helpers built species-effect column
+# names as "trait.level.<tip>" but MCMCglmm names them
+# "trait.level.<REterm>.<tip>", so the lookup never matched and every species
+# effect was silently 0 - the default categorical path did non-phylogenetic
+# imputation. The threshold helpers matched the phylo effect but never added
+# the second species effect ("<REterm>2", species = TRUE). All forward
+# helpers now gather BLUPs via .gather_blups(_mat) (exact prefix + suffix
+# match) with a zero-match tripwire.
 #
-# These tests pin: (a) hand-computed equality INCLUDING BLUPs, (b) that
-# species effects actually change the output (the exact regression), (c) node
-# -effect and dotted-tip handling, (d) the tripwire warning, and (e) a real
-# MCMCglmm fit, because only a real fit can catch drift between MCMCglmm's
-# actual naming and what the helpers assume (mocks could never catch it).
+# Bug 2 (plug-in): the forward probability paths evaluated Phi / softmax at
+# posterior-MEAN coefficients, which is overconfident (Jensen). They now
+# average the per-draw probabilities over all stored draws; the single-draw
+# (_iter) path used for imputation draws is the same core at one iteration.
+#
+# These tests pin: (a) hand-computed equality INCLUDING BLUPs and averaging,
+# (b) that species effects actually change the output, (c) node-effect and
+# dotted-tip handling, (d) the tripwire warning, (e) averaged == mean over
+# per-iteration sweep, == plug-in exactly when the posterior is degenerate,
+# and (f) a real MCMCglmm fit (only a real fit can catch drift between
+# MCMCglmm's actual naming and what the helpers assume).
 
 # ---- Mock builders --------------------------------------------------------
 
 # Categorical: response y, baseline "A", non-baseline levels B, C; predictor x;
 # 3 species + 1 node decoy + 1 dotted tip; optional Species2 columns.
-mock_cat_forward_model <- function(n_iter = 40, species2 = FALSE, seed = 1) {
+mock_cat_forward_model <- function(n_iter = 40, species2 = FALSE, seed = 1,
+                                   zero_var = FALSE) {
   set.seed(seed)
   tips <- c("sp1", "sp2", "sp.4")   # includes a dotted tip label
   cols <- c("traity.B", "traity.C",
@@ -31,6 +40,7 @@ mock_cat_forward_model <- function(n_iter = 40, species2 = FALSE, seed = 1) {
               paste0("traity.C.Species2.", tips))
   }
   Sol <- matrix(rnorm(n_iter * length(cols), 0, 0.8), n_iter, length(cols))
+  if (zero_var) Sol <- matrix(rep(Sol[1, ], each = n_iter), n_iter)
   colnames(Sol) <- cols
   list(Sol = coda::mcmc(Sol))
 }
@@ -55,103 +65,142 @@ mock_data <- function() {
              stringsAsFactors = FALSE)
 }
 
-# Independent re-implementation of the categorical softmax, taking the BLUP
-# values directly (no name lookup), for hand-computed expectations.
-cat_softmax_by_hand <- function(beta, data_i, blups_B, blups_C) {
-  J  <- 2
+# Independent re-implementations averaging the per-draw probabilities,
+# with BLUPs looked up directly by their full column names (no prefix logic).
+cat_probs_by_hand <- function(m, d, use_species2 = FALSE, iters = NULL) {
+  Sol <- as.matrix(m$Sol)
+  if (is.null(iters)) iters <- seq_len(nrow(Sol))
+  J <- 2
   c2 <- (16 * sqrt(3) / (15 * pi))^2
   IJ <- 1 / (J + 1) * (diag(J) + matrix(1, J, J))
   scl <- sqrt(1 + c2 * diag(IJ))
-  eta_B <- beta[["traity.B"]] + beta[["traity.B:x"]] * data_i$x + blups_B
-  eta_C <- beta[["traity.C"]] + beta[["traity.C:x"]] * data_i$x + blups_C
-  eB <- exp(eta_B / scl[1]); eC <- exp(eta_C / scl[2])
-  denom <- 1 + eB + eC
-  cbind(1 / denom, eB / denom, eC / denom)
+  acc <- matrix(0, nrow(d), J + 1)
+  for (k in iters) {
+    b <- Sol[k, ]
+    bl_B <- b[paste0("traity.B.Species.", d$Species)]
+    bl_C <- b[paste0("traity.C.Species.", d$Species)]
+    if (use_species2) {
+      bl_B <- bl_B + b[paste0("traity.B.Species2.", d$Species)]
+      bl_C <- bl_C + b[paste0("traity.C.Species2.", d$Species)]
+    }
+    eB <- exp((b[["traity.B"]] + b[["traity.B:x"]] * d$x + bl_B) / scl[1])
+    eC <- exp((b[["traity.C"]] + b[["traity.C:x"]] * d$x + bl_C) / scl[2])
+    den <- 1 + eB + eC
+    acc <- acc + cbind(1 / den, eB / den, eC / den)
+  }
+  acc / length(iters)
 }
 
-# ---- Categorical forward: BLUPs included, hand-computed ------------------
+thr_probs_by_hand <- function(m, d, use_species2 = FALSE, iters = NULL) {
+  Sol <- as.matrix(m$Sol)
+  CP  <- as.matrix(m$CP)
+  if (is.null(iters)) iters <- seq_len(nrow(Sol))
+  acc <- matrix(0, nrow(d), 3)
+  for (k in iters) {
+    b <- Sol[k, ]
+    cp <- c(0, CP[k, ])
+    eta <- b[["(Intercept)"]] + b[["x"]] * d$x +
+      b[paste0("Species.", d$Species)]
+    if (use_species2) eta <- eta + b[paste0("Species2.", d$Species)]
+    acc <- acc + cbind(pnorm(cp[1] - eta),
+                       pnorm(cp[2] - eta) - pnorm(cp[1] - eta),
+                       1 - pnorm(cp[2] - eta))
+  }
+  acc / length(iters)
+}
 
-test_that("categorical forward predictions include phylo BLUPs (posterior mean)", {
+# ---- Categorical forward: BLUPs + posterior averaging, hand-computed -------
+
+test_that("categorical forward probabilities average per-draw softmax incl. BLUPs", {
   m <- mock_cat_forward_model()
   d <- mock_data()
-  beta <- colMeans(as.matrix(m$Sol))
   out <- BACE:::.pred_cat_forward(m, formula = y ~ x, data_i = d,
                                   cluster_col = "Species")
-  expected <- cat_softmax_by_hand(
-    beta, d,
-    blups_B = beta[paste0("traity.B.Species.", d$Species)],
-    blups_C = beta[paste0("traity.C.Species.", d$Species)])
-  expect_equal(unname(as.matrix(out)), unname(expected), tolerance = 1e-12)
+  expect_equal(unname(as.matrix(out)), unname(cat_probs_by_hand(m, d)),
+               tolerance = 1e-12)
 
-  # The regression: zeroing the species effects MUST change the output.
+  # The lookup regression: zeroing the species effects MUST change the output.
   m0 <- m
   m0$Sol[, grep("\\.Species\\.", colnames(m$Sol))] <- 0
   out0 <- BACE:::.pred_cat_forward(m0, formula = y ~ x, data_i = d,
                                    cluster_col = "Species")
   expect_false(isTRUE(all.equal(as.matrix(out), as.matrix(out0))))
+
+  # The plug-in regression: averaged probabilities differ from the softmax at
+  # posterior-mean coefficients (Jensen), except in degenerate posteriors.
+  beta <- colMeans(as.matrix(m$Sol))
+  m_pl <- m
+  m_pl$Sol <- coda::mcmc(matrix(rep(beta, each = 2), 2,
+                                dimnames = list(NULL, names(beta))))
+  plugin <- BACE:::.pred_cat_forward(m_pl, formula = y ~ x, data_i = d,
+                                     cluster_col = "Species")
+  expect_false(isTRUE(all.equal(as.matrix(out), as.matrix(plugin))))
 })
 
-test_that("categorical forward_iter uses the requested iteration's BLUPs", {
+test_that("categorical forward_iter equals the hand computation at one draw", {
   m <- mock_cat_forward_model()
   d <- mock_data()
   it <- 7L
-  beta <- as.matrix(m$Sol)[it, ]
   out <- BACE:::.pred_cat_forward_iter(m, formula = y ~ x, data_i = d,
                                        cluster_col = "Species", iteration = it)
-  expected <- cat_softmax_by_hand(
-    beta, d,
-    blups_B = beta[paste0("traity.B.Species.", d$Species)],
-    blups_C = beta[paste0("traity.C.Species.", d$Species)])
-  expect_equal(unname(as.matrix(out)), unname(expected), tolerance = 1e-12)
+  expect_equal(unname(as.matrix(out)),
+               unname(cat_probs_by_hand(m, d, iters = it)), tolerance = 1e-12)
+})
+
+test_that("averaged forward equals the mean over the per-iteration sweep", {
+  m <- mock_cat_forward_model(n_iter = 15)
+  d <- mock_data()
+  out <- BACE:::.pred_cat_forward(m, formula = y ~ x, data_i = d,
+                                  cluster_col = "Species")
+  sweep_mean <- Reduce(`+`, lapply(seq_len(15), function(it) {
+    as.matrix(BACE:::.pred_cat_forward_iter(m, formula = y ~ x, data_i = d,
+                                            cluster_col = "Species",
+                                            iteration = it))
+  })) / 15
+  expect_equal(as.matrix(out), sweep_mean, tolerance = 1e-8)
+
+  # Degenerate posterior: averaging == plug-in exactly.
+  mz <- mock_cat_forward_model(zero_var = TRUE)
+  outz <- BACE:::.pred_cat_forward(mz, formula = y ~ x, data_i = d,
+                                   cluster_col = "Species")
+  outz1 <- BACE:::.pred_cat_forward_iter(mz, formula = y ~ x, data_i = d,
+                                         cluster_col = "Species", iteration = 1L)
+  expect_equal(as.matrix(outz), as.matrix(outz1), tolerance = 1e-12)
+
+  # Rows are probability distributions.
+  expect_equal(unname(rowSums(as.matrix(out))), rep(1, 3), tolerance = 1e-10)
 })
 
 test_that("categorical forward adds the second species effect when present", {
   m <- mock_cat_forward_model(species2 = TRUE)
   d <- mock_data()
-  beta <- colMeans(as.matrix(m$Sol))
   out <- BACE:::.pred_cat_forward(m, formula = y ~ x, data_i = d,
                                   cluster_col = "Species")
-  expected <- cat_softmax_by_hand(
-    beta, d,
-    blups_B = beta[paste0("traity.B.Species.", d$Species)] +
-              beta[paste0("traity.B.Species2.", d$Species)],
-    blups_C = beta[paste0("traity.C.Species.", d$Species)] +
-              beta[paste0("traity.C.Species2.", d$Species)])
-  expect_equal(unname(as.matrix(out)), unname(expected), tolerance = 1e-12)
+  expect_equal(unname(as.matrix(out)),
+               unname(cat_probs_by_hand(m, d, use_species2 = TRUE)),
+               tolerance = 1e-12)
 })
 
-# ---- Threshold forward: both species effects, hand-computed ---------------
+# ---- Threshold forward: both species effects, averaging, hand-computed -----
 
-test_that("threshold forward includes phylo + second species effects", {
+test_that("threshold forward includes phylo + second species effects (averaged)", {
   m <- mock_thr_forward_model(species2 = TRUE)
   d <- mock_data()
-  beta <- colMeans(as.matrix(m$Sol))
-  cp <- c(0, mean(as.matrix(m$CP)))
-  eta <- beta[["(Intercept)"]] + beta[["x"]] * d$x +
-    beta[paste0("Species.", d$Species)] +
-    beta[paste0("Species2.", d$Species)]
-  expected <- cbind(pnorm(cp[1] - eta),
-                    pnorm(cp[2] - eta) - pnorm(cp[1] - eta),
-                    1 - pnorm(cp[2] - eta))
   out <- BACE:::.pred_threshold_forward(m, formula = y ~ x, data_i = d,
                                         cluster_col = "Species",
                                         level_names = c("A", "B", "C"))
-  expect_equal(unname(as.matrix(out)), unname(expected), tolerance = 1e-12)
+  expect_equal(unname(as.matrix(out)),
+               unname(thr_probs_by_hand(m, d, use_species2 = TRUE)),
+               tolerance = 1e-12)
 
   it <- 11L
-  beta_i <- as.matrix(m$Sol)[it, ]
-  cp_i <- c(0, as.matrix(m$CP)[it, ])
-  eta_i <- beta_i[["(Intercept)"]] + beta_i[["x"]] * d$x +
-    beta_i[paste0("Species.", d$Species)] +
-    beta_i[paste0("Species2.", d$Species)]
-  expected_i <- cbind(pnorm(cp_i[1] - eta_i),
-                      pnorm(cp_i[2] - eta_i) - pnorm(cp_i[1] - eta_i),
-                      1 - pnorm(cp_i[2] - eta_i))
   out_i <- BACE:::.pred_threshold_forward_iter(m, formula = y ~ x, data_i = d,
                                                cluster_col = "Species",
                                                level_names = c("A", "B", "C"),
                                                iteration = it)
-  expect_equal(unname(as.matrix(out_i)), unname(expected_i), tolerance = 1e-12)
+  expect_equal(unname(as.matrix(out_i)),
+               unname(thr_probs_by_hand(m, d, use_species2 = TRUE, iters = it)),
+               tolerance = 1e-12)
 })
 
 # ---- Decoys and tripwire --------------------------------------------------
@@ -159,16 +208,12 @@ test_that("threshold forward includes phylo + second species effects", {
 test_that("node-effect columns are ignored and dotted tip labels resolve", {
   m <- mock_cat_forward_model()
   d <- mock_data()
-  beta <- colMeans(as.matrix(m$Sol))
   out <- BACE:::.pred_cat_forward(m, formula = y ~ x, data_i = d,
                                   cluster_col = "Species")
   # Row 3 is the dotted tip "sp.4": its BLUP must be the sp.4 column, not a
-  # regex-mangled lookup. Verify via the hand computation restricted to row 3.
-  expected3 <- cat_softmax_by_hand(
-    beta, d[3, , drop = FALSE],
-    blups_B = beta[["traity.B.Species.sp.4"]],
-    blups_C = beta[["traity.C.Species.sp.4"]])
-  expect_equal(unname(as.matrix(out[3, , drop = FALSE])), unname(expected3),
+  # regex-mangled lookup. Hand computation restricted to row 3.
+  expect_equal(unname(as.matrix(out[3, , drop = FALSE])),
+               unname(cat_probs_by_hand(m, d[3, , drop = FALSE])),
                tolerance = 1e-12)
 })
 
