@@ -16,6 +16,8 @@
 #' @param species A logical indicating whether to decompose phylogenetic and non-phylogenetic species effects. Default is FALSE
 #' @param verbose A logical indicating whether to print progress messages. Default is TRUE
 #' @param n_cores Integer specifying the number of parallel cores to use. Default is 1
+#'   (serial). Values > 1 use \code{parallel::mclapply}. The function falls back to serial
+#'   automatically if any parallel worker returns an error.
 #' @param nitt_cat_mult Integer multiplier applied to nitt and burnin for categorical and
 #'   threshold/ordinal variables. Default is 1 (no change). Set to 2 or 3 to give harder-to-mix
 #'   categorical models proportionally longer chains.
@@ -27,8 +29,12 @@
 #'   probabilities), while the single multinomial probit is both better
 #'   calibrated and faster. Set to TRUE only if a specific multinomial model
 #'   mixes too poorly to use.
-#'   (serial). Values > 1 use \code{parallel::mclapply}. The function falls back to serial
-#'   automatically if any parallel worker returns an error.
+#' @param priors Optional named list of MCMCglmm prior overrides, one element
+#'   per imputed variable; same structure and rules as in \code{bace_imp()}
+#'   (blocks \code{G}/\code{R}/\code{B} replaced wholesale; no \code{R}
+#'   override for threshold/ordinal/categorical variables). Use the same
+#'   \code{priors} in both phases so the convergence chain and the final
+#'   imputations target the same models.
 #' @param ... Additional arguments passed to modeling functions
 #' @return A list of class 'bace_final' containing:
 #'   - all_models: List of length n_final, each containing models for all variables
@@ -64,7 +70,8 @@
 bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
                            nitt = 6000, thin = 5, burnin = 1000,
                            n_final = 50, species = FALSE, verbose = TRUE,
-                           n_cores = 1, nitt_cat_mult = 1L, ovr_categorical = FALSE, ...) {
+                           n_cores = 1, nitt_cat_mult = 1L, ovr_categorical = FALSE,
+                           priors = NULL, ...) {
 
   # Check inputs
   if (!inherits(bace_object, "bace")) {
@@ -76,6 +83,9 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
   miss_dat <- bace_object$miss_dat
   types <- bace_object$types
   phylo_ran <- bace_object$phylo_ran
+
+  # Validate any user-supplied priors BEFORE fitting anything (fail fast).
+  .validate_priors(priors, types, miss_vars = unique(miss_dat$colname))
 
   # Build formulas if needed
   if (!is.list(fixformula)) {
@@ -172,14 +182,29 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
         }
         n_rand_eff <- if (species) 2L else 1L
 
-        gelman_val <- if (types[[response_var]] == "categorical") 2L else 0L
-        prior_i <- .make_prior(
-          n_rand = n_rand_eff,
-          n_levels = levels,
-          type = types[[response_var]],
-          fixform = fixform,
-          data = data_i,
-          gelman = gelman_val
+        # Use the same BACE.gelman option as bace_imp (this phase used to
+        # hard-code gelman = 2, silently disagreeing with the chained phase).
+        # A user-supplied B block replaces the default anyway, so skip the
+        # Gelman construction in that case.
+        cat_gelman <- if (is.null(getOption("BACE.gelman"))) {
+          bace_option_defaults()$gelman
+        } else {
+          getOption("BACE.gelman")
+        }
+        gelman_val <- if (types[[response_var]] != "categorical") 0L
+          else if (!is.null(priors[[response_var]]$B)) 0L
+          else cat_gelman
+        prior_i <- .resolve_prior(
+          .make_prior(
+            n_rand = n_rand_eff,
+            n_levels = levels,
+            type = types[[response_var]],
+            fixform = fixform,
+            data = data_i,
+            gelman = gelman_val
+          ),
+          override = priors[[response_var]],
+          type = types[[response_var]], var = response_var
         )
 
         if (ovr_categorical && types[[response_var]] == "categorical") {
@@ -196,7 +221,8 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
             n_rand_eff   = n_rand_eff,
             cluster_col  = phylo_ran[["cluster"]],
             dat_prep     = dat_prep,
-            sample       = TRUE   # draw from posterior predictive each final run
+            sample       = TRUE,   # draw from posterior predictive each final run
+            prior_override = priors[[response_var]]
           )
           # Keep the per-variable slot NULL so pool_posteriors() (which
           # expects one MCMCglmm object per variable) skips OVR variables,

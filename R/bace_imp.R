@@ -53,6 +53,16 @@
 #'   while the single multinomial probit is both better calibrated and faster
 #'   (it avoids the J-fold refit). Set to TRUE only if a specific multinomial
 #'   model mixes too poorly to use (check effective sample sizes first).
+#' @param priors Optional named list of MCMCglmm prior overrides, one element per
+#'   imputed variable (e.g. \code{priors = list(y = list(G = list(list(V = 1,
+#'   nu = 1, alpha.mu = 0, alpha.V = 25))))}). Each element may contain any of
+#'   the blocks \code{G}, \code{R}, \code{B}; a supplied block replaces the
+#'   default block wholesale. Variables not named keep BACE's defaults. The
+#'   \code{R} block cannot be overridden for threshold/ordinal/categorical
+#'   variables (their residual variance is fixed at 1 on the latent probit
+#'   scale, which the category-probability computations rely on). For a
+#'   one-vs-rest categorical variable the same prior is reused for each of its
+#'   binary sub-models. See the Priors section in \code{?bace} for the defaults.
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
 #' @return A list containing imputed datasets and model summaries.
 #' @examples
@@ -70,7 +80,7 @@
 #' str(fit$types)
 #' }
 #' @export
-bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, species = FALSE, verbose = TRUE, nitt_cat_mult = 1L, ovr_categorical = FALSE, ...){
+bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, species = FALSE, verbose = TRUE, nitt_cat_mult = 1L, ovr_categorical = FALSE, priors = NULL, ...){
 	#---------------------------------------------#
 	# Preparation steps & Checks
 	#---------------------------------------------#
@@ -188,6 +198,9 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 	               types <- lapply(fix, function(var) .get_type(data_summary, var, data_sub))
 			names(types) <- fix
 
+		# Validate any user-supplied priors BEFORE fitting anything (fail fast).
+		.validate_priors(priors, types, miss_vars = unique(missing_matrix$colname))
+
 		# Apply nitt/burnin multiplier for categorical/threshold (harder to mix)
 		if (nitt_cat_mult != 1L) {
 			for (i_mult in seq_along(formulas)) {
@@ -261,7 +274,9 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 			}
 				
 				if (types[[response_var]] == "categorical") {
-					gelman <- cat_gelman
+					# A user-supplied B block replaces the default anyway, so skip
+					# the (warning-emitting) Gelman construction in that case.
+					gelman <- if (!is.null(priors[[response_var]]$B)) 0 else cat_gelman
 					fixform <- formulas[[i]]
 					data <- data_i
 				} else {
@@ -287,14 +302,19 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 					n_rand_eff   = n_rand_eff,
 					cluster_col  = phylo_ran[["cluster"]],
 					dat_prep     = dat_prep,
-					sample       = FALSE   # argmax in convergence chain
+					sample       = FALSE,   # argmax in convergence chain
+					prior_override = priors[[response_var]]
 				)
 				model <- NULL   # no single model for OVR
 
 			} else {
-				prior_i <- .make_prior(
-					n_rand = n_rand_eff, n_levels = levels,
-					type = types[[response_var]], fixform = fixform, data = data_i, gelman = gelman
+				prior_i <- .resolve_prior(
+					.make_prior(
+						n_rand = n_rand_eff, n_levels = levels,
+						type = types[[response_var]], fixform = fixform, data = data_i, gelman = gelman
+					),
+					override = priors[[response_var]],
+					type = types[[response_var]], var = response_var
 				)
 
 				# Fit the model and predict missing data

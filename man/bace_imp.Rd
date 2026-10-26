@@ -17,6 +17,7 @@ bace_imp(
   verbose = TRUE,
   nitt_cat_mult = 1L,
   ovr_categorical = FALSE,
+  priors = NULL,
   ...
 )
 }
@@ -54,6 +55,17 @@ normalized probabilities become overconfident and jointly incoherent),
 while the single multinomial probit is both better calibrated and faster
 (it avoids the J-fold refit). Set to TRUE only if a specific multinomial
 model mixes too poorly to use (check effective sample sizes first).}
+
+\item{priors}{Optional named list of MCMCglmm prior overrides, one element per
+imputed variable (e.g. \code{priors = list(y = list(G = list(list(V = 1,
+  nu = 1, alpha.mu = 0, alpha.V = 25))))}). Each element may contain any of
+the blocks \code{G}, \code{R}, \code{B}; a supplied block replaces the
+default block wholesale. Variables not named keep BACE's defaults. The
+\code{R} block cannot be overridden for threshold/ordinal/categorical
+variables (their residual variance is fixed at 1 on the latent probit
+scale, which the category-probability computations rely on). For a
+one-vs-rest categorical variable the same prior is reused for each of its
+binary sub-models. See the Priors section in \code{?bace} for the defaults.}
 
 \item{...}{Additional arguments to be passed to the underlying modeling functions.}
 }

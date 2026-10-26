@@ -22,9 +22,9 @@ Useful links:
 
 Authors:
 \itemize{
+  \item Szymon Drobniak \email{szymek.drobniak@gmail.com}
   \item Ayumi Mizuno
   \item Patrice Pottier
-  \item Szymon Drobniak \email{szymek.drobniak@gmail.com}
   \item Shinichi Nakagawa \email{s.nakagawa@unsw.edu.au}
 }
 

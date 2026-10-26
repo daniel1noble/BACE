@@ -24,6 +24,7 @@ bace(
   nitt_cat_mult = 1L,
   ovr_categorical = FALSE,
   phylo_signal = FALSE,
+  priors = NULL,
   ...
 )
 }
@@ -113,6 +114,10 @@ function returns the signal-only preview object (class \code{c("phylo_signal",
 \code{pool_posteriors()} is made. Use this to check whether the data carry enough
 phylogenetic signal to justify a full BACE run. Default is FALSE.}
 
+\item{priors}{Optional named list of MCMCglmm prior overrides, one element per
+imputed variable; passed to both \code{bace_imp()} and \code{bace_final_imp()}
+so the two phases target the same models. See the \strong{Priors} section.}
+
 \item{...}{Additional arguments to be passed to the underlying modeling functions.}
 }
 \value{
@@ -132,6 +137,37 @@ A list of class 'bace_complete' containing:
 Wrapper function to perform complete Bayesian imputation using BACE with
 convergence checking and posterior pooling across multiple imputations.
 }
+\section{Priors}{
+
+Each per-variable imputation model uses a weakly informative default prior
+chosen for its variable type (all random effects use Gelman-2006
+parameter-expanded priors):
+\itemize{
+\item gaussian: \code{R = list(V = 1, nu = 0.002)};
+\code{G = list(V = 1, nu = 0.002, alpha.mu = 0, alpha.V = 1e4)} per random effect.
+\item poisson (log link): \code{R = list(V = 0.1, nu = 1)};
+\code{G = list(V = 1, nu = 0.02, alpha.mu = 0, alpha.V = 1)}.
+\item threshold/ordinal (probit): \code{R = list(V = 1, fix = 1)} (latent
+residual fixed at 1); \code{G = list(V = 1, nu = 0.002, alpha.mu = 0,
+    alpha.V = 1e4)}.
+\item categorical (multinomial probit, J = n_levels - 1 latent traits):
+\code{R = list(V = (I + J)/n_levels, fix = 1)}; \code{G} as threshold but
+J x J; a pseudo-Gelman \code{B} prior on fixed effects
+(\code{V = (1 + pi^2/3) I}).
+}
+\code{priors} overrides these per variable: each element may contain any of
+\code{G}, \code{R}, \code{B}, and a supplied block replaces the default block
+wholesale (no element-wise merging). Example - a half-Cauchy(5) prior on the
+phylogenetic standard deviation of \code{y}:
+\code{priors = list(y = list(G = list(list(V = 1, nu = 1, alpha.mu = 0,
+alpha.V = 25))))}. Restrictions: the \code{R} block cannot be overridden for
+threshold/ordinal/categorical variables (their latent residual scale is fixed
+and the category-probability computations rely on it); \code{G} must supply
+one element per random effect (two when \code{species = TRUE}) with the
+dimensions of the default; for a one-vs-rest categorical variable the same
+prior is reused for each binary sub-model.
+}
+
 \examples{
 \donttest{
 # Minimal end-to-end run on simulated data. The settings below are

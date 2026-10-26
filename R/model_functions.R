@@ -490,11 +490,14 @@
 #' @param cluster_col Name of the phylogenetic grouping column
 #' @param dat_prep Output of .data_prep (used to extract factor levels)
 #' @param sample Logical; if TRUE sample from probability distribution, else argmax
+#' @param prior_override NULL, or one element of the validated user 'priors'
+#'   list (threshold-type blocks); reused for every per-level binary model.
 #' @return Named list with full_prediction (n_obs x J probability matrix) and pred_values
 #' @noRd
 .fit_predict_ovr <- function(data_i, response_var, fixformula, phylo,
                               ran_phylo_form, nitt, thin, burnin,
-                              n_rand_eff, cluster_col, dat_prep, sample = FALSE) {
+                              n_rand_eff, cluster_col, dat_prep, sample = FALSE,
+                              prior_override = NULL) {
 
   lv          <- dat_prep[[1]][[response_var]]
   level_names <- if (is.factor(lv)) levels(lv) else sort(unique(na.omit(as.character(lv))))
@@ -519,8 +522,12 @@
              ifelse(as.character(data_i[[response_var]]) == lv_j, "yes", "no")),
       levels = c("no", "yes"))
 
-    prior_j <- .make_prior(n_rand = n_rand_eff, n_levels = 2L, type = "threshold",
-                            fixform = fixformula, data = data_bin, gelman = 0)
+    # One user prior per categorical variable, reused for each of the J
+    # exchangeable binary threshold sub-models (validated as a threshold prior).
+    prior_j <- .resolve_prior(
+      .make_prior(n_rand = n_rand_eff, n_levels = 2L, type = "threshold",
+                  fixform = fixformula, data = data_bin, gelman = 0),
+      override = prior_override, type = "threshold", var = response_var)
 
     model_j <- .model_fit(data = data_bin, tree = phylo,
                           fixformula = fixformula, randformula = ran_phylo_form,

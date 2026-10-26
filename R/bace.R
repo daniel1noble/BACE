@@ -68,7 +68,39 @@
 #'   imputation runs. Default is 1 (serial). Values > 1 use \code{parallel::mclapply}.
 #'   Note: parallel execution may be unstable on macOS with multithreaded BLAS; the
 #'   function falls back to serial automatically if worker failures are detected.
+#' @param priors Optional named list of MCMCglmm prior overrides, one element per
+#'   imputed variable; passed to both \code{bace_imp()} and \code{bace_final_imp()}
+#'   so the two phases target the same models. See the \strong{Priors} section.
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
+#'
+#' @section Priors:
+#' Each per-variable imputation model uses a weakly informative default prior
+#' chosen for its variable type (all random effects use Gelman-2006
+#' parameter-expanded priors):
+#' \itemize{
+#'   \item gaussian: \code{R = list(V = 1, nu = 0.002)};
+#'     \code{G = list(V = 1, nu = 0.002, alpha.mu = 0, alpha.V = 1e4)} per random effect.
+#'   \item poisson (log link): \code{R = list(V = 0.1, nu = 1)};
+#'     \code{G = list(V = 1, nu = 0.02, alpha.mu = 0, alpha.V = 1)}.
+#'   \item threshold/ordinal (probit): \code{R = list(V = 1, fix = 1)} (latent
+#'     residual fixed at 1); \code{G = list(V = 1, nu = 0.002, alpha.mu = 0,
+#'     alpha.V = 1e4)}.
+#'   \item categorical (multinomial probit, J = n_levels - 1 latent traits):
+#'     \code{R = list(V = (I + J)/n_levels, fix = 1)}; \code{G} as threshold but
+#'     J x J; a pseudo-Gelman \code{B} prior on fixed effects
+#'     (\code{V = (1 + pi^2/3) I}).
+#' }
+#' \code{priors} overrides these per variable: each element may contain any of
+#' \code{G}, \code{R}, \code{B}, and a supplied block replaces the default block
+#' wholesale (no element-wise merging). Example - a half-Cauchy(5) prior on the
+#' phylogenetic standard deviation of \code{y}:
+#' \code{priors = list(y = list(G = list(list(V = 1, nu = 1, alpha.mu = 0,
+#' alpha.V = 25))))}. Restrictions: the \code{R} block cannot be overridden for
+#' threshold/ordinal/categorical variables (their latent residual scale is fixed
+#' and the category-probability computations rely on it); \code{G} must supply
+#' one element per random effect (two when \code{species = TRUE}) with the
+#' dimensions of the default; for a one-vs-rest categorical variable the same
+#' prior is reused for each binary sub-model.
 #' @return A list of class 'bace_complete' containing:
 #'   - pooled_models: Pooled posterior distributions accounting for imputation uncertainty
 #'   - final_results: Results from final imputation runs (bace_final object)
@@ -107,7 +139,21 @@ bace <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5,
                 verbose = TRUE, plot = FALSE, max_attempts = 3, skip_conv = FALSE,
                 sample_size = NULL, n_cores = 1L,
                 nitt_cat_mult = 1L, ovr_categorical = FALSE,
-                phylo_signal = FALSE, ...) {
+                phylo_signal = FALSE, priors = NULL, ...) {
+
+# Arguments in ... have no consumer downstream (bace_imp / bace_final_imp
+# accept but never use them), so a typo like prior = ... would vanish
+# silently. Warn once here.
+dots <- list(...)
+if (length(dots) > 0) {
+  dot_names <- names(dots)
+  if (is.null(dot_names)) dot_names <- rep("", length(dots))
+  dot_names[dot_names == ""] <- "<unnamed>"
+  warning("bace() received argument(s) it does not use: ",
+          paste(dot_names, collapse = ", "),
+          ". Did you mean one of the documented arguments (e.g. 'priors')?",
+          call. = FALSE)
+}
 
 ##-----------------------##
 # phylo_signal = TRUE: short-circuit to signal-only preview
@@ -160,7 +206,7 @@ start <- bace_imp(fixformula = fixformula, ran_phylo_form = ran_phylo_form,
                  phylo = phylo, data = data, nitt = nitt, thin = thin,
                  burnin = burnin, runs = runs, species = species,
                  verbose = verbose, nitt_cat_mult = nitt_cat_mult,
-                 ovr_categorical = ovr_categorical, ...)
+                 ovr_categorical = ovr_categorical, priors = priors, ...)
 
 ##-----------------------## 
 # Check convergence 
@@ -202,7 +248,7 @@ while (!converged && n_attempts < max_attempts && !skip_conv) {
                    phylo = phylo, data = data, nitt = nitt, thin = thin,
                    burnin = burnin, runs = runs_new, species = species,
                    verbose = verbose, nitt_cat_mult = nitt_cat_mult,
-                   ovr_categorical = ovr_categorical, ...)
+                   ovr_categorical = ovr_categorical, priors = priors, ...)
   
   converge <- assess_convergence(start, method = "summary")
 
@@ -242,6 +288,7 @@ if (converged) {
     n_cores = n_cores,
     nitt_cat_mult = nitt_cat_mult,
     ovr_categorical = ovr_categorical,
+    priors = priors,
     ...
   )
 
@@ -290,6 +337,7 @@ if (converged) {
     n_cores = n_cores,
     nitt_cat_mult = nitt_cat_mult,
     ovr_categorical = ovr_categorical,
+    priors = priors,
     ...
   )
   

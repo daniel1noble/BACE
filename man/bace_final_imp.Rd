@@ -18,6 +18,7 @@ bace_final_imp(
   n_cores = 1,
   nitt_cat_mult = 1L,
   ovr_categorical = FALSE,
+  priors = NULL,
   ...
 )
 }
@@ -47,7 +48,9 @@ gives roughly 88 percent, n_final = 50 gives roughly 92 percent.}
 
 \item{verbose}{A logical indicating whether to print progress messages. Default is TRUE}
 
-\item{n_cores}{Integer specifying the number of parallel cores to use. Default is 1}
+\item{n_cores}{Integer specifying the number of parallel cores to use. Default is 1
+(serial). Values > 1 use \code{parallel::mclapply}. The function falls back to serial
+automatically if any parallel worker returns an error.}
 
 \item{nitt_cat_mult}{Integer multiplier applied to nitt and burnin for categorical and
 threshold/ordinal variables. Default is 1 (no change). Set to 2 or 3 to give harder-to-mix
@@ -60,9 +63,14 @@ one-observation-per-species regime the OVR binary models are prone to
 quasi-separation (overconfident, jointly incoherent normalized
 probabilities), while the single multinomial probit is both better
 calibrated and faster. Set to TRUE only if a specific multinomial model
-mixes too poorly to use.
-(serial). Values > 1 use \code{parallel::mclapply}. The function falls back to serial
-automatically if any parallel worker returns an error.}
+mixes too poorly to use.}
+
+\item{priors}{Optional named list of MCMCglmm prior overrides, one element
+per imputed variable; same structure and rules as in \code{bace_imp()}
+(blocks \code{G}/\code{R}/\code{B} replaced wholesale; no \code{R}
+override for threshold/ordinal/categorical variables). Use the same
+\code{priors} in both phases so the convergence chain and the final
+imputations target the same models.}
 
 \item{...}{Additional arguments passed to modeling functions}
 }
