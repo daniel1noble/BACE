@@ -89,3 +89,6 @@ dev/simulation_results/demo/
 dev/simulation_results/avonet_regression/
 Rplots.pdf
 ms/ms.docx
+dev/simulation_results/sweeps_calibration.log
+dev/simulation_results/sweeps_calibration.rds
+dev/15_sweeps_calibration.R
