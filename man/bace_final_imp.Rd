@@ -110,6 +110,14 @@ originally missing rows (rownames = species), with category
 probabilities averaged over the model's posterior draws (NOT evaluated
 at posterior-mean coefficients, which would be overconfident). The
 across-run average gives MI-pooled probabilities.
+\item diagnostics: final-phase MCMC health summary (class
+'bace_final_diagnostics'): per variable x parameter, the worst-case
+ESS / Geweke / lag-1 autocorrelation across the n_final runs, covering
+fixed effects, variance components, ordinal CUTPOINTS and one-vs-rest
+sub-models. print() lists flagged parameters only; the full table is in
+diagnostics$by_param. (No cross-run R-hat on purpose: the runs target
+different conditional posteriors, so between-run spread is imputation
+uncertainty, not non-convergence.)
 \item formulas: The formulas used
 \item types: Variable types
 \item phylo_ran: Phylogenetic random effects structure

@@ -66,6 +66,14 @@
 #'     probabilities averaged over the model's posterior draws (NOT evaluated
 #'     at posterior-mean coefficients, which would be overconfident). The
 #'     across-run average gives MI-pooled probabilities.
+#'   - diagnostics: final-phase MCMC health summary (class
+#'     'bace_final_diagnostics'): per variable x parameter, the worst-case
+#'     ESS / Geweke / lag-1 autocorrelation across the n_final runs, covering
+#'     fixed effects, variance components, ordinal CUTPOINTS and one-vs-rest
+#'     sub-models. print() lists flagged parameters only; the full table is in
+#'     diagnostics$by_param. (No cross-run R-hat on purpose: the runs target
+#'     different conditional posteriors, so between-run spread is imputation
+#'     uncertainty, not non-convergence.)
 #'   - formulas: The formulas used
 #'   - types: Variable types
 #'   - phylo_ran: Phylogenetic random effects structure
@@ -457,10 +465,18 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
   )
   
   class(out) <- "bace_final"
-  
+
+  # Final-phase MCMC health check: the models stored here are the ones pooled
+  # for inference, so THEY are the ones whose mixing matters (incl. ordinal
+  # cutpoints and OVR per-level fits). Aggregated worst-case across runs;
+  # never allowed to fail the pipeline.
+  out$diagnostics <- tryCatch(.check_final_diagnostics(out),
+                              error = function(e) NULL)
+
   if (verbose) {
     cat("\n=== Final imputation complete ===\n")
     cat("Saved", n_final, "imputed datasets with corresponding models\n")
+    if (!is.null(out$diagnostics)) print(out$diagnostics)
   }
   
   return(out)
@@ -477,9 +493,25 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
 print.bace_final <- function(x, ...) {
   cat("\n=== BACE Final Imputation Results ===\n\n")
   cat("Number of imputation runs:", x$n_final, "\n")
-  cat("Number of variables with models:", 
+  if (!is.null(x$sweeps)) {
+    cat("Stochastic sweeps per run:", x$sweeps,
+        if (!is.null(x$sweeps_requested) && x$sweeps != x$sweeps_requested)
+          paste0("(", x$sweeps_requested,
+                 " requested; single missing variable -> 1 pass is exact)")
+        else "", "\n")
+  }
+  cat("Number of variables with models:",
       length(x$all_models[[1]]), "\n")
-  cat("Variables:", paste(names(x$all_models[[1]]), collapse = ", "), "\n\n")
-  cat("Use pool_posteriors() to combine model results across imputations\n")
+  cat("Variables:", paste(names(x$all_models[[1]]), collapse = ", "), "\n")
+  if (!is.null(x$diagnostics) && !is.null(x$diagnostics$flagged)) {
+    n_flag <- nrow(x$diagnostics$flagged)
+    if (n_flag > 0L) {
+      cat("MCMC health: ", n_flag, " flagged parameter(s) - print(x$diagnostics)\n",
+          sep = "")
+    } else {
+      cat("MCMC health: all final-phase parameters look healthy\n")
+    }
+  }
+  cat("\nUse pool_posteriors() to combine model results across imputations\n")
   invisible(x)
 }

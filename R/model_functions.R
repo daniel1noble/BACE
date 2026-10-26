@@ -1558,6 +1558,217 @@
 }
 
 
+#' @title .diagnose_one_model
+#' @description Per-parameter single-chain MCMC diagnostics for one MCMCglmm
+#'   fit: fixed effects (first nfl Sol columns, BLUPs excluded), variance
+#'   components (VCV), and - since 2026-10 - threshold CUTPOINTS (CP), which
+#'   are often the worst-mixing parameters of an ordinal model and were
+#'   previously never checked. Computes ESS, Geweke z / p, lag-1
+#'   autocorrelation, and a convergence label (Good / Acceptable / Check /
+#'   Fixed); the fixed latent residual of threshold/categorical models is
+#'   labelled "Fixed" and skipped.
+#' @param model A fitted MCMCglmm object.
+#' @param var_type The response variable's BACE type (for the fixed-residual
+#'   rule).
+#' @return Data frame, one row per parameter, with an effect_type column
+#'   (Fixed / Variance / Cutpoint).
+#' @noRd
+.diagnose_one_model <- function(model, var_type) {
+  # Fixed effects: first nfl columns of Sol (excludes BLUPs); variances: VCV;
+  # cutpoints: CP (ordinal threshold models with > 2 categories only).
+  n_fixed <- model$Fixed$nfl
+  fixed_effects <- model$Sol[, 1:n_fixed, drop = FALSE]
+  random_variances <- model$VCV
+  cp <- if (!is.null(model$CP)) as.matrix(model$CP) else NULL
+  n_cp <- if (is.null(cp)) 0L else ncol(cp)
+
+  all_params <- cbind(as.matrix(fixed_effects), as.matrix(random_variances))
+  if (n_cp > 0L) all_params <- cbind(all_params, cp)
+  param_names <- colnames(all_params)
+
+  effect_type <- c(rep("Fixed", n_fixed),
+                   rep("Variance", ncol(as.matrix(random_variances))),
+                   rep("Cutpoint", n_cp))
+
+  var_diagnostics <- data.frame(
+    parameter = param_names,
+    mean = numeric(length(param_names)),
+    sd = numeric(length(param_names)),
+    ess = numeric(length(param_names)),
+    geweke_z = numeric(length(param_names)),
+    geweke_pval = numeric(length(param_names)),
+    autocorr_lag1 = numeric(length(param_names)),
+    convergence = character(length(param_names)),
+    stringsAsFactors = FALSE
+  )
+
+  for (i in seq_along(param_names)) {
+    param <- all_params[, i]
+    param_name <- param_names[i]
+
+    # The latent residual of threshold/categorical models is fixed by the
+    # prior and needs no convergence testing.
+    is_fixed_units <- (var_type %in% c("threshold", "categorical")) &&
+                      effect_type[i] == "Variance" &&
+                      grepl("units", param_name, ignore.case = TRUE)
+
+    var_diagnostics$mean[i] <- mean(param)
+    var_diagnostics$sd[i] <- sd(param)
+
+    if (is_fixed_units) {
+      var_diagnostics$ess[i] <- NA
+      var_diagnostics$geweke_z[i] <- NA
+      var_diagnostics$geweke_pval[i] <- NA
+      var_diagnostics$autocorr_lag1[i] <- NA
+      var_diagnostics$convergence[i] <- "Fixed"
+    } else {
+      var_diagnostics$ess[i] <- coda::effectiveSize(param)
+
+      geweke_result <- coda::geweke.diag(param)
+      var_diagnostics$geweke_z[i] <- geweke_result$z
+      var_diagnostics$geweke_pval[i] <- 2 * pnorm(-abs(geweke_result$z))
+
+      acf_result <- stats::acf(param, lag.max = 1, plot = FALSE)
+      var_diagnostics$autocorr_lag1[i] <- acf_result$acf[2]
+
+      # ESS > 200 adequate; Geweke p > 0.05 suggests convergence; |lag-1
+      # autocorrelation| < 0.4 suggests acceptable mixing.
+      ess_ok <- var_diagnostics$ess[i] > 200
+      geweke_ok <- var_diagnostics$geweke_pval[i] > 0.05
+      autocorr_ok <- abs(var_diagnostics$autocorr_lag1[i]) < 0.4
+
+      if (isTRUE(ess_ok) && isTRUE(geweke_ok) && isTRUE(autocorr_ok)) {
+        var_diagnostics$convergence[i] <- "Good"
+      } else if (isTRUE(ess_ok) && isTRUE(geweke_ok)) {
+        var_diagnostics$convergence[i] <- "Acceptable"
+      } else {
+        var_diagnostics$convergence[i] <- "Check"
+      }
+    }
+  }
+
+  var_diagnostics$effect_type <- effect_type
+  var_diagnostics
+}
+
+
+#' @title .check_final_diagnostics
+#' @description Per-run single-chain diagnostics for EVERY final-phase model
+#'   (the models actually pooled for inference - previously never diagnosed),
+#'   including one-vs-rest per-level binary fits, aggregated per variable x
+#'   parameter across the n_final runs: minimum ESS (and which run), maximum
+#'   |Geweke z|, maximum |lag-1 autocorrelation|, and the share of runs whose
+#'   label was "Check". Deliberately NO cross-run R-hat: the runs target
+#'   different conditional posteriors (one per imputed dataset), so between-
+#'   run spread is imputation uncertainty - the thing MI is supposed to have -
+#'   not non-convergence, and a cross-run R-hat would flag healthy MI.
+#' @param final_out A 'bace_final' list (before or after class assignment)
+#'   with all_models, all_ovr_models, types.
+#' @return Object of class 'bace_final_diagnostics': list(by_param = long
+#'   data frame, flagged = subset with min_ess < 200 or > 25 percent of runs
+#'   flagged, n_runs).
+#' @noRd
+.check_final_diagnostics <- function(final_out) {
+  types <- final_out$types
+  n_runs <- length(final_out$all_models)
+  rows <- list()
+
+  for (run in seq_len(n_runs)) {
+    mods <- final_out$all_models[[run]]
+    for (var_name in names(mods)) {
+      if (is.null(mods[[var_name]])) next
+      d <- .diagnose_one_model(mods[[var_name]], types[[var_name]])
+      d$response_variable <- var_name
+      d$run <- run
+      rows[[length(rows) + 1L]] <- d
+    }
+    ovr <- final_out$all_ovr_models[[run]]
+    for (var_name in names(ovr)) {
+      lv_models <- ovr[[var_name]]
+      for (lv in names(lv_models)) {
+        d <- .diagnose_one_model(lv_models[[lv]], "threshold")
+        d$response_variable <- paste0(var_name, " (", lv, ")")
+        d$run <- run
+        rows[[length(rows) + 1L]] <- d
+      }
+    }
+  }
+
+  if (length(rows) == 0L) {
+    out <- list(by_param = NULL, flagged = NULL, n_runs = n_runs)
+    class(out) <- c("bace_final_diagnostics", "list")
+    return(out)
+  }
+
+  long <- do.call(rbind, rows)
+  long <- long[long$convergence != "Fixed", , drop = FALSE]
+
+  # Aggregate across runs per variable x parameter.
+  key <- interaction(long$response_variable, long$parameter, drop = TRUE)
+  agg_one <- function(df) {
+    i_min <- which.min(df$ess)
+    data.frame(
+      response_variable = df$response_variable[1],
+      parameter = df$parameter[1],
+      effect_type = df$effect_type[1],
+      min_ess = df$ess[i_min],
+      min_ess_run = df$run[i_min],
+      max_abs_geweke_z = max(abs(df$geweke_z), na.rm = TRUE),
+      max_abs_autocorr1 = max(abs(df$autocorr_lag1), na.rm = TRUE),
+      pct_runs_flagged = 100 * mean(df$convergence == "Check"),
+      n_runs = nrow(df),
+      stringsAsFactors = FALSE
+    )
+  }
+  by_param <- do.call(rbind, lapply(split(long, key), agg_one))
+  rownames(by_param) <- NULL
+  by_param <- by_param[order(by_param$min_ess), , drop = FALSE]
+
+  flagged <- by_param[by_param$min_ess < 200 | by_param$pct_runs_flagged > 25, ,
+                      drop = FALSE]
+
+  out <- list(by_param = by_param, flagged = flagged, n_runs = n_runs)
+  class(out) <- c("bace_final_diagnostics", "list")
+  out
+}
+
+
+#' @title print.bace_final_diagnostics
+#' @description Compact printout of final-phase MCMC diagnostics: only flagged
+#'   variable x parameter combinations are listed (min ESS < 200 across runs,
+#'   or more than 25 percent of runs individually flagged); the full table is
+#'   in \code{$by_param}.
+#' @param x A bace_final_diagnostics object.
+#' @param ... Ignored.
+#' @return \code{x}, invisibly.
+#' @export
+print.bace_final_diagnostics <- function(x, ...) {
+  cat("\n--- Final-phase MCMC diagnostics (", x$n_runs,
+      " runs; worst case across runs) ---\n", sep = "")
+  if (is.null(x$by_param)) {
+    cat("No final-phase models to diagnose.\n")
+    return(invisible(x))
+  }
+  if (nrow(x$flagged) == 0L) {
+    cat("All ", nrow(x$by_param), " variable x parameter combinations look ",
+        "healthy\n(min ESS ", round(min(x$by_param$min_ess)),
+        "; no parameter flagged in > 25% of runs).\n", sep = "")
+  } else {
+    cat("Flagged parameters (min ESS < 200 or > 25% of runs flagged):\n")
+    f <- x$flagged
+    for (i in seq_len(nrow(f))) {
+      cat(sprintf("  %-14s %-22s [%s] min ESS %6.0f (run %d), %3.0f%% runs flagged\n",
+                  f$response_variable[i], f$parameter[i], f$effect_type[i],
+                  f$min_ess[i], f$min_ess_run[i], f$pct_runs_flagged[i]))
+    }
+    cat("Consider longer chains (nitt/nitt_cat_mult) or a per-variable prior",
+        "\n(see ?bace section 'Priors') for the variables above.\n")
+  }
+  cat("Full table: $diagnostics$by_param\n")
+  invisible(x)
+}
+
+
 #' @title .check_mcmc_diagnostics
 #' @description Function checks MCMC convergence and mixing for all parameters in MCMCglmm models
 #' @param bace_output Output from bace_imp function containing models_last_run
@@ -1567,118 +1778,28 @@
 #'   \item Effective Sample Size (ESS) for all parameters
 #'   \item Geweke convergence diagnostic
 #'   \item Autocorrelation at lag 1
-#'   \item Summary statistics for fixed and random effects
+#'   \item Summary statistics for fixed, random and cutpoint parameters
 #' }
 #' @noRd
 .check_mcmc_diagnostics <- function(bace_output) {
-  
+
   if (!inherits(bace_output, "bace")) {
     stop("Input must be a 'bace' object from bace_imp()")
   }
-  
+
   if (is.null(bace_output$models_last_run)) {
     stop("No models found in bace_output. Make sure models were saved during imputation.")
   }
-  
+
   models <- bace_output$models_last_run
   var_types <- bace_output$types
   diagnostics <- list()
-  
+
   for (var_name in names(models)) {
-    model <- models[[var_name]]
-    
-    # Get variable type for this model
-    var_type <- var_types[[var_name]]
-    
-    # Extract ONLY fixed effects and variance components (exclude BLUPs)
-    # Fixed effects: First nfl columns of Sol (number of fixed effects levels)
-    n_fixed <- model$Fixed$nfl
-    fixed_effects <- model$Sol[, 1:n_fixed, drop = FALSE]
-    
-    # Random effect variance components
-    random_variances <- model$VCV
-    
-    # Combine fixed effects and variance components only
-    all_params <- cbind(fixed_effects, random_variances)
-    param_names <- colnames(all_params)
-    
-    # Initialize results for this model
-    var_diagnostics <- data.frame(
-      parameter = param_names,
-      mean = numeric(length(param_names)),
-      sd = numeric(length(param_names)),
-      ess = numeric(length(param_names)),
-      geweke_z = numeric(length(param_names)),
-      geweke_pval = numeric(length(param_names)),
-      autocorr_lag1 = numeric(length(param_names)),
-      convergence = character(length(param_names)),
-      stringsAsFactors = FALSE
-    )
-    
-    # Calculate diagnostics for each parameter
-    for (i in seq_along(param_names)) {
-      param <- all_params[, i]
-      param_name <- param_names[i]
-      
-      # Check if this is a "units" parameter for threshold or categorical models
-      # For these models, units variance is fixed and doesn't need convergence testing
-      is_fixed_units <- (var_type %in% c("threshold", "categorical")) && 
-                        grepl("units", param_name, ignore.case = TRUE)
-      
-      # Basic statistics
-      var_diagnostics$mean[i] <- mean(param)
-      var_diagnostics$sd[i] <- sd(param)
-      
-      if (is_fixed_units) {
-        # For fixed units parameters, skip convergence tests
-        var_diagnostics$ess[i] <- NA
-        var_diagnostics$geweke_z[i] <- NA
-        var_diagnostics$geweke_pval[i] <- NA
-        var_diagnostics$autocorr_lag1[i] <- NA
-        var_diagnostics$convergence[i] <- "Fixed"
-      } else {
-        # Effective Sample Size
-        var_diagnostics$ess[i] <- coda::effectiveSize(param)
-        
-        # Geweke diagnostic (tests for equality of means in first 10% and last 50% of chain)
-        geweke_result <- coda::geweke.diag(param)
-        var_diagnostics$geweke_z[i] <- geweke_result$z
-        var_diagnostics$geweke_pval[i] <- 2 * pnorm(-abs(geweke_result$z))
-        
-        # Autocorrelation at lag 1
-        acf_result <- stats::acf(param, lag.max = 1, plot = FALSE)
-        var_diagnostics$autocorr_lag1[i] <- acf_result$acf[2]
-        
-        # Convergence assessment
-        # ESS > 200 is generally considered adequate
-        # Geweke p-value > 0.05 suggests convergence
-        # Low autocorrelation (< 0.4) suggests good mixing
-        
-        ess_ok <- var_diagnostics$ess[i] > 200
-        geweke_ok <- var_diagnostics$geweke_pval[i] > 0.05
-        autocorr_ok <- abs(var_diagnostics$autocorr_lag1[i]) < 0.4
-        
-        if (ess_ok && geweke_ok && autocorr_ok) {
-          var_diagnostics$convergence[i] <- "Good"
-        } else if (ess_ok && geweke_ok) {
-          var_diagnostics$convergence[i] <- "Acceptable"
-        } else {
-          var_diagnostics$convergence[i] <- "Check"
-        }
-      }
-    }
-    
-    # Identify fixed vs random variance components
-    # Fixed effects are the first n_fixed parameters
-    var_diagnostics$effect_type <- ifelse(
-      seq_along(param_names) <= n_fixed,
-      "Fixed",
-      "Variance"
-    )
-    
-    diagnostics[[var_name]] <- var_diagnostics
+    diagnostics[[var_name]] <-
+      .diagnose_one_model(models[[var_name]], var_types[[var_name]])
   }
-  
+
   # Create overall summary
   all_diagnostics <- do.call(rbind, lapply(names(diagnostics), function(var) {
     df <- diagnostics[[var]]
@@ -1693,6 +1814,7 @@
     n_parameters_total = nrow(all_diagnostics),
     n_fixed_effects = sum(all_diagnostics$effect_type == "Fixed"),
     n_variance_components = sum(all_diagnostics$effect_type == "Variance"),
+    n_cutpoints = sum(all_diagnostics$effect_type == "Cutpoint"),
     n_fixed_units = sum(all_diagnostics$convergence == "Fixed"),
     convergence_summary = table(all_diagnostics$convergence),
     mean_ess_fixed = mean(all_diagnostics$ess[all_diagnostics$effect_type == "Fixed" & not_fixed], na.rm = TRUE),
