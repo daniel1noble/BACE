@@ -29,9 +29,10 @@ arm quantified the old bug — slope biased up ~15% of truth via incoherent
 y–x pairs, between-imputation spread understated ~13–20% (full table in
 investigation-2026-10.md). Study A re-run DONE 2026-10-27: numerically
 identical to the 2026-08 run (max |Δ slope| ≈ 1e-8; 240/240 ok) — no
-regression, auto-collapse confirmed on the y-only path. Pending: dev/13
-categorical cells (running), SIMULATION_REPORT update, R CMD check (running),
-tutorial re-render, tarball + win-builder re-run.
+regression, auto-collapse confirmed on the y-only path. R CMD check --as-cran
+PASSED 2026-10-27 (only the "New submission" NOTE + coveralls-badge 403 false
+positive). Pending: dev/13 categorical cells (running), SIMULATION_REPORT
+update, tutorial re-render (running), tarball + win-builder re-run.
 CRAN submission remains ON HOLD until those are green.
 - **2026-08: six root causes of the Study B performance failures found, fixed,
   and regression-tested.** Full write-up: [investigation-2026-08.md](investigation-2026-08.md).

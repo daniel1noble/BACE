@@ -23,8 +23,12 @@
 - [ ] dev/13 categorical cells re-run (quantify problem 5) — RUNNING
       2026-10-27 (~2 h; 1000 reps/cell, same seeds as 2026-08; log:
       dev/simulation_results/logs/response_type_categorical_rerun_2026-10.log)
-- [ ] Tutorial text updates (priors passages now true; mention sweeps) +
-      full re-render; SIMULATION_REPORT update
+- [x] R CMD check --as-cran — PASSED 2026-10-27 (tarball from current main):
+      only the unavoidable "New submission" NOTE + a coveralls-badge 403
+      false positive (explain in cran-comments.md at submission)
+- [ ] Tutorial text updates DONE (9e2588e); full re-render RUNNING 2026-10-27
+      against the freshly installed fixed package (~1.5-2 h);
+      SIMULATION_REPORT update after the categorical cells land
 - [ ] Rebuild tarball, fresh win-builder round; CRAN stays on hold
 - Suite: 1418 pass / 0 fail (~1.4 min). Verified reproduction numbers are in
   the investigation note.
