@@ -19,6 +19,8 @@ bace_final_imp(
   nitt_cat_mult = 1L,
   ovr_categorical = FALSE,
   priors = NULL,
+  sweeps = 3L,
+  seed = NULL,
   ...
 )
 }
@@ -71,6 +73,27 @@ per imputed variable; same structure and rules as in \code{bace_imp()}
 override for threshold/ordinal/categorical variables). Use the same
 \code{priors} in both phases so the convergence chain and the final
 imputations target the same models.}
+
+\item{sweeps}{Integer (default 3): number of stochastic passes over the
+variables within each final run. Variables are imputed one at a time, so
+with a single pass the first-visited variable would condition on the SAME
+chained-phase point estimates of the other variables in every run,
+understating between-imputation variance and making results depend on
+formula order. Repeating the pass lets every variable condition on fresh
+posterior-predictive draws of the others (a Gibbs sweep over the missing
+data); only the last pass's values and models are kept. Warm-up passes
+use a shortened post-burn-in tail (full burn-in, 50 stored draws), so the
+default costs roughly 1.4x a single pass, not 3x. Automatically reduced
+to 1 when at most one variable has missing data (extra passes are then
+statistically inert). \code{sweeps = 1} reproduces the pre-0.1.0
+single-pass behaviour.}
+
+\item{seed}{Optional integer. If supplied, each final run gets its own
+L'Ecuyer-CMRG random-number stream: results are reproducible and
+identical whether runs execute serially or in parallel (any
+\code{n_cores}), and the serial retry of a failed parallel worker reuses
+exactly the stream that worker should have consumed. The caller's RNG
+state is restored on exit. Default NULL (previous behaviour).}
 
 \item{...}{Additional arguments passed to modeling functions}
 }

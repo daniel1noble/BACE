@@ -25,6 +25,8 @@ bace(
   ovr_categorical = FALSE,
   phylo_signal = FALSE,
   priors = NULL,
+  sweeps = 3L,
+  seed = NULL,
   ...
 )
 }
@@ -117,6 +119,17 @@ phylogenetic signal to justify a full BACE run. Default is FALSE.}
 \item{priors}{Optional named list of MCMCglmm prior overrides, one element per
 imputed variable; passed to both \code{bace_imp()} and \code{bace_final_imp()}
 so the two phases target the same models. See the \strong{Priors} section.}
+
+\item{sweeps}{Integer (default 3): stochastic passes over the variables within
+each final imputation run, so that every variable - including the first-
+listed one - is imputed conditional on fresh posterior-predictive draws of
+the other variables rather than on fixed point estimates. Automatically
+reduced to 1 when at most one variable has missing data. See
+\code{?bace_final_imp}.}
+
+\item{seed}{Optional integer passed to \code{bace_final_imp()}: per-run RNG
+streams make the final imputations reproducible and identical across serial
+and parallel execution. Note it does not seed the convergence phase.}
 
 \item{...}{Additional arguments to be passed to the underlying modeling functions.}
 }

@@ -71,6 +71,15 @@
 #' @param priors Optional named list of MCMCglmm prior overrides, one element per
 #'   imputed variable; passed to both \code{bace_imp()} and \code{bace_final_imp()}
 #'   so the two phases target the same models. See the \strong{Priors} section.
+#' @param sweeps Integer (default 3): stochastic passes over the variables within
+#'   each final imputation run, so that every variable - including the first-
+#'   listed one - is imputed conditional on fresh posterior-predictive draws of
+#'   the other variables rather than on fixed point estimates. Automatically
+#'   reduced to 1 when at most one variable has missing data. See
+#'   \code{?bace_final_imp}.
+#' @param seed Optional integer passed to \code{bace_final_imp()}: per-run RNG
+#'   streams make the final imputations reproducible and identical across serial
+#'   and parallel execution. Note it does not seed the convergence phase.
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
 #'
 #' @section Priors:
@@ -139,7 +148,8 @@ bace <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5,
                 verbose = TRUE, plot = FALSE, max_attempts = 3, skip_conv = FALSE,
                 sample_size = NULL, n_cores = 1L,
                 nitt_cat_mult = 1L, ovr_categorical = FALSE,
-                phylo_signal = FALSE, priors = NULL, ...) {
+                phylo_signal = FALSE, priors = NULL, sweeps = 3L,
+                seed = NULL, ...) {
 
 # Arguments in ... have no consumer downstream (bace_imp / bace_final_imp
 # accept but never use them), so a typo like prior = ... would vanish
@@ -289,6 +299,8 @@ if (converged) {
     nitt_cat_mult = nitt_cat_mult,
     ovr_categorical = ovr_categorical,
     priors = priors,
+    sweeps = sweeps,
+    seed = seed,
     ...
   )
 
@@ -338,9 +350,11 @@ if (converged) {
     nitt_cat_mult = nitt_cat_mult,
     ovr_categorical = ovr_categorical,
     priors = priors,
+    sweeps = sweeps,
+    seed = seed,
     ...
   )
-  
+
   if (verbose && !is.null(sample_size)) {
     cat("\nPooling posteriors with sampling:", sample_size, "samples per imputation\n")
   }
