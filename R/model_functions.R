@@ -1037,6 +1037,50 @@
 #' @param model MCMCglmm model object (fit with pr=TRUE, saveX=TRUE)
 #' @param formula The fixed-effects formula used to fit the model
 #' @param data_i Full data frame including rows with NA response (all predictors complete)
+#' @title .gather_blups
+#' @description Gather random-effect (BLUP) posterior values for each data row
+#'   from a named coefficient vector, by exact prefix + suffix match against
+#'   MCMCglmm's Sol column naming ("<prefix><level>", where <level> is a tip
+#'   label / grouping level). Rows whose level has no matching column get 0
+#'   (e.g. node-effect columns from inverseA(nodes = "ALL") are never matched
+#'   by a data row and are ignored). If matching columns exist but NO data row
+#'   matches any of them, a warning is raised: that pattern indicates an
+#'   internal naming mismatch between fitting and prediction (the silent
+#'   failure mode fixed in 2026-10), not a legitimate zero.
+#' @param beta Named numeric vector: one posterior draw or posterior means.
+#' @param sol_names names(beta) (passed separately to avoid recomputing).
+#' @param prefix Column-name prefix including the trailing dot, e.g.
+#'   "Species." or "traity.B.Species.".
+#' @param group_vals Character vector of each row's grouping level.
+#' @param warn_context NULL to suppress the zero-match warning, or a short
+#'   string naming the caller for the warning message.
+#' @return Numeric vector, length(group_vals): summed BLUP per row (0 if none).
+#' @noRd
+.gather_blups <- function(beta, sol_names, prefix, group_vals,
+                          warn_context = NULL) {
+  re_cols <- sol_names[startsWith(sol_names, prefix)]
+  if (length(re_cols) == 0L) {
+    return(rep(0, length(group_vals)))
+  }
+  tips <- substring(re_cols, nchar(prefix) + 1L)
+  idx  <- match(group_vals, tips)
+  if (all(is.na(idx))) {
+    if (!is.null(warn_context)) {
+      warning("Model contains ", length(re_cols),
+              " random-effect columns matching '", prefix,
+              "*' but none of the data rows matched any of them (",
+              warn_context, "). Species effects were set to 0 for ",
+              "prediction. This indicates an internal naming mismatch - ",
+              "please report it to the BACE maintainers.", call. = FALSE)
+    }
+    return(rep(0, length(group_vals)))
+  }
+  out <- unname(beta[re_cols][idx])
+  out[is.na(out)] <- 0
+  out
+}
+
+
 #' @param cluster_col Name of the random-effect grouping column (e.g. "animal")
 #' @param baseline_name Name for the baseline (reference) category
 #' @return Data frame with nrow(data_i) rows of predicted probabilities per category
@@ -1048,13 +1092,14 @@
   sol_names <- names(beta_mean)
 
   # MCMCglmm naming for categorical:
-  #   intercept for trait k  : "trait{Response}.{Level}"           (no suffix)
-  #   slope for predictor j  : "trait{Response}.{Level}:{j}"       (colon separator)
-  #   species BLUP            : "trait{Response}.{Level}.{species}" (dot separator)
+  #   intercept for trait k : "trait{Response}.{Level}"                     (no suffix)
+  #   slope for predictor j : "trait{Response}.{Level}:{j}"                 (colon separator)
+  #   species BLUP          : "trait{Response}.{Level}.{REterm}.{tip}"      (e.g.
+  #                            "traity.B.Species.Accipiter_gentilis"; the random-
+  #                            effect term name sits between level and tip)
   #
   # Extract trait identifiers from slope columns (those containing ":").
-  # This excludes BLUP entries (no colon) which also start with "trait",
-  # e.g. "traitTrophic.Level.Herbivore.Accipiter_gentilis".
+  # This excludes BLUP entries (no colon) which also start with "trait".
   trait_slope_cols <- sol_names[grep("^trait.*:", sol_names)]
   trait_names      <- unique(sub(":.*$", "", trait_slope_cols))
   n_traits         <- length(trait_names)
@@ -1096,14 +1141,17 @@
     # Linear predictor from fixed effects
     eta_k <- as.numeric(X_all[, x_cols[valid], drop = FALSE] %*% beta_k)
 
-    # Species BLUPs: "trait{Response}.{Level}.{species_id}" (dot separator)
+    # Species BLUPs: "trait{Response}.{Level}.{REterm}.{tip}". Gather the
+    # phylogenetic effect and, when present, the second (non-phylogenetic)
+    # species effect (REterm "<cluster_col>2", added when species = TRUE).
     if (cluster_col %in% colnames(data_i)) {
       species_vals <- as.character(data_i[[cluster_col]])
-      blup_cols    <- paste0(tk, ".", species_vals)
-      blups        <- vapply(blup_cols, function(bc)
-                               if (bc %in% sol_names) beta_mean[[bc]] else 0,
-                             numeric(1))
-      eta_k <- eta_k + blups
+      eta_k <- eta_k +
+        .gather_blups(beta_mean, sol_names,
+                      paste0(tk, ".", cluster_col, "."), species_vals,
+                      warn_context = paste0(".pred_cat_forward, ", tk)) +
+        .gather_blups(beta_mean, sol_names,
+                      paste0(tk, ".", cluster_col, "2."), species_vals)
     }
 
     exp_list[[ki]] <- exp(eta_k / scaling_factor[ki])
@@ -1186,13 +1234,16 @@
 
     eta_k <- as.numeric(X_all[, x_cols[valid], drop = FALSE] %*% beta_k)
 
+    # Same BLUP naming as .pred_cat_forward: "trait.level.{REterm}.{tip}",
+    # plus the optional second species effect ("<cluster_col>2").
     if (cluster_col %in% colnames(data_i)) {
       species_vals <- as.character(data_i[[cluster_col]])
-      blup_cols    <- paste0(tk, ".", species_vals)
-      blups        <- vapply(blup_cols, function(bc)
-                               if (bc %in% sol_names) beta_i[[bc]] else 0,
-                             numeric(1))
-      eta_k <- eta_k + blups
+      eta_k <- eta_k +
+        .gather_blups(beta_i, sol_names,
+                      paste0(tk, ".", cluster_col, "."), species_vals,
+                      warn_context = paste0(".pred_cat_forward_iter, ", tk)) +
+        .gather_blups(beta_i, sol_names,
+                      paste0(tk, ".", cluster_col, "2."), species_vals)
     }
 
     exp_list[[ki]] <- exp(eta_k / scaling_factor[ki])
@@ -1326,14 +1377,15 @@
   # Linear predictor from fixed effects
   eta <- as.numeric(X_all[, x_cols[valid], drop = FALSE] %*% beta_k)
 
-  # Add species BLUPs (posterior mean)
+  # Add species BLUPs (posterior mean): "{REterm}.{tip}", plus the optional
+  # second (non-phylogenetic) species effect "{REterm}2.{tip}" (species = TRUE).
   if (cluster_col %in% colnames(data_i)) {
     species_vals <- as.character(data_i[[cluster_col]])
-    blup_cols    <- paste0(cluster_col, ".", species_vals)
-    blups        <- vapply(blup_cols, function(bc)
-                             if (bc %in% sol_names) beta_mean[[bc]] else 0,
-                           numeric(1))
-    eta <- eta + blups
+    eta <- eta +
+      .gather_blups(beta_mean, sol_names, paste0(cluster_col, "."),
+                    species_vals, warn_context = ".pred_threshold_forward") +
+      .gather_blups(beta_mean, sol_names, paste0(cluster_col, "2."),
+                    species_vals)
   }
 
   # Cut-points: posterior mean
@@ -1406,13 +1458,14 @@
 
   eta <- as.numeric(X_all[, x_cols[valid], drop = FALSE] %*% beta_k)
 
+  # Same BLUP gathering as .pred_threshold_forward (incl. second species effect).
   if (cluster_col %in% colnames(data_i)) {
     species_vals <- as.character(data_i[[cluster_col]])
-    blup_cols    <- paste0(cluster_col, ".", species_vals)
-    blups        <- vapply(blup_cols, function(bc)
-                             if (bc %in% sol_names) beta_i[[bc]] else 0,
-                           numeric(1))
-    eta <- eta + blups
+    eta <- eta +
+      .gather_blups(beta_i, sol_names, paste0(cluster_col, "."),
+                    species_vals, warn_context = ".pred_threshold_forward_iter") +
+      .gather_blups(beta_i, sol_names, paste0(cluster_col, "2."),
+                    species_vals)
   }
 
   if (!is.null(model$CP) && length(model$CP) > 0) {
