@@ -97,11 +97,27 @@ at −0.02 at λ=1 — i.e. a known cost of chained univariate phylo models with
 fix. **Bonus finding:** his 2026-09 campaign silently dropped ~16% of λ=1
 cells (198/200 recorded failures at λ=1, dominated by "Mixed model equations
 singular") — the hardened package completed all 11 λ=1 pilot cells (10 + a
-bonus seed 6), removing a selection bias his λ=1 numbers carried. Cell
-warning counts are bimodal (0 or ≥50, flushed right after `bace_fit`; the 6
-clean cells are the fast-converging λ=1 cells; a warn=1 rerun of λ=1 ρ=0.5
-seed 6 was warning-free and hit slope 0.501 on truth 0.5) — warning-text
-census of a known-warner cell (λ=0.3 ρ=0 s1) in progress.
+bonus seed 6), removing a selection bias his λ=1 numbers carried.
+
+**2026-10-27, "50+ warnings per cell" census → benign, and fixed (65e6fa7):**
+a warn=1 rerun of a warner cell showed every warning is ONE message — the
+pseudo-Gelman prior announcing itself — fired on every categorical prior
+build because the default `BACE.gelman = 2` satisfied `gelman == 2` in the
+warning condition: 20 final runs × 3 sweeps = exactly 60 per cell. Clean
+cells are the λ=1 cells where fixed thresholds leave cat3's third class
+unrealised, the harness's droplevels makes cat3 *binary*, and no categorical
+model exists (also why λ=1 "cat3" results are really a binary trait — his
+documented DGP degeneracy, not a bug). Fix: warning now fires only for the
+unrequested fallback (gelman = 1, complete cases < J); `bace_final_imp` no
+longer builds-and-discards a categorical prior under `ovr_categorical =
+TRUE` (now matches `bace_imp`; prior values/RNG unchanged); suite 1424/0.
+**Operational: campaign workers run the INSTALLED package — do NOT
+reinstall BACE while cells are running; reinstall after the pilot, before
+scale-up** (numerically identical, just quiet logs). Census bonus facts:
+harness runs `skip_conv = TRUE` with a fixed 5-iteration chain (Shinichi's
+2026-09 budget design — `converged: FALSE, drift: 1e+07` in diag is that
+sentinel, not a failure), and `ovr_categorical = TRUE` (his convention,
+pre-dating the multinomial default switch).
 
 **2026-10-27, software-comparison table (Track C):** `ms/ms.qmd` "Gap in
 current tooling" now carries a 16-row feature table (`#tbl-software`) —
