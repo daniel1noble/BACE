@@ -119,6 +119,28 @@ harness runs `skip_conv = TRUE` with a fixed 5-iteration chain (Shinichi's
 sentinel, not a failure), and `ovr_categorical = TRUE` (his convention,
 pre-dating the multinomial default switch).
 
+**2026-10-28, PILOT COMPLETE (73/73 cells, zero errors) → scale-up
+launched.** Full-pilot verdict: per-value 95% coverage 0.946–0.961 at every
+n × trait; zRMSE improves with n and λ; `frac_B0 = 0` everywhere; discrete
+accuracy rises with n (bin 0.78→0.82, cat3 0.72→0.75). Slope attenuation at
+ρ=0.5 shrinks with n (λ=1: −0.11 → −0.05 → −0.05 at n=100/300/1000) but
+intervals shrink faster (width 1.32 → 0.14), so ALL 6 coverage misses (of
+146 estimand cells) are hairline low-side misses at ρ=0.5, 4 of them at
+n=1000 — the exact regime Shinichi's report flags ("except complete
+phylogenetic signal" at n=1000); ρ=0 cells are spotless (no invented
+signal) and the complete-data reference missed 0/73 (perfectly calibrated
+DGP+model). Flat tables: `results_2026-10/pilot_{estimands,cells,disc_cells}.csv`.
+**Scale-up:** fixed package reinstalled (65e6fa7 live), full campaign
+relaunched 2026-10-28 at launcher defaults (50/50/25 seeds = 750 cells;
+73 pilot cells resume-skipped; ~1,050 core-h ≈ 6.3 days at CORES=7;
+detached `nohup … caffeinate -i`, PID in
+`results_2026-10/campaign_launch_2026-10-28.log`; stop any time — fully
+resumable). Next after n=100 tier: interim read; after completion:
+aggregate + build the BACE-only accuracy/bias/coverage figures into
+`ms/ms.qmd` (Dan: "we build these figures into the paper with just BACE").
+Win-builder: full local R CMD check re-run + fresh upload from post-fix
+source in progress 2026-10-28.
+
 **2026-10-27, software-comparison table (Track C):** `ms/ms.qmd` "Gap in
 current tooling" now carries a 16-row feature table (`#tbl-software`) —
 phylogeny / proper MI / multilevel / five variable types — replacing the
