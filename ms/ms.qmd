@@ -1,5 +1,34 @@
 ---
 title: "Bayesian augmentation by chained equations for phylogenetic comparative data: the BACE R package"
+author:
+  - name: Daniel W. A. Noble
+    affiliations:
+      - ref: anu
+  - name: Szymon M. Drobniak
+    affiliations:
+      - ref: jagiellonian
+      - ref: unsw
+  - name: Ayumi Mizuno
+    affiliations:
+      - ref: alberta
+  - name: Patrice Pottier
+    affiliations:
+      - ref: gothenburg
+  - name: Shinichi Nakagawa
+    affiliations:
+      - ref: alberta
+      - ref: unsw
+affiliations:
+  - id: anu
+    name: Division of Ecology and Evolution, Research School of Biology, The Australian National University, Canberra, ACT, Australia
+  - id: jagiellonian
+    name: Institute of Environmental Sciences, Faculty of Biology, Jagiellonian University, Kraków, Poland
+  - id: unsw
+    name: School of Biological, Earth and Environmental Sciences, University of New South Wales, Sydney, NSW, Australia
+  - id: alberta
+    name: Department of Biological Sciences, Faculty of Science, University of Alberta, Edmonton, Alberta, Canada
+  - id: gothenburg
+    name: Department of Biological and Environmental Sciences, University of Gothenburg, Gothenburg, Sweden
 bibliography: ../bib/BACE.bib
 csl: ../bib/methods-in-ecology-and-evolution.csl
 format:
@@ -47,18 +76,18 @@ crossref:
 
 1. Missing trait data are pervasive in comparative datasets limiting the types of questions that can be tested and compromising the power of comparative analyses. Standard approaches, such as complete-case analyses and single imputation, can bias inference and underestimate uncertainty, particularly when missing data is non-random. While robust imputation methods exits, many existing software are restricted to imputing only continuous or count variables and lack the capacity to impute discrete / categorical traits (e.g., multinomial, ordered categorical), which are common trait types in comparative datasets. Such limitations have prevented the widespread use of imputation approaches in comparative biology.
 2. We introduce *BACE*, an R package implementing Bayesian Augmentation by Chained Equations for phylogenetic comparative data. *BACE* enables imputation with phylogeny-informed covariance that can account for both phylogenetic and non-phylogenetic species effects, along with mixed data types, in a fully Bayesian pipeline. *BACE* provides substantial flexibility in the imputation models fit, can decouple imputation models from analysis models, and propagates both parameter and imputation uncertainty in subsequent downstream analyses. 
-3. We show using simulations that *BACE* recovers missing trait values with a high degree of accuracy.  Across 18 different scenarios that vary in sample size (n = 100, 300, 1000 species), phylogenetic signal (Pagel’s λ = 0.3, 0.7, 1) and trait correlation (ρ = 0, 0.5), we show *BACE* recovers model parameters with little bias and nominal coverage. *BACE* outperformed other comparable frequentist approaches. Using two case studies, one estimating amphibian thermal tolerance across > 5,000 species with > 90% missing data and another predicting migratory behaviour patterns across >4,956 bird species (AVONET), which show how *BACE* can be used to impute missing data. 
+3. We show using simulations that *BACE* recovers missing trait values with a high degree of accuracy.  Across 18 different scenarios that vary in sample size (n = 100, 300, 1000 species), phylogenetic signal (Pagel’s λ = 0.3, 0.7, 1) and trait correlation (ρ = 0, 0.5), we show *BACE* recovers model parameters with little bias and nominal coverage. *BACE* outperformed other comparable frequentist approaches. We illustrate *BACE* using two case studies. The first imputes amphibian heat tolerance (continuous) under standardised conditions across 5,203 species using 2,661 experimental estimates from 524 species; 89.9% of species lack experimental measurements. The second uses AVONET data for 10,563 bird species to impute migratory behaviour (ordered categorical) and hand-wing index (continuous), addressing 17 naturally missing migration records (0.16%) and testing imputation after withholding approximately 20% of observed values for each trait. 
 4. 
 
 # Introduction
 
-Phylogenetic comparative methods (PCMs) provide a framework for understanding how traits evolve and covary across species while accounting for their shared evolutionary history [@felsenstein1985; @grafen1989; @pagel1994; @martins1997]. Expanding trait databases, increasingly comprehensive phylogenies, and greater access to environmental data provide opportunities to investigate how evolutionary history and environmental conditions shape variation and covariation among traits allowing one to test a rich set of evolutionary hypotheses [@halliwell2025; @blomberg2025]. However, missing trait data limit the questions that can be addressed, and excluding species with incomplete records can reduce sample sizes, statistical power and precision [@nakagawa2008; @little2024; @blomberg2025]. When the availability of trait data depends on species' characteristics, this exclusion can also bias estimates of trait relationships [@nakagawa2008; @gonzalezsuarez2012]. Empirical studies illustrate the consequences of missing data for answering questions in comparative biology. For example, incomplete trait coverage altered inferred relationships between mammalian traits and extinction risk [@gonzalezsuarez2012], while alternative treatments of missing observations have been shown to change estimates of reproductive performance and temporal trends in ecological monitoring [@lopucki2022].
+Phylogenetic comparative methods (PCMs) provide a framework for understanding how traits evolve and covary across species while accounting for their shared evolutionary history [@felsenstein1985; @grafen1989; @pagel1994; @martins1997]. Expanding trait databases, increasingly comprehensive phylogenies, and greater access to environmental data provide opportunities to investigate how evolutionary history and environmental conditions shape variation and covariation among traits allowing one to test a rich set of evolutionary hypotheses [@halliwell2025; @blomberg2025]. However, missing trait data limit the questions that can be addressed, and excluding species with incomplete records can reduce sample sizes, statistical power and precision [@nakagawa2008; @little2024; @blomberg2025]. When the availability of trait data depends on species' characteristics, this exclusion can also bias estimates of trait relationships [@nakagawa2008; @gonzalezsuarez2012]. Empirical studies illustrate the consequences of missing data for answering questions in comparative biology. For example, incomplete trait coverage alters inferred relationships between mammalian traits and extinction risk [@gonzalezsuarez2012], while missing values in comparative datasets tend to be distributed nonrandomly across species — in relation to characteristics such as rarity and body size — which can bias parameter estimates and model selection when using complete-case analyses [@garamszegi2011].
 
-Methods for handling missing data have a long history in statistics [@schafer2002]. Approaches developed for comparative datasets include phylogenetic prediction of missing trait values in PhyloPars and Rphylopars [@bruggeman2009; @goolsby2017], as well as multiple-imputation procedures that account for phylogenetic and species-sampling uncertainty [@nakagawa2018; @blomberg2025]. Missing values can be accommodated within model fitting, for example through Bayesian data augmentation, which samples missing values alongside model parameters [@tanner1987]. Alternatively, missing data can be handled in a multiple-imputation workflow, where *m* complete datasets are generated and analysed separately. Parameter estimates and their variances are then combined, commonly using Rubin's rules, to account for both within- and between-imputation uncertainty [@rubin1987; @noble2021]. Data augmentation can also be used to generate the completed datasets for multiple imputation [@schafer2002]. In chained-equations approaches, conditional imputation models must also be specified carefully, because incompatible specifications can bias parameter estimates [@du2022].
+Methods for handling missing data have a long history in statistics [@schafer2002]. Approaches developed for comparative datasets include phylogenetic prediction of missing trait values [@bruggeman2009; @goolsby2017], as well as multiple-imputation procedures that account for phylogenetic and species-sampling uncertainty [@nakagawa2018; @blomberg2025]. Missing values can be accommodated within model fitting, for example through Bayesian data augmentation, which samples missing values alongside model parameters [@tanner1987]. Alternatively, missing data can be handled in a multiple-imputation workflow, where *m* complete datasets are generated and analysed separately. Parameter estimates and their variances are then combined, commonly using Rubin's rules, to account for both within- and between-imputation uncertainty [@rubin1987; @noble2021]. Data augmentation can also be used to generate the completed datasets for multiple imputation [@schafer2002]. Multiple imputations can be generated using a joint model for all variables or separate conditional models linked through chained equations. Chained equations cycle through these models, drawing missing values for each incomplete variable using the latest values of the others. This approach, also called fully conditional specification, allows different models for continuous and categorical variables [@vanbuuren2011]. Importantly, multiple imputation — like most missing-data methods — assumes data are missing at random (MAR), and the plausibility of this assumption rests on imputation models that include the traits covarying with both the missing values and the probability of missingness [@schafer2002; @noble2021]. Because these relationships, and the types of the traits involved, differ from trait to trait, imputation requires substantial flexibility in the models fit to each one.
 
 While a broad array of statistical methods and packages exist to deal with missing data, many are not suited to the datasets typical of comparative biology (@tbl-software). A few packages can use the phylogeny in their imputation models (e.g., *Rphylopars*, *phylomice*, *TDIP*), but most cannot (e.g., *mice*, *miceadds*, *jomo*, *pan*; @tbl-software). Moreover, the phylogeny-aware packages generally return a single completed dataset or single predicted values rather than multiple imputations, and most impute only continuous traits. A notable exception is *TDIP* [@gendre2024], which combines phylogenetic and machine-learning methods in an ensemble and can impute discrete traits. However, it too returns single completed datasets, and it cannot handle multi-level data structures, count data, or ordered categorical traits (@tbl-software). As such, there is a need for a statistically robust and flexible imputation approach that can handle multi-level data structures and a diversity of trait types.
 
-Multivariate imputations and joint modelling approaches are often limited by the need to have multivariate normally distributed traits, which often limits 
+Here, we introduce a new Bayesian imputation software package for comparative biology, named *BACE* (**B**ayesian **A**ugmentation by **C**hained **E**quations), which uses the versatile Bayesian software *MCMCglmm* [@hadfield2010] to conduct multiple imputation through chained equations. *BACE* provides substantial flexibility in the imputation / analysis models fit, as well as a simple user interface. *BACE* also provides options to decouple imputation and analysis models. Given its Bayesian approach, imputation and analysis models can be fit jointly and a final analysis model allows for pooling of posterior distributions to account for within and across imputation uncertainty. Additionally, samples from the posterior predictive distribution can be used to generate a set of *m* complete datasets and these datasets can be used with any model and pooled using Rubin's rules. We describe how *BACE* works, test its robustness using simulations, and demonstrate how to apply it in two case studies: imputing heat tolerance (continuous) under standardised conditions for 5,203 amphibian species of which only 524 (10.1%) have trait data, and jointly imputing migratory behaviour (ordered categorical) and hand-wing index (continuous) for 10,563 bird species in AVONET, validating the imputations by withholding approximately 20% of the observed values of each trait.  
 
 ```{r}
 #| label: fig-bace-workflow
@@ -81,51 +110,40 @@ Multivariate imputations and joint modelling approaches are often limited by the
 knitr::include_graphics("../vignettes/figs/bace_workflow.png")
 ```
 
-## Missing data in comparative biology: why it matters
-- Trait databases + environmental covariates + phylogenies → systematic missingness (taxonomic, geographic, trait-type).
-- Consequences: reduced power, compositional bias (which taxa remain), and overconfident inference if uncertainty is ignored.
-- comparative data in conservation biology, macroecology, evolutionary biology, functional ecology. Used to inform theory, policy, and management.
 
-## Why multiple imputation, and why *Bayesian* chained equations
-- MI as uncertainty propagation (imputation as inference, not a preprocessing “fill”).
-- Chained equations: flexible conditional models per variable; practical for mixed data types and modular model building.
-- Bayesian approach: coherent uncertainty, hierarchical structure, prior regularisation, posterior predictive checks.
-
-## Gap in current tooling (positioning)
-
-@tbl-software summarises the R tools available for imputing missing trait data, against the three requirements of comparative analyses: respecting shared evolutionary history, handling the mixed variable types that trait datasets contain, and propagating imputation uncertainty into downstream inference. Every capability shown was verified against the package's own reference documentation (current CRAN or GitHub version, October 2026)<!-- authors: page-cited evidence for every cell is in .agents/software-comparison-evidence.md; intended as Supporting Information at submission -->.
-
-Two gaps stand out. First, no existing tool combines a phylogeny with proper multiple imputation. The general multiple-imputation frameworks — *mice* and its multilevel extensions, the joint-modelling packages, *JointAI* and *smcfcs* — propagate imputation uncertainty correctly but represent grouping only as exchangeable cluster effects: none can encode a covariance structure derived from a tree (*JointAI*'s random-effect covariance options, for example, are limited to full, block-diagonal or independent; @erler2021). The phylogeny-aware tools, conversely, either return a single completed dataset or point predictions (*Rphylopars*, *TDIP*, *BHPMF*) or impute only continuous traits (*Rphylopars*, *phylomice*, *BHPMF*), and several are unmaintained or unpublished. Second, coverage of variable types is thinner than reputations suggest: *mice* has no count method — its documented defaults cover numeric, binary, unordered-factor and ordered-factor variables only [@vanbuuren2011] — and the widely used multilevel route in *miceadds* cannot impute nominal variables at all. The only packages covering all five variable types in @tbl-software are *smcfcs* (single-level only), *JointAI* (no phylogeny), and *hmi*, which was removed from CRAN in 2022.
-
-*BACE* fills the empty cell: chained-equations multiple imputation in which every conditional model is a phylogenetic mixed model, supporting continuous, count, binary, ordinal and nominal traits, accommodating replicated species, and propagating both parameter and imputation uncertainty into downstream analyses.
+<!-- authors: every cell of @tbl-software was verified against the package's own
+reference documentation (current CRAN/GitHub version, October 2026); page-cited
+evidence in .agents/software-comparison-evidence.md — intended as Supporting
+Information at submission. -->
 
 | Package | Phylo. | MI | Multi. | Cont. | Count | Bin. | Ord. | Nom. | Reference |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---|
 | **BACE** | **✓** | **✓** | (✓)^a^ | **✓** | **✓** | **✓** | **✓** | **✓** | this paper |
-| Rphylopars | ✓ | ✗^b^ | (✓)^c^ | ✓ | ✗ | ✗ | ✗ | ✗ | @goolsby2017 |
-| phylomice | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | @drhlik2016^d^ |
-| TDIP | ✓ | ✗^e^ | ✗ | ✓ | ✗ | ✓ | ✗^f^ | ✓ | @gendre2024^d^ |
-| BHPMF | (✓)^g^ | ✗^h^ | (✓)^g^ | ✓ | ✗ | ✗ | ✗ | ✗ | @schrodt2015^i^ |
-| mice | ✗ | ✓ | (✓)^j^ | ✓ | ✗^k^ | ✓ | ✓ | ✓ | @vanbuuren2011 |
-| miceadds | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | (✓)^l^ | ✗^l^ | @robitzsch2026 |
-| micemd | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | (✓)^m^ | (✓)^m^ | @audigier2018 |
+| Rphylopars | ✓ | ✗ | (✓) | ✓ | ✗ | ✗ | ✗ | ✗ | @goolsby2017 |
+| phylomice^c^ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | @drhlik2016 |
+| TDIP^c^ | ✓ | ✗ | ✗ | ✓ | ✗ | ✓ | ✗ | ✓ | @gendre2024 |
+| BHPMF^c^ | (✓)^b^ | ✗ | (✓) | ✓ | ✗ | ✗ | ✗ | ✗ | @schrodt2015 |
+| mice | ✗ | ✓ | (✓) | ✓ | ✗ | ✓ | ✓ | ✓ | @vanbuuren2011 |
+| miceadds | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | (✓)^d^ | ✗^d^ | @robitzsch2026 |
+| micemd | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | (✓)^d^ | (✓)^d^ | @audigier2018 |
 | pan | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | @schaferyucel2002 |
-| jomo | ✗ | ✓ | ✓ | ✓ | ✗^n^ | ✓ | (✓)^n^ | ✓ | @carpenter2013 |
-| mitml | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | ✗^o^ | ✓ | @grund2023^o^ |
-| hmi | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | @speidel2020^p^ |
-| mdmb | ✗ | ✓ | (✓)^q^ | ✓ | ✗ | ✓ | ✓ | ✗^r^ | @robitzsch2024 |
-| JointAI | ✗ | (✓)^s^ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | @erler2021 |
+| jomo | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | (✓)^d^ | ✓ | @carpenter2013 |
+| mitml | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ | @grund2023 |
+| hmi^c^ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | @speidel2020 |
+| mdmb | ✗ | ✓ | (✓) | ✓ | ✗ | ✓ | ✓ | ✗ | @robitzsch2024 |
+| JointAI | ✗ | (✓)^e^ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | @erler2021 |
 | smcfcs | ✗ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | @bartlett2015 |
-| missForest | ✗ | ✗^t^ | ✗ | ✓ | ✗ | (✓)^u^ | ✗ | ✓ | @stekhoven2012 |
+| missForest | ✗ | ✗ | ✗ | ✓ | ✗ | ✓ | ✗ | ✓ | @stekhoven2012 |
 
-: R tools for imputing missing data, against the needs of phylogenetic comparative analysis. *Phylogeny*: a tree-derived covariance informs the imputation. *Proper MI*: multiple imputed datasets (or an integrated Bayesian posterior) are produced, so downstream analyses reflect imputation uncertainty. *Multilevel*: non-independence beyond the phylogeny (random effects / clustered rows). Variable-type columns: an explicit imputation model for continuous, count, binary, ordinal (treated as ordered) and nominal (unordered multinomial) variables. ✓ = documented in the package's reference documentation (October 2026); (✓) = partial (see notes); ✗ = not documented. Column abbreviations: Phylo. = phylogeny; MI = proper multiple imputation; Multi. = multilevel; Cont. = continuous; Bin. = binary; Ord. = ordinal; Nom. = nominal. {#tbl-software tbl-colwidths="[13,8,8,9,8,8,8,8,9,21]"}
+: R tools for imputing missing data, against the needs of phylogenetic comparative analysis. *Phylogeny* (Phylo.): a tree-derived covariance informs the imputation. *Proper multiple imputation* (MI): multiple imputed datasets (or an integrated Bayesian posterior) are produced, so downstream analyses reflect imputation uncertainty. *Multilevel* (Multi.): non-independence beyond the phylogeny (random effects / clustered rows). Remaining columns: an explicit imputation model for continuous (Cont.), count, binary (Bin.), ordinal (Ord., treated as ordered) and nominal (Nom., unordered multinomial) variables. ✓ = documented in the package's reference documentation (October 2026); (✓) = partial support; ✗ = not documented. {#tbl-software tbl-colwidths="[13,8,8,9,8,8,8,8,9,21]"}
 
 ::: {.table-notes}
-^a^ Phylogenetic random effect plus an optional non-phylogenetic species effect for species with replicated rows; arbitrary further grouping factors are not supported. ^b^ Single predicted value with a prediction variance per missing cell. ^c^ Multiple observations per species (within-species variation), not general grouping factors. ^d^ Not on CRAN (GitHub only); *phylomice* is experimental and last updated in 2016; *TDIP*'s documentation cites no publication (we cite the authors' benchmark paper). ^e^ Returns single completed datasets (including a majority-vote ensemble); no pooling or between-imputation variance. ^f^ "Ordinal" appears only as a simulated trait class; the imputation methods document unordered polytomous regression and generic discrete models. ^g^ Hierarchy is taxonomic (species/genus/family), not a phylogeny with branch lengths. ^h^ Single imputed matrix with a per-cell standard deviation. ^i^ Archived from CRAN in 2017. ^j^ Two-level normal and logistic methods only. ^k^ No count method: the documented defaults cover numeric, binary, unordered-factor and ordered-factor variables only. ^l^ The multilevel routine states "Nominal variables with missing values cannot (yet) be handled"; ordinal variables are imputed by predictive mean matching rather than an ordinal model. ^m^ No two-level ordinal or nominal methods; falls back to *mice*'s single-level proportional-odds and polytomous methods. ^n^ Imputation families are gaussian/binomial only; ordered models appear only as substantive-model-compatible outcomes (`jomo.polr`, `jomo.clmm`) — the general joint model treats categorical variables as unordered. ^o^ Front-end to *pan* and *jomo*; type support is inherited, and ordered factors are not distinguished. ^p^ Removed from CRAN in 2022; its pooling helper averages estimates without variances and defers to `mice::pool`. ^q^ Multilevel models in the fully Bayesian estimation path only. ^r^ Nominal covariate models "will be included in future mdmb package versions". ^s^ Imputation is integrated with the analysis model (fully Bayesian); multiply imputed datasets can be exported (`get_MIdat()`). ^t^ Single completed dataset; the out-of-bag error estimates accuracy, not imputation uncertainty. ^u^ Factors via classification forests; ordered factors are not handled as ordered.
+^a^ Phylogenetic and species (replicated taxa) random effects; other grouping factors are not supported. ^b^ Taxonomic hierarchy (species/genus/family), not a tree with branch lengths. ^c^ Not on CRAN: *phylomice* and *TDIP* (GitHub only), *BHPMF* (archived 2017), *hmi* (removed 2022). ^d^ Ordinal/nominal support is limited: single-level methods only (*micemd*), predictive mean matching rather than an ordinal model (*miceadds*, whose multilevel methods also cannot impute nominal variables), or substantive-model-compatible outcome models only (*jomo*). ^e^ Imputation is integrated with the analysis model (fully Bayesian); imputed datasets can be exported.
 :::
 
 # Overview of the BACE framework
 *BACE* provides options for direct imputation and parameter recovery of a given model with missing trait data or imputed trait data which can be pooled in downstream analyses such that the imputation and analysis models are different.
+
 ## Concept: Bayesian augmentation by chained equations
 - Describe the iterative cycle (variable-by-variable conditional models).
 - Emphasise “augmentation”: draw missing values from the posterior predictive distribution each cycle.
