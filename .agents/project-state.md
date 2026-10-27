@@ -79,8 +79,9 @@ is accuracy / low bias / nominal coverage for Current BACE across the full
 grid, not a competitor race (freq arms remain one `ARMS=` env away; the
 castor Table-1-row question is moot). Pilot on this Mac: 72 cells = all 18
 scenarios × 5/5/2 seeds (n=100/300/1000), CORES=7, output
-`dev/rubin_study_2026-09-26/results_2026-10/` (untracked until the results
-policy is decided). **n=100 tier early read (30/30 cells, zero errors, zero
+`dev/rubin_study_2026-09-26/results_2026-10/` (git-tracked since dd05d7b,
+2026-10-28 — Dan committed the pilot rds/logs/flat tables himself; commit new
+cells with the same pattern as the campaign progresses). **n=100 tier early read (30/30 cells, zero errors, zero
 fit failures):** per-value 95% coverage 0.93–0.97 for every trait × λ;
 zRMSE falls with λ exactly as it should (c1: 0.88 → 0.66 → 0.19);
 `frac_B0 = 0` everywhere (the improper-MI signature is gone); discrete
