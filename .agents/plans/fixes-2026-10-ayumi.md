@@ -29,10 +29,15 @@
 - [x] R CMD check --as-cran — PASSED 2026-10-27 (tarball from current main):
       only the unavoidable "New submission" NOTE + a coveralls-badge 403
       false positive (explain in cran-comments.md at submission)
-- [ ] Tutorial text updates DONE (9e2588e); full re-render RUNNING 2026-10-27
-      against the freshly installed fixed package (~1.5-2 h);
-      SIMULATION_REPORT update after the categorical cells land
-- [ ] Rebuild tarball, fresh win-builder round; CRAN stays on hold
+- [x] Tutorial re-rendered + published 2026-10-27 on the fixed package. All
+      113 chunks execute; render now takes ~7 min (the vectorised prediction
+      removed the old 1.5 h bottleneck). Citations repaired first — bib had
+      been overwritten by reference-manager exports (restore: 95997ef)
+- [x] SIMULATION_REPORT updated + re-rendered 2026-10-27 ("What changed in
+      2026-10" section; shared copy .agents/simulation-report.html)
+- [x] Tarball rebuilt on the fixed package; cran-comments refreshed;
+      uploaded to win-builder R-devel 2026-10-27 (results email pending).
+      CRAN submission stays ON HOLD until Dan gives the go
 - Suite: 1418 pass / 0 fail (~1.4 min). Verified reproduction numbers are in
   the investigation note.
 

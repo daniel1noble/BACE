@@ -35,9 +35,13 @@ identical to the 2026-08 run (max |Δ slope| ≈ 1e-8; 240/240 ok) — no
 regression, auto-collapse confirmed on the y-only path. R CMD check --as-cran
 PASSED 2026-10-27 (only the "New submission" NOTE + coveralls-badge 403 false
 positive). dev/13 categorical cells DONE 2026-10-27 (numbers above).
-Pending: SIMULATION_REPORT update, tutorial re-render (running), tarball +
-win-builder re-run.
-CRAN submission remains ON HOLD until those are green.
+**Whole 2026-10 validation campaign COMPLETE (2026-10-27):** calibration,
+Study A, categorical cells, SIMULATION_REPORT, R CMD check, tutorial
+re-render + publish (render now ~7 min — vectorised prediction removed the
+old 1.5 h bottleneck; bib restored after reference-manager overwrites, see
+95997ef), tarball rebuilt + uploaded to win-builder R-devel (results email
+pending). CRAN submission remains ON HOLD until Dan posts the PR #15 reply
+and gives the go.
 - **2026-08: six root causes of the Study B performance failures found, fixed,
   and regression-tested.** Full write-up: [investigation-2026-08.md](investigation-2026-08.md).
   Headline: `bace_final_imp` never reinstated response NAs, so every final
