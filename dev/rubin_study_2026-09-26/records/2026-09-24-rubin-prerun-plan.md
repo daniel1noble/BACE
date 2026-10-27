@@ -1,0 +1,117 @@
+# BACE settings pre-run: approved, launched, complete
+
+> **Results (2026-09-24, 17:24 nibi time).** 240 of 240 fits, no failures. Full page:
+> `docs/dev-log/arc/2026-09-25-rubin-prerun-results.html` (published privately at
+> https://claude.ai/artifact/WMHxQ8idafD5sLAVEJtg9Q). Per-cell coverage of c1/c2, BACE as shipped vs chained:
+> 0.881 vs 0.943 (n = 100), 0.903 vs 0.943 (n = 300); paired difference +0.062 (SE 0.008) and +0.040
+> (SE 0.006), SEs clustered by dataset (the six settings reuse 20 datasets per n). Chain settings changed
+> neither arm's coverage; ESS 750 to 1,600 everywhere; BACE's own convergence check passed 10 to 35% and no
+> setting met rule (a). Audit of that check: `script/rubin_convcheck.R`. Recommendation (Shinichi decides):
+> drop rule (a), take runs 5 and nitt 50,000.
+
+> **Update (2026-09-24, after approval).** Shinichi approved the pre-run and a chained BACE arm, sized in the
+> same run ("yes go ahead" to: yes to the pre-run; yes, build bace_chain and size it in the same pre-run).
+> `bace_chain` runs BACE's own final step M times, each run starting from the previous draw, on the same fit
+> as `bace` (gate G-S3b: c1's design matrix is identical across the shipped runs and varies across the
+> chained ones). The chain adds M = 20 sweeps per fit, so cost becomes `nitt x (runs + 40)`: 22.5M units per
+> cell-seed over the grid, **421 core-hours**, longest fit about 3.7 h (n = 300, runs 15, nitt 100k), and
+> wall-clock about **4 to 4.5 h at 120 processes**. Mac smoke: chain 72 s against a 90 s shipped fit, a
+> 1.79x total, as predicted. The tables below give the shipped-arm cost alone; selection rule (c) now also
+> reads `bace_chain`'s coverage, since the chain is the candidate headline BACE arm.
+>
+> **Launched on nibi, not Totoro (2026-09-24, 13:17).** At launch this user already held about 200 Totoro
+> cores in other lanes (the MI-posterior campaign and an 82-core fit), over D-143's 150, so the pre-run went
+> to nibi, which the lane's compute plan already names for BACE and where v1's timing rates were measured.
+> nibi's BACE is labelled 0.1.0 (Mac: 0.0.0.9000), but `bace_final_imp`, `.predict_bace` and `bace_imp` are
+> byte-identical (deparse digests). A validation job (22614229) passed G-S4a on a compute node in 3 min 50 s
+> (BACE fit 105 s, chain 83 s). Arrays, one BACE fit per task, 1 core, 16 GB, `--time` about 1.75x each
+> group's slowest predicted fit: 22614567 (n 100, nitt 50k, 1:15), 22614569 (n 100, 100k, 2:30), 22614570
+> (n 300, 50k, 3:15), 22614571 (n 300, 100k, 6:30). Driver: `script/rubin_prerun_nibi.sh`. Results:
+> `~/projects/def-snakagaw/snakagaw/pigauto_rubin/prerun/runs<r>_nitt<nitt>/` on nibi. Wall-clock now also
+> depends on queue waits.
+
+Lane `arc/rubin-freq-bace`, step 2 of `docs/dev-log/arc/2026-09-24-rubin-freq-bace-plan.md`. Nothing here
+has been launched. The run takes about 2.5 to 3 hours on Totoro, so it needs approval first.
+
+## Recommendation
+
+Run the full grid on Totoro at 120 concurrent processes (if no other lane of this user is running there): 240 BACE fits, about 253 core-hours, wall-clock
+**2.5 to 3 h** (the longest single fit sets the floor at about 2.4 h). A cheaper option drops n = 300:
+70 core-hours, about 1 h, but convergence at n = 300 then goes unmeasured before the campaign.
+
+## What it answers
+
+Which BACE settings the campaign should use. v1 ran `nitt = 50000`, `runs = 5`, `n_final = 20` and passed
+BACE's own convergence check too rarely. Per setting, the pre-run records BACE's convergence verdict, the
+median ESS, the wall time, the failure count, and the per-cell Rubin coverage and width of both BACE arms.
+
+Proposed selection rule: take the cheapest setting where (a) at least 80% of fits pass BACE's convergence
+check, (b) median ESS is at least 100 (v1's G9b bar), and (c) the `bace` arm's per-cell Rubin coverage lies within Monte
+Carlo error of the most expensive setting's. If no setting meets (a), report that rather than pick one.
+
+## Grid
+
+| factor | levels |
+|---|---|
+| `runs` | 5, 10, 15 |
+| `nitt` | 50,000 and 100,000; burnin 20%, thin chosen to keep 1,600 samples |
+| `n_final` = M | 20 |
+| cells | lambda {0.3, 0.7} x rho {0, 0.5} x n {100, 300}; MCAR 30%; v1 core options (`--driver`, fixed thresholds) |
+| seeds | 1 to 5 |
+
+6 settings x 8 cells x 5 seeds = **240 fits**. The lane plan's "720 fits" was an arithmetic slip; its stated
+grid gives 240. Arms per fit: `bace` and `bace_resid`, which share one BACE fit.
+
+## Time estimate (derived, then checked)
+
+BACE's cost scales with `nitt x (runs + n_final)`. v1's median wall times, 1,161 s at n = 100 and
+3,050 s at n = 300, were measured at v1's settings, 50,000 x (5 + 20) = 1.25M units. That gives 0.93 ms per
+unit at n = 100 and 2.44 ms per unit at n = 300. The Mac smoke (n = 60, 6,000 x 23 units, 88.5 s) measured
+0.64 ms per unit, which fits between them.
+
+| setting (runs, nitt) | units | n = 100 | n = 300 |
+|---|---|---|---|
+| 5, 50k | 1.25M | 19 min | 51 min |
+| 10, 50k | 1.50M | 23 min | 61 min |
+| 15, 50k | 1.75M | 27 min | 71 min |
+| 5, 100k | 2.50M | 39 min | 102 min |
+| 10, 100k | 3.00M | 46 min | 122 min |
+| 15, 100k | 3.50M | 54 min | 142 min |
+
+Total: 12,539 s per cell-seed at n = 100 and 32,940 s at n = 300, summed over settings; x 4 (lambda x rho)
+x 5 seeds = **253 core-hours**, mean fit 63 min. At 120 processes the lower bound is 2.1 h, but the longest
+fit is 2.4 h, so the wall-clock is about 2.5 to 3 h with longest-first ordering. Rubin scoring adds seconds
+per fit. Uncertainty: v1's BACE timings come mostly from nibi, and Totoro's cores may be slower; if the first
+n = 300 fits run more than 30% over their row above, the run stops and I re-report (D-139).
+
+## Launch procedure
+
+1. `rsync` the lane's `script/` to `totoro:~/pigauto_rubin/script/` through the `~/.ssh/cm-*` socket.
+2. `bash script/rubin_prerun_totoro.sh 120` without `CONFIRM` first. It prints `free -g`, the heaviest
+   users' memory, checks that the installed BACE draws posterior predictive values (`sample = TRUE` in
+   `bace_final_imp`), checks the code is present, counts the cores this user already has busy, and stops.
+   D-143's 150-core cap covers every lane run as this user: the lambda-default lane used about 140 cores
+   on 2026-09-23, and if it is still running the script refuses 120 and names the largest PAR that fits.
+   A smaller PAR stretches the wall-clock (for example about 5 h at 60), so wait for that lane or accept
+   the longer run.
+3. `CONFIRM=yes bash script/rubin_prerun_totoro.sh 120`. The run is detached with `setsid`; results land in
+   `~/pigauto_rubin/prerun/runs<r>_nitt<nitt>/`, one directory per setting because the cell tag does not
+   carry the BACE settings.
+4. Read the first finished n = 100 rds before trusting anything else.
+
+## Known risks
+
+- **BACE can fail outright at small n.** In the Mac smoke, seed 1 at n = 60 failed deterministically with
+  MCMCglmm's "Mixed model equations singular"; seed 2 ran. The runner records the error and still writes
+  the rds, so failures are counted, not lost. The failure rate at n = 100 and 300 is one of the pre-run's
+  outputs.
+- **Same BACE build everywhere.** The in-tree `BACE/` clone (2026-04-01) imputes posterior means; the
+  installed build (2026-08-09) draws posterior predictive values. The launch script refuses a host with the
+  old build.
+- **`bace_resid` is a negative control.** With the installed build it adds a second residual, so it plays no
+  part in the selection rule. It costs nothing to keep in the pre-run.
+- **More `runs` or `nitt` cannot fix BACE's shared anchor** (review B2): every final run starts from one
+  converged dataset. The pre-run chooses chain settings for BACE as shipped; if Shinichi approves a chained
+  BACE arm, it can be sized in the same run or after it.
+- **Review status.** Meng's verdict is GO WITH FIXES for this pre-run; the three pre-run fixes are applied
+  (guarded scoring, bace-only rule (c), corrected text). The campaign stays blocked on B2.

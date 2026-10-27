@@ -81,6 +81,9 @@ dev/*_files/
 *_files/
 # but DO track the shared, self-contained simulation report in .agents/
 !.agents/*.html
+# and DO track Shinichi's imported Rubin study bundle in full (self-contained
+# HTML write-ups included; raw 1.4 GB per-fit rds pools stay external)
+!dev/rubin_study_2026-09-26/**
 
 # Oversized, regenerable benchmark artifacts (exceed GitHub's 100MB limit).
 # The rest of dev/simulation_results/ (report, figures, CSVs, small RDS,

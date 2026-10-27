@@ -43,6 +43,22 @@ old 1.5 h bottleneck; bib restored after reference-manager overwrites, see
 pending). CRAN submission remains ON HOLD until Dan posts the PR #15 reply
 and gives the go.
 
+**2026-10-27, Shinichi's Rubin study imported:** `dev/rubin_study_2026-09-26/`
+— BACE vs frequentist MI, 18 scenarios (n 100/300/1000 × λ 0.3/0.7/1 ×
+ρ 0/0.5, 200 datasets/cell, M=20), continuous + discrete (threshold) traits;
+entry point `report/study.html`; code/records/pages included; raw 1.4 GB rds
+pools in a separate archive (not imported). Three load-bearing facts:
+(1) the study **independently found problem 1** (2026-09, a month before
+PR #15): "BACE as shipped was not proper" — all 20 final imputations shared
+one posterior-mean-filled start, correlation coverage collapsed at n=1000;
+(2) its patched arm ("bace_chain", sequential final imputations) restored
+coverage — and its discussion proposes exactly the independent-runs/sweeps
+design BACE now ships; (3) **the BACE arms predate the 2026-10 fixes**, so
+before these numbers support the ms, the BACE arm should be re-run on the
+fixed package (HPC launchers are in `code/`). NOTE: bundle README says
+"Private; not for circulation" — import committed locally but NOT pushed
+until Dan confirms with Shinichi (BACE repo is public).
+
 **2026-10-27, software-comparison table (Track C):** `ms/ms.qmd` "Gap in
 current tooling" now carries a 16-row feature table (`#tbl-software`) —
 phylogeny / proper MI / multilevel / five variable types — replacing the
