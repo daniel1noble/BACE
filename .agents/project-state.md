@@ -42,6 +42,18 @@ old 1.5 h bottleneck; bib restored after reference-manager overwrites, see
 95997ef), tarball rebuilt + uploaded to win-builder R-devel (results email
 pending). CRAN submission remains ON HOLD until Dan posts the PR #15 reply
 and gives the go.
+
+**2026-10-27, software-comparison table (Track C):** `ms/ms.qmd` "Gap in
+current tooling" now carries a 16-row feature table (`#tbl-software`) —
+phylogeny / proper MI / multilevel / five variable types — replacing the
+floating `ms/MI_table.pdf` (Shinichi's draft; now superseded, file left in
+place). Every cell verified against the package's own reference manual
+(one reader agent per package + independent spot-checks of the decisive
+pages); page-cited evidence: [software-comparison-evidence.md](software-comparison-evidence.md).
+13 new Crossref-verified bib entries. Headlines: no other tool combines a
+tree with proper MI; mice has NO count method; miceadds multilevel cannot
+impute nominal; only smcfcs (single-level), JointAI (no phylogeny) and hmi
+(removed from CRAN 2022) cover all five types.
 - **2026-08: six root causes of the Study B performance failures found, fixed,
   and regression-tested.** Full write-up: [investigation-2026-08.md](investigation-2026-08.md).
   Headline: `bace_final_imp` never reinstated response NAs, so every final
