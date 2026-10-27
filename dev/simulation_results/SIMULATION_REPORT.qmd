@@ -1,6 +1,6 @@
 ---
 title: "BACE simulation study: does it recover the truth under missing data?"
-date: 2026-08-08
+date: 2026-10-27
 format:
   html:
     embed-resources: true
@@ -107,6 +107,43 @@ defects** and fixed them:
 Pre-fix outputs are archived in `archive_2026-07_prebugfix/` and compared
 against below (@sec-beforeafter).
 
+# What changed in 2026-10 {.unnumbered}
+
+A pre-release code review (PR #15; write-up in
+`.agents/investigation-2026-10.md`) surfaced **five further defects**, all
+fixed before this render:
+
+1. **Categorical predictions silently dropped all phylogenetic effects** (a
+   BLUP column-name mismatch; the ordinal/threshold path was unaffected).
+   The categorical Study B cells were therefore **regenerated 2026-10-27**
+   on the fixed package with the same seeds; the stale cells are archived in
+   `archive_2026-08_pre-oct-fixes/`. Effect of the fix: accuracy
+   0.783→0.799 (MCAR) and 0.807→0.815 (MAR); balanced accuracy 0.635→0.651
+   and 0.628→0.642 (≈90% of the Bayes ceiling, from ≈88%); runtime halved
+   (22→12.5 s/dataset) by the accompanying vectorisation.
+2. **The final phase understated imputation uncertainty when two or more
+   variables are missing together** (one pass from a fixed deterministic
+   start) — fixed with within-run Gibbs passes (`sweeps`, default 3,
+   auto-collapsing to a single pass when only one variable is missing).
+   Both studies in this report make only the response missing, so their
+   numbers are unaffected; verified by re-running Study A on the fixed
+   package — identical to the 2026-08 run within 1e-8. A dedicated
+   calibration study (`dev/15_sweeps_calibration.R`; two variables 30%
+   missing each, sweeps ∈ {1,2,3,5,8} paired on identical data) confirmed
+   the default of 3 and quantified the old one-pass behaviour: downstream
+   slope biased upward by ~15% of its true value (incoherent cross-variable
+   draw pairs) and between-imputation variance understated by 13–20%.
+3. **Reported class probabilities (`prob_preds`) were plug-in**
+   (posterior-mean coefficients; overconfident by Jensen's inequality) —
+   now averaged over posterior draws. The discrete `cover95_prob` sets below
+   use the honest averaged probabilities (slightly more conservative:
+   categorical 0.984→0.99).
+4. **MCMC diagnostics skipped cutpoints and never ran on the final-phase
+   models** — both now covered (`bace_final_imp()$diagnostics`).
+5. **User-supplied priors were silently ignored** — a validated `priors`
+   argument was added; all defaults are unchanged, so nothing else in this
+   report moves.
+
 # Aims
 
 Evaluate whether **BACE recovers the truth** when data are missing: are its
@@ -176,7 +213,9 @@ knitr::kable(rbind(cfgtab(A$cfg, "A"), cfgtab(B$cfg, "B")))
 | `simulation_results/recovery_per_rep.csv`, `response_type_per_rep.csv` | per-replicate metrics (what this report plots) |
 | `simulation_results/*_summary.csv` | aggregated summaries |
 | `simulation_results/archive_2026-07_prebugfix/` | pre-fix run for @sec-beforeafter |
+| `simulation_results/archive_2026-08_pre-oct-fixes/` | 2026-08 outputs archived before the 2026-10 categorical regeneration |
 | `.agents/investigation-2026-08.md` | root-cause write-up behind the six fixes |
+| `.agents/investigation-2026-10.md` | root-cause write-up behind the five 2026-10 fixes |
 | `R/simulate_simBACE.R` (`sim_bace()`) | the Study B data-generating engine |
 
 # Measures (what they mean)
@@ -331,7 +370,9 @@ if (!is.null(Bold)) {
 
 *Note the categorical rows are not a like-for-like comparison: the 2026-08 DGP
 is non-degenerate (per-liability slopes; Bayes ceiling reported above), whereas
-the 2026-07 DGP capped balanced accuracy at ~0.50 by construction.*
+the 2026-07 DGP capped balanced accuracy at ~0.50 by construction. The
+categorical "post" columns are the 2026-10 regeneration, with the
+phylogenetic effects restored in prediction.*
 
 ## Timing
 
