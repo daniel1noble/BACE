@@ -270,6 +270,14 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
       has_missing <- response_var %in% miss_dat$colname
 
       if (has_missing) {
+        # Warm-up sweeps are robust to a failed fit: resampled predictors can
+        # transiently empty a rare factor level (likely at strong signal with
+        # fixed thresholds), making the next model's equations singular. A
+        # warm-up failure skips this variable's update for this sweep (the
+        # previous sweep's values carry forward -- a skipped Gibbs update,
+        # still a valid scan); a LAST-sweep failure still aborts the run, so
+        # kept results are never silently degraded.
+        tryCatch({
         fixform    <- formulas[[i]]
         # Compute number of factor levels from the working data (dat_prep$levels is not set)
         levels <- if (types[[response_var]] %in% c("categorical", "threshold")) {
@@ -380,6 +388,15 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
           cat(paste0("Run ", run, "/", n_final, sweep_tag,
                      " - Imputed variable: ", response_var, "\n"))
         }
+        }, error = function(e) {
+          if (last_sweep) stop(e)
+          warning(sprintf(
+            paste0("bace_final_imp: run %d, warm-up sweep %d/%d: model for ",
+                   "'%s' failed (%s); carrying the previous sweep's values ",
+                   "for this variable."),
+            run, s, eff_sweeps, response_var, conditionMessage(e)),
+            call. = FALSE)
+        })
       } else {
         if (worker_verbose && s == 1L) {
           cat(paste0("Run ", run, "/", n_final,

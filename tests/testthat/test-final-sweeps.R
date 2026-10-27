@@ -198,3 +198,61 @@ test_that("sweeps argument is validated", {
     ran_phylo_form = "~ 1 | Species", phylo = f$tr, n_final = 1,
     verbose = FALSE, sweeps = 0)), "sweeps")
 })
+
+test_that("a warm-up sweep fit failure is tolerated (skipped Gibbs update + warning)", {
+  testthat::skip_on_cran()
+  f <- make_init2()
+  warm_nitt <- 150 + 50 * 2
+
+  n_calls <- 0L
+  real_fit <- BACE:::.model_fit
+  testthat::local_mocked_bindings(
+    .model_fit = function(data, tree, fixformula, randformula, type, prior,
+                          nitt = 6000, thin = 5, burnin = 1000) {
+      n_calls <<- n_calls + 1L
+      if (n_calls == 1L && nitt == warm_nitt) stop("singular mock (warm-up)")
+      real_fit(data = data, tree = tree, fixformula = fixformula,
+               randformula = randformula, type = type, prior = prior,
+               nitt = nitt, thin = thin, burnin = burnin)
+    },
+    .package = "BACE"
+  )
+
+  warns <- character(0)
+  fin <- withCallingHandlers(
+    suppressMessages(bace_final_imp(
+      bace_object = f$init, fixformula = "y ~ x",
+      ran_phylo_form = "~ 1 | Species", phylo = f$tr, n_final = 1,
+      nitt = 600, thin = 2, burnin = 150, verbose = FALSE, sweeps = 2)),
+    warning = function(w) {
+      warns <<- c(warns, conditionMessage(w)); invokeRestart("muffleWarning")
+    })
+
+  expect_true(any(grepl("carrying the previous sweep's values", warns)))
+  expect_length(fin$all_datasets, 1L)
+  expect_false(anyNA(fin$all_datasets[[1]][, c("y", "x")]))
+})
+
+test_that("a LAST-sweep fit failure still aborts the run (kept results never degraded)", {
+  testthat::skip_on_cran()
+  f <- make_init2()
+
+  real_fit <- BACE:::.model_fit
+  testthat::local_mocked_bindings(
+    .model_fit = function(data, tree, fixformula, randformula, type, prior,
+                          nitt = 6000, thin = 5, burnin = 1000) {
+      if (nitt == 600) stop("singular mock (last sweep)")
+      real_fit(data = data, tree = tree, fixformula = fixformula,
+               randformula = randformula, type = type, prior = prior,
+               nitt = nitt, thin = thin, burnin = burnin)
+    },
+    .package = "BACE"
+  )
+
+  expect_error(
+    suppressWarnings(suppressMessages(bace_final_imp(
+      bace_object = f$init, fixformula = "y ~ x",
+      ran_phylo_form = "~ 1 | Species", phylo = f$tr, n_final = 1,
+      nitt = 600, thin = 2, burnin = 150, verbose = FALSE, sweeps = 2))),
+    regexp = "singular mock \\(last sweep\\)")
+})

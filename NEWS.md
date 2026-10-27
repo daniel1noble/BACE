@@ -9,6 +9,15 @@ reported issues, all confirmed, plus one found during verification); earlier
 development builds are affected. None of these crash - they silently degrade
 results, which is why they are listed prominently.
 
+* **Warm-up sweeps are robust to transient fit failures.** With several
+  variables missing, a warm-up sweep can resample a rare factor level out of
+  existence, making the next conditional model's equations singular (most
+  likely at strong phylogenetic signal). Such a failure now skips that
+  variable's update for that sweep (the previous sweep's values carry
+  forward - a skipped Gibbs update) with a warning, instead of aborting the
+  run; a failure in the final, kept sweep still errors, so returned results
+  are never silently degraded.
+
 * **Categorical imputation silently ignored the phylogeny.** The default
   (multinomial) prediction path looked species effects up under the wrong
   MCMCglmm column name, never matched, and used 0 - predictions equalled a
