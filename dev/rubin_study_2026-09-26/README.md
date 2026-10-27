@@ -1,6 +1,25 @@
 # Rubin MI simulation study: BACE vs frequentist imputation (continuous and discrete traits)
 
-Bundle date 2026-09-26. Source: pigauto repository, branch `arc/rubin-freq-bace`. Private; not for circulation.
+Bundle date 2026-09-26. Source: `arc/rubin-freq-bace`.
+(The original bundle README said "Private; not for circulation" — pushing/publishing this folder
+is held until Shinichi confirms; the pristine imported bundle is git commit `eaca7e3`.)
+
+## 2026-10 re-run — this directory is now the live campaign
+
+The 2026-09 results below were produced with the PRE-FIX BACE package (its "BACE as shipped" arm
+measured the improper-MI defect this study itself identified, independently reported in PR #15
+and fixed in BACE 0.1.0 on 2026-10-26). The campaign is being re-run on the corrected package:
+
+- Arms: `freqA`, `freqB` (Rphylopars on continuous traits, castor on discrete — display names
+  match the ms software table), `bace` (**"Current BACE"**: each final dataset from an
+  independent run with 3 internal Gibbs sweeps — the released algorithm) and `bace_chain`
+  (the 2026-09 chained variant, pinned to `sweeps = 1` per link, kept for comparison).
+  The `bace_resid` negative control is retired with the defect it probed.
+- Local launcher: `code/rubin_campaign_local.sh` (tiered, resumable; see its header). The cluster
+  launchers still work with the corrected BACE installed cluster-side.
+- New results land in `results_2026-10/`; the report rebuilds from `report/` once the campaign's
+  aggregation (`code/rubin_campaign_aggregate.R`, `code/rubin_study/build_data.R`) is re-run.
+  Until then, `report/study.html` and `report/data/` describe the 2026-09 (pre-fix) run.
 
 ## Start here
 

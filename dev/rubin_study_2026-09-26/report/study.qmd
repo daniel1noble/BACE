@@ -28,10 +28,16 @@ fits <- utils::read.csv(file.path(d, "fits.csv"), stringsAsFactors = FALSE)
 diag <- utils::read.csv(file.path(d, "bace_diagnostics.csv"), stringsAsFactors = FALSE)
 dfits <- dd("fits.csv"); dcl <- dd("agg_disc_cells_l.csv"); ddn <- dd("agg_disc_down.csv")
 dpr <- dd("agg_disc_paired.csv"); rp <- dd("repro.csv"); tt <- dd("truth_slope_c1_bin.csv")
-# display labels: the frequentist methods are Rphylopars (continuous) and castor (discrete)
-lab <- c(complete = "complete data", freqA = "frequentist, proper", freqB = "frequentist, fixed parameters",
-         bace = "BACE as shipped", bace_chain = "chained BACE", bace_resid = "BACE + extra residual (control)")
-labd <- c(lab, freqA_er = "frequentist proper, equal rates", mode_floor = "most frequent class")
+# display labels: package names match the ms software-comparison table (Table 1). The same internal
+# arm codes are Rphylopars-based on continuous traits (lab) and castor-based on discrete traits
+# (labd). "Current BACE" = the corrected package (2026-10: independent final runs, 3 Gibbs sweeps
+# each); the 2026-09 "BACE as shipped" and "BACE + extra residual" arms are retired (git: eaca7e3).
+lab <- c(complete = "complete data", freqA = "Rphylopars (proper)", freqB = "Rphylopars (fixed parameters)",
+         bace = "Current BACE", bace_chain = "chained BACE")
+labd <- c(complete = "complete data", freqA = "castor (bootstrapped rates)", freqB = "castor (fixed rates)",
+          bace = "Current BACE", bace_chain = "chained BACE",
+          freqA_er = "castor (equal rates)", freqB_er = "castor (equal rates, fixed)",
+          mode_floor = "most frequent class")
 ord <- names(lab)
 f3 <- function(x) formatC(as.numeric(x), format = "f", digits = 3)
 f2 <- function(x) formatC(as.numeric(x), format = "f", digits = 2)
@@ -49,8 +55,10 @@ wide <- function(df, value, se = NULL, rows = c("n", "lambda"), arms = ord) {
 }
 library(ggplot2)
 knitr::opts_chunk$set(dev = "ragg_png", dpi = 200)
-pal <- c("complete data" = "#7b8580", "frequentist, proper" = "#d4891a", "frequentist, fixed parameters" = "#b565a0",
-         "BACE as shipped" = "#c4452b", "chained BACE" = "#2c6b59", "BACE + extra residual (control)" = "#5b82c0")
+pal <- c("complete data" = "#7b8580", "Rphylopars (proper)" = "#d4891a", "Rphylopars (fixed parameters)" = "#b565a0",
+         "castor (bootstrapped rates)" = "#d4891a", "castor (fixed rates)" = "#b565a0",
+         "castor (equal rates)" = "#e0b25c", "castor (equal rates, fixed)" = "#caa0c0",
+         "Current BACE" = "#c4452b", "chained BACE" = "#2c6b59", "most frequent class" = "#9aa5a0")
 theme_rubin <- theme_minimal(base_size = 12) +
   theme(panel.grid.minor = element_blank(), panel.grid.major.x = element_blank(),
         strip.text = element_text(face = "bold", hjust = 0, size = 12), legend.position = "bottom",

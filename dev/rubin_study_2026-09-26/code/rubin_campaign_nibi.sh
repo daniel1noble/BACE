@@ -7,7 +7,7 @@
 #   ARMSET=freq  N=1000 TIME=01:30:00 BLOCK=10 SEEDS=1-200 bash script/rubin_campaign_nibi.sh
 #   ARMSET=bace  N=300  TIME=04:30:00 BLOCK=1  SEEDS=1-200 RUNS=5 NITT=50000 MEM=16G bash script/rubin_campaign_nibi.sh
 #
-# ARMSET=freq runs freqA,freqB; ARMSET=bace runs bace,bace_chain,bace_resid on one BACE fit. Each task runs
+# ARMSET=freq runs freqA,freqB; ARMSET=bace runs bace,bace_chain on one BACE fit (Current BACE + chained comparison). Each task runs
 # BLOCK consecutive seeds of one cell. Seeds are shared across arm sets, so a (cell, seed) is the same simulated
 # dataset for every arm: freq and BACE results pair by seed. nibi caps a user at 1,000 submitted array tasks:
 # the script refuses a submission above THROTTLE_CAP (default 900) and prints the block size that fits.
@@ -27,7 +27,7 @@ S0="${SEEDS%-*}"; S1="${SEEDS#*-}"
 
 case "$ARMSET" in
   freq) ARMS="freqA,freqB"; EXTRA="" ;;
-  bace) ARMS="bace,bace_chain,bace_resid"
+  bace) ARMS="bace,bace_chain"
         BURNIN=$(( NITT / 5 )); THIN=$(( (NITT - BURNIN) / 1600 ))
         EXTRA="--bace_nitt $NITT --bace_burnin $BURNIN --bace_thin $THIN --bace_runs $RUNS" ;;
   *) echo "ARMSET must be freq or bace"; exit 1 ;;

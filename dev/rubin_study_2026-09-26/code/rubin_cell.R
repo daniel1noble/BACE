@@ -10,16 +10,17 @@
 # scored against rho. Each cell also carries a "complete" row (the same estimands on the complete data, same df
 # convention), because the complete-data coverage itself falls short of 0.95 at small n (Meng review N3).
 #
-# Arms: freqA (parametric bootstrap then joint conditional draw), freqB (joint conditional draws at one fixed
-# Rphylopars-lambda fit), bace (as shipped: the installed build draws one posterior iteration plus a residual per
-# final run, but every final run starts from the same converged dataset; Meng review B2), bace_resid (BACE plus
-# a second, post hoc residual draw: a negative control, not a fix), bace_chain (BACE's own final step run M times,
-# each run starting from the previous draw instead of the shared converged dataset; paired with bace on one fit).
+# Arms (2026-10 campaign, corrected BACE package): freqA (Rphylopars: parametric bootstrap then joint
+# conditional draw -- "proper"), freqB (Rphylopars: joint conditional draws at one fixed lambda fit),
+# bace ("Current BACE": the installed corrected build -- each final dataset from an independent run with
+# 3 internal Gibbs sweeps; the 2026-09 "as shipped" arm measured the pre-fix package and is obsolete),
+# bace_chain (the 2026-09 chained variant, one sweep per link, kept for comparison; paired with bace on
+# one fit). The 2026-09 bace_resid negative control is removed with the defect it probed (git: eaca7e3).
 # Each arm reseeds with seed + a fixed offset, so an arm's draws do not depend on which arms ran before it.
 #
 # Usage:
 #   Rscript script/rubin_cell.R --n 100 --seed 1 --lambda 0.7 --rho 0.5 --out results/ \
-#           [--arms freqA,freqB,bace,bace_chain,bace_resid] [--M 20] [--miss mcar --frac 0.30] \
+#           [--arms freqA,freqB,bace,bace_chain] [--M 20] [--miss mcar --frac 0.30] \
 #           [--thresholds fixed] [--no_driver] [--save_imp] [--discrete] \
 #           [--bace_nitt 50000 --bace_burnin 10000 --bace_thin 25 --bace_runs 10] [--smoke]
 #
@@ -39,7 +40,7 @@ get_arg <- function(flag, default = NULL) {
 n        <- as.integer(get_arg("--n", 100L))
 seed     <- as.integer(get_arg("--seed", 1L))
 out      <- get_arg("--out", "results")
-arms     <- strsplit(get_arg("--arms", "freqA,freqB,bace,bace_chain,bace_resid"), ",")[[1]]
+arms     <- strsplit(get_arg("--arms", "freqA,freqB,bace,bace_chain"), ",")[[1]]
 M        <- as.integer(get_arg("--M", 20L))
 lambda   <- as.numeric(get_arg("--lambda", 0.7))
 rho      <- as.numeric(get_arg("--rho", 0.5))
@@ -229,14 +230,13 @@ if ("freqB" %in% arms) {
                                  continuous = FALSE)
   }
 }
-if (any(c("bace", "bace_resid", "bace_chain") %in% arms)) {
+if (any(c("bace", "bace_chain") %in% arms)) {
   arm_seed(303L)
   fb <- run_arm("bace_fit", fit_bace_mi(cell, M = M, nitt = bace_nitt, burnin = bace_burnin, thin = bace_thin,
                                         runs = bace_runs))
   if (!is.null(fb)) {
     diag$bace <- fb$diag
     if ("bace" %in% arms) score_arm_sets("bace", mi_bace_shipped(fb$outb, df_miss))
-    if ("bace_resid" %in% arms) score_arm_sets("bace_resid", mi_bace_resid(fb$outb, df_miss, seed = seed))
     if ("bace_chain" %in% arms) {
       arm_seed(404L); ch <- run_arm("bace_chain", mi_bace_chain(fb, df_miss, M = M))
       if (!is.null(ch)) score_arm_sets("bace_chain", ch$datasets)

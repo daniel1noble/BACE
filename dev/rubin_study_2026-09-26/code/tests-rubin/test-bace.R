@@ -1,11 +1,7 @@
 # script/tests-rubin/test-bace.R
-# Gate G-S3 for the two BACE arms in script/rubin_bace.R: mi_bace_shipped() (BACE's own n_final
-# datasets, untouched) and mi_bace_resid() (BACE's shipped datasets plus an independent per-cell
-# residual draw on gaussian-modelled missing cells, from that final fit's own VCV[,"units"]
-# posterior). See script/rubin_bace.R's header for why "BACE + residual draw" is a materially
-# different claim against the INSTALLED BACE package than against the stale on-disk BACE/R
-# source -- this test exercises the installed package (the one BACE::bace() actually is here),
-# not the source comments.
+# Gate G-S3 for the BACE arm in script/rubin_bace.R: fit_bace_mi() + mi_bace_shipped() (BACE's
+# own n_final datasets, untouched -- "Current BACE" against the installed, corrected package).
+# The 2026-09 mi_bace_resid() tests were removed with that arm (git: eaca7e3).
 #
 # ONE tiny shared BACE fit for all three expectations (n = 40, seed = 1, lambda = 0.7, rho = 0.5,
 # nitt = 3000, burnin = 1000, thin = 10, runs = 2, M = 5) -- BACE itself dominates runtime, so
@@ -59,61 +55,15 @@ testthat::test_that("mi_bace_shipped is outb$imputed_datasets, aligned to df_mis
   }
 })
 
-testthat::test_that("mi_bace_resid leaves observed cells untouched and changes missing gaussian cells", {
-  resid <- mi_bace_resid(fit$outb, df_miss, seed = 20260924L)
-  testthat::expect_length(resid, M)
-
-  types <- fit$outb$final_results$types
-  gaussian_traits <- intersect(names(df_miss),
-                               names(types)[vapply(types, identical, logical(1), y = "gaussian")])
-  testthat::expect_true(all(c("c1", "c2", "prp") %in% gaussian_traits))
-  testthat::expect_false("cnt" %in% gaussian_traits)   # count trait, poisson-classified by BACE
-
-  for (i in seq_len(M)) {
-    for (v in names(df_miss)) {
-      obs_idx <- which(!is.na(df_miss[[v]]))
-      # observed cells: bit-identical to df_miss, for every trait, in every dataset
-      testthat::expect_equal(as.character(resid[[i]][[v]][obs_idx]), as.character(df_miss[[v]][obs_idx]),
-                             info = sprintf("dataset %d, trait %s (observed cells)", i, v))
-      miss_idx <- which(is.na(df_miss[[v]]))
-      if (!length(miss_idx)) next
-      if (v %in% gaussian_traits) {
-        # missing gaussian cells: resid != shipped (an independent continuous draw was added)
-        testthat::expect_false(isTRUE(all.equal(resid[[i]][[v]][miss_idx], shipped[[i]][[v]][miss_idx])),
-                               info = sprintf("dataset %d, trait %s (missing, gaussian)", i, v))
-      } else {
-        # missing non-gaussian cells: untouched, identical to the shipped BACE prediction
-        testthat::expect_equal(as.character(resid[[i]][[v]][miss_idx]), as.character(shipped[[i]][[v]][miss_idx]),
-                               info = sprintf("dataset %d, trait %s (missing, non-gaussian)", i, v))
-      }
-    }
+testthat::test_that("Current BACE's imputations differ across datasets at missing predictor cells (the 2026-10 fix)", {
+  # The 2026-09 package left every non-response trait's missing cells identical across the M
+  # datasets (one shared point-filled start). The corrected package sweeps each run, so for every
+  # trait with missing data the M imputed values at a missing cell must VARY across datasets.
+  for (v in names(df_miss)) {
+    miss_idx <- which(is.na(df_miss[[v]]))
+    if (!length(miss_idx)) next
+    draws <- sapply(shipped, function(s) as.character(s[[v]][miss_idx[1]]))
+    testthat::expect_gt(length(unique(draws)), 1L,
+                        label = sprintf("distinct imputed values across %d datasets for trait %s", M, v))
   }
-})
-
-testthat::test_that("residual draw variance matches mean(VCV[,'units']) * sd_val^2 within 5%", {
-  # One dataset/trait (i = 1, v = "c1"). Replicate the draw at ONE missing cell 4000 times, with the
-  # sampled VCV iteration drawn fresh each replicate (a fresh seed per call to mi_bace_resid()), and
-  # compare the empirical variance of the added noise to the theoretical target computed from the
-  # SAME sd_val reconstruction mi_bace_resid() itself uses (.bace_gaussian_sd(), exported by
-  # rubin_bace.R) -- this checks the sampling mechanics (right VCV column, sd not variance, no
-  # off-by-scale error), not BACE's own internals.
-  i <- 1L; v <- "c1"
-  miss_idx <- which(is.na(df_miss[[v]]))
-  testthat::expect_true(length(miss_idx) > 0)
-  row1 <- miss_idx[1]
-
-  n_rep <- 4000L
-  noise <- numeric(n_rep)
-  base <- shipped[[i]][[v]][row1]
-  for (r in seq_len(n_rep)) {
-    draw <- mi_bace_resid(fit$outb, df_miss, seed = r)
-    noise[r] <- draw[[i]][[v]][row1] - base
-  }
-
-  sd_val <- .bace_gaussian_sd(df_miss, v)
-  units <- as.matrix(fit$outb$final_results$all_models[[i]][[v]]$VCV)[, "units"]
-  theoretical_var <- mean(units) * sd_val^2
-  empirical_var <- stats::var(noise)
-
-  testthat::expect_equal(empirical_var, theoretical_var, tolerance = 0.05)
 })

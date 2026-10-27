@@ -16,13 +16,15 @@ if (identical(gate, "G-S4a")) {
   f <- list.files(dir, "^rubin_.*\\.rds$", full.names = TRUE)
   stopifnot("no rubin rds in --dir" = length(f) >= 1L)
   x <- readRDS(f[1])
-  want <- c("freqA", "freqB", "bace", "bace_chain", "bace_resid")
+  want <- c("freqA", "freqB", "bace", "bace_chain")
   stopifnot("errors recorded" = length(x$errors) == 0L,
             "missing arm in cells" = all(want %in% x$cells$arm),
             "missing arm in estimands" = all(want %in% x$estimands$arm))
   cc <- x$cells
   stopifnot("non-finite per-cell score" = all(is.finite(cc$zRMSE) & is.finite(cc$coverage) & is.finite(cc$width)),
-            "zero-width intervals outside bace (as shipped)" = all(cc$frac_B0[cc$arm != "bace"] == 0))
+            # pre-fix BACE produced zero-width intervals (shared point fills); the corrected
+            # package must not, in ANY arm -- a regression tripwire for the 2026-10 campaign
+            "zero-width intervals in any arm" = all(cc$frac_B0 == 0))
   stopifnot("complete-data reference row missing" = sum(x$estimands$arm == "complete") == 2L)
   e <- x$estimands[x$estimands$arm %in% want, ]
   stopifnot("both estimands per arm" = all(table(e$arm)[want] == 2L),

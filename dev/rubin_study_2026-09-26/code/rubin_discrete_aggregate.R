@@ -427,13 +427,9 @@ aggregate_disc <- function(pool, truth_csv, out, cont_pool = NULL) {
   agg_paired <- pair_disc(FC)
   rp <- repro_check(fits, cont_pool)
 
-  # construction checks: BACE + residual perturbs Gaussian traits only, so its discrete scores are BACE's; the
-  # mode floor and the complete-data c1 ~ bin estimate are properties of the dataset, so equal across its fits
+  # construction checks: the mode floor and the complete-data c1 ~ bin estimate are properties of
+  # the dataset, so equal across its fits (the 2026-09 bace_resid cross-check was removed with that arm)
   sc <- FC[FC$status == "scored", ]
-  rb <- merge(sc[sc$arm == "bace", c("tag", "trait", CELL_METRICS)], sc[sc$arm == "bace_resid", c("tag", "trait", CELL_METRICS)],
-              by = c("tag", "trait"))
-  d_resid <- if (nrow(rb)) max(abs(as.matrix(rb[paste0(CELL_METRICS, ".x")]) - as.matrix(rb[paste0(CELL_METRICS, ".y")])),
-                              na.rm = TRUE) else NA
   spread <- function(v, g) if (length(v)) max(tapply(v, g, function(a) diff(range(a)))) else NA
   mf <- sc[sc$arm == "mode_floor", ]; ce <- FE[FE$status == "scored", ]
   na_d <- sc[sc$arm != "mode_floor" & sc$n_na > 0, ]
@@ -450,8 +446,6 @@ aggregate_disc <- function(pool, truth_csv, out, cont_pool = NULL) {
             if (both) max_dc1 else NA),
     sprintf("same dataset across fits: max range of the mode floor %.2e, of the complete-data c1 ~ bin estimate %.2e",
             spread(mf$accuracy, paste(mf$tag, mf$trait)), spread(ce$complete_data, ce$tag)),
-    sprintf("BACE + residual vs BACE as shipped, discrete per-value scores: max |difference| %s",
-            format(signif(d_resid, 3))),
     sprintf("per-value rows (fit x arm x trait, mode floor included): scored %d, one class in the complete data %d, missing %d",
             sum(FC$status == "scored"), sum(FC$status == "one_class"), sum(FC$status == "missing")),
     sprintf("c1 ~ bin rows (fit x arm): scored %d, bin one class in the complete data %d, undefined (bin constant in every imputed dataset) %d, missing %d",

@@ -7,7 +7,7 @@
 #   bash script/rubin_prerun_nibi.sh check        # one short validation job (gate tests + a BACE smoke)
 #   bash script/rubin_prerun_nibi.sh submit       # the four pre-run arrays
 #
-# One array task = one BACE fit (arms bace, bace_chain, bace_resid share it). Arrays are split by
+# One array task = one BACE fit (arms bace, bace_chain share it). Arrays are split by
 # (n, nitt) so each --time is sized to its own slowest setting: cost = nitt x (runs + 40) units at
 # 0.93 ms/unit (n = 100) and 2.44 ms/unit (n = 300), rates from v1's nibi BACE fits, plus ~70% margin.
 # Resume is free: rubin_cell.R skips a cell whose rds exists. This script only writes and submits sbatch
@@ -84,7 +84,7 @@ while read -r N NITT TIME; do
   TASKS="$LOG/prerun_n${N}_nitt${NITT}_tasks.txt"; : > "$TASKS"
   burnin=$(( NITT / 5 )); thin=$(( (NITT - burnin) / 1600 ))
   for runs in 15 10 5; do for lambda in 0.3 0.7; do for rho in 0 0.5; do for seed in 1 2 3 4 5; do
-    echo "--n $N --seed $seed --lambda $lambda --rho $rho --M 20 --arms bace,bace_chain,bace_resid --bace_nitt $NITT --bace_burnin $burnin --bace_thin $thin --bace_runs $runs --out $OUT/runs${runs}_nitt${NITT}" >> "$TASKS"
+    echo "--n $N --seed $seed --lambda $lambda --rho $rho --M 20 --arms bace,bace_chain --bace_nitt $NITT --bace_burnin $burnin --bace_thin $thin --bace_runs $runs --out $OUT/runs${runs}_nitt${NITT}" >> "$TASKS"
   done; done; done; done
   NT=$(wc -l < "$TASKS")
   SB="$LOG/prerun_n${N}_nitt${NITT}.sbatch"

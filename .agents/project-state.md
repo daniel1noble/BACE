@@ -59,6 +59,22 @@ fixed package (HPC launchers are in `code/`). NOTE: bundle README says
 "Private; not for circulation" — import committed locally but NOT pushed
 until Dan confirms with Shinichi (BACE repo is public).
 
+**2026-10-27, Rubin-study harness converted for the re-run (in place, per
+Dan):** arm `bace` = **"Current BACE"** (corrected package, plain
+`BACE::bace()`); "as shipped" + `bace_resid` retired; `bace_chain` kept,
+pinned to `sweeps = 1`/link; display labels match the ms software table
+(Rphylopars / castor; castor still needs a Table-1 row). New local launcher
+`code/rubin_campaign_local.sh` (tiered, resumable); `script -> code` symlink
+restores his path convention; Rphylopars 0.3.10 + castor 1.8.7 installed
+(his exact versions). Package hardened (a80586d): warm-up sweep fit failures
+skip that variable's update instead of killing the cell (surfaced by his
+λ=1 fixed-thresholds fixture; lambda-1 cells would otherwise fail at
+elevated rates). Validated: smoke cell green (all arms, zero errors),
+BACE suite 1422/0, HIS suite 398/0 on the corrected package. Campaign NOT
+launched — venue decision pending (full grid ≈ 7,500 core-h ≈ 5 weeks on
+this Mac; HPC recommended). Morning's win-builder upload predates a80586d —
+rebuild tarball + re-upload once the day's package changes settle.
+
 **2026-10-27, software-comparison table (Track C):** `ms/ms.qmd` "Gap in
 current tooling" now carries a 16-row feature table (`#tbl-software`) —
 phylogeny / proper MI / multilevel / five variable types — replacing the
