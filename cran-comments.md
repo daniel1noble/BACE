@@ -24,7 +24,7 @@ resolves normally in a browser.
 * All examples are executable. Examples that fit MCMC models are wrapped in
   \donttest{} and use deliberately small simulated datasets and short chains;
   the full set (including \donttest) completes in roughly 10 seconds locally.
-* The test suite (1418 tests) completes in about two minutes: MCMC-dependent
+* The test suite (1424 tests) completes in about two minutes: MCMC-dependent
   tests use very small chains, and the heaviest scenarios are additionally
   guarded with skip_on_cran().
 * Words flagged by spell checking are statistical/phylogenetics terminology,

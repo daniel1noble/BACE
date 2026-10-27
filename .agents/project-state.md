@@ -138,8 +138,10 @@ detached `nohup … caffeinate -i`, PID in
 resumable). Next after n=100 tier: interim read; after completion:
 aggregate + build the BACE-only accuracy/bias/coverage figures into
 `ms/ms.qmd` (Dan: "we build these figures into the paper with just BACE").
-Win-builder: full local R CMD check re-run + fresh upload from post-fix
-source in progress 2026-10-28.
+Win-builder: 2026-10-28 local R CMD check on post-fix source **0e/0w/0n**;
+fresh tarball uploaded to win-builder R-devel (supersedes the 2026-10-27
+round — Dan's results email will reference this build; CRAN still ON HOLD
+until the PR #15 reply is posted and Dan gives the go).
 
 **2026-10-27, software-comparison table (Track C):** `ms/ms.qmd` "Gap in
 current tooling" now carries a 16-row feature table (`#tbl-software`) —
