@@ -1,0 +1,4 @@
+BACE 0.1.0 | MCMCglmm 2.36 | Rphylopars 0.3.10 | castor 1.8.7 
+72 cells queued -> /Users/noble/Library/CloudStorage/Dropbox/1_Research/1_Manuscripts/In_Preparation/BACE/dev/rubin_study_2026-09-26/code/../results_2026-10  (cores = 7; resume = on: existing rds are skipped)
+progress: grep -c 'wrote' /Users/noble/Library/CloudStorage/Dropbox/1_Research/1_Manuscripts/In_Preparation/BACE/dev/rubin_study_2026-09-26/code/../results_2026-10/campaign.log   |   stop any time: kill this script
+campaign pass finished: 73 rds present
