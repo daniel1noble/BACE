@@ -6,8 +6,12 @@ format:
   docx:
     reference-doc: ../bib/template.docx
   pdf:
-    include-in-header: 
-      text: \usepackage{bm}\usepackage{lineno}\linenumbers
+    include-in-header:
+      text: |
+        \usepackage{bm}\usepackage{lineno}\linenumbers
+        \usepackage{pifont}\usepackage{newunicodechar}
+        \newunicodechar{✓}{\ding{51}}
+        \newunicodechar{✗}{\ding{55}}
   html:
     toc: true
     toc-location: left
@@ -93,7 +97,7 @@ Two gaps stand out. First, no existing tool combines a phylogeny with proper mul
 
 *BACE* fills the empty cell: chained-equations multiple imputation in which every conditional model is a phylogenetic mixed model, supporting continuous, count, binary, ordinal and nominal traits, accommodating replicated species, and propagating both parameter and imputation uncertainty into downstream analyses.
 
-| Package | Phylogeny | Proper MI | Multilevel | Cont. | Count | Binary | Ordinal | Nominal | Key reference |
+| Package | Phylo. | MI | Multi. | Cont. | Count | Bin. | Ord. | Nom. | Reference |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---|
 | **BACE** | **✓** | **✓** | (✓)^a^ | **✓** | **✓** | **✓** | **✓** | **✓** | this paper |
 | Rphylopars | ✓ | ✗^b^ | (✓)^c^ | ✓ | ✗ | ✗ | ✗ | ✗ | @goolsby2017 |
@@ -112,7 +116,7 @@ Two gaps stand out. First, no existing tool combines a phylogeny with proper mul
 | smcfcs | ✗ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | @bartlett2015 |
 | missForest | ✗ | ✗^t^ | ✗ | ✓ | ✗ | (✓)^u^ | ✗ | ✓ | @stekhoven2012 |
 
-: R tools for imputing missing data, against the needs of phylogenetic comparative analysis. *Phylogeny*: a tree-derived covariance informs the imputation. *Proper MI*: multiple imputed datasets (or an integrated Bayesian posterior) are produced, so downstream analyses reflect imputation uncertainty. *Multilevel*: non-independence beyond the phylogeny (random effects / clustered rows). Variable-type columns: an explicit imputation model for continuous, count, binary, ordinal (treated as ordered) and nominal (unordered multinomial) variables. ✓ = documented in the package's reference documentation (October 2026); (✓) = partial (see notes); ✗ = not documented. {#tbl-software}
+: R tools for imputing missing data, against the needs of phylogenetic comparative analysis. *Phylogeny*: a tree-derived covariance informs the imputation. *Proper MI*: multiple imputed datasets (or an integrated Bayesian posterior) are produced, so downstream analyses reflect imputation uncertainty. *Multilevel*: non-independence beyond the phylogeny (random effects / clustered rows). Variable-type columns: an explicit imputation model for continuous, count, binary, ordinal (treated as ordered) and nominal (unordered multinomial) variables. ✓ = documented in the package's reference documentation (October 2026); (✓) = partial (see notes); ✗ = not documented. Column abbreviations: Phylo. = phylogeny; MI = proper multiple imputation; Multi. = multilevel; Cont. = continuous; Bin. = binary; Ord. = ordinal; Nom. = nominal. {#tbl-software tbl-colwidths="[13,8,8,9,8,8,8,8,9,21]"}
 
 ::: {.table-notes}
 ^a^ Phylogenetic random effect plus an optional non-phylogenetic species effect for species with replicated rows; arbitrary further grouping factors are not supported. ^b^ Single predicted value with a prediction variance per missing cell. ^c^ Multiple observations per species (within-species variation), not general grouping factors. ^d^ Not on CRAN (GitHub only); *phylomice* is experimental and last updated in 2016; *TDIP*'s documentation cites no publication (we cite the authors' benchmark paper). ^e^ Returns single completed datasets (including a majority-vote ensemble); no pooling or between-imputation variance. ^f^ "Ordinal" appears only as a simulated trait class; the imputation methods document unordered polytomous regression and generic discrete models. ^g^ Hierarchy is taxonomic (species/genus/family), not a phylogeny with branch lengths. ^h^ Single imputed matrix with a per-cell standard deviation. ^i^ Archived from CRAN in 2017. ^j^ Two-level normal and logistic methods only. ^k^ No count method: the documented defaults cover numeric, binary, unordered-factor and ordered-factor variables only. ^l^ The multilevel routine states "Nominal variables with missing values cannot (yet) be handled"; ordinal variables are imputed by predictive mean matching rather than an ordinal model. ^m^ No two-level ordinal or nominal methods; falls back to *mice*'s single-level proportional-odds and polytomous methods. ^n^ Imputation families are gaussian/binomial only; ordered models appear only as substantive-model-compatible outcomes (`jomo.polr`, `jomo.clmm`) — the general joint model treats categorical variables as unordered. ^o^ Front-end to *pan* and *jomo*; type support is inherited, and ordered factors are not distinguished. ^p^ Removed from CRAN in 2022; its pooling helper averages estimates without variances and defers to `mice::pool`. ^q^ Multilevel models in the fully Bayesian estimation path only. ^r^ Nominal covariate models "will be included in future mdmb package versions". ^s^ Imputation is integrated with the analysis model (fully Bayesian); multiply imputed datasets can be exported (`get_MIdat()`). ^t^ Single completed dataset; the out-of-bag error estimates accuracy, not imputation uncertainty. ^u^ Factors via classification forests; ordered factors are not handled as ordered.
