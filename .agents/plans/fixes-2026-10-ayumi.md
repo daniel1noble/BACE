@@ -20,9 +20,12 @@
       2026-10-27: numerically identical to the 2026-08 run (max |Δ slope|
       ≈ 1e-8; 240/240 replicates ok). No regression; the sweeps auto-collapse
       on single-missing-variable data is confirmed empirically.
-- [ ] dev/13 categorical cells re-run (quantify problem 5) — RUNNING
-      2026-10-27 (~2 h; 1000 reps/cell, same seeds as 2026-08; log:
-      dev/simulation_results/logs/response_type_categorical_rerun_2026-10.log)
+- [x] dev/13 categorical cells re-run — DONE 2026-10-27 (1000 reps/cell,
+      same seeds; 60 min). vs stale 2026-08: accuracy 0.783→0.799 (MCAR),
+      0.807→0.815 (MAR); balanced accuracy 0.635→0.651, 0.628→0.642 (~90%
+      of the Bayes ceiling, from ~88%); prob-set coverage 0.984→0.99
+      (slightly more conservative); runtime HALVED (22→12.5 s/rep,
+      vectorised prediction). 1 failure/2000 (singular MME, known class)
 - [x] R CMD check --as-cran — PASSED 2026-10-27 (tarball from current main):
       only the unavoidable "New submission" NOTE + a coveralls-badge 403
       false positive (explain in cran-comments.md at submission)

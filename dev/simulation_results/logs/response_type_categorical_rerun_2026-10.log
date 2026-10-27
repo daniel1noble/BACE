@@ -1,0 +1,55 @@
+Response-type sim v2: 5 types x 2 mech x 1000 reps | nspp=80 phylo=0.90 nitt=4000 n_final=15 cores=7
+Started: 2026-10-27 10:01:45 
+[skip] gaussian MCAR (chunk exists)
+[skip] gaussian MAR (chunk exists)
+[skip] poisson MCAR (chunk exists)
+[skip] poisson MAR (chunk exists)
+[skip] binary MCAR (chunk exists)
+[skip] binary MAR (chunk exists)
+[skip] ordinal MCAR (chunk exists)
+[skip] ordinal MAR (chunk exists)
+[10:31] categorical MCAR : 999/1000 ok, 29.8 min
+[11:01] categorical MAR  : 1000/1000 ok, 30.3 min
+
+=== Per-response-type recovery (mean over replicates) ===
+        type mechanism    n runtime_s recovery recovery_spearman recovery_log
+    gaussian       MAR 1000      10.2    0.830             0.795        0.785
+    gaussian      MCAR 1000      10.0    0.881             0.852        0.828
+     poisson       MAR 1000      12.1    0.687             0.713        0.751
+     poisson      MCAR 1000      11.9    0.744             0.706        0.782
+      binary       MAR  999      11.3    0.859               NaN          NaN
+      binary      MCAR 1000      11.3    0.855               NaN          NaN
+     ordinal       MAR  999      11.8    0.877               NaN          NaN
+     ordinal      MCAR 1000      11.8    0.871               NaN          NaN
+ categorical       MAR 1000      12.6    0.815               NaN          NaN
+ categorical      MCAR  999      12.5    0.799               NaN          NaN
+ balanced_accuracy balanced_accuracy_prob bayes_bal_acc   bias bias_mean
+               NaN                    NaN           NaN  0.005     0.004
+               NaN                    NaN           NaN -0.005    -0.004
+               NaN                    NaN           NaN  0.035     0.178
+               NaN                    NaN           NaN  0.075     0.150
+             0.785                  0.787           NaN -0.041    -0.046
+             0.826                  0.828           NaN  0.000     0.001
+             0.820                  0.830           NaN -0.014    -0.015
+             0.831                  0.843           NaN  0.000    -0.001
+             0.642                  0.643         0.709  0.094     0.105
+             0.651                  0.648         0.722  0.079     0.088
+ bias_mcse cover95 cover95_t cover95_prob cover95_mcse
+    0.0062   0.844     0.949          NaN       0.0028
+    0.0039   0.845     0.947          NaN       0.0028
+    0.0168   0.867     0.916          NaN       0.0029
+    0.0103   0.902     0.932          NaN       0.0022
+    0.0076   0.983       NaN        0.941       0.0009
+    0.0057   0.981       NaN        0.938       0.0009
+    0.0046   0.991       NaN        0.959       0.0007
+    0.0032   0.990       NaN        0.957       0.0007
+    0.0021   0.985       NaN        0.993       0.0008
+    0.0016   0.982       NaN        0.992       0.0009
+
+9997 ok / 10000 total. Wallclock: 60.1 min.
+Failures:
+
+                              error: argument is of length zero 
+                                                              2 
+error: Mixed model equations singular: use a (stronger) prior\n 
+                                                              1 

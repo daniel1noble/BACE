@@ -75,12 +75,21 @@ approximately-stationary draw, so they keep full burn-in but a 50-draw tail
   accuracy, wall time. k=1 column = published quantification of the old bug.
   **Done 2026-10-27** → results below; raw output in
   `dev/simulation_results/sweeps_calibration.{rds,log}` (currently gitignored).
-- Study A re-run (dev/12, y-only; sweeps auto-collapse) as a no-regression
-  guard, and dev/13 categorical cells to quantify problem 5's cost — queued
-  after calibration.
-- The 2026-08 categorical Study B numbers are **stale by construction** (they
-  were produced with the phylogeny silently off) and must be regenerated for
-  the manuscript.
+- Study A re-run DONE 2026-10-27: numerically identical to the 2026-08 run
+  (max |Δ slope| ≈ 1e-8; 240/240 ok) — no regression; the sweeps
+  auto-collapse on y-only data confirmed empirically.
+- dev/13 categorical cells DONE 2026-10-27 (1000 reps/cell, same seeds as
+  2026-08; the stale cells are archived in
+  `dev/simulation_results/archive_2026-08_pre-oct-fixes/`). Fixed vs stale:
+  accuracy 0.783→0.799 (MCAR), 0.807→0.815 (MAR); balanced accuracy
+  0.635→0.651, 0.628→0.642 — ~90% of the 0.722/0.709 Bayes ceilings (from
+  ~88%); prob-set 95% coverage 0.984→0.992/0.993 (the posterior-averaged
+  probabilities are slightly more conservative); class-proportion bias
+  0.111→0.105 (MAR); runtime HALVED (22→12.5 s/rep — the vectorised
+  prediction refactor). 1 failure/2000 (singular MME), same class as the
+  three known 2026-08 failures. The modest accuracy gain is expected: this
+  DGP's signal is mostly in the fixed effects; the fix matters most when
+  phylogeny is the main source of information.
 
 ## Sweeps calibration results (2026-10-27) — default sweeps = 3 CONFIRMED
 

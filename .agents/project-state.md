@@ -14,7 +14,10 @@ confirmed **all four** and found a fifth. Full write-up:
 [plans/fixes-2026-10-ayumi.md](plans/fixes-2026-10-ayumi.md). Headlines:
 1. (worst, new) Default categorical predictions silently dropped ALL
    phylogenetic effects (BLUP name mismatch) — the 2026-08 categorical sim
-   numbers are stale by construction and must be regenerated.
+   numbers were stale by construction. Regenerated 2026-10-27 (1000
+   reps/cell, same seeds): accuracy 0.799/0.815 (MCAR/MAR), balanced
+   accuracy 0.651/0.642 — ~90% of the 0.722/0.709 Bayes ceilings (from
+   ~88%) — prob-set coverage 0.992/0.993, runtime halved (22→12.5 s/rep).
 2. Final phase understated imputation uncertainty when ≥2 variables missing
    (one pass from a fixed start; first-listed variable saw identical
    predictor fills in every run) → new `sweeps` (default 3) + `seed`
@@ -31,8 +34,9 @@ investigation-2026-10.md). Study A re-run DONE 2026-10-27: numerically
 identical to the 2026-08 run (max |Δ slope| ≈ 1e-8; 240/240 ok) — no
 regression, auto-collapse confirmed on the y-only path. R CMD check --as-cran
 PASSED 2026-10-27 (only the "New submission" NOTE + coveralls-badge 403 false
-positive). Pending: dev/13 categorical cells (running), SIMULATION_REPORT
-update, tutorial re-render (running), tarball + win-builder re-run.
+positive). dev/13 categorical cells DONE 2026-10-27 (numbers above).
+Pending: SIMULATION_REPORT update, tutorial re-render (running), tarball +
+win-builder re-run.
 CRAN submission remains ON HOLD until those are green.
 - **2026-08: six root causes of the Study B performance failures found, fixed,
   and regression-tested.** Full write-up: [investigation-2026-08.md](investigation-2026-08.md).
