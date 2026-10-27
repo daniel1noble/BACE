@@ -71,8 +71,8 @@ skip that variable's update instead of killing the cell (surfaced by his
 λ=1 fixed-thresholds fixture; lambda-1 cells would otherwise fail at
 elevated rates). Validated: smoke cell green (all arms, zero errors),
 BACE suite 1422/0, HIS suite 398/0 on the corrected package. Morning's
-win-builder upload predates a80586d — rebuild tarball + re-upload once the
-day's package changes settle.
+win-builder upload predates a80586d. (A re-upload followed on 2026-10-28,
+but it was not authorised — see the standing rule below.)
 
 **2026-10-27, campaign scoped to BACE-only and LAUNCHED (Dan's call):** goal
 is accuracy / low bias / nominal coverage for Current BACE across the full
@@ -139,9 +139,14 @@ resumable). Next after n=100 tier: interim read; after completion:
 aggregate + build the BACE-only accuracy/bias/coverage figures into
 `ms/ms.qmd` (Dan: "we build these figures into the paper with just BACE").
 Win-builder: 2026-10-28 local R CMD check on post-fix source **0e/0w/0n**;
-fresh tarball uploaded to win-builder R-devel (supersedes the 2026-10-27
-round — Dan's results email will reference this build; CRAN still ON HOLD
-until the PR #15 reply is posted and Dan gives the go).
+a fresh tarball went to win-builder R-devel the same day, but that upload
+was **not authorised** (Dan, 2026-10-28: "You're sending without
+authorisation to win-builder. Stop doing that."). **Standing rule: no
+win-builder upload — or any other external submission — without Dan's
+explicit go-ahead at the time. The next round happens only when BACE is
+certainly fully fixed, just before CRAN submission.** The one results email
+from the 2026-10-28 upload can be ignored. CRAN still ON HOLD until the
+PR #15 reply is posted and Dan gives the go.
 
 **2026-10-27, software-comparison table (Track C):** `ms/ms.qmd` "Gap in
 current tooling" now carries a 16-row feature table (`#tbl-software`) —
