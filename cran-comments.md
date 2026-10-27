@@ -11,7 +11,12 @@
 
 ## R CMD check results
 
-0 errors | 0 warnings | 0 notes
+0 errors | 0 warnings | 1 note
+
+The note is the standard "New submission" note. It also flags the coverage
+badge URL (https://coveralls.io/github/daniel1noble/BACE?branch=main) as
+possibly invalid (403): coveralls.io blocks automated requests; the badge
+resolves normally in a browser.
 
 ## Comments
 
@@ -19,7 +24,7 @@
 * All examples are executable. Examples that fit MCMC models are wrapped in
   \donttest{} and use deliberately small simulated datasets and short chains;
   the full set (including \donttest) completes in roughly 10 seconds locally.
-* The test suite (1337 tests) completes in about two minutes: MCMC-dependent
+* The test suite (1418 tests) completes in about two minutes: MCMC-dependent
   tests use very small chains, and the heaviest scenarios are additionally
   guarded with skip_on_cran().
 * Words flagged by spell checking are statistical/phylogenetics terminology,
