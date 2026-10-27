@@ -287,31 +287,6 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
         }
         n_rand_eff <- if (species) 2L else 1L
 
-        # Use the same BACE.gelman option as bace_imp (this phase used to
-        # hard-code gelman = 2, silently disagreeing with the chained phase).
-        # A user-supplied B block replaces the default anyway, so skip the
-        # Gelman construction in that case.
-        cat_gelman <- if (is.null(getOption("BACE.gelman"))) {
-          bace_option_defaults()$gelman
-        } else {
-          getOption("BACE.gelman")
-        }
-        gelman_val <- if (types[[response_var]] != "categorical") 0L
-          else if (!is.null(priors[[response_var]]$B)) 0L
-          else cat_gelman
-        prior_i <- .resolve_prior(
-          .make_prior(
-            n_rand = n_rand_eff,
-            n_levels = levels,
-            type = types[[response_var]],
-            fixform = fixform,
-            data = data_i,
-            gelman = gelman_val
-          ),
-          override = priors[[response_var]],
-          type = types[[response_var]], var = response_var
-        )
-
         if (ovr_categorical && types[[response_var]] == "categorical") {
           # One-vs-rest: J binary threshold models, aggregate probabilities
           predictions <- .fit_predict_ovr(
@@ -338,6 +313,33 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
           }
 
         } else {
+          # Use the same BACE.gelman option as bace_imp (this phase used to
+          # hard-code gelman = 2, silently disagreeing with the chained phase).
+          # A user-supplied B block replaces the default anyway, so skip the
+          # Gelman construction in that case. Like bace_imp(), the OVR branch
+          # above builds no categorical prior at all: .fit_predict_ovr()
+          # resolves threshold priors per binary sub-model.
+          cat_gelman <- if (is.null(getOption("BACE.gelman"))) {
+            bace_option_defaults()$gelman
+          } else {
+            getOption("BACE.gelman")
+          }
+          gelman_val <- if (types[[response_var]] != "categorical") 0L
+            else if (!is.null(priors[[response_var]]$B)) 0L
+            else cat_gelman
+          prior_i <- .resolve_prior(
+            .make_prior(
+              n_rand = n_rand_eff,
+              n_levels = levels,
+              type = types[[response_var]],
+              fixform = fixform,
+              data = data_i,
+              gelman = gelman_val
+            ),
+            override = priors[[response_var]],
+            type = types[[response_var]], var = response_var
+          )
+
           model <- .model_fit(
             data = data_i,
             tree = phylo,

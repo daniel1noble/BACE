@@ -18,6 +18,19 @@ results, which is why they are listed prominently.
   run; a failure in the final, kept sweep still errors, so returned results
   are never silently degraded.
 
+* **The default categorical prior no longer warns on every model build.**
+  With the default `BACE.gelman = 2`, every categorical prior construction
+  emitted "Not enough complete cases to compute Gelman prior or gelman=2"
+  even though the pseudo-Gelman prior *is* the documented default - 60+
+  spurious warnings per `bace()` call on a dataset with one categorical
+  variable, enough to bury real warnings behind R's 50-warning cap. The
+  warning now fires only on a genuine unrequested fallback (`gelman = 1`
+  with fewer complete cases than J). `bace_final_imp()` also no longer
+  builds (and then discards) a categorical prior when
+  `ovr_categorical = TRUE` delegates prior construction to the one-vs-rest
+  binary sub-models - matching `bace_imp()`, which never built one there.
+  Prior values, imputations and RNG streams are unchanged.
+
 * **Categorical imputation silently ignored the phylogeny.** The default
   (multinomial) prediction path looked species effects up under the wrong
   MCMCglmm column name, never matched, and used 0 - predictions equalled a

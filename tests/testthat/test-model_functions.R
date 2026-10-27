@@ -154,6 +154,31 @@ test_that(".make_prior gelman = 2 for categorical needs fixform + data", {
   expect_true("B" %in% names(p) || "R" %in% names(p))
 })
 
+test_that(".make_prior gelman = 2 (the default) builds the pseudo-Gelman prior silently", {
+  # Regression: the default used to warn ("Not enough complete cases ... or
+  # gelman=2") on EVERY categorical prior build - 60+ warnings per bace() call
+  # in the 2026-10 campaign - although gelman = 2 is the documented default.
+  d <- data.frame(y = factor(c("A", "B", "C", "A", "B"), levels = c("A", "B", "C")),
+                  x = rnorm(5))
+  expect_no_warning(
+    BACE:::.make_prior(n_rand = 1, n_levels = 3, type = "categorical",
+                       gelman = 2, fixform = y ~ x, data = d)
+  )
+})
+
+test_that(".make_prior warns only on the unrequested pseudo-Gelman fallback", {
+  # gelman = 1 asks for the data-dependent gelman.prior(); with fewer complete
+  # cases than J the pseudo-Gelman prior is substituted, and THAT deserves the
+  # warning (the user did not ask for it).
+  d <- data.frame(y = factor(c("A", "B", "C"), levels = c("A", "B", "C")),
+                  x = c(NA_real_, NA_real_, 1))   # 1 complete case < J = 2
+  expect_warning(
+    BACE:::.make_prior(n_rand = 1, n_levels = 3, type = "categorical",
+                       gelman = 1, fixform = y ~ x, data = d),
+    "Not enough complete cases"
+  )
+})
+
 test_that(".make_prior n_rand validation rejects > 2", {
   expect_error(BACE:::.make_prior(n_rand = 3, type = "gaussian",
                                   gelman = 0),

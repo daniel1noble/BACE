@@ -414,9 +414,13 @@
 
       complete_data <- data[complete.cases(data[, formula_vars, drop = FALSE]), ]
       
-      # Check if we have enough complete cases
-      if(nrow(complete_data) < J | gelman == 2) {
-        warning("Not enough complete cases to compute Gelman prior or gelman=2. Using pseudo-Gelman prior.")
+      # The pseudo-Gelman prior is the documented default (gelman = 2), so
+      # taking it deserves no warning; only an unrequested fallback to it
+      # (gelman = 1 without enough complete cases for gelman.prior()) does.
+      if (nrow(complete_data) < J && gelman != 2) {
+        warning("Not enough complete cases to compute the Gelman prior; using the pseudo-Gelman prior.")
+      }
+      if (nrow(complete_data) < J || gelman == 2) {
         n_fixef_total <- .count_categorical_fixef(fixform, data, n_levels)
         prior_B <- list(
           mu = rep(0, n_fixef_total),
