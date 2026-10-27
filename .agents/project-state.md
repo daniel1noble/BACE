@@ -63,17 +63,45 @@ until Dan confirms with Shinichi (BACE repo is public).
 Dan):** arm `bace` = **"Current BACE"** (corrected package, plain
 `BACE::bace()`); "as shipped" + `bace_resid` retired; `bace_chain` kept,
 pinned to `sweeps = 1`/link; display labels match the ms software table
-(Rphylopars / castor; castor still needs a Table-1 row). New local launcher
+(Rphylopars / castor). New local launcher
 `code/rubin_campaign_local.sh` (tiered, resumable); `script -> code` symlink
 restores his path convention; Rphylopars 0.3.10 + castor 1.8.7 installed
 (his exact versions). Package hardened (a80586d): warm-up sweep fit failures
 skip that variable's update instead of killing the cell (surfaced by his
 λ=1 fixed-thresholds fixture; lambda-1 cells would otherwise fail at
 elevated rates). Validated: smoke cell green (all arms, zero errors),
-BACE suite 1422/0, HIS suite 398/0 on the corrected package. Campaign NOT
-launched — venue decision pending (full grid ≈ 7,500 core-h ≈ 5 weeks on
-this Mac; HPC recommended). Morning's win-builder upload predates a80586d —
-rebuild tarball + re-upload once the day's package changes settle.
+BACE suite 1422/0, HIS suite 398/0 on the corrected package. Morning's
+win-builder upload predates a80586d — rebuild tarball + re-upload once the
+day's package changes settle.
+
+**2026-10-27, campaign scoped to BACE-only and LAUNCHED (Dan's call):** goal
+is accuracy / low bias / nominal coverage for Current BACE across the full
+grid, not a competitor race (freq arms remain one `ARMS=` env away; the
+castor Table-1-row question is moot). Pilot on this Mac: 72 cells = all 18
+scenarios × 5/5/2 seeds (n=100/300/1000), CORES=7, output
+`dev/rubin_study_2026-09-26/results_2026-10/` (untracked until the results
+policy is decided). **n=100 tier early read (30/30 cells, zero errors, zero
+fit failures):** per-value 95% coverage 0.93–0.97 for every trait × λ;
+zRMSE falls with λ exactly as it should (c1: 0.88 → 0.66 → 0.19);
+`frac_B0 = 0` everywhere (the improper-MI signature is gone); discrete
+accuracy bin/cat3/ord = 0.77/0.71/0.66 with credible-set coverage ≈ nominal;
+pooled slope/cor 95% intervals covered 30/30. **Watch-item (verified
+pre-existing, NOT from our fixes):** at ρ=0.5 point estimates attenuate
+toward zero as λ grows (slope bias ≈ −0.05/−0.05/−0.13 at λ=0.3/0.7/1,
+5 seeds). Shinichi's 2026-09 run shows the same pattern with ~40× the seeds
+(−0.016/−0.019/−0.074), his report names it ("chained BACE pulled the slope
+toward zero at n ≤ 300", fading at n=1000), and joint-normal Rphylopars sits
+at −0.02 at λ=1 — i.e. a known cost of chained univariate phylo models with
+30% missing in *all* traits at complete signal; conservative direction
+(attenuation + over-wide intervals), needs an honest ms sentence, not a code
+fix. **Bonus finding:** his 2026-09 campaign silently dropped ~16% of λ=1
+cells (198/200 recorded failures at λ=1, dominated by "Mixed model equations
+singular") — the hardened package completed all 11 λ=1 pilot cells (10 + a
+bonus seed 6), removing a selection bias his λ=1 numbers carried. Cell
+warning counts are bimodal (0 or ≥50, flushed right after `bace_fit`; the 6
+clean cells are the fast-converging λ=1 cells; a warn=1 rerun of λ=1 ρ=0.5
+seed 6 was warning-free and hit slope 0.501 on truth 0.5) — warning-text
+census of a known-warner cell (λ=0.3 ρ=0 s1) in progress.
 
 **2026-10-27, software-comparison table (Track C):** `ms/ms.qmd` "Gap in
 current tooling" now carries a 16-row feature table (`#tbl-software`) —
