@@ -1,4 +1,4 @@
-# **B**ayesian **A**ugmentation by **C**hained **E**quations (**BACE**) or BACE with phylogeny (Phylo-BACE)
+# **B**ayesian **A**ugmentation by **C**hained **E**quations (**BACE**) for Comparative Biology
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/daniel1noble/BACE/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/daniel1noble/BACE/actions/workflows/R-CMD-check.yaml)
@@ -8,7 +8,7 @@
 ![Open Source Love](https://badges.frapsoft.com/os/v2/open-source.svg?v=103)
 <!-- badges: end -->
 
-**B**ayesian **A**ugmentation by **C**hained **E**quations (**BACE**) is an R package for imputing missing data in comparative (species-level) datasets using Bayesian chained equations with a phylogenetic random effect. Each per-variable imputation model is a phylogenetic mixed model fit with [`MCMCglmm`](https://cran.r-project.org/package=MCMCglmm), so closely related taxa inform each other's imputations — something general-purpose MI tools (e.g. `mice`, `Amelia`) do not do. The package is sometimes also referred to as **Phylo-BACE**.
+**B**ayesian **A**ugmentation by **C**hained **E**quations (**BACE**) is an R package for imputing missing data in comparative (species-level) datasets using Bayesian chained equations with a phylogenetic random effect. Each per-variable imputation model is a phylogenetic mixed model fit with [`MCMCglmm`](https://cran.r-project.org/package=MCMCglmm), so closely related taxa inform each other's imputations — something general-purpose MI tools (e.g. `mice`, `Amelia`) do not do. 
 
 BACE handles mixed variable types in a single workflow:
 
@@ -68,13 +68,14 @@ A full tutorial — including when Phylo-BACE is appropriate relative to other M
 - [x] Phylogenetic random effect in every per-variable model via `MCMCglmm`
 - [x] Optional decomposition of phylogenetic and non-phylogenetic species effects (`species = TRUE`) for datasets with replicated observations per species
 - [x] Per-variable MCMC settings — `nitt`, `burnin`, `thin` can be supplied as lists to use different values for different response models
-- [x] **One-vs-rest (OVR) categorical imputation** — unordered categorical variables are modelled as J independent binary threshold models (one per level) rather than a single multinomial probit. OVR chains mix more reliably and is the default (`ovr_categorical = TRUE`); the multinomial probit remains available via `ovr_categorical = FALSE`
+- [x] **One-vs-rest (OVR) categorical imputation** — as an alternative to the default multinomial probit, unordered categorical variables can be modelled as J independent binary threshold models (one per level) via `ovr_categorical = TRUE`
 - [x] **`nitt_cat_mult` parameter** — integer multiplier applied to `nitt` and `burnin` for categorical and ordinal variables only, for cases where harder-to-mix models need longer chains
-- [x] Gelman / pseudo-Gelman prior options for categorical models to improve mixing
+- [x] Gelman / pseudo-Gelman prior options for categorical models to improve mixing, and fully user-settable priors per variable via the `priors` argument
 - [x] Convergence diagnostics across the chained-equations loop (`assess_convergence()`), with summary, Wasserstein and energy-distance methods
 - [x] Auto-restart of initial imputation when chained-equations convergence is not reached (`bace()` with `max_attempts`)
 - [x] Final independent imputations with posterior-predictive sampling (`bace_final_imp()`), so each of the `n_final` imputed datasets is a proper draw rather than a repeated point estimate — continuous variables draw from the posterior predictive via the fixed-effect design matrix, categorical/ordinal variables sample from the posterior probability distribution
 - [x] Posterior pooling across imputations by stacking per-imputation MCMC chains — a Monte Carlo approximation to the marginal posterior integrating over the imputation distribution; see `?pool_posteriors` for the references and assumptions
+- [x] **Rubin's-rules pathway** — `with_imputations()` fits any downstream analysis model to each imputed dataset and `pool_mi()` combines the estimates with Rubin's rules (Barnard–Rubin small-sample degrees of freedom, `fmi`/`riv` diagnostics; matches `mice::pool` to machine precision on identical inputs)
 - [x] Parallel execution of final imputation runs (`bace_final_imp(n_cores = …)`) via `parallel::mclapply`
 - [x] Accessor helpers `get_pooled_model()` and `get_imputed_data()` for extracting pooled models and imputed datasets from `bace_complete` / `bace_pooled` / `bace_final` objects
 - [x] Simulation engine `sim_bace()` for generating phylogenetically-structured comparative datasets with arbitrary response types, interaction terms and random slopes — useful for method validation
@@ -83,8 +84,5 @@ A full tutorial — including when Phylo-BACE is appropriate relative to other M
 
 - [ ] Random slopes and more flexible random-effect structures per response variable (accept a *list* of random-effect formulas so each imputation model can have its own random-effect specification)
 - [ ] Parallelisation within a single chained-equations iteration (currently only the `n_final` independent runs are parallelised)
-- [ ] A Rubin's-rules combiner as an alternative scalar-summary path alongside the current stacked-chain combiner
-- [ ] Tests for `pool_posteriors()`, `assess_convergence()` and the parallel branch of `bace_final_imp()`
-- [ ] Tighter CRAN-ready API surface (fewer exported internals) and a `NEWS.md`
 
 Bug reports, feature requests and worked examples are very welcome at <https://github.com/daniel1noble/BACE/issues>.
