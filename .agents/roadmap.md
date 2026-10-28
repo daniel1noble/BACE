@@ -11,6 +11,16 @@ before CRAN: Study A no-regression re-run, dev/13 categorical cells (the
 off), SIMULATION_REPORT update, R CMD check, tutorial re-render, tarball +
 win-builder re-run. Track B/C items below resume after that. Suite: 1418/0.
 
+**2026-10-29 — Rubin-study campaign, n=100 tier complete (300/300; 342/750
+overall):** nominal per-value coverage across all trait types (continuous
+0.946–0.970, counts 0.948–0.964, proportions 0.951–0.969); downstream slope/cor
+coverage ≥0.96; discrete accuracy ≈ 2026-09 with better calibration. Two flags
+for the ms: (1) λ=1 × ρ=0.5 slope attenuation −0.10 (known, conservative,
+needs an honest sentence); (2) 15/100 λ=1 cells failed with MCMCglmm
+singular-MME (recorded, not silent; survivors at λ=1 ρ=0.5 are a non-random
+39/50). Details in [project-state.md](project-state.md). n=300/1000 tiers
+running; ms figures build after full completion.
+
 Consolidated view of everything remaining to take BACE from "usable research code"
 to "submittable manuscript + release-ready package". Created 2026-07-11.
 Priorities weight the user's stated emphasis: **numerical accuracy + careful testing**.

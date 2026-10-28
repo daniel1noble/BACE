@@ -105,6 +105,33 @@ cells (198/200 recorded failures at λ=1, dominated by "Mixed model equations
 singular") — the hardened package completed all 11 λ=1 pilot cells (10 + a
 bonus seed 6), removing a selection bias his λ=1 numbers carried.
 
+**2026-10-29, n=100 tier COMPLETE (300/300 cells) — interim read:** headline:
+**nominal coverage everywhere that was broken pre-fix.** Per-value 95% coverage,
+pooled over datasets per scenario: continuous (c1+c2) 0.946–0.970, counts
+0.948–0.964, proportions 0.951–0.969 (logit scale). Compare 2026-09 (same DGP,
+200 seeds): as-shipped BACE 0.901, bace_chain 0.954, freqA 0.941 → Current BACE
+0.955 matches the chained variant and beats the frequentist arm, with the
+improper-MI signature gone. Downstream slope/cor coverage 0.96–1.00 per scenario
+(slightly conservative; complete-data reference itself 0.90–0.98); overall bias
+−0.02, almost all carried by the known λ=1 × ρ=0.5 attenuation cell (slope bias
+−0.104 there, the pilot watch-item, needs the honest ms sentence). Discrete:
+accuracy bin/cat3/ord 0.78/0.67/0.61 ≈ 2026-09 values (Bayes-ceiling-bound);
+credible-set coverage 0.93–0.96 ≈ bace_chain, better calibrated than as-shipped;
+cat3 NA-draw rate unchanged (~39/dataset vs ~35 in 2026-09 — known, not new).
+**Correction to the pilot's λ=1 optimism:** the full tier has **15/100 λ=1
+failures** (4 at ρ=0, 11 at ρ=0.5), all `MCMCglmm "Mixed model equations
+singular: use a (stronger) prior"` — same error class as 2026-09 (which had
+≥47/400 inline + 71 as-shipped-failed at λ=1 n=100), so the hardened package
+fails less often and *records* the failure, but λ=1 is not failure-free as the
+11-cell pilot suggested. Consequence: surviving λ=1 ρ=0.5 cells (39/50) are not
+a random subsample — the same selection caveat we raised about Shinichi's λ=1
+numbers applies to ours and belongs next to any λ=1 figure. Possible remedy if
+Dan wants it: harness-level retry with a stronger prior via the new `priors`
+argument (the exact remedy MCMCglmm's error message names). Campaign log scan:
+only the benign pre-65e6fa7 "50+ warnings" lines + the 30 singular-MME lines;
+nothing else. Interim script:
+scratchpad `interim_n100.R` (session a86edbd4); n=300/1000 tiers still running.
+
 **2026-10-27, "50+ warnings per cell" census → benign, and fixed (65e6fa7):**
 a warn=1 rerun of a warner cell showed every warning is ONE message — the
 pseudo-Gelman prior announcing itself — fired on every categorical prior
