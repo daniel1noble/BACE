@@ -74,7 +74,10 @@ You can install the *BACE* package from GitHub using the following command:
 # Install from github and load
 #install.packages("pacman")
   pacman::p_load(devtools)
-devtools::install_github("daniel1noble/BACE")
+# Render uses the locally installed BACE. Do NOT reinstall from GitHub inside
+# this chunk: it silently replaces the installed package mid-render (and mid-
+# simulation-campaign) with whatever the remote main happens to be.
+# devtools::install_github("daniel1noble/BACE")
   pacman::p_load(BACE, ape, phytools, MCMCglmm, dplyr, magrittr)
 ```
 
