@@ -351,11 +351,15 @@ Two practical notes follow from this:
 #| eval: true
 #| warning: false
 
-# Inspect MCMC diagnostics on the first per-imputation fit for 'y'
-first_fit <- bace_final1$final_results$all_models[[1]]$y
-plot(first_fit)
-coda::effectiveSize(first_fit$Sol)
-coda::autocorr.diag(first_fit$Sol)
+# Inspect MCMC diagnostics on the first per-imputation fit for 'y'.
+# Sol also stores a sample for every species-level effect (pr = TRUE),
+# so we restrict the output to the fixed effects (the first nfl columns);
+# drop the subsetting to inspect every parameter.
+first_fit  <- bace_final1$final_results$all_models[[1]]$y
+fixed_sols <- coda::as.mcmc(first_fit$Sol[, 1:first_fit$Fixed$nfl, drop = FALSE])
+plot(fixed_sols)
+coda::effectiveSize(fixed_sols)
+coda::autocorr.diag(fixed_sols)
 ```
 
 **How to read this output.** The trace plots should look like fuzzy caterpillars with no drift or sticky patches, and the density plots should be smooth and unimodal. `effectiveSize()` reports how many *independent* draws the autocorrelated chain is worth: values close to the number of stored samples indicate good mixing, while values below a few hundred mean the posterior summaries for that parameter are unstable and the chain should be run longer. `autocorr.diag()` should drop towards zero within a few lags; values that stay high at large lags are the same warning in a different form. If these look poor, increase `nitt` and/or `burnin` and re-run `bace()` rather than simply trusting the pooled banner.
@@ -827,7 +831,7 @@ The `dev/sim_accuracy_results/multirep_v1_n20/` directory of the package source 
 
 # Citation and further reading
 
-If you use *BACE* in a publication, please cite both the package (see `citation("BACE")`) and the underlying `MCMCglmm` engine [@hadfield2010]. Phylogenetic comparative methods and phylogenetic mixed models are reviewed in @cornwell2017, @devillemereuil2014a and @halliwell2025. The broader motivation for imputation in comparative biology — data gaps, trait databases, and the cost of complete-case analysis — is discussed in @daliaa.conde2019 and @pottier2024. For a related Rubin's-rules-based approach that handles *phylogenetic* uncertainty (rather than missing trait data), see @nakagawa2018.
+If you use *BACE* in a publication, please cite both the package (see `citation("BACE")`) and the underlying `MCMCglmm` engine [@hadfield2010jss]. Phylogenetic comparative methods and phylogenetic mixed models are reviewed in @cornwell2017, @devillemereuil2014a and @halliwell2025. The broader motivation for imputation in comparative biology — data gaps, trait databases, and the cost of complete-case analysis — is discussed in @daliaa.conde2019 and @pottier2024. For a related Rubin's-rules-based approach that handles *phylogenetic* uncertainty (rather than missing trait data), see @nakagawa2018.
 
 The Bayesian combiner used by `pool_posteriors()` — concatenating the per-imputation chains to approximate the marginal posterior — is discussed in @zhou2010 and in Chapter 18 of @gelman2013. The Rubin's-rules combiner used by `pool_mi()` is from @rubin1987 with the small-sample degrees-of-freedom correction of @barnard1999; @vanbuuren2018 is the standard modern reference on multiple imputation practice.
 
