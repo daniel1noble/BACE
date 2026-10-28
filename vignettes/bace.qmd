@@ -11,15 +11,15 @@ format:
     toc-title: "**Table of Contents**"
     output-file: "index.html"
     theme: cosmo
-    mainfont: "Atkinson Hyperlegible, -apple-system, Segoe UI, sans-serif"
+    mainfont: "Palatino Linotype, Palatino, Book Antiqua, Georgia, serif"
     monofont: "JetBrains Mono, SF Mono, Menlo, monospace"
-    fontsize: 1.05em
+    fontsize: 1.1em
     linestretch: 1.55
     include-in-header:
       text: |
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     embed-resources: true
     code-fold: show
     code-tools: true
