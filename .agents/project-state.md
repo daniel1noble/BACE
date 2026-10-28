@@ -56,8 +56,13 @@ coverage — and its discussion proposes exactly the independent-runs/sweeps
 design BACE now ships; (3) **the BACE arms predate the 2026-10 fixes**, so
 before these numbers support the ms, the BACE arm should be re-run on the
 fixed package (HPC launchers are in `code/`). NOTE: bundle README says
-"Private; not for circulation" — import committed locally but NOT pushed
-until Dan confirms with Shinichi (BACE repo is public).
+"Private; not for circulation" — the import was held locally until
+2026-10-28, when Dan explicitly authorised pushing the full history to the
+public repo (confirmed via a direct question naming the bundle; pushed at
+f462ce3). **Standing push policy since then: a 3-hourly checkpoint commits
+and pushes SIMULATION FILES ONLY (results_2026-10 rds + campaign logs,
+enforced by pathspec); everything else is committed/pushed only when a
+human says so.**
 
 **2026-10-27, Rubin-study harness converted for the re-run (in place, per
 Dan):** arm `bace` = **"Current BACE"** (corrected package, plain
