@@ -60,7 +60,7 @@ See `?bace`, `?bace_imp`, `?bace_final_imp`, `?pool_posteriors`, `?assess_conver
 
 ## Tutorial
 
-A full tutorial — including when Phylo-BACE is appropriate relative to other MI tools, the four-step workflow, interpreting pooled output, and the distinction between within-chain MCMC convergence and chained-equations convergence — is at <https://daniel1noble.github.io/BACE/>.
+A full tutorial — including when BACE is appropriate relative to other MI tools, the four-step workflow, interpreting pooled output, and the distinction between within-chain MCMC convergence and chained-equations convergence — is at <https://daniel1noble.github.io/BACE/>.
 
 ## Currently implemented
 

@@ -1,7 +1,7 @@
 ---
-title: "BACE: Bayesian Phylogenetic and Correlated Trait Imputation"
+title: "BACE: Bayesian Augmentation by Chained Equations for Comparative Biology"
 date: "`r Sys.Date()`"
-author: "Daniel Noble, Szymek Drobniak, Shinichi Nakagawa"
+author: "Daniel W. A. Noble, Szymon M. Drobniak, Ayumi Mizuno, Patrice Pottier, Shinichi Nakagawa"
 bibliography: ../bib/BACE.bib
 format:
   html:
