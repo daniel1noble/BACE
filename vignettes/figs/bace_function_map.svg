@@ -159,12 +159,13 @@
 
   <!-- Helper: MCMC control + diagnostics (dashed) -->
   <g>
-    <rect x="480" y="860" width="360" height="180" rx="8" fill="#f4f5f7" stroke="#9aa3ad" stroke-width="1.5" stroke-dasharray="7 5"/>
+    <rect x="480" y="860" width="360" height="204" rx="8" fill="#f4f5f7" stroke="#9aa3ad" stroke-width="1.5" stroke-dasharray="7 5"/>
     <text x="660" y="900" font-size="19" font-weight="700" fill="#374151" text-anchor="middle">MCMC control &amp; diagnostics</text>
     <text x="660" y="932" font-size="16" fill="#6b7280" text-anchor="middle">nitt / thin / burnin (per-model lists);</text>
-    <text x="660" y="956" font-size="16" fill="#6b7280" text-anchor="middle">species = TRUE dual random effects;</text>
-    <text x="660" y="980" font-size="16" fill="#6b7280" text-anchor="middle">summary(), plot(), coda:: on</text>
-    <text x="660" y="1004" font-size="16" fill="#6b7280" text-anchor="middle">$models_last_run</text>
+    <text x="660" y="956" font-size="16" fill="#6b7280" text-anchor="middle">priors (per-variable named list);</text>
+    <text x="660" y="980" font-size="16" fill="#6b7280" text-anchor="middle">species = TRUE dual random effects;</text>
+    <text x="660" y="1004" font-size="16" fill="#6b7280" text-anchor="middle">summary(), plot(), coda:: on</text>
+    <text x="660" y="1028" font-size="16" fill="#6b7280" text-anchor="middle">$models_last_run</text>
     <line x1="560" y1="860" x2="560" y2="628" stroke="#7a8490" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrowGray)"/>
   </g>
 
