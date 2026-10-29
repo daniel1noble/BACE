@@ -150,7 +150,7 @@ Information at submission. -->
 
 *BACE* fits a separate phylogenetic mixed model for each incomplete trait with *MCMCglmm* [@hadfield2010jss].  Each model uses relationships among traits and shared evolutionary history to inform probable missing values. When species have repeated observations, a separate species effect can account for similarities not explained by the phylogeny [@hadfield2010; @nakagawa2012; @cinar2022]. Imputation has two phases. First, the models are fitted repeatedly, updating missing values with point estimates until these estimates stabilise (@fig-bace-workflow, step 2). Once the chained equations stabilise, *BACE* cycles through the models again, drawing plausible missing values from their posterior predictive distributions (@fig-bace-workflow, step 3). Repeating this process produces *m* completed datasets, each retaining the original observed values. 
 
-The main function `bace()` runs this workflow and returns completed datasets, fitted models and diagnostics. Posterior draws from the fitted imputation models can be pooled when their parameters are of direct interest. Pooled model parameters account for both parameter and between imputation uncertainty. Alternatively, users can fit a different analysis model to each completed dataset, combining posterior draws for Bayesian analyses or estimates and variances using Rubin's rules [@zhou2010; @rubin1987]. Either way, imputation uncertainty is carried into downstream analyses (@fig-bace-workflow, step 4). 
+The main function `bace()` runs this workflow and returns a single object containing the *m* completed datasets, pooled model posteriors, individual model fits and convergence diagnostics. Users can extract the completed datasets with `get_imputed_data()` and a pooled model for a particular trait with `get_pooled_model()`. The pooled posterior can be used directly when that model's parameters are of interest. Alternatively, users can fit a different analysis model to each completed dataset and combine its results. Both routes carry imputation uncertainty into downstream analyses (@fig-bace-workflow, step 4).
 
 
 ## Typical *BACE* workflow 
@@ -191,14 +191,9 @@ pool_mi(fits)
 
 *BACE* provides a series of convergence diagnostics which help to identify possible issues during model fitting that need to be checked prior to inference. For example, within-chain MCMC convergence of each per-variable model as well as convergence of the chained-equations loop (the imputed-data sequence) are provided as output when `bace()` is run or which can be investigated after the imputation workflow is comeplete. `assess_convergence()` and `plot_*_convergence()` are two functions that provide users with various diagnositics on the change in imputed values as chained equations proceed. MCMC chains of any final model and parameter can be investigated using standard R functions (e.g., coda:). Such convergence information is impportant to identify when different priors or a different number of MCMC iterations are needed. Adjustments can be made in arguments of `bace()` to the priors used and teh number of MCMC iterations, burnin and thinning to ensure parameters are estimated with a sufficient effective sample size and that proper MCMC chain mixing is occuring.
 
+*BACE* provides two routes for combining results across imputations. The default, `pool_posteriors()`, stacks posterior draws from the final *MCMCglmm* fits for each trait to approximate its marginal posterior [@zhou2010]. The returned models contain pooled draws for regression coefficients and variance components, from which users can obtain posterior means and credible intervals. Alternatively, `with_imputations()` fits a user-specified analysis model to each completed dataset and `pool_mi()` combines its coefficient estimates and variances using Rubin's rules [@rubin1987]. `pool_mi()` returns a table with one row per coefficient, including the pooled estimate, standard error, confidence interval, test statistic, degrees of freedom and *p*-value. It also reports the **fraction of missing information** (`fmi`), which estimates how much information about each coefficient is lost because of missing data, and the **relative increase in variance** (`riv`), which measures the extra variance from imputation uncertainty relative to the average within-imputation variance of that coefficient [@rubin1987]. Larger values indicate that missing data have a greater effect on the precision of that coefficient.
 
-## Pooling pathways: stacked posteriors and Rubin's rules
-*(Structure only. Sources: `.agents/plans/pool_mi_rubin.md`; tutorial "Interpreting the pooled output"; Zhou & Reiter 2010; BDA3 Ch. 18.)*
-- `pool_posteriors()`: stacking per-imputation chains approximates the marginal posterior; not Rubin's rules; O(1/M) difference at small M.
-- `with_imputations()` + `pool_mi()`: model-agnostic Rubin's rules (Barnard–Rubin df, fmi/riv); matches `mice::pool` to machine precision.
-- When to use which (variance components never via Rubin).
-
-# Performance evaluation
+# Evaluating the performance of BACE with simulations
 
 ## Simulation design
 *(Structure only. Sources: `dev/12_recovery_simulation.R`, `dev/13_response_type_simulation.R`, `dev/simulation_results/SIMULATION_REPORT.qmd`; design details in `.agents/simulation-report.html`.)*
@@ -225,7 +220,7 @@ pool_mi(fits)
 
 
 # Worked examples
-We now turn to two case studies to demonstrate application of *BACE*. The first case study involves data from @pottier2025, whom imputed heat tolerance (continuous trait) under standardised conditions for 5,203 amphibian species of which only 524 (10.1%) have trait data. The second case study, uses BIRDBASE and AVONET to impute social (categocial and continuous data), for 10,563 bird species. 
+We now turn to two case studies to demonstrate application of *BACE*. The first case study involves data from @pottier2025. @pottier2025 imputed heat tolerance (continuous trait) under standardised conditions for 5,203 amphibian species of which only 524 species (10.1%) have trait data. The second case study, uses BIRDBASE and AVONET to impute social (categocial and continuous data), for 10,563 bird species. 
 
 # Discussion
 *(Structure only.)*
@@ -236,10 +231,6 @@ We now turn to two case studies to demonstrate application of *BACE*. The first 
      conservative (0.984), MNAR out of scope, runtime scaling. -->
 - Practical guidance (pre-flight signal screening; when BACE is the wrong tool).
 
-
-# Availability and reproducibility
-
-*BACE* (version 0.1.0) is free and open-source software released under the GPL (≥ 3). The source code and development version are available on GitHub (<https://github.com/daniel1noble/BACE>), where issues and feature requests can also be reported. A full tutorial — covering installation, when *BACE* is appropriate relative to other imputation tools, the complete workflow, and interpretation of pooled output and diagnostics — is available at <https://daniel1noble.github.io/BACE/>. A CRAN submission is in preparation; once accepted, the package will be installable directly via `install.packages("BACE")` (<https://CRAN.R-project.org/package=BACE>). Code reproducing all simulations reported here is included in the repository (`dev/`).
 
 # Acknowledgements
 *(To write.)*
@@ -253,7 +244,7 @@ Author contributions are reported using the CRediT taxonomy. **DWAN:** conceptua
      and whether Funding acquisition should be assigned to anyone. -->
 
 # Data and code availability
-*(To write.)*
+*BACE* (version 0.1.0) is free and open-source software released under the GPL (≥ 3). The source code and development version are available on GitHub (<https://github.com/daniel1noble/BACE>), where issues and feature requests can also be reported. A full tutorial — covering installation, when *BACE* is appropriate relative to other imputation tools, the complete workflow, and interpretation of pooled output and diagnostics — is available at <https://daniel1noble.github.io/BACE/>. A CRAN submission is in preparation; once accepted, the package will be installable directly via `install.packages("BACE")` (<https://CRAN.R-project.org/package=BACE>). Code reproducing all simulations reported here is included in the repository (`dev/`).
 
 # References
 
