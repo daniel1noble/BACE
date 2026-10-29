@@ -11035,3 +11035,344 @@ bace.2         0        0.0104    TRUE
 bace_fit 
   4757.4 
 [23:14:52] cell rubin_types_mixed_BM_l0.7_r0_mcar0.3_n300_M20_s41: n=300 masked=630 realised_frac=0.300
+[23:53:21] arm bace_fit done in 3655.3s
+        arm trait n_cells zRMSE coverage width interval_score frac_B0 n_na
+bace.1 bace    c1      90 0.890    0.956  3.55           3.94       0    0
+bace.2 bace    c2      90 0.706    0.944  2.93           3.49       0    0
+bace.3 bace   cnt      90 1.059    0.933  4.02           5.75       0    0
+bace.4 bace   prp      90 0.828    0.956  4.22           4.73       0    0
+       m_used n_oob scale
+bace.1     20     0   raw
+bace.2     20     0   raw
+bace.3     20     0   raw
+bace.4     20    20 logit
+                arm estimand estimate     se  lower upper    df   fmi m_ok
+complete.1 complete    slope  0.00680 0.0615 -0.114 0.128 296.0 0.000    1
+complete.2 complete      cor  0.00641 0.0580 -0.107 0.120   Inf 0.000    1
+bace.1         bace    slope -0.05458 0.0810 -0.216 0.107  64.1 0.446   20
+bace.2         bace      cor -0.05222 0.0774 -0.203 0.101  99.1 0.449   20
+           truth complete_data covered
+complete.1     0       0.00680    TRUE
+complete.2     0       0.00641    TRUE
+bace.1         0       0.00680    TRUE
+bace.2         0       0.00641    TRUE
+bace_fit 
+  3655.3 
+[23:53:22] cell rubin_types_mixed_BM_l0.7_r0_mcar0.3_n300_M20_s42: n=300 masked=630 realised_frac=0.300
+[23:55:10] arm bace_fit done in 4566.5s
+        arm trait n_cells zRMSE coverage width interval_score frac_B0 n_na
+bace.1 bace    c1      90 0.609    0.989  2.43           2.59       0    0
+bace.2 bace    c2      90 0.481    0.956  2.03           2.27       0    0
+bace.3 bace   cnt      90 1.070    0.911  3.43           5.02       0    0
+bace.4 bace   prp      90 0.874    0.922  4.55           5.41       0    0
+       m_used n_oob scale
+bace.1     20     0   raw
+bace.2     20     0   raw
+bace.3     20     0   raw
+bace.4     20    94 logit
+                arm estimand estimate     se  lower  upper    df   fmi m_ok
+complete.1 complete    slope  -0.0680 0.0548 -0.176 0.0398 296.0 0.000    1
+complete.2 complete      cor  -0.0717 0.0580 -0.183 0.0418   Inf 0.000    1
+bace.1         bace    slope  -0.0361 0.0676 -0.170 0.0982  87.5 0.359   20
+bace.2         bace      cor  -0.0379 0.0712 -0.177 0.1022 168.7 0.343   20
+           truth complete_data covered
+complete.1     0       -0.0680    TRUE
+complete.2     0       -0.0717    TRUE
+bace.1         0       -0.0680    TRUE
+bace.2         0       -0.0717    TRUE
+bace_fit 
+  4566.5 
+[23:55:11] cell rubin_types_mixed_BM_l0.7_r0_mcar0.3_n300_M20_s43: n=300 masked=630 realised_frac=0.300
+[00:16:18] arm bace_fit done in 4558.7s
+        arm trait n_cells zRMSE coverage width interval_score frac_B0 n_na
+bace.1 bace    c1      90 0.628    0.967  2.64           2.82       0    0
+bace.2 bace    c2      90 0.911    0.967  3.83           3.97       0    0
+bace.3 bace   cnt      90 0.929    0.956  3.55           5.60       0    0
+bace.4 bace   prp      90 0.921    0.944  3.85           4.83       0    0
+       m_used n_oob scale
+bace.1     20     0   raw
+bace.2     20     0   raw
+bace.3     20     0   raw
+bace.4     20    10 logit
+                arm estimand estimate     se  lower   upper  df   fmi m_ok
+complete.1 complete    slope  -0.1821 0.0597 -0.300 -0.0646 296 0.000    1
+complete.2 complete      cor  -0.1741 0.0580 -0.282 -0.0620 Inf 0.000    1
+bace.1         bace    slope  -0.0338 0.0688 -0.170  0.1023 144 0.232   20
+bace.2         bace      cor  -0.0320 0.0659 -0.160  0.0972 380 0.228   20
+           truth complete_data covered
+complete.1     0        -0.182   FALSE
+complete.2     0        -0.174   FALSE
+bace.1         0        -0.182    TRUE
+bace.2         0        -0.174    TRUE
+bace_fit 
+  4558.7 
+[00:16:19] cell rubin_types_mixed_BM_l0.7_r0_mcar0.3_n300_M20_s44: n=300 masked=630 realised_frac=0.300
+[00:17:02] arm bace_fit done in 4552.0s
+        arm trait n_cells zRMSE coverage width interval_score frac_B0 n_na
+bace.1 bace    c1      90 0.596    0.922  2.22           2.81       0    0
+bace.2 bace    c2      90 0.771    0.978  3.54           3.77       0    0
+bace.3 bace   cnt      90 0.770    0.944  2.72           3.88       0    0
+bace.4 bace   prp      90 0.824    0.967  4.24           4.59       0    0
+       m_used n_oob scale
+bace.1     20     0   raw
+bace.2     20     0   raw
+bace.3     20     0   raw
+bace.4     20     2 logit
+                arm estimand estimate     se   lower upper    df   fmi m_ok
+complete.1 complete    slope   0.0716 0.0517 -0.0301 0.173 296.0 0.000    1
+complete.2 complete      cor   0.0800 0.0580 -0.0336 0.191   Inf 0.000    1
+bace.1         bace    slope   0.0648 0.0707 -0.0765 0.206  62.1 0.455   20
+bace.2         bace      cor   0.0707 0.0768 -0.0813 0.220 103.1 0.440   20
+           truth complete_data covered
+complete.1     0        0.0716    TRUE
+complete.2     0        0.0800    TRUE
+bace.1         0        0.0716    TRUE
+bace.2         0        0.0800    TRUE
+bace_fit 
+    4552 
+[00:17:03] cell rubin_types_mixed_BM_l0.7_r0_mcar0.3_n300_M20_s45: n=300 masked=630 realised_frac=0.300
+[00:25:37] arm bace_fit done in 4685.4s
+        arm trait n_cells zRMSE coverage width interval_score frac_B0 n_na
+bace.1 bace    c1      90 0.866    0.956  3.28           3.49       0    0
+bace.2 bace    c2      90 0.747    0.944  3.14           3.84       0    0
+bace.3 bace   cnt      90 0.808    0.956  4.06           4.57       0    0
+bace.4 bace   prp      90 0.945    0.933  5.18           6.39       0    0
+       m_used n_oob scale
+bace.1     20     0   raw
+bace.2     20     0   raw
+bace.3     20     0   raw
+bace.4     20    22 logit
+                arm estimand estimate     se  lower upper    df   fmi m_ok
+complete.1 complete    slope  -0.0107 0.0578 -0.124 0.103 296.0 0.000    1
+complete.2 complete      cor  -0.0107 0.0580 -0.124 0.103   Inf 0.000    1
+bace.1         bace    slope  -0.0520 0.0801 -0.212 0.108  56.3 0.484   20
+bace.2         bace      cor  -0.0514 0.0789 -0.205 0.105  90.1 0.471   20
+           truth complete_data covered
+complete.1     0       -0.0107    TRUE
+complete.2     0       -0.0107    TRUE
+bace.1         0       -0.0107    TRUE
+bace.2         0       -0.0107    TRUE
+bace_fit 
+  4685.4 
+[00:25:39] cell rubin_types_mixed_BM_l0.7_r0_mcar0.3_n300_M20_s46: n=300 masked=630 realised_frac=0.300
+[00:26:42] arm bace_fit done in 4582.6s
+        arm trait n_cells zRMSE coverage width interval_score frac_B0 n_na
+bace.1 bace    c1      90 0.828    0.944  3.44           4.32       0    0
+bace.2 bace    c2      90 0.711    0.989  3.65           3.77       0    0
+bace.3 bace   cnt      90 0.862    0.956  3.18           3.84       0    0
+bace.4 bace   prp      90 0.751    0.989  4.19           4.34       0    0
+       m_used n_oob scale
+bace.1     20     0   raw
+bace.2     20     0   raw
+bace.3     20     0   raw
+bace.4     20    11 logit
+                arm estimand estimate     se   lower upper    df   fmi m_ok
+complete.1 complete    slope   0.0702 0.0607 -0.0493 0.190 296.0 0.000    1
+complete.2 complete      cor   0.0669 0.0580 -0.0467 0.179   Inf 0.000    1
+bace.1         bace    slope   0.0256 0.0772 -0.1275 0.179  99.7 0.325   20
+bace.2         bace      cor   0.0225 0.0695 -0.1141 0.158 206.5 0.310   20
+           truth complete_data covered
+complete.1     0        0.0702    TRUE
+complete.2     0        0.0669    TRUE
+bace.1         0        0.0702    TRUE
+bace.2         0        0.0669    TRUE
+bace_fit 
+  4582.6 
+[00:26:43] cell rubin_types_mixed_BM_l0.7_r0_mcar0.3_n300_M20_s47: n=300 masked=630 realised_frac=0.300
+[00:31:58] arm bace_fit done in 4626.2s
+        arm trait n_cells zRMSE coverage width interval_score frac_B0 n_na
+bace.1 bace    c1      90 0.881    0.944  3.54           4.11       0    0
+bace.2 bace    c2      90 0.696    0.956  2.88           3.36       0    0
+bace.3 bace   cnt      90 0.981    0.978  4.40           5.07       0    0
+bace.4 bace   prp      90 0.831    0.944  4.15           4.92       0    0
+       m_used n_oob scale
+bace.1     20     0   raw
+bace.2     20     0   raw
+bace.3     20     0   raw
+bace.4     20     8 logit
+                arm estimand estimate     se   lower upper    df   fmi m_ok
+complete.1 complete    slope   0.0707 0.0606 -0.0487 0.190 296.0 0.000    1
+complete.2 complete      cor   0.0673 0.0580 -0.0462 0.179   Inf 0.000    1
+bace.1         bace    slope  -0.0262 0.0845 -0.1957 0.143  52.5 0.505   20
+bace.2         bace      cor  -0.0260 0.0819 -0.1868 0.136  76.8 0.510   20
+           truth complete_data covered
+complete.1     0        0.0707    TRUE
+complete.2     0        0.0673    TRUE
+bace.1         0        0.0707    TRUE
+bace.2         0        0.0673    TRUE
+bace_fit 
+  4626.2 
+[00:31:59] cell rubin_types_mixed_BM_l0.7_r0_mcar0.3_n300_M20_s48: n=300 masked=630 realised_frac=0.300
+[01:09:43] arm bace_fit done in 4581.0s
+        arm trait n_cells zRMSE coverage width interval_score frac_B0 n_na
+bace.1 bace    c1      90 0.673    0.933  2.87           3.69       0    0
+bace.2 bace    c2      90 0.834    0.944  3.31           3.97       0    0
+bace.3 bace   cnt      90 0.650    0.956  2.72           2.80       0    0
+bace.4 bace   prp      90 1.062    0.978  5.51           6.03       0    0
+       m_used n_oob scale
+bace.1     20     0   raw
+bace.2     20     0   raw
+bace.3     20     0   raw
+bace.4     20    95 logit
+                arm estimand estimate     se  lower  upper    df   fmi m_ok
+complete.1 complete    slope  -0.0789 0.0561 -0.189 0.0316 296.0 0.000    1
+complete.2 complete      cor  -0.0812 0.0580 -0.193 0.0324   Inf 0.000    1
+bace.1         bace    slope   0.0268 0.0821 -0.139 0.1925  41.8 0.576   20
+bace.2         bace      cor   0.0280 0.0872 -0.145 0.1996  61.3 0.571   20
+           truth complete_data covered
+complete.1     0       -0.0789    TRUE
+complete.2     0       -0.0812    TRUE
+bace.1         0       -0.0789    TRUE
+bace.2         0       -0.0812    TRUE
+bace_fit 
+    4581 
+[01:09:45] cell rubin_types_mixed_BM_l0.7_r0_mcar0.3_n300_M20_s49: n=300 masked=630 realised_frac=0.300
+[01:11:00] arm bace_fit done in 4548.1s
+        arm trait n_cells zRMSE coverage width interval_score frac_B0 n_na
+bace.1 bace    c1      90 0.796    0.944  3.19           4.61       0    0
+bace.2 bace    c2      90 0.600    0.933  2.37           3.08       0    0
+bace.3 bace   cnt      90 0.459    0.944  1.78           2.33       0    0
+bace.4 bace   prp      90 0.882    0.967  4.75           5.17       0    0
+       m_used n_oob scale
+bace.1     20     0   raw
+bace.2     20     0   raw
+bace.3     20     0   raw
+bace.4     20    15 logit
+                arm estimand estimate     se   lower upper  df   fmi m_ok truth
+complete.1 complete    slope   0.0477 0.0566 -0.0636 0.159 296 0.000    1     0
+complete.2 complete      cor   0.0488 0.0580 -0.0648 0.161 Inf 0.000    1     0
+bace.1         bace    slope   0.0159 0.0795 -0.1429 0.175  64 0.447   20     0
+bace.2         bace      cor   0.0151 0.0768 -0.1363 0.166 103 0.440   20     0
+           complete_data covered
+complete.1        0.0477    TRUE
+complete.2        0.0488    TRUE
+bace.1            0.0477    TRUE
+bace.2            0.0488    TRUE
+bace_fit 
+  4548.1 
+[01:11:00] cell rubin_types_mixed_BM_l0.7_r0_mcar0.3_n300_M20_s50: n=300 masked=630 realised_frac=0.300
+[01:32:51] arm bace_fit done in 4548.4s
+        arm trait n_cells zRMSE coverage width interval_score frac_B0 n_na
+bace.1 bace    c1      90 0.693    0.944  2.78           2.92       0    0
+bace.2 bace    c2      90 0.748    0.978  3.12           3.45       0    0
+bace.3 bace   cnt      90 0.791    0.978  3.72           3.90       0    0
+bace.4 bace   prp      90 1.143    0.956  5.98           6.76       0    0
+       m_used n_oob scale
+bace.1     20     0   raw
+bace.2     20     0   raw
+bace.3     20     0   raw
+bace.4     20    59 logit
+                arm estimand estimate     se  lower  upper    df   fmi m_ok
+complete.1 complete    slope  -0.0458 0.0532 -0.150 0.0590 296.0 0.000    1
+complete.2 complete      cor  -0.0498 0.0580 -0.162 0.0638   Inf 0.000    1
+bace.1         bace    slope  -0.0980 0.0685 -0.234 0.0384  76.4 0.396   20
+bace.2         bace      cor  -0.1051 0.0742 -0.247 0.0414 125.9 0.398   20
+           truth complete_data covered
+complete.1     0       -0.0458    TRUE
+complete.2     0       -0.0498    TRUE
+bace.1         0       -0.0458    TRUE
+bace.2         0       -0.0498    TRUE
+bace_fit 
+  4548.4 
+[01:32:52] cell rubin_types_mixed_BM_l0.7_r0.5_mcar0.3_n300_M20_s1: rds exists, skipping (resume)
+[01:32:52] cell rubin_types_mixed_BM_l0.7_r0.5_mcar0.3_n300_M20_s2: rds exists, skipping (resume)
+[01:32:53] cell rubin_types_mixed_BM_l0.7_r0.5_mcar0.3_n300_M20_s3: rds exists, skipping (resume)
+[01:32:53] cell rubin_types_mixed_BM_l0.7_r0.5_mcar0.3_n300_M20_s4: rds exists, skipping (resume)
+[01:32:53] cell rubin_types_mixed_BM_l0.7_r0.5_mcar0.3_n300_M20_s5: rds exists, skipping (resume)
+[01:32:53] cell rubin_types_mixed_BM_l0.7_r0.5_mcar0.3_n300_M20_s6: n=300 masked=630 realised_frac=0.300
+[01:33:07] arm bace_fit done in 4607.6s
+        arm trait n_cells zRMSE coverage width interval_score frac_B0 n_na
+bace.1 bace    c1      90 0.669    0.956  2.72           3.46       0    0
+bace.2 bace    c2      90 0.812    0.922  3.21           4.35       0    0
+bace.3 bace   cnt      90 0.811    0.944  2.73           3.91       0    0
+bace.4 bace   prp      90 0.880    0.978  6.26           6.29       0    0
+       m_used n_oob scale
+bace.1     20     0   raw
+bace.2     20     0   raw
+bace.3     20     0   raw
+bace.4     20    36 logit
+                arm estimand estimate     se  lower  upper    df   fmi m_ok
+complete.1 complete    slope  -0.0492 0.0565 -0.160 0.0619 296.0 0.000    1
+complete.2 complete      cor  -0.0505 0.0580 -0.163 0.0631   Inf 0.000    1
+bace.1         bace    slope  -0.0907 0.0799 -0.251 0.0697  50.1 0.520   20
+bace.2         bace      cor  -0.0934 0.0831 -0.254 0.0719  72.2 0.526   20
+           truth complete_data covered
+complete.1     0       -0.0492    TRUE
+complete.2     0       -0.0505    TRUE
+bace.1         0       -0.0492    TRUE
+bace.2         0       -0.0505    TRUE
+bace_fit 
+  4607.6 
+[01:33:07] cell rubin_types_mixed_BM_l0.7_r0.5_mcar0.3_n300_M20_s7: n=300 masked=630 realised_frac=0.300
+[01:42:56] arm bace_fit done in 4637.2s
+        arm trait n_cells zRMSE coverage width interval_score frac_B0 n_na
+bace.1 bace    c1      90 0.724    0.889  2.47           3.21       0    0
+bace.2 bace    c2      90 0.758    0.978  3.57           3.64       0    0
+bace.3 bace   cnt      90 0.797    0.911  2.92           3.96       0    0
+bace.4 bace   prp      90 0.776    0.944  4.67           5.13       0    0
+       m_used n_oob scale
+bace.1     20     0   raw
+bace.2     20     0   raw
+bace.3     20     0   raw
+bace.4     20   105 logit
+                arm estimand estimate     se   lower upper    df   fmi m_ok
+complete.1 complete    slope  0.03354 0.0556 -0.0759 0.143 296.0 0.000    1
+complete.2 complete      cor  0.03493 0.0580 -0.0786 0.148   Inf 0.000    1
+bace.1         bace    slope -0.00181 0.0713 -0.1435 0.140  86.5 0.363   20
+bace.2         bace      cor -0.00222 0.0722 -0.1438 0.139 152.0 0.362   20
+           truth complete_data covered
+complete.1     0        0.0335    TRUE
+complete.2     0        0.0349    TRUE
+bace.1         0        0.0335    TRUE
+bace.2         0        0.0349    TRUE
+bace_fit 
+  4637.2 
+[01:42:57] cell rubin_types_mixed_BM_l0.7_r0.5_mcar0.3_n300_M20_s8: n=300 masked=630 realised_frac=0.300
+[01:44:39] arm bace_fit done in 4676.0s
+        arm trait n_cells zRMSE coverage width interval_score frac_B0 n_na
+bace.1 bace    c1      90 0.739    0.956  3.45           3.65       0    0
+bace.2 bace    c2      90 0.722    0.944  2.80           3.11       0    0
+bace.3 bace   cnt      90 0.634    0.933  2.40           3.40       0    0
+bace.4 bace   prp      90 0.744    0.956  4.06           4.46       0    0
+       m_used n_oob scale
+bace.1     20     0   raw
+bace.2     20     0   raw
+bace.3     20     0   raw
+bace.4     20    34 logit
+                arm estimand estimate     se  lower  upper  df   fmi m_ok truth
+complete.1 complete    slope  -0.0206 0.0546 -0.128 0.0869 296 0.000    1     0
+complete.2 complete      cor  -0.0218 0.0580 -0.135 0.0916 Inf 0.000    1     0
+bace.1         bace    slope  -0.1050 0.0685 -0.242 0.0316  71 0.417   20     0
+bace.2         bace      cor  -0.1149 0.0763 -0.261 0.0358 107 0.432   20     0
+           complete_data covered
+complete.1       -0.0206    TRUE
+complete.2       -0.0218    TRUE
+bace.1           -0.0206    TRUE
+bace.2           -0.0218    TRUE
+bace_fit 
+    4676 
+[01:44:40] cell rubin_types_mixed_BM_l0.7_r0.5_mcar0.3_n300_M20_s9: n=300 masked=630 realised_frac=0.300
+[01:47:48] arm bace_fit done in 4548.0s
+        arm trait n_cells zRMSE coverage width interval_score frac_B0 n_na
+bace.1 bace    c1      90 0.903    0.989  3.95           3.99       0    0
+bace.2 bace    c2      90 0.879    0.978  3.64           3.86       0    0
+bace.3 bace   cnt      90 0.878    0.967  3.26           4.05       0    0
+bace.4 bace   prp      90 0.959    0.967  6.79           7.03       0    0
+       m_used n_oob scale
+bace.1     20     0   raw
+bace.2     20     0   raw
+bace.3     20     0   raw
+bace.4     20    29 logit
+                arm estimand estimate     se  lower upper    df   fmi m_ok
+complete.1 complete    slope  0.00833 0.0562 -0.102 0.119 296.0 0.000    1
+complete.2 complete      cor  0.00859 0.0580 -0.105 0.122   Inf 0.000    1
+bace.1         bace    slope  0.02235 0.0769 -0.132 0.176  54.8 0.492   20
+bace.2         bace      cor  0.02385 0.0810 -0.137 0.183  80.1 0.499   20
+           truth complete_data covered
+complete.1     0       0.00833    TRUE
+complete.2     0       0.00859    TRUE
+bace.1         0       0.00833    TRUE
+bace.2         0       0.00859    TRUE
+bace_fit 
+    4548 
+[01:47:49] cell rubin_types_mixed_BM_l0.7_r0.5_mcar0.3_n300_M20_s10: n=300 masked=630 realised_frac=0.300
