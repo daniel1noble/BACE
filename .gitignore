@@ -1,4 +1,4 @@
-# History files
+rendered# History files
 .Rhistory
 .Rapp.history
 # Session Data files
@@ -96,3 +96,4 @@ dev/simulation_results/sweeps_calibration.log
 dev/simulation_results/sweeps_calibration.rds
 dev/15_sweeps_calibration.R
 ms/ms.aux
+ms/~$ms.docx
