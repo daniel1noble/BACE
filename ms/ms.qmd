@@ -1,5 +1,5 @@
 ---
-title: "Estimating missing trait data in comparative analyses: the Bayesian Augmentation by Chained Equations (BACE) R package"
+title: "Estimating missing trait data in comparative analyses: the BACE R package"
 author:
   - name: Daniel W. A. Noble
     affiliations:
@@ -82,8 +82,8 @@ crossref:
 # Abstract
 
 1. Missing trait data are pervasive in comparative datasets limiting the types of questions that can be tested and compromising the power of comparative analyses. Standard approaches, such as complete-case analyses and single imputation, can bias inference and underestimate uncertainty, particularly when missing data is non-random. While robust imputation methods exits, many existing software are restricted to imputing only continuous or count variables and lack the capacity to impute discrete / categorical traits (e.g., multinomial, ordered categorical), which are common trait types in comparative datasets. Such limitations have prevented the widespread use of imputation approaches in comparative biology.
-2. We introduce *BACE*, an R package implementing **B**ayesian **A**ugmentation by **C**hained **E**quations for phylogenetic comparative data. *BACE* enables imputation with phylogeny-informed covariance that can account for both phylogenetic and non-phylogenetic species effects, along with mixed data types. *BACE* provides substantial flexibility in the imputation models fit, can decouple imputation models from analysis models, and propagates both parameter and imputation uncertainty in subsequent downstream analyses. 
-3. Using simulations, we show that *BACE* provides little bias and nominal coverage in analyses with even a small number of species and traits with small to moderate phylogenetic signal. We illustrate the use of *BACE* using two case studies: 1) imputing missing heat tolerance data across 5,203 species of amphibians from 524 species with data (89.9% missing data) and 2) . We provide a detailed tutorial on how it can be used and it is available for download on CRAN.
+2. We introduce **BACE**, an R package implementing **B**ayesian **A**ugmentation by **C**hained **E**quations for phylogenetic comparative data. *BACE* enables imputation with phylogeny-informed covariance that can account for both phylogenetic and non-phylogenetic species effects, along with mixed data types. *BACE* provides substantial flexibility in the imputation models fit, can decouple imputation models from analysis models, and propagates both parameter and imputation uncertainty in subsequent downstream analyses. 
+3. Using simulations, we show that *BACE* provides little bias and nominal coverage in analyses with even a small number of species (~100) for diverse trait types, and those with small to moderate phylogenetic signal. We illustrate the use of *BACE* using two case studies: 1) imputing missing heat tolerance data across 5,203 species of amphibians from 524 species with data (89.9% missing data) and 2) . We provide a detailed tutorial on how it can be used and it is available for download on CRAN.
 4. *BACE* provides a flexible, accessible workflow for imputing diverse trait types in comparative datasets. Although computationally demanding, it makes multiple imputation more widely applicable, supporting a broader range of evolutionary questions while accounting for missing-data uncertainty. 
 
 # Introduction
@@ -96,31 +96,11 @@ While a broad array of statistical methods and packages exist to deal with missi
 
 Here, we introduce a new Bayesian imputation software package for comparative biology, named *BACE* (**B**ayesian **A**ugmentation by **C**hained **E**quations), which uses the versatile Bayesian software *MCMCglmm* [@hadfield2010jss] to conduct multiple imputation through chained equations. *BACE* provides substantial flexibility in the imputation / analysis models fit, as well as a simple user interface, which makes it easy to apply in practice. *BACE* also provides options to decouple imputation and analysis models. Given its Bayesian approach, imputation and analysis models can be fit jointly and a final analysis model allows for pooling of posterior distributions to account for within and across imputation uncertainty. Additionally, samples from the posterior predictive distribution can be used to generate a set of *m* complete datasets and these datasets can be used with any modelling approach and pooled using Rubin's rules. We describe how *BACE* works, test its robustness using simulations, and demonstrate how to apply it using two case studies.
 
-```{r}
-#| label: fig-bace-workflow
-#| echo: false
-#| out-width: "100%"
-#| fig-cap: |
-#|   **Overview of the BACE imputation workflow**. (1) Inputs are an incomplete
-#|   trait dataset and a phylogeny covering the species. (2) Chained imputation:
-#|   a separate phylogenetic mixed model is fitted for each incomplete trait,
-#|   and missing values are updated with point estimates until they stabilise.
-#|   (3) Final imputation: models are refitted and missing values are drawn from
-#|   their posterior predictive distributions. Repeated runs produce multiple
-#|   completed datasets while retaining the observed values. (4) Downstream
-#|   analysis: models are fitted to each completed dataset and posterior draws
-#|   are pooled across imputations. Alternatively, parameter estimates and their
-#|   variances can be combined using Rubin's rules to include imputation uncertainty.
-
-knitr::include_graphics("../vignettes/figs/bace_workflow.png")
-```
-
 <!-- authors: every cell of @tbl-software was verified against the package's own
 reference documentation (current CRAN/GitHub version, October 2026); page-cited
 evidence in .agents/software-comparison-evidence.md — intended as Supporting
 Information at submission. -->
 
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---|
 | Package | Phylo. | MI | Multi. | Cont. | Count | Bin. | Ord. | Nom. | Reference |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---|
 | **BACE** | **✓** | **✓** | (✓)^a^ | **✓** | **✓** | **✓** | **✓** | **✓** | this paper |
@@ -139,9 +119,8 @@ Information at submission. -->
 | JointAI | ✗ | (✓)^e^ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | @erler2021 |
 | smcfcs | ✗ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | @bartlett2015 |
 | missForest | ✗ | ✗ | ✗ | ✓ | ✗ | ✓ | ✗ | ✓ | @stekhoven2012 |
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---|
 
-: R tools for imputing missing data, against the needs of phylogenetic comparative analysis. *Phylogeny* (Phylo.): a tree-derived covariance informs the imputation. *Proper multiple imputation* (MI): multiple imputed datasets (or an integrated Bayesian posterior) are produced, so downstream analyses reflect imputation uncertainty. *Multilevel* (Multi.): non-independence beyond the phylogeny (random effects / clustered rows). Remaining columns: an explicit imputation model for continuous (Cont.), count, binary (Bin.), ordinal (Ord., treated as ordered) and nominal (Nom., unordered multinomial) variables. ✓ = documented in the package's reference documentation (October 2026); (✓) = partial support; ✗ = not documented. {#tbl-software tbl-colwidths="[13,8,8,9,8,8,8,8,9,21]"}
+: R tools for imputing missing data, against the needs of phylogenetic comparative analysis. *Phylogeny* (Phylo.): a tree-derived covariance informs the imputation. *Proper multiple imputation* (MI): multiple imputed datasets (or an integrated Bayesian posterior) are produced, so downstream analyses reflect imputation uncertainty. *Multilevel* (Multi.): non-independence beyond the phylogeny (random effects / clustered rows). Remaining columns: an explicit imputation model for continuous (Cont.), count, binary (Bin.), ordinal (Ord., treated as ordered) and nominal (Nom., unordered multinomial) variables. ✓ = documented in the package's reference documentation (October 2026); (✓) = partial support; ✗ = not documented. {#tbl-software tbl-colwidths="[12,9,8,9,9,8,8,8,9,20]"}
 
 ::: {.table-notes}
 ^a^ Phylogenetic and species (replicated taxa) random effects; other grouping factors are not supported. ^b^ Taxonomic hierarchy (species/genus/family), not a tree with branch lengths. ^c^ Not on CRAN: *phylomice* and *TDIP* (GitHub only), *BHPMF* (archived 2017), *hmi* (removed 2022). ^d^ Ordinal/nominal support is limited: single-level methods only (*micemd*), predictive mean matching rather than an ordinal model (*miceadds*, whose multilevel methods also cannot impute nominal variables), or substantive-model-compatible outcome models only (*jomo*). ^e^ Imputation is integrated with the analysis model (fully Bayesian); imputed datasets can be exported.
@@ -149,12 +128,33 @@ Information at submission. -->
 
 # The *BACE* R package: How it works?
 
-*BACE* generates multiple completed datasets or pooled model(s) from comparative data with missing trait values (@fig-bace-workflow). Users provide a data frame with species identifiers, a phylogeny with branch lengths, and model formulas specifying the predictors of each incomplete trait (@fig-bace-workflow, step 1). Continuous, count, binary, ordered categorical and unordered categorical traits can be included in the same dataset. Each trait's type is declared by how its column is stored in the data frame (numeric for continuous, integer for counts, factors — ordered or unordered — for categorical traits). *BACE* then selects the correct error distribution for the model automatically. For example, if the response variable is a count a Poisson error distribution (log link) is used whereas if the response is a two-level categorical variable it will use a Bernoulli error distribution (logit link). Because the phylogenetic tree is user-supplied, evolutionary models other than Brownian motion can also be accommodated. For example, any model expressible as a branch-length transformation — Pagel's κ and δ, early burst, or single-optimum Ornstein–Uhlenbeck on an ultrametric tree — is fitted by transforming the tree before imputation, with the transform parameter estimated externally [@hansen1997; @pagel1999; @blomberg2003]. 
+*BACE* generates multiple completed datasets and pooled model posteriors from comparative data with missing trait values (@fig-bace-workflow). Users provide a data frame with species identifiers, a phylogeny with branch lengths, and model formulas specifying the predictors of each incomplete trait (@fig-bace-workflow, step 1). Continuous, count, binary, ordered categorical and unordered categorical traits can be included in the same dataset. Each trait's type is declared by how its column is stored in the data frame (numeric for continuous, integer for counts, factors — ordered or unordered — for categorical traits). *BACE* then selects the correct error distribution for the model automatically. For example, if the response variable is a count a Poisson error distribution (log link) is used whereas if the response is a two-level categorical variable it will use a Bernoulli error distribution (probit link). Because the phylogenetic tree is user-supplied, evolutionary models other than Brownian motion can also be accommodated. For example, any model expressible as a branch-length transformation — Pagel's κ and δ, early burst, or single-optimum Ornstein–Uhlenbeck on an ultrametric tree — is fitted by transforming the tree before imputation, with the transform parameter estimated externally [@hansen1997; @pagel1999; @blomberg2003]. 
 
-*BACE* fits a separate phylogenetic mixed model for each incomplete trait with *MCMCglmm* [@hadfield2010jss].  Each model uses relationships among traits and shared evolutionary history to inform probable missing values. When species have repeated observations, a separate species effect can account for similarities not explained by the phylogeny [@hadfield2010; @nakagawa2012; @cinar2022]. Imputation has two phases. First, the models are fitted repeatedly, updating missing values with point estimates until these estimates stabilise (@fig-bace-workflow, step 2). Once the chained equations stabilise, *BACE* cycles through the models again, drawing plausible missing values from their posterior predictive distributions (@fig-bace-workflow, step 3). Repeating this process produces *m* completed datasets, each retaining the original observed values. 
+*BACE* fits a separate phylogenetic mixed model for each incomplete trait with *MCMCglmm* [@hadfield2010jss].  Each model uses relationships among traits and shared evolutionary history to inform probable missing values. When species have repeated observations, a separate species effect can account for similarities not explained by the phylogeny [@hadfield2010; @nakagawa2012; @cinar2022]. Imputation has two phases. First, the models are fitted repeatedly, updating missing values with point estimates until these estimates stabilise (@fig-bace-workflow, step 2). In the final phase, `bace_final_imp()` starts *m* independent runs from the stabilised data (@fig-bace-workflow, step 3). Within each run, *BACE* cycles through the trait models, refitting each and updating missing values with posterior-predictive draws. When several traits are incomplete, repeated passes let each model use the latest draws for its missing predictors. Originally missing response values remain unobserved during fitting. Each run retains one completed dataset, with observed values unchanged, and the models fitted in its final pass. 
 
 The main function `bace()` runs this workflow and returns a single object containing the *m* completed datasets, pooled model posteriors, individual model fits and convergence diagnostics. Users can extract the completed datasets with `get_imputed_data()` and a pooled model for a particular trait with `get_pooled_model()`. Imputed values are returned on the scale of the supplied data. Model coefficients retain the fitted model's scale: Gaussian variables are standardised internally, count responses use a log link, and binary and ordinal responses use a probit link. The pooled posterior can be used directly when that model's parameters are of interest. Alternatively, users can fit a different analysis model to each completed dataset and combine its results. Both routes carry imputation uncertainty into downstream analyses (@fig-bace-workflow, step 4).
 
+```{r}
+#| label: fig-bace-workflow
+#| echo: false
+#| out-width: "100%"
+#| fig-cap: |
+#|   **Overview of the BACE imputation workflow**. (1) Inputs are an incomplete
+#|   trait dataset and a phylogeny covering the species. (2) Chained imputation:
+#|   a separate phylogenetic mixed model is fitted for each incomplete trait,
+#|   and missing values are updated with point estimates until they stabilise.
+#|   (3) Final imputation: *m* independent runs start from the stabilised data.
+#|   Each run cycles through fresh trait-model fits and posterior-predictive
+#|   updates of missing values. Missing responses remain unobserved during
+#|   fitting, while missing predictors use their latest imputed values. Each run
+#|   retains a completed dataset and the models from its final pass; observed
+#|   values are preserved. (4) Pooling and downstream analysis: the default
+#|   route pools posterior draws directly from these retained fits. Alternatively,
+#|   a chosen analysis model is fitted to each completed dataset, and its
+#|   coefficient estimates and variances are combined using Rubin's rules.
+
+knitr::include_graphics("../vignettes/figs/bace_workflow_final_phase.png")
+```
 
 ## Typical *BACE* workflow 
 
@@ -195,13 +195,13 @@ pool_mi(fits)
 ```
 
 ```{=openxml}
-<w:p><w:pPr><w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="851" w:right="851" w:bottom="851" w:left="851" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:pPr></w:p>
+<w:p><w:pPr><w:sectPr><w:footerReference w:type="default" r:id="rId9"/><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="851" w:right="851" w:bottom="851" w:left="851" w:header="720" w:footer="720" w:gutter="0"/><w:lnNumType w:countBy="1" w:restart="continuous"/></w:sectPr></w:pPr></w:p>
 ```
 
 ![**Map of the core user-facing *BACE* functions**. Solid arrows show the main workflow from raw comparative data through chained imputation (`bace_imp()`), convergence assessment of the chained loop (`assess_convergence()`), posterior-predictive final imputations (`bace_final_imp()`) and posterior pooling (`pool_posteriors()`), with accessors (`get_pooled_model()`, `get_imputed_data()`) reading the finished object. The shaded band marks the steps run end-to-end by `bace()`, which automatically retries the chained phase on non-convergence. The lower-right branch is the alternative Rubin's-rules pathway: `with_imputations()` fits any downstream analysis model to each completed dataset and `pool_mi()` combines the estimates. Dashed boxes mark optional routes: simulating benchmark data (`sim_bace()`), pre-flight phylogenetic-signal screening (`phylo_signal_summary()`), per-model MCMC and prior control, and convergence visualisations.](../vignettes/figs/bace_function_map.png){#fig-function-map width=9in}
 
 ```{=openxml}
-<w:p><w:pPr><w:sectPr><w:pgSz w:w="15840" w:h="12240" w:orient="landscape"/><w:pgMar w:top="851" w:right="851" w:bottom="851" w:left="851" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:pPr></w:p>
+<w:p><w:pPr><w:sectPr><w:footerReference w:type="default" r:id="rId9"/><w:pgSz w:w="15840" w:h="12240" w:orient="landscape"/><w:pgMar w:top="851" w:right="851" w:bottom="851" w:left="851" w:header="720" w:footer="720" w:gutter="0"/><w:lnNumType w:countBy="1" w:restart="continuous"/></w:sectPr></w:pPr></w:p>
 ```
 
 ```{=latex}
@@ -210,7 +210,7 @@ pool_mi(fits)
 
 *BACE* provides convergence diagnostics which help to identify possible issues during model fitting that need to be checked prior to inference. For example, within-chain Markov chain Monte Carlo (MCMC) convergence of each parameter in the per-variable model as well as convergence of the chained-equations loop (the imputed-data sequence) are provided as output when `bace()` is run or can be investigated after the imputation workflow is complete. `assess_convergence()` and `plot_*_convergence()` are two functions that provide users with various diagnostics on the change in imputed values as chained equations proceed. MCMC chains of any final model and parameter can be investigated using standard R functions (e.g., trace plots via `plot()`, effective sample sizes via `coda::effectiveSize()` and autocorrelation via `coda::autocorr.diag()`; @plummer2006). Convergence information is important to identify when different priors or a different number of MCMC iterations are needed. In `bace()`, `runs` controls the initial chained-imputation passes, and `n_final` sets the number of completed datasets (default 50). Within each model, `nitt`, `burnin` and `thin` control the total MCMC iterations, initial iterations discarded and interval between retained samples, respectively. For `nitt`, `burnin` and `thin`, users can supply one value for all models or a list with one value per equation, in formula order, to tune sampling separately for each response. 
 
-*BACE* provides two routes for combining results across imputations. The default, `pool_posteriors()`, stacks posterior draws from the final *MCMCglmm* fits for each trait to approximate its marginal posterior [@zhou2010]. The returned models contain pooled draws for regression coefficients and variance components, from which users can obtain posterior means and credible intervals. Alternatively, `with_imputations()` fits a user-specified analysis model to each completed dataset and `pool_mi()` combines its coefficient estimates and variances using Rubin's rules [@rubin1987]. The workflow follows a similar syntax to the *mice* package [@vanbuuren2011]. `pool_mi()` returns a table with one row per coefficient, including the pooled estimate, standard error, confidence interval, test statistic, degrees of freedom and *p*-value. It also reports the **fraction of missing information** (`fmi`), which estimates how much information about each coefficient is lost because of missing data, and the **relative increase in variance** (`riv`), which measures the extra variance from imputation uncertainty relative to the average within-imputation variance of that coefficient [@rubin1987]. Larger values indicate that missing data have a greater effect on the precision of that coefficient.
+*BACE* provides two routes for combining results across imputations. The default, `pool_posteriors()`, stacks posterior draws from the *MCMCglmm* fits retained in the final pass of each independent run, giving a pooled posterior for each trait model [@zhou2010]. The returned models contain pooled draws for regression coefficients and variance components, from which users can obtain posterior means and credible intervals. Alternatively, `with_imputations()` fits a user-specified analysis model to each completed dataset and `pool_mi()` combines its coefficient estimates and variances using Rubin's rules [@rubin1987]. The workflow follows a similar syntax to the *mice* package [@vanbuuren2011]. `pool_mi()` returns a table with one row per coefficient, including the pooled estimate, standard error, confidence interval, test statistic, degrees of freedom and *p*-value. It also reports the **fraction of missing information** (`fmi`), which estimates how much information about each coefficient is lost because of missing data, and the **relative increase in variance** (`riv`), which measures the extra variance from imputation uncertainty relative to the average within-imputation variance of that coefficient [@rubin1987]. Larger values indicate that missing data have a greater effect on the precision of that coefficient.
 
 # Evaluating the performance of BACE with simulations
 
