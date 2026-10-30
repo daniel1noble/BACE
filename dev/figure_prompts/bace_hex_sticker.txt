@@ -1,0 +1,22 @@
+BACE hex sticker
+Generation mode: built-in image_gen; transparent background enabled.
+Final asset: vignettes/figs/bace_hex_sticker.png
+
+INITIAL GENERATION PROMPT
+Use case: logo-brand.
+Asset type: professional hex sticker for the BACE R package, Bayesian Augmentation by Chained Equations for phylogenetic comparative datasets.
+Create one exceptionally polished, minimal scientific software hex sticker. Flat, crisp vector-like artwork, a strong recognizable silhouette, balanced spacing, and thick readable strokes. This is a finished standalone logo asset, not a photograph of a sticker or a presentation mockup.
+
+Shape and composition: one perfectly regular point-up hexagon (one vertex at top and bottom, vertical left and right sides), centered and fully visible, with modest transparent padding. An elegant deep navy field, thin warm-ivory inset keyline, and a substantial teal outer border. Upper two-thirds contain one integrated emblem; lower third contains the sole text "BACE", very large, bold, highly legible geometric sans-serif uppercase, warm ivory, with carefully balanced letter spacing. Exact letters: B A C E. No small tagline.
+
+Central scientific emblem: a compact four-tip rooted phylogenetic tree in warm ivory on the left, with its four terminal tips aligned to the four rows of a simple four-by-four trait matrix on the right. Make the tree topology unmistakably branching, with clear right-angle joins and generous line spacing. The matrix is sixteen well-spaced rounded square cells: most are teal, with exactly three magenta filled cells distributed across different rows to suggest imputed values. All cells are visible and equal-sized. Branches end cleanly just before the matrix. A single simple broad curved teal arrow sweeps above and around this combined tree-and-matrix emblem, suggesting repeated chained updates, with one clear arrowhead; do not add a second separate arrow or a literal chain. Make the emblem bold and uncluttered, with ample separation from the title.
+
+Palette: dark navy approximately #142D3B, teal #21918C, muted magenta #CE5B97, warm ivory #F8F5EA. Use solid fills only, no gradients, no texture, no glows, no drop shadows. Sharp professional design suitable for an R package website and a small printed sticker.
+Exterior of hexagon: genuinely transparent alpha, not white, not checkerboard artwork. Hex interior stays fully opaque.
+Constraints: only the word BACE, no other letters, no formulas, no digits, no watermark, no logo mockup, no surrounding scene, no frog mascot, no extra icons, no decorative foliage. Symmetric hexagon outline, typography precisely centered. Deliver one complete large high-resolution hex sticker on a square transparent canvas.
+
+TYPOGRAPHIC SPACING REFINEMENT PROMPT
+Use case: precise-object-edit. Input image 1 is the edit target: the BACE scientific R package hex sticker.
+Make one targeted typographic spacing correction: reduce the existing BACE wordmark's width AND height to approximately 82 percent of its current size, keeping the same bold font, exact letters BACE, warm ivory color, and horizontal centering. Keep its top edge near the same vertical position below the matrix, so its bottom ends higher. Leave a clearly visible generous band of dark navy between every letter and the inner ivory hexagon border, particularly the lower left corner of B and lower right corner of E. The title must not touch, interrupt, merge into, or overlap the border. The ivory inset hexagon outline must remain continuous behind and around the title. Keep BACE prominent and readable.
+Preserve every other part of the design: same regular point-up hexagon silhouette, teal outer border, ivory inset line, navy field, single curved teal arrow, four-tip ivory phylogeny, four-by-four matrix with exactly three magenta cells and remaining teal cells, original placement and scale of emblem, and balanced composition. Do not add anything or change colors. Retain transparent alpha outside the hexagon and fully opaque interior. Finished standalone high-resolution logo, no mockup.
+
