@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="2800" height="1200" viewBox="0 0 2800 1200" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="2800" height="960" viewBox="0 150 2800 960" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#2f3b4c"/>
@@ -13,10 +13,6 @@
   </defs>
 
   <rect x="0" y="0" width="2800" height="1200" fill="#ffffff"/>
-
-  <!-- Title -->
-  <text x="80" y="78" font-size="40" font-weight="700" fill="#1f2937">BACE function map</text>
-  <text x="80" y="118" font-size="19" fill="#6b7280">Core user-facing workflow. bace() runs the four shaded steps end-to-end; each can also be called directly for finer control.</text>
 
   <!-- Stage chips -->
   <g font-size="20" font-weight="700" text-anchor="middle">
@@ -45,7 +41,9 @@
 
   <!-- bace() wrapper band -->
   <rect x="450" y="400" width="1955" height="360" rx="16" fill="#f8fafc" stroke="#aeb8c2" stroke-width="1.5"/>
-  <text x="475" y="740" font-size="18" fill="#5b6470" font-style="italic">bace() — runs Steps 1–4 in one call; auto-retries Steps 1–2 on non-convergence (up to max_attempts, 1.5&#215; more runs each retry)</text>
+  <rect x="1415" y="284" width="148" height="44" rx="8" fill="#2f3b4c"/>
+  <text x="1489" y="314" font-size="26" font-weight="700" fill="#ffffff" text-anchor="middle">bace()</text>
+  <text x="1489" y="364" font-size="23" fill="#4b5563" font-style="italic" text-anchor="middle">runs Steps 1&#8211;4 in one call; auto-retries Steps 1&#8211;2 on non-convergence (up to max_attempts, 1.5&#215; more runs each retry)</text>
 
   <!-- Raw data box -->
   <g>
@@ -59,7 +57,7 @@
   <g>
     <rect x="480" y="430" width="360" height="190" rx="6" fill="#dae8fc" stroke="#2f3b4c" stroke-width="2"/>
     <text x="660" y="478" font-size="26" font-weight="700" fill="#1f2937" text-anchor="middle">bace_imp()</text>
-    <text x="660" y="514" font-size="16" fill="#4b5563" text-anchor="middle">Step 1 — chained equations: one</text>
+    <text x="660" y="514" font-size="16" fill="#4b5563" text-anchor="middle"><tspan font-weight="700">Step 1</tspan> — chained equations: one</text>
     <text x="660" y="538" font-size="16" fill="#4b5563" text-anchor="middle">phylogenetic MCMCglmm per variable;</text>
     <text x="660" y="562" font-size="16" fill="#4b5563" text-anchor="middle">deterministic point imputations</text>
     <text x="660" y="586" font-size="16" fill="#4b5563" text-anchor="middle">let the chain settle</text>
@@ -69,7 +67,7 @@
   <g>
     <rect x="990" y="430" width="360" height="190" rx="6" fill="#ffe9c9" stroke="#2f3b4c" stroke-width="2"/>
     <text x="1170" y="478" font-size="26" font-weight="700" fill="#1f2937" text-anchor="middle">assess_convergence()</text>
-    <text x="1170" y="514" font-size="16" fill="#4b5563" text-anchor="middle">Step 2 — has the sequence of</text>
+    <text x="1170" y="514" font-size="16" fill="#4b5563" text-anchor="middle"><tspan font-weight="700">Step 2</tspan> — has the sequence of</text>
     <text x="1170" y="538" font-size="16" fill="#4b5563" text-anchor="middle">imputed datasets stabilised</text>
     <text x="1170" y="562" font-size="16" fill="#4b5563" text-anchor="middle">across chained iterations?</text>
     <text x="1170" y="586" font-size="16" fill="#4b5563" text-anchor="middle">(%-change + trend + ACF)</text>
@@ -79,7 +77,7 @@
   <g>
     <rect x="1500" y="430" width="360" height="190" rx="6" fill="#d0e0e3" stroke="#2f3b4c" stroke-width="2"/>
     <text x="1680" y="478" font-size="26" font-weight="700" fill="#1f2937" text-anchor="middle">bace_final_imp()</text>
-    <text x="1680" y="514" font-size="16" fill="#4b5563" text-anchor="middle">Step 3 — n_final independent</text>
+    <text x="1680" y="514" font-size="16" fill="#4b5563" text-anchor="middle"><tspan font-weight="700">Step 3</tspan> — n_final independent</text>
     <text x="1680" y="538" font-size="16" fill="#4b5563" text-anchor="middle">posterior-predictive imputations</text>
     <text x="1680" y="562" font-size="16" fill="#4b5563" text-anchor="middle">(proper multiple imputation;</text>
     <text x="1680" y="586" font-size="16" fill="#4b5563" text-anchor="middle">parallel via n_cores)</text>
@@ -89,7 +87,7 @@
   <g>
     <rect x="2010" y="430" width="360" height="190" rx="6" fill="#e1d5e7" stroke="#2f3b4c" stroke-width="2"/>
     <text x="2190" y="478" font-size="26" font-weight="700" fill="#1f2937" text-anchor="middle">pool_posteriors()</text>
-    <text x="2190" y="514" font-size="16" fill="#4b5563" text-anchor="middle">Step 4 — stack the per-imputation</text>
+    <text x="2190" y="514" font-size="16" fill="#4b5563" text-anchor="middle"><tspan font-weight="700">Step 4</tspan> — stack the per-imputation</text>
     <text x="2190" y="538" font-size="16" fill="#4b5563" text-anchor="middle">MCMC chains into the marginal</text>
     <text x="2190" y="562" font-size="16" fill="#4b5563" text-anchor="middle">posterior (Bayesian MI combiner;</text>
     <text x="2190" y="586" font-size="16" fill="#4b5563" text-anchor="middle">not Rubin&#8217;s rules)</text>
@@ -180,8 +178,6 @@
     <line x1="1250" y1="860" x2="1250" y2="628" stroke="#7a8490" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrowGray)"/>
   </g>
 
-  <!-- Bottom annotations -->
-  <text x="80" y="1120" font-size="17" fill="#5b6470">Two phases, two kinds of draws: bace_imp() imputes with deterministic point predictions (sample = FALSE) so the chained loop can settle;</text>
-  <text x="80" y="1148" font-size="17" fill="#5b6470">bace_final_imp() draws from the posterior predictive (sample = TRUE) so the M imputations carry missing-data uncertainty.</text>
-  <text x="2720" y="1148" font-size="17" fill="#6b7280" text-anchor="end">Solid arrows = main workflow&#160;&#160;&#160;&#160;Dashed = optional / advanced</text>
+  <!-- Legend -->
+  <text x="2720" y="1090" font-size="17" fill="#6b7280" text-anchor="end">Solid arrows = main workflow&#160;&#160;&#160;&#160;Dashed = optional / advanced</text>
 </svg>
