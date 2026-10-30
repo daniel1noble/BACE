@@ -1,0 +1,22 @@
+Intended use: fig-case-studies, corner of panel b.
+Generation mode: built-in image_gen; transparent background enabled.
+Final asset: vignettes/figs/treefrog_scientific.png
+
+INITIAL FROG PROMPT
+Use case: scientific-educational.
+Asset type: a professional natural-history frog illustration for the corner of panel a in a peer-reviewed comparative-biology manuscript figure. Create one standalone frog, isolated on a truly transparent background with alpha.
+Subject: a biologically plausible adult frog representing anurans generally, with natural muted olive-green and warm brown mottled skin, a pale cream underside, subtle dorsolateral folds, a clear tympanum behind the eye and a bronze-gold iris with a natural horizontal dark pupil. Use realistic frog anatomy: compact body without a tail, short forelimbs, muscular folded hindlimbs; four fingers on the forefeet and five toes on the hindfeet, with natural hindfoot webbing. Natural occlusion of the far limbs; no additional digits or duplicated limbs. No exaggerated toe pads or fanciful markings.
+Pose and composition: entire animal visible, calm natural crouching pose, three-quarter lateral view slightly from above, head facing to the right. Show the face and near eye clearly, with the folded hind leg providing a recognisable frog silhouette. Keep all feet and toe tips inside the canvas with a small clean transparent margin. Compact balanced composition that remains recognisable at a small figure-inset size.
+Style: refined museum-quality zoological plate illustration, delicate precise contour work and controlled watercolour/gouache rendering, detailed anatomically informed modelling, subtle stippled skin texture, restrained natural colour, crisp professional edges and elegant clarity. Realistic scientific illustration rather than a photograph, cartoon, mascot, clip art, plastic 3D render or loose expressive painting.
+Background: fully transparent, no white rectangle, no grey field, no paper texture and no checkerboard baked into the pixels. No scenery, leaves, branch, rock, ground, cast shadow or border. No labels, text, letters, arrows, scale bar, signature or watermark.
+Output: high-resolution transparent PNG, ideally 2048 by 2048 pixels or larger, with clean antialiased alpha edges suitable for compositing directly onto a white journal figure. Prioritise anatomical plausibility and polished scientific illustration quality.
+
+TREEFROG REFINEMENT PROMPT
+Use case: scientific-educational, precise-object-edit.
+Edit target: the supplied professional frog illustration. Create a GREEN TREEFROG version for the corner of panel b in a scientific manuscript's case-study figure.
+Preserve the refined zoological-plate style, delicate detailed hand-rendered watercolour/gouache appearance, naturalistic modelling, crisp clean edges, whole-animal composition and fully transparent alpha background. This is a beautiful professional scientific illustration, not a photograph, cartoon, mascot, clip art or plastic 3D render.
+Change the animal to a biologically plausible adult Australian green treefrog: smooth softly textured jade-green back and flanks, pale ivory throat and belly, warm gold irises with natural horizontal dark pupils, a gently rounded snout, robust but graceful body, folded hind legs, and clearly recognisable rounded adhesive toe discs. Keep proportions anatomically natural, eyes realistic rather than exaggerated. No olive-brown mottling, no large dark spots, no red eyes or blue/orange decorative markings. The green should be luminous yet restrained, suitable for a journal illustration.
+Anatomy: two forelimbs and two hindlimbs, four fingers on each forefoot and five toes on each hindfoot, enlarged round terminal adhesive discs, appropriate subtle webbing. Far-side limbs may be naturally partly occluded. No extra limbs, duplicated digits or impossible joints.
+Pose: a relaxed natural crouch in three-quarter lateral view, facing right, slightly lower and more compact than the reference; all visible feet and toe pads fully inside the canvas. Entire frog clearly readable as a small corner inset. Centre it with a modest transparent margin.
+No branch, leaf, ground, scenery, cast shadow, paper texture, solid background, baked-in checkerboard, text, labels, signature, border or watermark. Genuinely transparent background with clean anti-aliased alpha edges. Output a high-resolution PNG, ideally 2048 by 2048 pixels.
+
