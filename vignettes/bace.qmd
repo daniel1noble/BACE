@@ -1,5 +1,8 @@
 ---
-title: "BACE: Bayesian Augmentation by Chained Equations for Comparative Biology"
+title: |
+  ![BACE hex sticker](figs/bace_hex_sticker.png){.bace-logo width=140}
+  BACE: Bayesian Augmentation by Chained Equations for Comparative Biology
+pagetitle: "BACE: Bayesian Augmentation by Chained Equations for Comparative Biology"
 date: "`r Sys.Date()`"
 author: "Daniel W. A. Noble, Szymon M. Drobniak, Ayumi Mizuno, Patrice Pottier, Shinichi Nakagawa"
 bibliography: ../bib/BACE.bib
@@ -20,6 +23,13 @@ format:
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+        <style>
+        h1.title { display: flow-root; }
+        .bace-logo { float: right; width: 140px; height: auto; margin: 0 0 1rem 1.25rem; }
+        @media (max-width: 575.98px) {
+          .bace-logo { float: none; display: block; width: 100px; margin: 0 0 1rem; }
+        }
+        </style>
     embed-resources: true
     code-fold: show
     code-tools: true

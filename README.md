@@ -1,3 +1,5 @@
+<img src="vignettes/figs/bace_hex_sticker.png" align="right" width="150" alt="BACE hex sticker" />
+
 # **B**ayesian **A**ugmentation by **C**hained **E**quations (**BACE**) for Comparative Biology
 
 <!-- badges: start -->
