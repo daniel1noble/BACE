@@ -855,11 +855,9 @@ The `dev/sim_accuracy_results/multirep_v1_n20/` directory of the package source 
 
 {{< include amphibian_ctmax/_amphibian_ctmax.qmd >}}
 
-# Citation and further reading
+# Citation
 
-If you use *BACE* in a publication, please cite both the package (see `citation("BACE")`) and the underlying `MCMCglmm` engine [@hadfield2010jss]. Phylogenetic comparative methods and phylogenetic mixed models are reviewed in @cornwell2017, @devillemereuil2014a and @halliwell2025. The broader motivation for imputation in comparative biology — data gaps, trait databases, and the cost of complete-case analysis — is discussed in @daliaa.conde2019 and @pottier2024. For a related Rubin's-rules-based approach that handles *phylogenetic* uncertainty (rather than missing trait data), see @nakagawa2018.
-
-The Bayesian combiner used by `pool_posteriors()` — concatenating the per-imputation chains to approximate the marginal posterior — is discussed in @zhou2010 and in Chapter 18 of @gelman2013. The Rubin's-rules combiner used by `pool_mi()` is from @rubin1987 with the small-sample degrees-of-freedom correction of @barnard1999; @vanbuuren2018 is the standard modern reference on multiple imputation practice.
+If you use *BACE* in a publication, please cite both the package (see `citation("BACE")`) and the underlying `MCMCglmm` engine [@hadfield2010jss]. 
 
 Bug reports, feature requests and worked examples are very welcome at the [BACE issue tracker](https://github.com/daniel1noble/BACE/issues).
 
