@@ -73,8 +73,6 @@ BACE is probably the wrong tool when:
 - Missingness is rare and plausibly MCAR — a complete-case analysis may be defensible and much easier.
 - You need fast imputations. Each chained-equations iteration runs an MCMC fit, so runtimes are measured in minutes, not milliseconds.
 
-For a broader discussion of the data-gap problem and imputation in comparative biology we recommend @daliaa.conde2019 and @pottier2024; for Rubin's-rules-based approaches to related problems see @nakagawa2018.
-
 # Installation
 You can install the *BACE* package from GitHub using the following command:
 
