@@ -1,0 +1,581 @@
+# Worked example: social behaviour of birds {#sec-social}
+
+```{r}
+#| label: soc-setup
+#| include: false
+# This section reads precomputed results. The scripts in vignettes/bird_social/
+# (01_prepare_data.R, 02_run_bace.R, 03_summarise.R) regenerate them.
+library(ggplot2)
+library(patchwork)
+soc_dir     <- "bird_social"
+social_data <- readRDS(file.path(soc_dir, "data/social_data.rds"))
+ds   <- readRDS(file.path(soc_dir, "results/data_summary.rds"))
+full <- readRDS(file.path(soc_dir, "results/full_results.rds"))
+val  <- readRDS(file.path(soc_dir, "results/validation_results.rds"))
+mix  <- readRDS(file.path(soc_dir, "results/mixed_results.rds"))
+
+fmt  <- function(x, d = 2) formatC(x, format = "f", digits = d, big.mark = ",")
+fmt0 <- function(x) formatC(round(x), format = "d", big.mark = ",")
+pct  <- function(x) paste0(round(100 * x), "%")
+soc_counts <- ds$counts
+soc_n_miss <- sum(is.na(social_data$social_max))
+soc_labels <- c(solitary = "Solitary", singly_pairs = "Singly and pairs",
+                pairs_family = "Pairs and family groups", flocks_colonies = "Flocks or colonies")
+short      <- c(solitary = "Solitary", singly_pairs = "Singly/pairs", pairs_family = "Pairs/family",
+                flocks_colonies = "Flocks/colonies")
+soc_cols   <- c(solitary = "#440154", singly_pairs = "#31688e", pairs_family = "#35b779",
+                flocks_colonies = "#E69F00")
+soc_theme  <- theme_classic(base_size = 11) +
+  theme(panel.border = element_rect(fill = NA, colour = "black"))
+
+# MCMC diagnostics across final imputations, as a table
+diag_table <- function(d, caption_rhat = "R-hat") {
+  knitr::kable(d[, c("parameter", "rhat", "ess_per_chain", "ess_min_chain", "geweke_flag_rate",
+                     "geweke_placebo_rate", "split_rhat_max", "drop10_shift_sd")],
+               digits = c(0, 3, 0, 0, 2, 2, 3, 3), row.names = FALSE,
+               col.names = c("Parameter", caption_rhat, "ESS per chain (median)", "ESS per chain (min)",
+                             "Geweke flag rate", "Geweke placebo rate", "Split R-hat (max)",
+                             "Drop first 10% (SD)"))
+}
+# Validation helpers: scores and RPS gains for one set and method
+sc <- function(set, method, col) val$scores[[col]][val$scores$set == set & val$scores$method == method]
+gv <- function(set, base, col) val$rps_gain[[col]][val$rps_gain$set == set & val$rps_gain$baseline == base]
+po <- function(set, method, cat) val$prob_observed$mean_prob_observed[val$prob_observed$set == set &
+                                   val$prob_observed$method == method & val$prob_observed$category == cat]
+```
+
+The examples above impute continuous, count and categorical variables. Here we impute an **ordinal** variable, the social behaviour of birds, across the `r fmt0(nrow(social_data))` species of a global bird phylogeny. Ordinal variables have ordered categories, such as low < medium < high. BACE models them on a latent (liability) scale with a threshold model: a species' category depends on where its latent value falls relative to estimated cutpoints [@hadfield2010]. Social behaviour is missing for `r pct(soc_n_miss / nrow(social_data))` of the species, so this is a realistic imputation problem.
+
+The example has two aims: to show how to run BACE on such data, and to show how to judge how far the imputations can be trusted. We (1) impute the social behaviour of the species without records and use the imputed datasets in a downstream analysis, (2) check BACE against known values that we hid from it, including whole families, and (3) impute an ordinal and a continuous variable together.
+
+The checks in (2) set the expectations for the rest of the example. BACE's imputations of social behaviour were clearly better than those of a model without phylogeny (less so for whole families), but only slightly better, and not clearly so, than a simple rule that copies the categories of each species' closest relatives; they often missed the rarer categories and almost never identified solitary species in clades without described relatives. The example therefore illustrates the workflow, how to check the imputations, and how to carry their uncertainty into downstream analyses; it is not evidence that BACE predicts this trait better than simpler phylogenetic approaches.
+
+## The data
+
+We took social behaviour from BIRDBASE [@sekercioglu2025], body mass, the hand-wing index and habitat from AVONET [@tobias2022], using its eBird taxonomy, and the phylogeny from the Clements/eBird tree of @mctavish2025 (version 1.6). BIRDBASE records six kinds of social behaviour for each species as separate columns: colonial; social (flocks, including mixed-species or seasonal flocks); pairs and family groups; singly and pairs; solitary; and lekking. A 1 means that the species has been described as behaving this way, and a 0 that it has not been described as doing so, not that it never does. A species can therefore have several 1s, and a species without any 1 has no description of its social behaviour.
+
+We coded social behaviour as the **largest grouping** in which the species has been described: *solitary* < *singly and pairs* < *pairs and family groups* < *flocks or colonies*. These categories reflect increasing group size, so we treat them as ordinal. Colonial breeding aggregates many birds, so it joins the top category. Leks are display aggregations of males rather than social groups, so species described only as lekking (`r ds$n_lek_only`) are treated as missing. This coding is an analytic choice: BIRDBASE mixes breeding and non-breeding behaviour, and `r ds$n_solitary_and_flocks` species are described both as solitary and as flocking (for example, solitary when breeding and flocking in winter); here they count as flocking. The hand-wing index measures wing pointedness, which is associated with flight efficiency and dispersal [@sheard2020]; AVONET estimated it from relatives for `r ds$n_hwi_inferred` species, and we used these values as given (in the mixed-variable example below, only measured values were hidden). The bundled data in `vignettes/bird_social/data/` are derived from these three sources, all licensed CC BY 4.0, and are redistributed under the same licence; please cite @sekercioglu2025, @tobias2022 and @mctavish2025 when reusing them.
+
+Of the species with a description, `r fmt0(soc_counts[["solitary"]])` are solitary, `r fmt0(soc_counts[["singly_pairs"]])` live singly and in pairs, `r fmt0(soc_counts[["pairs_family"]])` in pairs and family groups, and `r fmt0(soc_counts[["flocks_colonies"]])` in flocks or colonies. The categories are unbalanced: flocks or colonies account for `r pct(soc_counts[["flocks_colonies"]] / sum(soc_counts[names(soc_labels)]))` of the described species and solitary species for `r pct(soc_counts[["solitary"]] / sum(soc_counts[names(soc_labels)]))`, which matters when we judge the imputations below. Social behaviour is missing for `r fmt0(soc_n_miss)` species: `r fmt0(ds$n_not_described)` without a description in BIRDBASE, `r ds$n_lek_only` described only as lekking, and `r ds$n_not_in_birdbase` that we could not match to BIRDBASE.
+
+```{r}
+#| label: soc-data
+#| echo: true
+# Data and phylogeny are bundled in vignettes/bird_social/data/
+social_data <- readRDS("bird_social/data/social_data.rds")
+social_tree <- readRDS("bird_social/data/social_tree.rds")
+str(social_data[, c("species", "social_max", "log_mass", "hwi")])
+table(social_data$social_max, useNA = "ifany")
+```
+
+`social_max` is stored as an **ordered factor**. This is what tells BACE to fit a threshold model rather than an unordered (multinomial) one. Body mass was log-transformed because it is right-skewed.
+
+## Who is missing? {#sec-soc-missing}
+
+Multiple imputation assumes that, given the information in the imputation model, whether a value is missing does not depend on the missing value itself (missing at random). We cannot test this assumption, because the missing values are unknown, but we can look at which species are missing. In BIRDBASE, missingness follows taxonomy more closely than ecology. In logistic regressions of whether a species was missing, family (`r ds$n_families` levels) lowered the AIC from `r fmt0(ds$aic_missing[["null"]])` to `r fmt0(ds$aic_missing[["family"]])`, whereas log body mass, the hand-wing index and habitat together lowered it only to `r fmt0(ds$aic_missing[["traits"]])` (deviance explained `r pct(ds$dev_explained[["family"]])` against `r pct(ds$dev_explained[["traits"]])`). Some orders are mostly missing, such as owls (Strigiformes, `r pct(ds$by_order$missing[ds$by_order$taxon_order == "Strigiformes"])` of species) and hawks and eagles (Accipitriformes, `r pct(ds$by_order$missing[ds$by_order$taxon_order == "Accipitriformes"])`), whereas marine species are rarely missing (`r pct(ds$by_habitat$missing[ds$by_habitat$habitat == "Marine"])`, against `r pct(ds$by_habitat$missing[ds$by_habitat$habitat == "Forest"])` of forest species).
+
+Most species without records nevertheless have relatives with records in their own family: only `r ds$n_missing_no_family_record` of them belong to the `r ds$n_families_no_record` families without any record. For `r fmt0(ds$missing_by_family_coverage[["0-25%"]])` of them, however, at most a quarter of the species in their family have a record, so many imputations rest on sparse information.
+
+Missingness that follows the phylogeny is what BACE is designed to use, because the phylogeny is in every imputation model. Two caveats remain. First, where most of a clade is missing, the imputations rely on more distant relatives and are less informative; we test this below by hiding whole families. Second, missingness could still depend on social behaviour itself (missing not at random), for example if solitary or inconspicuous species are less often described. The data cannot rule this out, and no imputation method can correct it without further assumptions.
+
+## Three analyses
+
+We ran BACE three times on these data. Their results are kept in separate files and are reported separately below.
+
+| Analysis | Social behaviour hidden from BACE | Hand-wing index hidden | Purpose | Results |
+|---|---|---|---|---|
+| Full | none (all `r fmt0(sum(soc_counts[names(soc_labels)]))` known values used) | none | the imputations to use in downstream analyses | `full_results.rds` |
+| Validation | `r fmt0(sum(ds$holdout))` known values | none | score the imputations of the hidden species | `validation_results.rds` |
+| Mixed validation | the same `r fmt0(sum(ds$holdout))` known values | `r fmt0(length(mix$hwi_true))` known values | score joint imputation of two variables | `mixed_results.rds` |
+
+The validation analyses were run first, with the model fixed in advance, and the hidden values were scored once. Their scores are a check of this model, not a basis for choosing among models. Some summaries of the scores (such as the mean probability given to the observed category) were added afterwards to describe where the model does well or badly; they did not change the model.
+
+## Imputing the missing social behaviour
+
+### Running BACE
+
+We imputed social behaviour from log body mass, the hand-wing index and the phylogeny, using all the known values. Because the chained phase only needs point imputations whereas the final imputations need long chains (see below), we ran the two phases separately, with different MCMC settings:
+
+```{r}
+#| label: soc-run
+#| echo: true
+#| eval: false
+soc_vars    <- c("species", "social_max", "log_mass", "hwi")
+soc_formula <- list("social_max ~ log_mass + hwi")
+
+# Chained phase: point imputations until the imputed values settle
+soc_chain <- bace_imp(fixformula = soc_formula, ran_phylo_form = "~ 1 | species",
+                      phylo = social_tree, data = social_data[, soc_vars],
+                      runs = 5, nitt = 50000, burnin = 10000, thin = 40)
+
+# Final phase: 50 posterior-predictive imputations, from long chains
+soc_final <- bace_final_imp(soc_chain, fixformula = soc_formula, ran_phylo_form = "~ 1 | species",
+                            phylo = social_tree, n_final = 50,
+                            nitt = 500000, burnin = 50000, thin = 450, n_cores = 50, seed = 1)
+```
+
+This code shows the model and settings; the numbers reported below were produced by the scripts `00_setup.R` to `03_summarise.R` in `vignettes/bird_social/`, which run the same calls one final imputation at a time and keep only the imputed values and posterior draws (the validation analyses below were run earlier with equivalent scripts, using the same data, calls, settings and seeds; see `results/run_info.txt`). They were run with BACE at git commit `dc79be1` (MCMCglmm 2.36, R 4.6.1; see `results/run_info.txt`); to reproduce them exactly, run the scripts with that version, for example by installing it with `remotes::install_github("daniel1noble/BACE@dc79be1")` and replacing `pkgload::load_all(".")` in `02_run_bace.R` with `library(BACE)`. The same model can also be fitted in one call with `bace()`, which uses one set of MCMC settings for both phases. Only social behaviour has missing values, so the formula is given as a list with one element: with a single formula string, BACE also builds and fits models for the complete predictors, which have nothing to impute. The validation analysis below, which we ran first, used a single string; the social behaviour model is the same in both. The full analysis also used more final imputations (`r full$settings$n_final`, the default, against `r val$settings$n_final`), because its imputed datasets are the ones meant for downstream analyses.
+
+:::{.callout-note}
+## Run time
+
+This analysis is computationally demanding: each MCMCglmm fit samples a latent value and a phylogenetic effect for each of the `r fmt0(nrow(social_data))` species. We therefore ran a short chained phase (`r fmt0(full$settings$chain$nitt)` iterations per fit, `r full$settings$chain$runs` iterations of the chained loop) and long final imputations (`r fmt0(full$settings$final$nitt)` iterations each), and ran the `r full$settings$n_final` final imputations in parallel on a server (one process per imputation). The chained phase took `r fmt(full$minutes[["chained"]], 0)` minutes and each final imputation `r fmt(full$minutes[["final_mean"]], 0)` minutes (about `r fmt(full$minutes[["final_mean"]] * full$settings$n_final / 60, 0)` core-hours in total). Each fitted model, with its latent values and random effects, is large, so we kept only the imputed values and the posterior draws of each imputation. The scripts are in `vignettes/bird_social/`.
+:::
+
+### Checking convergence
+
+As for the other examples, we checked the convergence of the chained loop and the mixing of each MCMC chain (see *Two kinds of convergence* above). BACE reports two kinds of automatic checks, and it helps to know what each one tests.
+
+```{r}
+#| label: soc-convergence-code
+#| echo: true
+#| eval: false
+soc_chain                                        # printed summary, including MCMC diagnostics
+assess_convergence(soc_chain, method = "summary")
+```
+
+```{r}
+#| label: soc-convergence
+#| echo: false
+full$chain_convergence
+```
+
+```{r}
+#| label: soc-chain-numbers
+#| include: false
+fs <- full$chain_series
+fcm <- full$chain_model_diagnostics
+fcm_slow <- fcm[fcm$parameter %in% c("species", "cutpoint.traitsocial_max.1", "cutpoint.traitsocial_max.2"), ]
+```
+
+`assess_convergence()` tests whether the imputed values have settled across the iterations of the chained loop: for an ordinal variable it follows the share of the first category ("solitary") among the imputed values and tests that series for a trend, for autocorrelation and for large changes between iterations. Because only social behaviour is missing and the predictors are complete, every iteration fits the same model to the same data, and the share of solitary species stayed between `r fmt(100 * min(fs$solitary), 1)`% and `r fmt(100 * max(fs$solitary), 1)`%; from one iteration to the next, `r fmt(100 * min(fs$changed, na.rm = TRUE), 1)`–`r fmt(100 * max(fs$changed, na.rm = TRUE), 1)`% of the imputed species changed category, which is the noise of single point imputations.
+
+The printed summary of the chained phase also lists MCMC diagnostics of the models fitted in its last iteration, and marks some parameters "Check" (effective sample size, ESS, below 200, or a Geweke test with p < 0.05). Here it marked the phylogenetic variance and the cutpoints (ESS `r paste(fmt0(fcm_slow$ess), collapse = ", ")` of 1,000 draws). These short chains (`r fmt0(full$settings$chain$nitt)` iterations) only produce the point imputations of the chained loop; the inference and the final imputations come from the much longer final chains, which we check next.
+
+In a threshold model the residual variance is fixed at 1, because the latent scale cannot be estimated from categories alone. The phylogenetic variance and the cutpoints are therefore expressed relative to this fixed residual. With four categories there are three cutpoints; the first is fixed at 0 and the other two are estimated. The latent phylogenetic heritability, $H^2 = \sigma^2_{phylo} / (\sigma^2_{phylo} + 1)$, is the proportion of the latent variance explained by the phylogeny. `bace_final_imp()` checks each final model, including the cutpoints (stored in `$CP` of each fitted model), and stores the result in its `$diagnostics` element.
+
+Each final imputation is an independent MCMC chain. Whether these chains target the same posterior depends on what each final model conditions on. In every final model, `bace_final_imp()` sets the missing values of the response back to missing, so that MCMCglmm imputes them within the model, and keeps the predictors at their current (observed or imputed) values. Here only social behaviour is missing and both predictors are complete, so all `r full$settings$n_final` final models are fitted to the same data and differ only in their random-number streams: they target one posterior, and the Gelman–Rubin statistic ($\hat{R}$, as computed by `coda::gelman.diag()`) across them is an ordinary convergence diagnostic. $\hat{R}$ compares the variance of the chain means ($B$) with the average variance within chains ($W$); roughly, $\hat{R} \approx \sqrt{1 + B/W}$. Within each chain, we also compared the first and second halves (split $\hat{R}$) and ran Geweke tests, which compare the mean of the first 10% of the draws with that of the last 50%. Because Geweke tests can flag more often than their nominal 5% in slowly mixing chains, we also ran the same test, with the same window sizes, away from the start of each chain (draws 401–500 against 501–1,000; a placebo, since there a flag cannot come from an unfinished burn-in), and recomputed the pooled estimates without the first 10% of every chain:
+
+```{r}
+#| label: soc-chain-diagnostics-code
+#| echo: true
+#| eval: false
+final_models <- lapply(soc_final$all_models, `[[`, "social_max")
+chains <- coda::mcmc.list(lapply(final_models, function(m) {
+  Vp <- m$VCV[, "species"]
+  coda::mcmc(cbind(m$Sol[, 1:3], phylo_var = Vp, cutpoint2 = m$CP[, 1], cutpoint3 = m$CP[, 2],
+                   h2_latent = Vp / (Vp + 1)))
+}))
+coda::gelman.diag(chains, autoburnin = FALSE, multivariate = FALSE)   # R-hat across chains
+sapply(chains, coda::effectiveSize)                                    # ESS per chain
+sapply(chains, function(m) coda::geweke.diag(m)$z)                     # Geweke z per chain
+```
+
+```{r}
+#| label: tbl-soc-diagnostics
+#| echo: false
+#| tbl-cap: "MCMC diagnostics of the social behaviour model across the final imputations of the full analysis. R-hat: Gelman–Rubin statistic across the independent chains. ESS: effective sample size per chain (of 1,000 draws). Geweke flag rate: proportion of chains with |z| > 1.96 (about 5% expected by chance). Geweke placebo rate: the same test away from the start of each chain (draws 401–500 against 501–1,000). Split R-hat: largest R-hat comparing the two halves of a chain. Drop first 10%: change in the pooled posterior mean when the first 10% of every chain is discarded, in posterior standard deviations."
+fd <- full$final_diagnostics
+diag_table(fd)
+```
+
+The `r full$settings$n_final` chains agreed with each other (all $\hat{R}$ ≤ `r fmt(max(fd$rhat), 3)`; @tbl-soc-diagnostics): the variance of the chain means was as small as Monte Carlo error alone would make it (for every parameter, $B/W$ was `r fmt(min(fd$B_over_W / fd$B_mcmc_over_W), 1)`–`r fmt(max(fd$B_over_W / fd$B_mcmc_over_W), 1)` times the value expected from the chains' ESS). The slowest parameters were the cutpoints and the phylogenetic variance: the lowest ESS of any chain was `r fmt0(min(fd$ess_min_chain))` (the third cutpoint), and `r sum(fd$n_chains_ess_below400[fd$parameter %in% c("phylo_var", "cutpoint2", "cutpoint3")])` of the `r 3 * full$settings$n_final` chain-by-parameter combinations for these three parameters had fewer than 400 effective draws, but the median chain had about `r fmt0(round(median(fd$ess_per_chain[fd$parameter %in% c("phylo_var", "cutpoint2", "cutpoint3")]), -1))`, and pooled over chains each of these parameters had more than `r fmt0(floor(min(fd$ess_total) / 1000) * 1000)` effective draws. Geweke tests flagged `r pct(min(fd$geweke_flag_rate))`–`r pct(max(fd$geweke_flag_rate))` of the chains depending on the parameter, as often as expected by chance and as often as the placebo test, no chain's two halves disagreed (split $\hat{R}$ ≤ `r fmt(max(fd$split_rhat_max), 2)`), and dropping the first 10% of every chain changed the pooled means by at most `r fmt(max(abs(fd$drop10_shift_sd)), 3)` posterior standard deviations. These checks found no problem that would affect the estimates, but they cannot prove that the chains explored the whole posterior: all final imputations start from the same chained-phase data and from MCMCglmm's default starting values.
+
+### The pooled social behaviour model
+
+Stacking the draws of the final imputations gives the pooled posterior of the social behaviour model (see *Interpreting the pooled output* above).
+
+```{r}
+#| label: tbl-soc-pooled
+#| echo: false
+#| tbl-cap: "Pooled posterior of the social behaviour model (full analysis): mean and 95% credible interval. Coefficients are on the latent scale, with the predictors standardised (z-scores); standardised values are divided by the latent standard deviation, sqrt(phylogenetic variance + 1). The first cutpoint is fixed at 0."
+p  <- full$pooled
+Vp <- p$vcv[, "species"]; s <- sqrt(Vp + 1)
+pooled_draws <- cbind(p$sol, `Phylogenetic variance` = Vp, `Cutpoint 2` = p$cp[, 1], `Cutpoint 3` = p$cp[, 2],
+                      `Latent H2` = Vp / (Vp + 1),
+                      `log_mass (standardised)` = p$sol[, "log_mass"] / s,
+                      `hwi (standardised)` = p$sol[, "hwi"] / s)
+pooled_tab <- data.frame(Parameter = colnames(pooled_draws), Mean = colMeans(pooled_draws),
+                         Lower = apply(pooled_draws, 2, quantile, 0.025),
+                         Upper = apply(pooled_draws, 2, quantile, 0.975))
+knitr::kable(pooled_tab, digits = 3, row.names = FALSE, col.names = c("Parameter", "Mean", "2.5%", "97.5%"))
+soc_h2   <- pooled_draws[, "Latent H2"]
+soc_hwi  <- pooled_draws[, "hwi (standardised)"]
+soc_mass <- pooled_draws[, "log_mass (standardised)"]
+```
+
+Social behaviour showed strong phylogenetic signal on the latent scale ($H^2$ = `r fmt(mean(soc_h2))`, 95% CI: `r fmt(quantile(soc_h2, 0.025))` to `r fmt(quantile(soc_h2, 0.975))`; @tbl-soc-pooled): close relatives tend to be described in groups of similar size. Species with more pointed wings were described in larger groups (standardised effect of the hand-wing index: `r fmt(mean(soc_hwi))`, 95% CI: `r fmt(quantile(soc_hwi, 0.025))` to `r fmt(quantile(soc_hwi, 0.975))`), whereas body mass had no clear effect (`r fmt(mean(soc_mass))`, 95% CI: `r fmt(quantile(soc_mass, 0.025))` to `r fmt(quantile(soc_mass, 0.975))`).
+
+### Imputed social behaviour
+
+For an ordinal variable, each final imputation draws one category per species, so the `r full$settings$n_final` imputed datasets give the number of imputations in each category. The probability of each category is also stored for each imputed value (`prob_preds`). With the residual variance fixed at 1, the probability that species *i* falls in category *k* is $\Phi(c_k - \eta_i) - \Phi(c_{k-1} - \eta_i)$, where $\eta_i$ is its latent prediction (fixed effects plus phylogenetic effect) and $c_0 = -\infty$, $c_1 = 0$, $c_2$, $c_3$ and $c_4 = \infty$ are the cutpoints; BACE averages these probabilities over the posterior draws of each final model. Averaging them over the imputations as well gives a more precise summary than counting categories:
+
+```{r}
+#| label: soc-imputed-code
+#| echo: true
+#| eval: false
+imp   <- get_imputed_data(soc_final, format = "list")
+miss  <- is.na(social_data$social_max)                               # species without records
+draws <- sapply(imp, function(d) as.character(d$social_max[miss]))  # species x imputations
+probs <- lapply(soc_final$all_prob_preds, `[[`, "social_max")        # one matrix per imputation
+probs <- Reduce(`+`, probs) / length(probs)                          # average over the imputations
+probs[social_data$species[miss], ]
+```
+
+```{r}
+#| label: tbl-soc-imputed
+#| echo: false
+#| tbl-cap: "Imputed social behaviour of the species without records (full analysis), by order (the eight orders with the most such species): number of species, mean posterior probability of each category, and the proportion of species whose most likely category has a probability above 0.8. The last rows give all species without records and the observed proportions among species with records."
+im  <- full$imputed
+im$maxp <- apply(im[, names(soc_labels)], 1, max)
+agg <- aggregate(im[, c(names(soc_labels), "maxp")], by = list(Order = im$taxon_order),
+                 FUN = function(x) x)
+agg <- do.call(rbind, lapply(split(im, im$taxon_order), function(x)
+  data.frame(Order = x$taxon_order[1], n = nrow(x), t(colMeans(x[, names(soc_labels)])),
+             confident = mean(x$maxp > 0.8))))
+agg <- head(agg[order(-agg$n), ], 8)
+all_row <- data.frame(Order = "All species without records", n = nrow(im),
+                      t(colMeans(im[, names(soc_labels)])), confident = mean(im$maxp > 0.8))
+obs <- prop.table(soc_counts[names(soc_labels)])
+obs_row <- data.frame(Order = "Observed (species with records)", n = sum(soc_counts[names(soc_labels)]),
+                      t(as.numeric(obs)), confident = NA)
+names(all_row) <- names(obs_row) <- names(agg)
+tab <- rbind(agg, all_row, obs_row)
+tab$confident <- ifelse(is.na(tab$confident), "", sprintf("%.0f%%", 100 * tab$confident))
+knitr::kable(tab, digits = 2, row.names = FALSE,
+             col.names = c("Order", "Species", soc_labels, "Max. probability > 0.8"))
+```
+
+The imputations follow the phylogeny (@tbl-soc-imputed). Hummingbirds, nightjars and swifts (Caprimulgiformes, here mostly hummingbirds) and hawks and eagles (Accipitriformes) were mostly imputed as solitary or living singly and in pairs, and parrots (Psittaciformes) as living in flocks, like their relatives with records. Because many of the species without records belong to such groups, solitary behaviour is more common among the imputations (`r pct(mean(im$solitary))`) than among species with records (`r pct(obs[["solitary"]])`); category frequencies computed from the species with records alone would under-represent these groups. Many imputations are uncertain: the probability of the most likely category had a median of `r fmt(median(im$maxp))` and exceeded 0.8 for only `r pct(mean(im$maxp > 0.8))` of the species. Across the `r full$settings$n_final` completed datasets, the share of solitary species among all `r fmt0(nrow(social_data))` species ranged from `r pct(min(full$shares_all[, "solitary"]))` to `r pct(max(full$shares_all[, "solitary"]))`. The validation below shows how much these probabilities can be trusted, and where they are weakest. Species described only as lekking were imputed like the others, so their imputed category describes their likely grouping outside leks; whether this is meaningful depends on the downstream question.
+
+### Using the imputed datasets
+
+The imputed datasets are meant for downstream analyses, which should be fitted to each completed dataset and combined, so that the uncertainty of the imputations is carried into the results (see @sec-rubins-rules). As an example, we asked whether wing shape differs with social behaviour, with a phylogenetic regression of the hand-wing index on social behaviour (as an unordered factor, so that each category is compared with solitary species) and log body mass, fitted with `phylolm` [@ho2014] to each of the `r full$settings$n_final` completed datasets and pooled with Rubin's rules:
+
+```{r}
+#| label: soc-downstream-code
+#| echo: true
+#| eval: false
+completed <- get_imputed_data(soc_final, format = "list")
+completed <- lapply(completed, function(d) {
+  d$social <- factor(d$social_max, ordered = FALSE)   # contrasts against "solitary"
+  rownames(d) <- d$species
+  d
+})
+fits <- with_imputations(completed, function(d, tree)
+  phylolm::phylolm(hwi ~ social + log_mass, data = d, phy = tree, model = "BM"),
+  tree = social_tree)
+pool_mi(fits)
+```
+
+```{r}
+#| label: tbl-soc-downstream
+#| echo: false
+#| tbl-cap: "Phylogenetic regression of the hand-wing index on social behaviour (contrasts against solitary species) and log body mass. Multiple imputation: estimates pooled over the completed datasets with Rubin's rules; fmi: fraction of missing information. Complete case: the same model fitted to the species with records only."
+mi <- full$downstream_mi; cc <- full$downstream_cc
+terms <- c("(Intercept)" = "Intercept", socialsingly_pairs = "Singly and pairs vs solitary",
+           socialpairs_family = "Pairs and family groups vs solitary",
+           socialflocks_colonies = "Flocks or colonies vs solitary", log_mass = "log body mass")
+dt <- data.frame(Term = terms[mi$term],
+                 mi_est = mi$estimate, mi_se = mi$std.error, fmi = mi$fmi,
+                 cc_est = cc$estimate[match(mi$term, cc$term)], cc_se = cc$std.error[match(mi$term, cc$term)])
+knitr::kable(dt[dt$Term != "Intercept", ], digits = 2, row.names = FALSE,
+             col.names = c("Term", "Estimate (MI)", "SE (MI)", "fmi", "Estimate (complete case)", "SE (complete case)"))
+```
+
+```{r}
+#| label: soc-downstream-numbers
+#| include: false
+soc_terms <- grepl("^social", mi$term)
+```
+
+In both analyses, species described in flocks or colonies had more pointed wings than solitary species; the smaller contrasts differed more between the two analyses (@tbl-soc-downstream).
+
+**Why fit the model to every completed dataset?** The imputed categories are not observations: for most species without records, BACE gives substantial probability to more than one category. Fitting the model to a single completed dataset, or to the most likely categories, would treat these guesses as data and understate the uncertainty. Fitting it to each of the `r full$settings$n_final` completed datasets and combining the results with Rubin's rules adds the variation between datasets (the between-imputation variance) to the usual sampling variance, so the pooled standard errors reflect both.
+
+**What the fraction of missing information shows.** `fmi` is approximately the share of a coefficient's total variance that comes from the between-imputation variance. For the social behaviour contrasts it was `r fmt(min(mi$fmi[soc_terms]))`–`r fmt(max(mi$fmi[soc_terms]))`: most of the uncertainty about these coefficients comes from not knowing the missing social behaviour, so inferences about them depend strongly on the imputation model and on the assumptions about why values are missing. For log body mass, which is known for all species, it was `r fmt(mi$fmi[mi$term == "log_mass"])`. These values exceed the proportion of species with missing social behaviour (`r pct(soc_n_miss / nrow(social_data))`), which can happen when the imputed categories are very uncertain; differences between the imputation and analysis models (below) may also contribute. With fmi this high, `pool_mi()` notes that more imputations would make the pooled standard errors more stable; their Barnard–Rubin degrees of freedom were `r fmt0(min(mi$df[soc_terms]))`–`r fmt0(max(mi$df[soc_terms]))`.
+
+**Comparison with the complete-case analysis.** In these data, the standard errors of the social behaviour contrasts were larger with multiple imputation than in the complete-case analysis: the species without records added many uncertain categories, and their between-imputation variance outweighed the information from the additional species. This is an observation for these data, not a general property of multiple imputation. Multiple imputation can do two things that a complete-case analysis cannot: it can reduce bias when the species with records differ systematically from those without, in ways captured by the imputation model, and it carries the uncertainty of the imputations into the downstream results. Both depend on the imputation model being adequate and on values being missing at random given the variables and the phylogeny in that model. Neither analysis is guaranteed to be less biased. In this regression, social behaviour is a predictor, and a complete-case analysis remains unbiased if missingness depends only on the predictors (including social behaviour itself) and not on the hand-wing index given them [@white2010]; multiple imputation, which assumes missingness at random, can then be biased. Conversely, if missingness depends on the hand-wing index, the complete-case analysis can be biased, whereas multiple imputation, which uses the hand-wing index in the imputation model, can reduce that bias. The difference between the two analyses cannot tell us which is closer to the truth.
+
+The imputation model should also contain the variables of the downstream analysis, so that the imputations can preserve their associations with the imputed variable. Here the hand-wing index and body mass were predictors of social behaviour in the imputation model, so it includes the variables of the downstream analysis, but the two models are not the same: the imputation model is a threshold model in which the latent social behaviour depends linearly on the hand-wing index, with a phylogenetic random effect, whereas the downstream model is a Brownian-motion regression of the hand-wing index on unordered categories. Such differences can affect the pooled results; for example, the imputations impose an ordered, monotone relationship with the hand-wing index, which may contribute to the larger differences between the two analyses in the two middle contrasts. A downstream variable that was not in the imputation model (for example, habitat) can give biased estimates, because the imputations ignore its association with social behaviour; the direction and size of this bias depend on the data. Add such variables to the imputation model first.
+
+## How far can the imputations be trusted? {#sec-soc-holdout}
+
+The imputations of species without records cannot be checked directly. Before fitting any model, we therefore set aside `r fmt0(sum(ds$holdout))` species with known social behaviour, hid their values from BACE, imputed them together with the species without records (the validation analysis), and compared their imputations with the known values once, with the model fixed. The hidden species formed two sets, which test different things:
+
+- **Random**: `r fmt0(ds$holdout[["random"]])` species drawn at random among species with records. Most have close relatives with known behaviour in the data, so this set measures how well BACE fills gaps scattered across a well-sampled phylogeny.
+- **Whole families**: all `r fmt0(ds$holdout[["family_block"]])` species of `r ds$n_block_families` families, drawn at random among families with at most 100 species with records. Their closest relatives with known behaviour are in other families, so this set measures how well BACE extrapolates across the phylogeny.
+
+The real gaps lie between these two cases: most species without records have some relatives with records in their family, but often few (see *Who is missing?*). Both sets were drawn at random from species with records, so neither represents the species without records if missingness depends on social behaviour itself.
+
+We compared BACE with three simple baselines fitted to the species with known behaviour: the observed category frequencies (whose most likely category is "flocks or colonies" for every species); an ordinal probit regression on log body mass and the hand-wing index without phylogeny (`MASS::polr()`); and the category frequencies among each species' closest relatives with known behaviour in the phylogeny. The last baseline uses the phylogeny in the simplest possible way, so it shows what BACE adds beyond "copy the relatives". It needs two choices:
+
+- *How many relatives.* We used k = 5. This value was carried over from an earlier example developed for this tutorial; it is not based on a published method, and it was not chosen from these results, but it was not pre-registered either. We report other values below.
+- *Ties.* In an ultrametric tree, all members of a sister clade are equally distant from a species, so several relatives are often tied at the fifth-closest distance. Relatives strictly closer than that distance get weight 1, and those tied at it share the remaining weight equally, so the weights sum to five; this is the average over all ways of breaking the ties. More than five species can therefore contribute (median `r fmt0(median(val$n_relatives))`, maximum `r fmt0(max(val$n_relatives))` for the hidden species, when the closest relatives with known behaviour form a whole clade). Distances that differed by less than `r format(val$tie_tol)` million years were treated as tied: in this tree, differences due to rounding are below 10^-12^ and real differences above 10^-6^. The weighted counts of each category plus 0.5 give the probabilities.
+
+```{r}
+#| label: soc-val-numbers
+#| include: false
+vd <- val$final_diagnostics
+rs <- val$relatives_sensitivity
+ks <- rs[rs$ties == "weighted" & rs$smoothing == "fixed", ]
+ks <- ks[order(ks$set != "random", ks$k), ]
+kz <- rs[rs$ties == "weighted" & rs$smoothing == "scaled", ]
+kz <- kz[order(kz$set != "random", kz$k), ]
+kw <- rbind(ks, kz)   # both smoothing rules, weighted ties
+lo <- function(d, s, k) d$lower95[d$set == s & d$k == k]
+
+```
+
+The MCMC of the validation analysis was checked as for the full analysis: across its `r val$settings$n_final` final imputations, all $\hat{R}$ ≤ `r fmt(max(val$final_diagnostics$rhat), 3)`, each chain had at least `r fmt0(min(val$final_diagnostics$ess_min_chain))` effective draws for every parameter, and split $\hat{R}$ ≤ `r fmt(max(val$final_diagnostics$split_rhat_max), 2)`. Geweke tests flagged more chains than expected for the second cutpoint (`r pct(vd$geweke_flag_rate[vd$parameter == "cutpoint2"])`, `r round(20 * vd$geweke_flag_rate[vd$parameter == "cutpoint2"])` of 20 chains; binomial test against 5%, p = `r fmt(vd$geweke_flag_p[vd$parameter == "cutpoint2"], 3)`), and somewhat more for the phylogenetic variance and the third cutpoint (`r pct(vd$geweke_flag_rate[vd$parameter == "phylo_var"])` each). The flagged chains drifted in both directions (for the second cutpoint, `r vd$geweke_flag_positive[vd$parameter == "cutpoint2"]` with positive and `r vd$geweke_flag_negative[vd$parameter == "cutpoint2"]` with negative z), and the placebo test, away from the start of the chains, also flagged `r pct(min(vd$geweke_placebo_rate[vd$parameter %in% c("phylo_var", "cutpoint2", "cutpoint3")]))`–`r pct(max(vd$geweke_placebo_rate[vd$parameter %in% c("phylo_var", "cutpoint2", "cutpoint3")]))` of the chains for these parameters. The excess therefore does not appear to be specific to the start of the chains; it may reflect the slow mixing of these parameters, to which the Geweke test is sensitive, but rates from 20 chains are imprecise and a short unfinished burn-in in some chains cannot be excluded. Its effect on the estimates was negligible: dropping the first 10% of every chain changed the pooled means by at most `r fmt(max(abs(vd$drop10_shift_sd)), 3)` posterior standard deviations. A longer burn-in and longer chains would be a cheap safeguard in a new analysis.
+
+Because the imputations are probabilities over ordered categories, we scored them with the ranked probability score (RPS), which compares predicted and observed cumulative probabilities and penalises predictions more the further they are from the observed category (0 is perfect; we divide by the number of categories minus one, so the score ranges from 0 to 1). The RPS rewards predictions that are right *on average*, so with unbalanced categories it is dominated by the common ones. We therefore also report how often the most likely category was correct within each observed category (recall) and their mean (balanced accuracy), which weights the four categories equally. Overall accuracy is shown for completeness, but with unbalanced categories it mostly reflects the most common category: always predicting "flocks or colonies" would be right for `r pct(sc("family_block", "marginal", "accuracy"))` of the whole-family species.
+
+```{r}
+#| label: tbl-soc-holdout
+#| echo: false
+#| tbl-cap: "Scores on the hidden species (validation analysis). RPS: ranked probability score (lower is better). Accuracy: proportion of hidden species whose most likely category was correct. Recall: the same proportion within each observed category; balanced accuracy is their mean. Mean max. probability: average imputed probability of the most likely category."
+tab <- val$scores[val$scores$set != "all", ]
+tab$set <- c(random = "Random", family_block = "Whole families")[tab$set]
+tab$method <- c(bace = "BACE, probabilities averaged over posterior draws",
+                bace_imputed_frequency = "BACE, category frequencies across the 20 imputed datasets",
+                marginal = "Observed frequencies", polr = "Ordinal regression (no phylogeny)",
+                nearest_relatives = "Closest relatives (k = 5)")[tab$method]
+knitr::kable(tab[, c("set", "method", "n", "rps", "balanced_accuracy", "recall_solitary", "recall_singly_pairs",
+                     "recall_pairs_family", "recall_flocks_colonies", "accuracy", "mean_max_probability")],
+             digits = 3, row.names = FALSE,
+             col.names = c("Hidden set", "Method", "Species", "RPS", "Balanced accuracy", "Recall: solitary",
+                           "Recall: singly/pairs", "Recall: pairs/family", "Recall: flocks/colonies",
+                           "Accuracy", "Mean max. probability"))
+```
+
+```{r}
+#| label: tbl-soc-probobs
+#| echo: false
+#| tbl-cap: "Mean probability given to the observed category of the hidden species, by observed category. Higher is better; the observed frequencies are shown for reference."
+pt <- val$prob_observed[val$prob_observed$set != "all", ]
+pt <- reshape(pt[, c("set", "category", "n", "method", "mean_prob_observed")], idvar = c("set", "category", "n"),
+              timevar = "method", direction = "wide")
+pt$set <- c(random = "Random", family_block = "Whole families")[pt$set]
+pt$category <- soc_labels[pt$category]
+knitr::kable(pt[, c("set", "category", "n", "mean_prob_observed.bace", "mean_prob_observed.nearest_relatives",
+                    "mean_prob_observed.marginal")], digits = 2, row.names = FALSE,
+             col.names = c("Hidden set", "Observed category", "Species", "BACE", "Closest relatives (k = 5)",
+                           "Observed frequencies"))
+```
+
+**Compared with the baselines without phylogeny.** As probabilistic predictions, BACE's imputations had the lowest RPS in both sets (@tbl-soc-holdout), but only slightly lower than the closest-relatives rule (below). The ordinal regression without phylogeny did hardly better than the observed frequencies in the random set (RPS `r fmt(sc("random", "polr", "rps"), 3)` against `r fmt(sc("random", "marginal", "rps"), 3)`), and BACE improved on it clearly there (RPS `r fmt(sc("random", "bace", "rps"), 3)` against `r fmt(sc("random", "polr", "rps"), 3)`) and less in the whole families (`r fmt(sc("family_block", "bace", "rps"), 3)` against `r fmt(sc("family_block", "polr", "rps"), 3)`). Because related species are not independent, we computed intervals for the differences in RPS by resampling whole families (with replacement) rather than species: the 95% intervals for the improvement over the ordinal regression were `r fmt(gv("random", "polr", "lower95"), 3)` to `r fmt(gv("random", "polr", "upper95"), 3)` (random) and `r fmt(gv("family_block", "polr", "lower95"), 4)` to `r fmt(gv("family_block", "polr", "upper95"), 3)` (whole families, where the lower limit nearly touches zero). Averaged over all hidden species, the imputed probabilities matched the observed frequencies of the categories, although not within every range of probabilities (see below).
+
+**Compared with the closest-relatives rule.** BACE's advantage over the closest-relatives rule was small (RPS lower by `r fmt(gv("random", "nearest_relatives", "rps_gain"), 3)` and `r fmt(gv("family_block", "nearest_relatives", "rps_gain"), 3)`) and not distinguishable from zero (95% intervals `r fmt(gv("random", "nearest_relatives", "lower95"), 3)` to `r fmt(gv("random", "nearest_relatives", "upper95"), 3)` and `r fmt(gv("family_block", "nearest_relatives", "lower95"), 3)` to `r fmt(gv("family_block", "nearest_relatives", "upper95"), 3)`). Its balanced accuracy was *lower* than that of the relatives rule in both sets (`r fmt(sc("random", "bace", "balanced_accuracy"), 3)` against `r fmt(sc("random", "nearest_relatives", "balanced_accuracy"), 3)` in the random set, `r fmt(sc("family_block", "bace", "balanced_accuracy"), 3)` against `r fmt(sc("family_block", "nearest_relatives", "balanced_accuracy"), 3)` in the whole families). @tbl-soc-probobs shows where the difference in RPS comes from. In the random set, BACE gave more probability than the relatives rule to the observed category only for species in flocks or colonies (`r fmt(po("random", "bace", "flocks_colonies"))` against `r fmt(po("random", "nearest_relatives", "flocks_colonies"))`), and less for the three smaller categories. In other words, BACE's small gain in RPS comes from the most common category, at the expense of the rarer ones. In the whole families, BACE gave somewhat more probability to solitary species than the relatives rule did (`r fmt(po("family_block", "bace", "solitary"))` against `r fmt(po("family_block", "nearest_relatives", "solitary"))`) and to species living singly and in pairs (`r fmt(po("family_block", "bace", "singly_pairs"))` against `r fmt(po("family_block", "nearest_relatives", "singly_pairs"))`), but rarely enough to make "solitary" the most likely category (see below).
+
+**Other numbers of relatives.** Because k = 5 is a convention rather than an estimate, we repeated the comparison with k = 1, 3, 10 and 20, with ties weighted in the same way (@tbl-soc-knn). The fixed pseudo-count of 0.5 per category smooths more strongly the fewer relatives there are: with k = 1, no category can receive a probability above 0.5. We therefore also scaled the pseudo-count with k (0.5 × k/5 per category, which leaves the main baseline at k = 5 unchanged). The smoothing does not change the most likely category, so the balanced accuracy is the same under both rules: it was higher for the relatives rule than for BACE (`r fmt(sc("random", "bace", "balanced_accuracy"), 3)` and `r fmt(sc("family_block", "bace", "balanced_accuracy"), 3)`) for every k in the whole families, and in the random set for k ≤ 10. For the RPS:
+
+- With a single relative (k = 1), BACE was clearly better in both sets with the fixed pseudo-count, but in the whole families this advantage disappeared when the pseudo-count was scaled (gain `r fmt(kz$rps_gain_bace[kz$set == "family_block" & kz$k == 1], 4)`, 95% interval `r fmt(lo(kz, "family_block", 1), 4)` to `r fmt(kz$upper95[kz$set == "family_block" & kz$k == 1], 4)`): it came from the heavy smoothing of a single relative.
+- With three or more relatives, BACE's RPS was lower by `r fmt(min(kw$rps_gain_bace[kw$k >= 3]), 3)`–`r fmt(max(kw$rps_gain_bace[kw$k >= 3]), 3)` under either rule.
+- In the whole families, every 95% interval included zero, except at k = 1 with the fixed pseudo-count.
+- In the random set, whether the interval excluded zero depended on both k and the smoothing. With the fixed pseudo-count it lay just above zero for k = 3 and 20 (lower limits `r fmt(lo(ks, "random", 3), 4)` and `r fmt(lo(ks, "random", 20), 4)`); with the scaled one, for k = 10 and 20 (`r fmt(lo(kz, "random", 10), 4)` and `r fmt(lo(kz, "random", 20), 4)`). Both rules excluded zero at k = 1, and both included it at k = 5.
+
+Giving every tied relative full weight instead (with the fixed pseudo-count; `relatives_sensitivity` in `validation_results.rds`) changed some details: with k = 1 in the whole families, where the closest relatives with known behaviour then often form a whole clade, the relatives rule was about as good as BACE, and in the random set BACE's advantage was distinguishable from zero for k = 10 and 20. Across all these variants the pattern was the same: small gains in RPS for BACE, intervals that include zero for whole families, and a higher balanced accuracy for the relatives rule in most settings. The conclusions above therefore do not depend on the choice of k = 5 or of the smoothing, except that whether BACE's small advantage in RPS in the random set is distinguishable from zero does.
+
+```{r}
+#| label: tbl-soc-knn
+#| echo: false
+#| tbl-cap: "Sensitivity of the comparison with the closest-relatives rule to the number of relatives k (ties weighted so that the weights sum to k). RPS gain: RPS of the relatives rule minus RPS of BACE (positive = BACE better), with 95% intervals from resampling families, for a pseudo-count of 0.5 per category (fixed) and of 0.5 × k/5 (scaled). Balanced accuracy does not depend on the pseudo-count. Relatives used: median and maximum number of species with non-zero weight."
+gain_txt <- function(d) sprintf("%.4f (%.4f to %.4f)", d$rps_gain_bace, d$lower95, d$upper95)
+knitr::kable(data.frame(Set = c(random = "Random", family_block = "Whole families")[ks$set], k = ks$k,
+                        Fixed = gain_txt(ks), Scaled = gain_txt(kz),
+                        BA = sprintf("%.3f", ks$balanced_accuracy),
+                        Relatives = sprintf("%s (%s)", fmt0(ks$relatives_median), fmt0(ks$relatives_max))),
+             row.names = FALSE, align = "llrrrr",
+             col.names = c("Hidden set", "k", "RPS gain of BACE, fixed pseudo-count (95% interval)",
+                           "RPS gain of BACE, scaled pseudo-count (95% interval)",
+                           "Balanced accuracy (relatives)", "Relatives used: median (max)"))
+```
+
+**Whole families are the hardest case.** Without relatives in the same family, BACE predicted "flocks or colonies" as the most likely category for most species, and was right for `r pct(sc("family_block", "bace", "recall_flocks_colonies"))` of the species that do live in flocks or colonies but for only `r pct(sc("family_block", "bace", "recall_solitary"))` of the solitary species (`r val$confusion$family_block["solitary", "solitary"]` of `r sum(val$confusion$family_block["solitary", ])`; @fig-soc-holdout b); the relatives rule recovered none, and recovered more species living singly and in pairs or in pairs and family groups. Its overall accuracy in this set (`r fmt(sc("family_block", "bace", "accuracy"))`) was higher than that of the relatives rule (`r fmt(sc("family_block", "nearest_relatives", "accuracy"))`) mainly because "flocks or colonies" is the most common category (`r pct(val$confusion$family_block["flocks_colonies", ] |> sum() / sum(val$confusion$family_block))` of these species): predictions that move towards the most common category score well on overall accuracy and on the RPS, but they miss the rarer categories. Neither the relatives rule nor the ordinal regression identified any solitary species in this set, so the limit may lie partly in the information available rather than in BACE alone, although we compared only these methods.
+
+```{r}
+#| label: fig-soc-holdout
+#| echo: true
+#| code-fold: true
+#| fig-width: 11
+#| fig-height: 4.2
+#| fig-cap: "Imputations of the hidden species (validation analysis). (a, b) Observed versus most likely imputed category (row percentages) for the random set and the whole families. (c) Calibration across all hidden species: mean imputed probability of each category against the observed proportion of hidden species in that category, in bins of imputed probability (point size: number of species); the dashed line shows perfect calibration."
+confusion_plot <- function(tab, tag) {
+  conf <- as.data.frame(tab)
+  conf$percent <- 100 * conf$Freq / ave(conf$Freq, conf$observed, FUN = sum)
+  ggplot(conf, aes(predicted, observed, fill = percent)) +
+    geom_tile(colour = "white") +
+    geom_text(aes(label = sprintf("%.0f%%\n(%s)", percent, fmt0(Freq))), size = 2.6) +
+    scale_fill_gradient(low = "white", high = "#21918c", guide = "none") +
+    scale_x_discrete(labels = short) + scale_y_discrete(limits = rev, labels = short) +
+    labs(x = "Imputed (most likely)", y = "Observed", tag = tag) + soc_theme +
+    theme(axis.text.x = element_text(angle = 30, hjust = 1))
+}
+cal <- val$calibration[val$calibration$n > 0, ]
+cal$category <- factor(cal$category, levels = names(soc_cols))
+p_c <- ggplot(cal, aes(mean_predicted, observed, colour = category)) +
+  geom_abline(linetype = "dashed") +
+  geom_line() + geom_point(aes(size = n)) +
+  scale_colour_manual(values = soc_cols, labels = short, name = NULL) +
+  scale_size_area(max_size = 4, guide = "none") +
+  coord_equal(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Imputed probability", y = "Observed proportion", tag = "(c)") + soc_theme
+confusion_plot(val$confusion$random, "(a)") + confusion_plot(val$confusion$family_block, "(b)") + p_c
+```
+
+```{r}
+#| label: soc-calibration-numbers
+#| include: false
+cb <- function(cat, bin, col) val$calibration[[col]][val$calibration$category == cat & val$calibration$bin == bin]
+```
+
+Averaged over all hidden species, the imputed probabilities matched the observed frequencies of the categories (mean imputed probabilities `r paste(fmt(colMeans(val$holdout_probs$bace)), collapse = ", ")` for the four categories, in order, against observed proportions of `r paste(fmt(as.numeric(table(factor(val$holdout_truth, 1:4))) / length(val$holdout_truth)), collapse = ", ")`). Within ranges of imputed probability, the agreement was looser (@fig-soc-holdout c). For example, among species given a probability of 0.3–0.4 of living in flocks or colonies, `r pct(cb("flocks_colonies", "(0.3,0.4]", "observed"))` did so (`r cb("flocks_colonies", "(0.3,0.4]", "n")` species), and among species given 0.4–0.5 for pairs and family groups, `r pct(cb("pairs_family", "(0.4,0.5]", "observed"))` lived in pairs and family groups (`r cb("pairs_family", "(0.4,0.5]", "n")` species); at the other end, among species given a probability of at most 0.1 of being solitary, `r pct(cb("solitary", "[0,0.1]", "observed"))` were solitary, against `r pct(cb("solitary", "[0,0.1]", "mean_predicted"))` predicted. These bins are not adjusted for the dependence among related species, so their deviations are indicative only. Note that BACE's imputed datasets do not use the most likely category; each final imputation draws a category from its predicted probabilities, so a solitary species with a probability of 0.2 of being solitary is imputed as solitary in about a fifth of the datasets. This is why the imputed category frequencies (@tbl-soc-holdout) recover more solitary species than the most likely category does, at the cost of more errors elsewhere.
+
+**What this means for the imputations above.** The full analysis used `r fmt0(sum(ds$holdout))` more known values than the validation analysis, which may improve some imputations slightly, but it does not remove the limits found here: imputations of the rarer categories, and of species in poorly described clades, are much less reliable than those of species in flocks or colonies with well-described relatives. Downstream analyses should therefore use all the imputed datasets, which carry this uncertainty, rather than the most likely category of each species. Results that depend on the rarer categories in poorly described clades, such as the number of solitary species in mostly undescribed orders, deserve particular caution, and all results rest on the assumption that missingness does not depend on social behaviour itself (see *Who is missing?*).
+
+## Imputing an ordinal and a continuous variable together {#sec-soc-mixed}
+
+BACE imputes several variables at once by chaining their imputation models. To illustrate, we started from the validation data (with the hidden species) and also hid the hand-wing index of `r fmt0(length(mix$hwi_true))` species (20%, drawn at random among species whose index was measured rather than inferred in AVONET). Social behaviour and the hand-wing index were then both missing for `r fmt0(mix$n_hwi_and_social_missing)` species. Each variable with missing data gets its own model, and each model uses the other variable as a predictor:
+
+```{r}
+#| label: soc-mixed-run
+#| echo: true
+#| eval: false
+holdout  <- readRDS("bird_social/data/holdout.rds")
+hwi_mask <- readRDS("bird_social/data/hwi_mask.rds")
+mixed_data <- social_data[, soc_vars]
+mixed_data$social_max[mixed_data$species %in% holdout$species] <- NA   # hidden species
+mixed_data$hwi[mixed_data$species %in% hwi_mask] <- NA                # hidden wing shapes
+
+mixed_formulas <- list("social_max ~ log_mass + hwi",
+                       "hwi ~ log_mass + social_max")
+mixed_chain <- bace_imp(fixformula = mixed_formulas, ran_phylo_form = "~ 1 | species",
+                        phylo = social_tree, data = mixed_data, runs = 25,
+                        nitt = list(50000, 20000), burnin = list(10000, 5000), thin = list(40, 15))
+mixed_final <- bace_final_imp(mixed_chain, fixformula = mixed_formulas, ran_phylo_form = "~ 1 | species",
+                              phylo = social_tree, n_final = 20, n_cores = 20, seed = 1,
+                              nitt = list(500000, 100000), burnin = list(50000, 10000), thin = list(450, 90))
+```
+
+The hand-wing index is continuous, so BACE fits a Gaussian model to it, and the ordered factor `social_max` enters that model as a predictor (with polynomial contrasts). MCMC settings can be given per model as lists, in the order of the formulas; the Gaussian model mixes much faster, so its chains can be shorter. Because two variables are missing, each final imputation cycles through both models several times with random draws (the `sweeps` argument, `r mix$sweeps` by default), so that each variable is imputed given plausible values of the other rather than fixed point estimates. The chained phase took `r fmt(mix$minutes[["chained"]], 0)` minutes and each final imputation `r fmt(mix$minutes[["final_mean"]], 0)` minutes.
+
+### Convergence
+
+```{r}
+#| label: soc-mixed-numbers
+#| include: false
+md  <- mix$final_diagnostics
+mdh <- md[md$parameter == "hwi", ]
+ms  <- mix$chain_series
+mcm <- mix$chain_model_diagnostics
+mcm_flag <- mcm[mcm$convergence == "Check", ]
+vcm <- val$chain_model_diagnostics
+vcm_flag <- vcm[vcm$convergence == "Check" & vcm$response_variable == "social_max", ]
+```
+
+With two variables imputed from each other, both automatic checks flagged social behaviour:
+
+```{r}
+#| label: soc-mixed-convergence
+#| echo: false
+mix$chain_convergence
+```
+
+We looked at each flag in turn.
+
+*The chained loop.* `assess_convergence()` reported that the imputed social behaviour had not settled. Its tests use all `r nrow(ms)` iterations. The imputed values changed most over the first four iterations (@fig-soc-mixed-chain): the share of species imputed as living in flocks or colonies fell from `r pct(ms$flocks_colonies[1])` to `r pct(ms$flocks_colonies[4])`, the share imputed as solitary rose from `r fmt(100 * ms$solitary[1], 1)`% to `r fmt(100 * ms$solitary[4], 1)`%, and `r fmt(100 * ms$changed[2], 1)`% of the imputed species changed category between the first two iterations. From iteration 5 onwards the shares fluctuated without trend, and `r fmt(100 * min(ms$changed[-(1:5)]), 1)`–`r fmt(100 * max(ms$changed[-(1:5)]), 1)`% of species changed category between iterations, the same noise level as in the full analysis, where nothing else was imputed. Applied to iterations 5–`r nrow(ms)` only, `assess_convergence()` found no trend and a lag-1 autocorrelation of `r fmt(mix$chain_late$from5[["acf"]])`, below its threshold of 0.3, and reported convergence (as it did for iterations 10–`r nrow(ms)`). The flag therefore reflected the initial adjustment, as the two models adapted to each other's imputations, rather than a lack of stability at the end of the chained phase, from which the final imputations start. The mean imputed hand-wing index barely moved across iterations (`r fmt(min(mix$chain_hwi_mean))` to `r fmt(max(mix$chain_hwi_mean))`). In your own analyses, plot the series rather than relying on the flag alone, and run more iterations if the series is still moving at the end.
+
+```{r}
+#| label: fig-soc-mixed-chain
+#| echo: true
+#| code-fold: true
+#| fig-width: 9
+#| fig-height: 3.2
+#| fig-cap: "Chained phase of the mixed-variable analysis. (a) Share of imputed species in each category at each iteration. (b) Share of imputed species whose category changed since the previous iteration. The dashed line separates the first four iterations."
+long <- do.call(rbind, lapply(names(soc_labels), function(k)
+  data.frame(iteration = ms$iteration, category = k, share = ms[[k]])))
+long$category <- factor(long$category, levels = names(soc_labels))
+p_a <- ggplot(long, aes(iteration, 100 * share, colour = category)) +
+  geom_vline(xintercept = 4.5, linetype = "dashed", colour = "grey50") +
+  geom_line() + geom_point(size = 1) +
+  scale_colour_manual(values = soc_cols, labels = short, name = NULL) +
+  labs(x = "Chained iteration", y = "Imputed species (%)", tag = "(a)") + soc_theme
+p_b <- ggplot(ms[-1, ], aes(iteration, 100 * changed)) +
+  geom_vline(xintercept = 4.5, linetype = "dashed", colour = "grey50") +
+  geom_line() + geom_point(size = 1) +
+  labs(x = "Chained iteration", y = "Changed category (%)", tag = "(b)") + soc_theme
+p_a + p_b + plot_layout(widths = c(1.4, 1))
+```
+
+*The models of the last chained iteration.* The printed summary marked `r nrow(mcm_flag)` parameters of the social behaviour model "Check": the phylogenetic variance and the two cutpoints (ESS `r paste(fmt0(mcm_flag$ess[mcm_flag$parameter != "log_mass"]), collapse = ", ")` of 1,000 draws, with Geweke p < 0.05 for the cutpoints) and the effect of body mass (Geweke p = `r fmt(mcm_flag$geweke_pval[mcm_flag$parameter == "log_mass"], 3)`, with ESS `r fmt0(mcm_flag$ess[mcm_flag$parameter == "log_mass"])`). The same short chains in the validation analysis, with social behaviour as the only missing variable, also had low ESS for these parameters (`r paste(fmt0(vcm_flag$ess), collapse = ", ")`). As in the full analysis, these chains only provide point imputations; the final chains are 10 times longer.
+
+*The final models.* Within each final imputation, the social behaviour model mixed about as well as in the full analysis (@tbl-soc-mixed-diagnostics, @fig-soc-mixed-trace): at least `r fmt0(min(md$ess_min_chain[md$parameter %in% c("phylo_var", "cutpoint2", "cutpoint3")]))` effective draws per chain for the phylogenetic variance and the cutpoints, and split $\hat{R}$ ≤ `r fmt(max(md$split_rhat_max), 2)`. Geweke tests flagged `r pct(min(md$geweke_flag_rate[md$parameter %in% c("phylo_var", "cutpoint2", "cutpoint3")]))`–`r pct(max(md$geweke_flag_rate[md$parameter %in% c("phylo_var", "cutpoint2", "cutpoint3")]))` of the chains for the phylogenetic variance and the cutpoints (none significantly more than 5% by a binomial test), and the placebo test away from the start of the chains flagged `r pct(min(md$geweke_placebo_rate[md$parameter %in% c("phylo_var", "cutpoint2", "cutpoint3")]))`–`r pct(max(md$geweke_placebo_rate[md$parameter %in% c("phylo_var", "cutpoint2", "cutpoint3")]))`, so small early drifts in a few chains cannot be excluded; dropping the first 10% of every chain changed the pooled means by at most `r fmt(max(abs(md$drop10_shift_sd)), 3)` posterior standard deviations.
+
+The $\hat{R}$ across the final imputations needs a different reading here. In this analysis, each final model of social behaviour conditions on the hand-wing indices imputed in the preceding sweep, which differ between imputations, so the `r mix$settings$n_final` chains target `r mix$settings$n_final` different posteriors, one per completed dataset. $B$, the variance of the chain means, then contains the between-imputation variance of the estimates as well as Monte Carlo error, and $\hat{R}$ above 1 is expected for parameters that depend on the imputed values. This is what happened for the effect of the hand-wing index on social behaviour ($\hat{R}$ = `r fmt(mdh$rhat, 2)`, $B/W$ = `r fmt(mdh$B_over_W)`). Four checks indicate that this reflects the imputations rather than a failure to converge:
+
+- Monte Carlo error alone would give $B/W \approx$ `r fmt(mdh$B_mcmc_over_W, 4)` (one over the ESS per chain); the observed value is about `r fmt0(round(mdh$B_over_W / mdh$B_mcmc_over_W, -1))` times larger.
+- In the validation analysis, the same model with the same MCMC settings but a complete hand-wing index had $B/W$ = `r fmt(vd$B_over_W[vd$parameter == "hwi"], 4)` and $\hat{R}$ = `r fmt(vd$rhat[vd$parameter == "hwi"], 3)` for this parameter.
+- $B/W$ was the same in the first and second halves of the chains (`r fmt(mix$hwi_effect_halves[["first"]])` and `r fmt(mix$hwi_effect_halves[["second"]])`): the chains were not moving towards a common value, so longer chains would not reduce it.
+- Within each chain, this parameter showed no sign of a problem (split $\hat{R}$ ≤ `r fmt(mdh$split_rhat_max, 2)`, ESS ≥ `r fmt0(mdh$ess_min_chain)`).
+
+Treating $W$ as the within-imputation variance, this corresponds to a fraction of missing information of about `r fmt(mdh$B_over_W * (1 + 1 / mix$settings$n_final) / (1 + mdh$B_over_W * (1 + 1 / mix$settings$n_final)), 2)` for this effect: $\lambda = (1 + 1/M)B / \{W + (1 + 1/M)B\}$ with $M$ = `r mix$settings$n_final` imputations, the same to two decimals as Rubin's `fmi` with the small-sample correction used by `pool_mi()`. Monte Carlo error, included in $B$, contributes less than 1% of it. Parameters that depend less directly on the imputed wing shapes, such as the phylogenetic variance and the cutpoints, had $B/W$ of `r fmt(min(md$B_over_W[md$parameter %in% c("phylo_var", "cutpoint2", "cutpoint3")]), 3)`–`r fmt(max(md$B_over_W[md$parameter %in% c("phylo_var", "cutpoint2", "cutpoint3")]), 3)`. Because $\hat{R}$ across imputations mixes the two sources of variation, use it here only together with within-chain checks, as above.
+
+```{r}
+#| label: tbl-soc-mixed-diagnostics
+#| echo: false
+#| tbl-cap: "MCMC diagnostics of the final models of the mixed-variable analysis (social behaviour model, and the variances of the hand-wing-index model). Columns as in the table for the full analysis; R-hat across imputations is not a convergence diagnostic here (see text)."
+diag_table(mix$final_diagnostics, caption_rhat = "R-hat across imputations")
+```
+
+```{r}
+#| label: fig-soc-mixed-trace
+#| echo: true
+#| code-fold: true
+#| fig-width: 9
+#| fig-height: 5.5
+#| fig-cap: "Traces of the phylogenetic variance and the two estimated cutpoints of the social behaviour model in four of the 20 final imputations of the mixed-variable analysis (one colour per chain)."
+tr <- mix$trace
+tr$parameter <- factor(tr$parameter, levels = c("phylo_var", "cutpoint2", "cutpoint3"),
+                       labels = c("Phylogenetic variance", "Cutpoint 2", "Cutpoint 3"))
+ggplot(tr, aes(draw, value, colour = factor(chain))) +
+  geom_line(linewidth = 0.25, alpha = 0.8) +
+  facet_wrap(~ parameter, ncol = 1, scales = "free_y") +
+  labs(x = "Draw", y = NULL, colour = "Chain") + soc_theme
+```
+
+### Accuracy of the imputations
+
+```{r}
+#| label: tbl-soc-mixed-hwi
+#| echo: false
+#| tbl-cap: "Accuracy of the imputed hand-wing index for the hidden species. RMSE: root-mean-square error. r: correlation between imputed and measured values. Coverage: proportion of measured values inside the central 90% of the imputed values."
+hwi_tab <- mix$hwi_scores
+hwi_tab$method <- c(bace = "BACE (mean of imputations)", observed_mean = "Observed mean",
+                    lm_log_mass = "Linear regression on log body mass",
+                    nearest_relatives = "Weighted mean of closest relatives (k = 5)")[hwi_tab$method]
+hwi_tab$coverage90 <- ifelse(is.na(hwi_tab$coverage90), "", sprintf("%.0f%%", 100 * hwi_tab$coverage90))
+hwi_tab$correlation <- ifelse(is.na(hwi_tab$correlation), "", sprintf("%.2f", hwi_tab$correlation))
+knitr::kable(hwi_tab, digits = 2, row.names = FALSE, align = "lrrr", col.names = c("Method", "RMSE", "r", "Coverage"))
+mvs <- mix$mixed_vs_validation
+hks <- mix$hwi_relatives_sensitivity[mix$hwi_relatives_sensitivity$ties == "weighted", ]
+hb  <- mix$hwi_by_social
+```
+
+BACE imputed the hidden hand-wing index more accurately than the baselines (@tbl-soc-mixed-hwi), although the gain over the closest relatives was modest (RMSE `r fmt(mix$hwi_scores$rmse[mix$hwi_scores$method == "bace"])` against `r fmt(mix$hwi_scores$rmse[mix$hwi_scores$method == "nearest_relatives"])`), and the hidden indices were drawn at random, so this checks scattered gaps, not whole clades. BACE was also more accurate than the weighted mean of the closest relatives for every k we tried (RMSE `r fmt(min(hks$rmse))`–`r fmt(max(hks$rmse))` for k = 1–20). The improvement over the weighted mean of the closest relatives (k = 5, ties weighted as above) was clear (difference in mean squared error `r fmt(mix$hwi_gain[["mse_gain"]])`, 95% interval from resampling families `r fmt(mix$hwi_gain[["lower95"]])` to `r fmt(mix$hwi_gain[["upper95"]])`), and largest for species whose social behaviour was also missing (RMSE `r fmt(hb$rmse_bace[hb$social_missing])` against `r fmt(hb$rmse_nearest[hb$social_missing])`, compared with `r fmt(hb$rmse_bace[!hb$social_missing])` against `r fmt(hb$rmse_nearest[!hb$social_missing])` when it was observed). The central 90% of the imputed values (5th to 95th percentiles of the 20 imputations) contained `r pct(mix$hwi_scores$coverage90[1])` of the measured values. With 20 imputations, such intervals would contain only about 82% of the values even if the imputations were perfectly calibrated, so the imputed values were, if anything, slightly too dispersed. The hand-wing index is a continuous trait with very strong phylogenetic signal, an easier case than social behaviour.
+
+Hiding a fifth of the hand-wing indices did not change the accuracy of the imputed social behaviour. For the hidden species, the RPS was `r fmt(mvs$rps_mixed[mvs$set == "random" & mvs$species_set == "all"], 3)` (random) and `r fmt(mvs$rps_mixed[mvs$set == "family_block" & mvs$species_set == "all"], 3)` (whole families), against `r fmt(mvs$rps_validation[mvs$set == "random" & mvs$species_set == "all"], 3)` and `r fmt(mvs$rps_validation[mvs$set == "family_block" & mvs$species_set == "all"], 3)` in the validation analysis, where the hand-wing index was complete. This was also true for the hidden species whose hand-wing index was hidden too (differences of `r fmt(mvs$rps_difference[mvs$set == "random" & mvs$species_set == "hwi_also_missing"], 3)` and `r fmt(mvs$rps_difference[mvs$set == "family_block" & mvs$species_set == "hwi_also_missing"], 3)`). Social behaviour is predicted mostly by the phylogeny, so replacing measured wing shapes by imputed ones, which themselves follow the phylogeny closely, changed little. Joint imputation therefore did not make the social behaviour imputations worse here, but it did not make them better either.
+
+:::{.callout-note}
+## How imputation uncertainty flows between variables
+
+Within each final imputation, BACE cycles through the imputation models `r mix$sweeps` times, drawing new values at each pass, and keeps the last pass. The social behaviour model therefore conditions on hand-wing indices that differ between imputations: at the species whose index was missing, the values it used varied across the `r mix$settings$n_final` imputations (median standard deviation `r fmt(mix$hwi_used_by_social_median_sd)` on the standardised scale). The uncertainty in the imputed hand-wing index is thus carried into the imputed social behaviour, and into the pooled estimates, such as the effect of the hand-wing index whose posterior means differ between imputations (see *Convergence* above).
+:::
+
+## Summary: how far to trust these results
+
+- **What the example shows.** How to run BACE on an ordinal variable with many missing values, alone and together with a continuous variable; how to check convergence and the imputations; and how to carry the imputation uncertainty into a downstream analysis. It does not show that BACE predicts social behaviour better than simpler phylogenetic approaches: the closest-relatives rule did almost as well. What BACE added here was a model rather than better predictions: estimates of phylogenetic signal and predictor effects, joint imputation of several variables, and imputations whose uncertainty, from the model and its parameters, can be propagated through multiple imputation. The relatives rule gives probabilities for each species but would need further assumptions to provide these.
+- **The MCMC.** In the full and validation analyses, the independent chains of the final models agreed with each other; in all analyses, each chain had at least about 300 effective draws for the slowest parameters. Geweke tests flagged more chains than expected for one cutpoint of the validation analysis, also away from the start of the chains; dropping early draws did not change the estimates materially, and longer chains would be a cheap safeguard. In the mixed analysis, $\hat{R}$ across imputations was above 1 for the effect of the imputed variable, as expected when the imputations differ. Other automatic flags came from the short chains of the chained phase and from the first iterations of the chained loop. We checked each flag rather than relying on the overall verdict.
+- **The imputations.** On hidden species, BACE gave better probabilistic predictions than a model without phylogeny, with probabilities that matched the category frequencies on average but not within every range, but it was only slightly better than copying the closest relatives (for three or more relatives, by at most `r fmt(max(kw$rps_gain_bace[kw$k >= 3]), 3)` in RPS, with 95% intervals that included zero in most settings and always for whole families), and it was worse at recovering the rarer categories. For whole families without described relatives, it mostly predicted the most common category and almost never identified solitary species.
+- **The missing species.** Missingness follows taxonomy, which BACE uses, but many species without records have few described relatives, and missingness may also depend on social behaviour itself. The full analysis does not remove these limits.
+- **Downstream analyses.** Fit the downstream model to every imputed dataset and pool the results, rather than using the most likely category, and include the variables of the downstream analysis in the imputation model. Here most of the uncertainty about the social behaviour coefficients came from the missing values (fmi about 0.7), so these results depend strongly on the imputation model and on the missing-at-random assumption; imputation does not by itself remove bias if social behaviour is missing not at random. Treat conclusions that depend on rare categories in poorly described clades with caution.

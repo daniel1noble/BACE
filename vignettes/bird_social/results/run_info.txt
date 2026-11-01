@@ -1,0 +1,9 @@
+Runs on totoro (Ubuntu 24.04, R 4.6.1, BACE git dc79be1, MCMCglmm 2.36), one process per final imputation.
+validation, mixed: 2026-10-27 to 2026-10-28, run with scripts in an investigation workspace using the
+  same data, calls, settings and seeds as 02_run_bace.R (input data checked identical with identical());
+  their outputs were copied to results/tmp/ and renamed (social_* -> validation_*; field 'imputed' ->
+  'imputed_social' in the validation finals).
+full: 2026-10-30, run with 02_run_bace.R (chained phase 22 min; its log ends with a parse error
+  because the script file was replaced (header comments edited) while R was still reading it;
+  full_chain.rds had already been saved).
+Summarised on: Ayumis-MacBook-Pro.local, 2026-10-30, R 4.6.0
