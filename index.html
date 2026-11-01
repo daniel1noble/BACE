@@ -2746,7 +2746,7 @@ Caution
 <div class="cell-output cell-output-stdout">
 <pre><code>
 =======================================================
-BACE: Bayesian Analysis with Chained Equations
+BACE: Bayesian Augmentation by Chained Equations
 =======================================================
 
 Step 1: Initial imputation for convergence assessment
@@ -2970,10 +2970,10 @@ Number of attempts: 1
 Final imputations: 10 
 
 Access results via:
-  - $pooled_models: Pooled posterior distributions
-  - $imputed_datasets: List of 10 imputed datasets
+  - get_pooled_model(result, &quot;y&quot;): pooled posterior model for a variable ($pooled_models)
+  - get_imputed_data(result): list of 10 imputed datasets ($imputed_datasets)
   - $convergence: Convergence diagnostics
-  - $final_results: Full final imputation results</code></pre>
+  - $final_results: Full final imputation results (per-run models and datasets)</code></pre>
 </div>
 </div>
 <p>We can now check what <em>BACE</em> classified each variable as to just make sure they have been modelled correctly:</p>
@@ -3885,7 +3885,7 @@ Convergence by Response Variable:
 <div class="cell-output cell-output-stdout">
 <pre><code>
 =======================================================
-BACE: Bayesian Analysis with Chained Equations
+BACE: Bayesian Augmentation by Chained Equations
 =======================================================
 
 Step 1: Initial imputation for convergence assessment
@@ -4102,10 +4102,10 @@ Number of attempts: 1
 Final imputations: 10 
 
 Access results via:
-  - $pooled_models: Pooled posterior distributions
-  - $imputed_datasets: List of 10 imputed datasets
+  - get_pooled_model(result, &quot;y&quot;): pooled posterior model for a variable ($pooled_models)
+  - get_imputed_data(result): list of 10 imputed datasets ($imputed_datasets)
   - $convergence: Convergence diagnostics
-  - $final_results: Full final imputation results</code></pre>
+  - $final_results: Full final imputation results (per-run models and datasets)</code></pre>
 </div>
 <details open class="code-fold">
 <summary>Code</summary>
@@ -4248,7 +4248,7 @@ x2.L           0.3582  -0.1938   0.8969    34.41 0.205</code></pre>
 <span id="cb73-35"><a href="#cb73-35" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb73-36"><a href="#cb73-36" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Compute BACE imputed-vs-truth accuracy</span></span>
 <span id="cb73-37"><a href="#cb73-37" aria-hidden="true" tabindex="-1"></a>truth_y <span class="ot">&lt;-</span> truth_data<span class="sc">$</span>y[miss_idx]</span>
-<span id="cb73-38"><a href="#cb73-38" aria-hidden="true" tabindex="-1"></a>imp_mat <span class="ot">&lt;-</span> <span class="fu">sapply</span>(res<span class="sc">$</span>imputed_datasets,</span>
+<span id="cb73-38"><a href="#cb73-38" aria-hidden="true" tabindex="-1"></a>imp_mat <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">get_imputed_data</span>(res),</span>
 <span id="cb73-39"><a href="#cb73-39" aria-hidden="true" tabindex="-1"></a>                  <span class="cf">function</span>(d) <span class="fu">as.numeric</span>(d<span class="sc">$</span>y[miss_idx]))   <span class="co"># missing × n_final</span></span>
 <span id="cb73-40"><a href="#cb73-40" aria-hidden="true" tabindex="-1"></a>post_mean <span class="ot">&lt;-</span> <span class="fu">rowMeans</span>(imp_mat)</span>
 <span id="cb73-41"><a href="#cb73-41" aria-hidden="true" tabindex="-1"></a>sd_full   <span class="ot">&lt;-</span> <span class="fu">sd</span>(truth_data<span class="sc">$</span>y, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
@@ -4304,7 +4304,7 @@ baseline NRMSE = 1.00   (column-mean imputer)</code></pre>
 <span id="cb75-26"><a href="#cb75-26" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb75-27"><a href="#cb75-27" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb75-28"><a href="#cb75-28" aria-hidden="true" tabindex="-1"></a>truth_y  <span class="ot">&lt;-</span> <span class="fu">as.character</span>(truth_data<span class="sc">$</span>y[miss_idx])</span>
-<span id="cb75-29"><a href="#cb75-29" aria-hidden="true" tabindex="-1"></a>imp_mat  <span class="ot">&lt;-</span> <span class="fu">sapply</span>(res<span class="sc">$</span>imputed_datasets,</span>
+<span id="cb75-29"><a href="#cb75-29" aria-hidden="true" tabindex="-1"></a>imp_mat  <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">get_imputed_data</span>(res),</span>
 <span id="cb75-30"><a href="#cb75-30" aria-hidden="true" tabindex="-1"></a>                   <span class="cf">function</span>(d) <span class="fu">as.character</span>(d<span class="sc">$</span>y[miss_idx]))</span>
 <span id="cb75-31"><a href="#cb75-31" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb75-32"><a href="#cb75-32" aria-hidden="true" tabindex="-1"></a><span class="co"># Modal class per missing cell (BACE&#39;s prediction)</span></span>
@@ -6206,7 +6206,7 @@ Zhou, Xiang, and Jerome P. Reiter. 2010. <span>“A Note on <span>Bayesian</span
 <span id="cb104-809"><a href="#cb104-809" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb104-810"><a href="#cb104-810" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Compute BACE imputed-vs-truth accuracy</span></span>
 <span id="cb104-811"><a href="#cb104-811" aria-hidden="true" tabindex="-1"></a>truth_y <span class="ot">&lt;-</span> truth_data<span class="sc">$</span>y[miss_idx]</span>
-<span id="cb104-812"><a href="#cb104-812" aria-hidden="true" tabindex="-1"></a>imp_mat <span class="ot">&lt;-</span> <span class="fu">sapply</span>(res<span class="sc">$</span>imputed_datasets,</span>
+<span id="cb104-812"><a href="#cb104-812" aria-hidden="true" tabindex="-1"></a>imp_mat <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">get_imputed_data</span>(res),</span>
 <span id="cb104-813"><a href="#cb104-813" aria-hidden="true" tabindex="-1"></a>                  <span class="cf">function</span>(d) <span class="fu">as.numeric</span>(d<span class="sc">$</span>y[miss_idx]))   <span class="co"># missing × n_final</span></span>
 <span id="cb104-814"><a href="#cb104-814" aria-hidden="true" tabindex="-1"></a>post_mean <span class="ot">&lt;-</span> <span class="fu">rowMeans</span>(imp_mat)</span>
 <span id="cb104-815"><a href="#cb104-815" aria-hidden="true" tabindex="-1"></a>sd_full   <span class="ot">&lt;-</span> <span class="fu">sd</span>(truth_data<span class="sc">$</span>y, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
@@ -6270,7 +6270,7 @@ Zhou, Xiang, and Jerome P. Reiter. 2010. <span>“A Note on <span>Bayesian</span
 <span id="cb104-875"><a href="#cb104-875" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb104-876"><a href="#cb104-876" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb104-877"><a href="#cb104-877" aria-hidden="true" tabindex="-1"></a>truth_y  <span class="ot">&lt;-</span> <span class="fu">as.character</span>(truth_data<span class="sc">$</span>y[miss_idx])</span>
-<span id="cb104-878"><a href="#cb104-878" aria-hidden="true" tabindex="-1"></a>imp_mat  <span class="ot">&lt;-</span> <span class="fu">sapply</span>(res<span class="sc">$</span>imputed_datasets,</span>
+<span id="cb104-878"><a href="#cb104-878" aria-hidden="true" tabindex="-1"></a>imp_mat  <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">get_imputed_data</span>(res),</span>
 <span id="cb104-879"><a href="#cb104-879" aria-hidden="true" tabindex="-1"></a>                   <span class="cf">function</span>(d) <span class="fu">as.character</span>(d<span class="sc">$</span>y[miss_idx]))</span>
 <span id="cb104-880"><a href="#cb104-880" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb104-881"><a href="#cb104-881" aria-hidden="true" tabindex="-1"></a><span class="co"># Modal class per missing cell (BACE&#39;s prediction)</span></span>

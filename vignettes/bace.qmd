@@ -759,7 +759,7 @@ res <- bace(
 
 # 4. Compute BACE imputed-vs-truth accuracy
 truth_y <- truth_data$y[miss_idx]
-imp_mat <- sapply(res$imputed_datasets,
+imp_mat <- sapply(get_imputed_data(res),
                   function(d) as.numeric(d$y[miss_idx]))   # missing × n_final
 post_mean <- rowMeans(imp_mat)
 sd_full   <- sd(truth_data$y, na.rm = TRUE)
@@ -823,7 +823,7 @@ res <- bace(
 )
 
 truth_y  <- as.character(truth_data$y[miss_idx])
-imp_mat  <- sapply(res$imputed_datasets,
+imp_mat  <- sapply(get_imputed_data(res),
                    function(d) as.character(d$y[miss_idx]))
 
 # Modal class per missing cell (BACE's prediction)
