@@ -34,6 +34,9 @@ n_samples_per_imputation, etc.)
 \item All other MCMCglmm components (Fixed, Random, etc.) carried over unchanged
 from the first imputation's fit.
 }
+
+Individual pooled models are most conveniently extracted with
+\code{\link{get_pooled_model}}.
 }
 \description{
 Combine per-imputation MCMC chains into a single set of posterior
@@ -118,4 +121,8 @@ multiple imputation. \emph{The American Statistician} 64(2):159-163.
 Gelman, A., Carlin, J.B., Stern, H.S., Dunson, D.B., Vehtari, A. and
 Rubin, D.B. (2013) \emph{Bayesian Data Analysis}, 3rd edition, Chapter 18.
 Chapman & Hall/CRC.
+}
+\seealso{
+\code{\link{get_pooled_model}}, \code{\link{bace_final_imp}},
+\code{\link{pool_mi}}
 }

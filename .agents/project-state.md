@@ -132,6 +132,22 @@ only the benign pre-65e6fa7 "50+ warnings" lines + the 30 singular-MME lines;
 nothing else. Interim script:
 scratchpad `interim_n100.R` (session a86edbd4); n=300/1000 tiers still running.
 
+**2026-11-01 update — singular-MME failures quantified across the whole campaign
+(661/750 done):** 20 failed datasets total (3.0%), ALL λ=1, ALL the bace_fit arm,
+ALL "Mixed model equations singular". Rate falls with n: n=100 15/100 (ρ=0: 4,
+ρ=0.5: 11), n=300 5/100 (2, 3), n=1000 0 so far (6 datasets done). Every cell has
+its full 50 (or 25) seed datasets — failures are recorded inside the rds
+(`$errors$bace_fit`), no seeds were replaced. **Survivorship is real, measured:**
+on the 204 finished λ=1 datasets, the complete-data reference fit shows failed
+draws have larger realised slopes (0.37 vs 0.24, Wilcoxon p = 0.036) and larger
+SEs (p = 0.036) than survivors — failures hit the strong-signal draws, so λ=1 BACE
+cell summaries condition on a slightly weaker-signal subset, and the −0.104
+attenuation estimate at λ=1 × ρ=0.5 is if anything optimistic. Scripts:
+scratchpad `tally_failures.R`, `survivorship_check.R` (session a86edbd4). For the
+ms: report per-cell n_ok + one-sentence caveat next to any λ=1 figure. Note
+`bace()` auto-retry does NOT help here (retries add runs, not stronger priors);
+roadmap candidate: auto-strengthen the prior on singular-MME retry.
+
 **2026-10-27, "50+ warnings per cell" census → benign, and fixed (65e6fa7):**
 a warn=1 rerun of a warner cell showed every warning is ONE message — the
 pseudo-Gelman prior announcing itself — fired on every categorical prior

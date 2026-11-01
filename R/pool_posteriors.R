@@ -23,6 +23,11 @@
 #'     n_samples_per_imputation, etc.)
 #'   - All other MCMCglmm components (Fixed, Random, etc.) carried over unchanged
 #'     from the first imputation's fit.
+#'
+#'   Individual pooled models are most conveniently extracted with
+#'   \code{\link{get_pooled_model}}.
+#' @seealso \code{\link{get_pooled_model}}, \code{\link{bace_final_imp}},
+#'   \code{\link{pool_mi}}
 #' @details
 #'   \strong{What this function does.} It concatenates the MCMC draws from each
 #'   per-imputation run produced by `bace_final_imp()` into a single mcmc object
@@ -327,10 +332,12 @@ print.bace_pooled <- function(x, ...) {
   cat("approximate the marginal posterior integrating over the\n")
   cat("imputation distribution (stacked per-imputation chains; see\n")
   cat("?pool_posteriors for details and references).\n\n")
-  cat("Use standard MCMCglmm methods:\n")
-  cat("  - summary(object$models$variable_name)\n")
-  cat("  - print(object$models$variable_name)\n")
-  cat("  - plot(object$models$variable_name)\n\n")
+  cat("Extract models with the accessor (also accepts the full bace() result):\n")
+  cat("  - get_pooled_model(object, \"variable_name\")  # one pooled model\n")
+  cat("  - get_pooled_model(object)                   # named list, all variables\n")
+  cat("Then use standard MCMCglmm methods:\n")
+  cat("  - summary(get_pooled_model(object, \"variable_name\"))\n")
+  cat("  - plot(get_pooled_model(object, \"variable_name\"))\n\n")
   
   for (var in x$variables) {
     model <- x$models[[var]]
@@ -345,7 +352,8 @@ print.bace_pooled <- function(x, ...) {
       }
       cat("Number of imputations:", model$BACE_pooling$n_imputations, "\n")
     }
-    cat("Number of fixed effects:", ncol(model$Sol), "\n")
+    n_fixed <- if (!is.null(model$Fixed$nfl)) model$Fixed$nfl else ncol(model$Sol)
+    cat("Number of fixed effects:", n_fixed, "\n")
     if (!is.null(model$DIC)) {
       cat("Mean DIC:", round(model$DIC, 2), "\n")
     }

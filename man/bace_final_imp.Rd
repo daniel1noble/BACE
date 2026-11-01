@@ -123,6 +123,9 @@ uncertainty, not non-convergence.)
 \item phylo_ran: Phylogenetic random effects structure
 \item call: The function call
 }
+
+The imputed datasets are most conveniently extracted with
+\code{\link{get_imputed_data}} (as a list or a stacked data frame).
 }
 \description{
 Run final imputation iterations starting from converged data, saving all models
@@ -148,4 +151,8 @@ final <- bace_final_imp(fit, fixformula = "y ~ x1",
                         burnin = 100, thin = 2, verbose = FALSE)
 length(final$all_datasets)
 }
+}
+\seealso{
+\code{\link{get_imputed_data}}, \code{\link{pool_posteriors}},
+\code{\link{with_imputations}}, \code{\link{pool_mi}}
 }

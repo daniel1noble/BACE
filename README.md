@@ -34,16 +34,30 @@ devtools::install_github("daniel1noble/BACE")
 
 ## Quick start
 
+The example below is fully self-contained: `sim_bace()` simulates a comparative
+dataset (two gaussian predictors by default) with missing values and a matching
+phylogeny, so you can paste and run it as is — then swap in your own data and tree.
+
 ```R
 library(BACE)
+
+# Simulate a dataset with 20% missingness in each variable, moderate
+# phylogenetic signal, and a phylogeny (returned alongside the data)
+set.seed(123)
+sim <- sim_bace(
+  phylo_signal = c(0.6, 0.6, 0.6),
+  missingness  = c(0.2, 0.2, 0.2),
+  n_cases      = 100,
+  n_species    = 100
+)
 
 # Full workflow: initial chained imputation -> convergence check -> final
 # independent imputations -> pooled posterior.
 result <- bace(
   fixformula     = "y ~ x1 + x2",
-  ran_phylo_form = "~ 1 | species",
-  phylo          = tree,
-  data           = my_data,
+  ran_phylo_form = "~ 1 | Species",
+  phylo          = sim$tree,
+  data           = sim$data,
   runs           = 15,
   n_final        = 10,
   nitt           = 100000,
