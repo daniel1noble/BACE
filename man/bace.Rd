@@ -149,6 +149,10 @@ matrices across the runs gives its MI-pooled category probabilities.
 \item n_attempts: Number of attempts needed to achieve convergence
 \item call: The function call
 }
+
+Rather than indexing these slots directly, use the accessor helpers:
+\code{\link{get_pooled_model}} for the pooled models and
+\code{\link{get_imputed_data}} for the imputed datasets.
 }
 \description{
 Wrapper function to perform complete Bayesian imputation using BACE with
@@ -208,4 +212,10 @@ summary(pooled_y)
 # First completed (imputed) dataset
 head(res$imputed_datasets[[1]])
 }
+}
+\seealso{
+\code{\link{get_pooled_model}}, \code{\link{get_imputed_data}},
+\code{\link{bace_imp}}, \code{\link{assess_convergence}},
+\code{\link{bace_final_imp}}, \code{\link{pool_posteriors}},
+\code{\link{with_imputations}}, \code{\link{pool_mi}}
 }

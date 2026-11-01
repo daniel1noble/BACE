@@ -123,6 +123,14 @@
 #'   - converged: Logical indicating if convergence was achieved
 #'   - n_attempts: Number of attempts needed to achieve convergence
 #'   - call: The function call
+#'
+#'   Rather than indexing these slots directly, use the accessor helpers:
+#'   \code{\link{get_pooled_model}} for the pooled models and
+#'   \code{\link{get_imputed_data}} for the imputed datasets.
+#' @seealso \code{\link{get_pooled_model}}, \code{\link{get_imputed_data}},
+#'   \code{\link{bace_imp}}, \code{\link{assess_convergence}},
+#'   \code{\link{bace_final_imp}}, \code{\link{pool_posteriors}},
+#'   \code{\link{with_imputations}}, \code{\link{pool_mi}}
 #' @examples
 #' \donttest{
 #' # Minimal end-to-end run on simulated data. The settings below are
@@ -210,7 +218,7 @@ if (isTRUE(phylo_signal)) {
 ##-----------------------##
 if (verbose) {
   cat("\n=======================================================\n")
-  cat("BACE: Bayesian Analysis with Chained Equations\n")
+  cat("BACE: Bayesian Augmentation by Chained Equations\n")
   cat("=======================================================\n\n")
   cat("Step 1: Initial imputation for convergence assessment\n")
   cat("-------------------------------------------------------\n")
@@ -396,10 +404,10 @@ if (verbose) {
   cat("Number of attempts:", n_attempts, "\n")
   cat("Final imputations:", n_final, "\n")
   cat("\nAccess results via:\n")
-  cat("  - $pooled_models: Pooled posterior distributions\n")
-  cat("  - $imputed_datasets: List of", n_final, "imputed datasets\n")
+  cat("  - get_pooled_model(result, \"y\"): pooled posterior model for a variable ($pooled_models)\n")
+  cat("  - get_imputed_data(result): list of", n_final, "imputed datasets ($imputed_datasets)\n")
   cat("  - $convergence: Convergence diagnostics\n")
-  cat("  - $final_results: Full final imputation results\n\n")
+  cat("  - $final_results: Full final imputation results (per-run models and datasets)\n\n")
 }
 
 return(out)
@@ -433,12 +441,13 @@ print.bace_complete <- function(x, ...) {
   cat("  $initial_results - Initial convergence runs\n\n")
   
   cat("Access pooled MCMCglmm models:\n")
-  cat("  result$pooled_models$models$variable_name\n\n")
+  cat("  get_pooled_model(result, \"variable_name\")  # one variable\n")
+  cat("  get_pooled_model(result)                   # named list, all variables\n\n")
   cat("Access imputed datasets:\n")
-  cat("  result$imputed_datasets[[1]]  # First imputed dataset\n\n")
-  cat("Use standard MCMCglmm methods:\n")
-  cat("  summary(result$pooled_models$models$y)\n")
-  cat("  print(result$pooled_models$models$y)\n")
-  cat("  plot(result$pooled_models$models$y)\n")
+  cat("  get_imputed_data(result)                        # list, one per imputation\n")
+  cat("  get_imputed_data(result, format = \"data.frame\") # stacked, with .imputation column\n\n")
+  cat("Use standard MCMCglmm methods on a pooled model:\n")
+  cat("  summary(get_pooled_model(result, \"y\"))\n")
+  cat("  plot(get_pooled_model(result, \"y\"))\n")
   invisible(x)
 }

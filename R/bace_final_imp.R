@@ -78,6 +78,11 @@
 #'   - types: Variable types
 #'   - phylo_ran: Phylogenetic random effects structure
 #'   - call: The function call
+#'
+#'   The imputed datasets are most conveniently extracted with
+#'   \code{\link{get_imputed_data}} (as a list or a stacked data frame).
+#' @seealso \code{\link{get_imputed_data}}, \code{\link{pool_posteriors}},
+#'   \code{\link{with_imputations}}, \code{\link{pool_mi}}
 #' @examples
 #' \donttest{
 #' # Simulate a small phylogenetic dataset with missing values
@@ -531,6 +536,9 @@ print.bace_final <- function(x, ...) {
       cat("MCMC health: all final-phase parameters look healthy\n")
     }
   }
-  cat("\nUse pool_posteriors() to combine model results across imputations\n")
+  cat("\nNext steps:\n")
+  cat("  get_imputed_data(x)    # completed datasets (list or stacked data.frame)\n")
+  cat("  pool_posteriors(x)     # stack per-imputation posteriors for inference\n")
+  cat("  with_imputations(x, f) # fit any downstream model per dataset, then pool_mi()\n")
   invisible(x)
 }
