@@ -306,6 +306,26 @@ low-priority follow-up.
   rendered self-contained `vignettes/index.html` is copied to the repo root
   `index.html` (the GitHub-Pages tutorial). A full render takes ~1.5 h of MCMC.
 
+## Tutorial render gotcha: render uses the INSTALLED package (2026-11-01)
+- The tutorial's setup chunk loads BACE with `pacman::p_load(BACE)` — i.e. the
+  **installed** copy, not the source tree (the `install_github` line was removed
+  deliberately so renders can't silently swap the package mid-campaign). After
+  editing `R/`, the rendered HTML will NOT reflect the change until the package
+  is reinstalled. This bit us: the 2026-10-31 printout updates (accessor-first
+  messages, acronym fix, commit 8a8a6aa) were missing from two subsequent
+  renders; Dan spotted the stale printouts in the published page.
+- Correct procedure while a simulation campaign runs against the system library
+  (do NOT overwrite it — live workers lazy-load from the installed rdb and the
+  campaign must keep running the code it started with): install the source into
+  a scratch library and point the render at it —
+  `R CMD INSTALL --library=$LIB . && R_LIBS=$LIB quarto render vignettes/bace.qmd`.
+  Then verify the output actually changed (e.g. grep the new printout text)
+  before copying to root `index.html` and committing. Fixed render pushed as
+  0733031. The render is fully seeded, so a re-render is byte-identical except
+  for genuine changes — a small diff is expected, not suspicious.
+- **TODO when the Rubin campaign ends**: `R CMD INSTALL .` into the system
+  library so interactive sessions also get the current code.
+
 ## Open / priority (details in roadmap.md)
 - **Track B** — production reference benchmark + competitor arm
   (missForest / Rphylopars). **Track C** — manuscript (restore missing bib
