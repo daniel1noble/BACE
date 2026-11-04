@@ -214,12 +214,196 @@ pool_mi(fits)
 # Evaluating the performance of BACE with simulations
 
 ## Simulation design
-**SHINICHI ADD**
 
+```{r}
+#| label: sim-results-numbers
+#| echo: false
+#| include: false
+# All numbers quoted in this section (and in the two figure captions) are
+# computed here from the simulations aggregated tables, so they update if the
+# simulations are re-run and re-aggregated (dev/rubin_study_2026-09-26/).
+res_dir   <- "../dev/rubin_study_2026-09-26/results_2026-10"
+agg_cells <- read.csv(file.path(res_dir, "agg_cells.csv"))
+agg_disc  <- read.csv(file.path(res_dir, "agg_disc.csv"))
+agg_down  <- read.csv(file.path(res_dir, "agg_down.csv"))
+agg_fail  <- read.csv(file.path(res_dir, "agg_failures.csv"))
+
+fmt2 <- function(x) formatC(x, format = "f", digits = 2)
+rng2 <- function(v) paste0(fmt2(min(v)), "–", fmt2(max(v)))
+
+n_scen     <- nrow(unique(agg_cells[, c("n", "lambda", "rho")]))
+n_data     <- sum(agg_fail$n_total)
+n_fail     <- sum(agg_fail$n_fail)
+pct_fail   <- formatC(100 * n_fail / n_data, format = "f", digits = 1)
+reps_small <- max(agg_fail$n_total[agg_fail$n <= 300])
+reps_big   <- max(agg_fail$n_total[agg_fail$n == 1000])
+m_imp      <- max(read.csv(file.path(res_dir, "full_estimands.csv"))$m_ok, na.rm = TRUE)
+
+cov_cont_rng <- rng2(agg_cells$coverage)
+cov_disc_rng <- rng2(agg_disc$set_coverage)
+
+bace_down    <- subset(agg_down, arm == "bace")
+cov_down_rng <- rng2(bace_down$coverage)
+sl_l1r5      <- subset(bace_down, estimand == "slope" & lambda == 1 & rho == 0.5)
+sl_l1r5      <- sl_l1r5[order(sl_l1r5$n), ]
+bias_n100    <- fmt2(abs(sl_l1r5$bias[sl_l1r5$n == 100]))
+bias_n1000   <- fmt2(abs(sl_l1r5$bias[sl_l1r5$n == 1000]))
+
+cap_sim_values <- paste0(
+  "**Accuracy and uncertainty of imputed trait values.** Points show means ",
+  "across replicate datasets, with ±1.96 Monte Carlo standard errors. ",
+  "Colours indicate phylogenetic signal λ and symbols indicate correlation ρ ",
+  "on the latent Gaussian scale. (a) Coverage of the 95% prediction intervals ",
+  "and category sets defined in the text (dashed line: 0.95). ",
+  "(b) Standardised root mean squared error (RMSE) of the mean imputation; ",
+  "the dotted line marks an RMSE equal to the SD of the observed values. ",
+  "Proportions are scored on the logit scale. (c) Classification accuracy ",
+  "of the modal imputed category. Each scenario included ", reps_small,
+  " datasets at n = 100 and 300, and ", reps_big, " at n = 1,000. ",
+  "Failed fits were excluded; discrete traits were scored only at n ≤ 300 ",
+  "and only when at least two categories occurred in the complete data.")
+
+cap_sim_downstream <- paste0(
+  "**Downstream inference after imputation with *BACE*.** PGLS slopes ",
+  "(circles) and phylogenetic correlations (triangles) between the two ",
+  "continuous traits were pooled across M = ", m_imp,
+  " completed datasets using Rubin's rules [@rubin1987]. Points show ",
+  "means across successful replicate datasets, with ±1.96 Monte Carlo ",
+  "standard errors. Colours indicate λ; panels separate the true ",
+  "correlations ρ. (a) Bias of the pooled estimate (dashed line: zero). ",
+  "(b) Coverage of 95% confidence intervals (dashed line: 0.95). ",
+  "Replicate counts and exclusions are described in @fig-sim-values.")
+```
+
+<!-- Draft for Shinichi and Dan to review. -->
+
+We evaluated *BACE* across `r n_scen` scenarios combining three species sample sizes (n = 100, 300 or 1,000), three levels of phylogenetic signal (Pagel's λ = 0.3, 0.7 or 1) and two correlations among traits (ρ = 0 or 0.5). Each scenario included `r reps_small` replicate datasets at n = 100 and 300, and `r reps_big` at n = 1,000.
+
+**Simulated data.** Each dataset contained seven traits and one fully observed covariate on an ultrametric coalescent tree (`ape::rcoal`; height scaled to 1). We generated an n × 8 matrix of latent Gaussian values:
+
+$$
+\mathbf{L} = \mathbf{C}_\lambda^{1/2}\,\mathbf{Z}\,\boldsymbol{\Sigma}_\rho^{1/2},
+\qquad
+\mathbf{C}_\lambda = \lambda\,\mathbf{V} + (1-\lambda)\,\mathbf{I},
+$$
+
+where $\mathbf{Z}$ contains independent standard normal draws, $\mathbf{V}$ is the tree's Brownian-motion correlation matrix, and $\mathbf{I}$ is the identity matrix. The matrix $\boldsymbol{\Sigma}_\rho$ specifies unit variances, correlation ρ between each pair of trait variables, and correlation 0.35 between each trait and the covariate. Thus, λ and ρ describe the underlying Gaussian variables before transformation to the observed trait scales.
+
+Two traits retained their Gaussian values ($c_1 = \ell_1$, $c_2 = \ell_2$). Counts were drawn from $\mathrm{Poisson}\{\exp(1.5 + 0.8\ell_3)\}$, and proportions were generated as $\mathrm{logit}^{-1}(\ell_4 + \varepsilon)$, with $\varepsilon \sim N(0, 0.3^2)$. Binary, four-level ordinal and three-level unordered categorical traits were formed by dividing $\ell_5$, $\ell_6$ and $\ell_7$ at zero, the standard-normal quartiles and the standard-normal tertiles, respectively. We then removed 30% of values independently from each trait, completely at random; the covariate remained fully observed.
+
+**Imputation models and settings.** Each trait was modelled using the other traits, the covariate and a phylogenetic random intercept. We used Gaussian models for continuous traits and proportions, a Poisson model with a log link for counts, and probit threshold models for binary and ordinal traits. When all three categories were observed, the unordered trait used one binary threshold model per category (`ovr_categorical = TRUE`). Proportions were modelled on their original 0–1 scale. Unused factor levels were dropped. Traits with only one observed category were excluded from fitting; their missing values were assigned that category for scoring.
+
+We ran five initial passes of point imputation, recording convergence diagnostics but disabling automatic retries to limit computation. Each of M = `r m_imp` independent final runs started from the resulting dataset and made three passes of posterior-predictive updates, retaining one completed dataset. Initial-phase fits and the last pass of each final run used 50,000 MCMC iterations; the first two passes of each final run used 11,250. All fits used a burn-in of 10,000 and thinning of 25.
+
+**Performance measures.** We evaluated predictions against the values removed from each dataset. For continuous, count and proportion traits, we calculated standardised root mean squared error (RMSE) of the mean imputation and coverage of 95% prediction intervals, $\bar{y} \pm t_{M-1,0.975}\sqrt{(1+1/M)s^2}$, where $\bar{y}$ and $s^2$ are the mean and variance of the M imputations for a missing value. RMSE was divided by the SD of the observed values. Proportions were clipped to [0.0001, 0.9999] and logit-transformed for scoring. For discrete traits, we measured modal-category accuracy and coverage of the smallest category set containing at least 95% of imputed draws. Discrete traits were scored only at n ≤ 300, excluding traits with a single category in the complete data.
+
+**Downstream analysis.** For each completed dataset, we estimated the phylogenetic generalised least-squares (PGLS) slope of $c_2$ on $c_1$, estimating Pagel's λ by restricted maximum likelihood within [0, 1]. We also estimated their correlation after accounting for this phylogenetic covariance. Estimates were pooled using Rubin's rules [@rubin1987], with correlations pooled on Fisher's z scale and slope intervals using Barnard–Rubin degrees of freedom [@barnard1999]. Both population parameters equal ρ under the simulation design. We assessed their bias and 95% confidence-interval coverage.
 
 ## Simulation results
-**SHINICHI & DAN ADD**We show using simulations that *BACE* recovers missing trait values with a high degree of accuracy.  Across 18 different scenarios that vary in sample size (n = 100, 300, 1000 species), phylogenetic signal (Pagel’s λ = 0.3, 0.7, 1) and trait correlation (ρ = 0, 0.5), we show *BACE* recovers model parameters with little bias and nominal coverage. *BACE* outperformed other comparable frequentist approaches.  
 
+Among successful fits, coverage of 95% prediction intervals ranged from `r cov_cont_rng` for continuous, count and proportion traits (@fig-sim-values a). Coverage of discrete category sets was more variable (`r cov_disc_rng`), with the lowest coverage for ordinal traits at n = 100, λ = 0.3 and ρ = 0.5. Imputation accuracy generally improved with phylogenetic signal and the number of species (@fig-sim-values b, c).
+
+Downstream slope and correlation estimates generally showed small bias, with 95% confidence-interval coverage ranging from `r cov_down_rng` (@fig-sim-downstream). Both estimates were biased towards zero when λ = 1 and ρ = 0.5. For the slope, the magnitude of this bias declined from `r bias_n100` at n = 100 to `r bias_n1000` at n = 1,000.
+
+Of the `r format(n_data, big.mark = ",")` simulated datasets, `r n_fail` (`r pct_fail`%) failed with a singular mixed-model-equations error, all at λ = 1. Results for these scenarios therefore describe successful fits only. Fixed thresholds also sometimes produced fewer than three categorical levels, so categorical performance was not always evaluated on all three levels.
+
+```{r}
+#| label: fig-sim-values
+#| echo: false
+#| fig-width: 9
+#| fig-height: 6.2
+#| fig-cap: !expr cap_sim_values
+suppressMessages({ library(ggplot2); library(patchwork) })
+
+lam_cols  <- c("0.3" = "#440154", "0.7" = "#31688e", "1" = "#35b779")
+sim_theme <- theme_classic(base_size = 11) +
+  theme(panel.border = element_rect(fill = NA, colour = "black"),
+        strip.background = element_blank(), legend.position = "bottom")
+prep <- function(d) transform(d, n_f = factor(n, c(100, 300, 1000)),
+                              lam = factor(lambda), rho_f = factor(rho, c(0, 0.5),
+                              labels = c("ρ = 0", "ρ = 0.5")))
+trait_lab <- c(c1 = "continuous 1", c2 = "continuous 2", cnt = "count",
+               prp = "proportion", bin = "binary", ord = "ordinal (4)",
+               cat3 = "categorical (3)")
+pd <- position_dodge(0.55)
+
+id_cols <- c("trait", "n_f", "lam", "rho_f")
+cc <- prep(agg_cells); dd <- prep(agg_disc)
+cov_all <- rbind(
+  cbind(cc[id_cols], cov = cc$coverage, cov_se = cc$coverage_se),
+  cbind(dd[id_cols], cov = dd$set_coverage, cov_se = dd$set_coverage_se))
+cov_all$trait <- factor(cov_all$trait, names(trait_lab), trait_lab)
+
+p_cov <- ggplot(cov_all, aes(n_f, cov, colour = lam, shape = rho_f,
+                             group = interaction(lam, rho_f))) +
+  geom_hline(yintercept = 0.95, linetype = "dashed", colour = "grey40") +
+  geom_errorbar(aes(ymin = cov - 1.96 * cov_se, ymax = cov + 1.96 * cov_se),
+                width = 0, position = pd, linewidth = 0.4) +
+  geom_point(position = pd, size = 1.6) +
+  facet_grid(. ~ trait) + scale_colour_manual(values = lam_cols) +
+  labs(x = NULL, y = "95% interval coverage", colour = "λ", shape = NULL) +
+  coord_cartesian(ylim = c(0.85, 1)) + sim_theme
+
+zr <- cc; zr$trait <- factor(zr$trait, names(trait_lab), trait_lab)
+p_zr <- ggplot(zr, aes(n_f, zRMSE, colour = lam, shape = rho_f,
+                       group = interaction(lam, rho_f))) +
+  geom_hline(yintercept = 1, linetype = "dotted", colour = "grey40") +
+  geom_errorbar(aes(ymin = zRMSE - 1.96 * zRMSE_se, ymax = zRMSE + 1.96 * zRMSE_se),
+                width = 0, position = pd, linewidth = 0.4) +
+  geom_point(position = pd, size = 1.6) +
+  facet_grid(. ~ trait) + scale_colour_manual(values = lam_cols) +
+  labs(x = "Number of species", y = "Standardised RMSE",
+       colour = "λ", shape = NULL) + sim_theme
+
+ac <- dd; ac$trait <- factor(ac$trait, names(trait_lab), trait_lab)
+p_acc <- ggplot(ac, aes(n_f, accuracy, colour = lam, shape = rho_f,
+                        group = interaction(lam, rho_f))) +
+  geom_errorbar(aes(ymin = accuracy - 1.96 * accuracy_se,
+                    ymax = accuracy + 1.96 * accuracy_se),
+                width = 0, position = pd, linewidth = 0.4) +
+  geom_point(position = pd, size = 1.6) +
+  facet_grid(. ~ trait) + scale_colour_manual(values = lam_cols) +
+  labs(x = "Number of species", y = "Accuracy", colour = "λ", shape = NULL) +
+  coord_cartesian(ylim = c(0, 1)) + sim_theme
+
+(p_cov / (p_zr + p_acc + plot_layout(widths = c(4, 3)))) +
+  plot_layout(guides = "collect") + plot_annotation(tag_levels = "a") &
+  theme(legend.position = "bottom")
+```
+
+```{r}
+#| label: fig-sim-downstream
+#| echo: false
+#| fig-width: 9
+#| fig-height: 3.8
+#| fig-cap: !expr cap_sim_downstream
+dn <- prep(subset(agg_down, arm == "bace"))
+dn$estimand <- factor(dn$estimand, c("slope", "cor"), c("slope", "correlation"))
+
+p_bias <- ggplot(dn, aes(n_f, bias, colour = lam, shape = estimand,
+                         group = interaction(lam, estimand))) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
+  geom_errorbar(aes(ymin = bias - 1.96 * bias_se, ymax = bias + 1.96 * bias_se),
+                width = 0, position = pd, linewidth = 0.4) +
+  geom_point(position = pd, size = 1.6) +
+  facet_grid(. ~ rho_f) + scale_colour_manual(values = lam_cols) +
+  labs(x = "Number of species", y = "Bias", colour = "λ", shape = NULL) +
+  sim_theme
+
+p_dcov <- ggplot(dn, aes(n_f, coverage, colour = lam, shape = estimand,
+                         group = interaction(lam, estimand))) +
+  geom_hline(yintercept = 0.95, linetype = "dashed", colour = "grey40") +
+  geom_errorbar(aes(ymin = coverage - 1.96 * coverage_se,
+                    ymax = pmin(1, coverage + 1.96 * coverage_se)),
+                width = 0, position = pd, linewidth = 0.4) +
+  geom_point(position = pd, size = 1.6) +
+  facet_grid(. ~ rho_f) + scale_colour_manual(values = lam_cols) +
+  labs(x = "Number of species", y = "95% CI coverage",
+       colour = "λ", shape = NULL) + sim_theme
+
+(p_bias + p_dcov) + plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "a") & theme(legend.position = "bottom")
+```
 
 ```{r}
 #| label: tbl-studyb
