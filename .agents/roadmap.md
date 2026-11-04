@@ -1,5 +1,11 @@
 # BACE completion roadmap
 
+**2026-11-04 — manuscript simulation text checked and tightened:** design,
+results and captions now match the campaign implementation and saved results.
+Discrete-set coverage is 0.89–1.00, and categorical traits are not uniformly
+binary at λ=1. See the latest entry in `project-state.md`, which supersedes the
+earlier categorical and failure-selection interpretations. Author review remains.
+
 **2026-10-26 insert — current priority:** Ayumi's PR #15 review → five
 pre-release fixes, all landed (see
 [plans/fixes-2026-10-ayumi.md](plans/fixes-2026-10-ayumi.md) for status and

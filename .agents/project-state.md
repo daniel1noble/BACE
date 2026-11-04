@@ -363,3 +363,24 @@ low-priority follow-up.
   final run for multi-variable-missing data; strengthen the convergence
   diagnostic (Geweke silently disabled); fit-once-draw-many optimization when
   only one variable is missing.
+
+## 2026-11-04: manuscript simulation sections tightened and checked
+
+The source sections in `ms/ms.qmd` (original lines 216–325) were edited against
+campaign code, aggregate CSVs and saved RDS files. This supersedes the earlier
+claims that discrete coverage was uniformly nominal, the categorical trait was
+always binary at λ=1, and failure selection necessarily made results optimistic.
+Numeric prediction-interval coverage is 0.9402–0.9718; discrete-set coverage is
+0.8861–0.9955 (lowest: ordinal, n=100, λ=0.3, ρ=0.5). Among the 250 λ=1 datasets,
+`length(unique(as.character(x$truth$cat3)))` gives 198 with three realised classes,
+43 with two, and 9 with one. All 22 failed fits were at λ=1; manuscript wording
+now states that those summaries condition on successful fitting. Stronger priors
+were suggested by the error message but were not tested as a remedy here.
+
+Methods now distinguish five fixed initial passes from confirmed convergence:
+`skip_conv=TRUE` disables retries, not assessment. The first two final-phase
+passes use 11,250 iterations; the retained pass uses 50,000 (10,000 burn-in,
+thinning 25). Scoring definitions now match `code/rubin_lib.R`,
+`code/rubin_cell.R` and `code/rubin_discrete.R` under
+`dev/rubin_study_2026-09-26/`. Both slope and correlation attenuate at λ=1, ρ=0.5.
+No simulation results or package code were changed.
