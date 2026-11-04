@@ -306,6 +306,35 @@ low-priority follow-up.
   rendered self-contained `vignettes/index.html` is copied to the repo root
   `index.html` (the GitHub-Pages tutorial). A full render takes ~1.5 h of MCMC.
 
+## 2026-11-04: CAMPAIGN COMPLETE (750/750) → aggregated → ms figures built
+- Full campaign finished 2026-11-04 (Dan committed the last cells, 659015a).
+  **Final failure ledger: 22/750 datasets (2.9%), all λ=1, all bace_fit, all
+  "Mixed model equations singular"** — per-cell n_ok: ρ=0 46/48/24, ρ=0.5
+  39/47/24 at n=100/300/1000 (of 50/50/25). The survivorship caveat from
+  2026-11-01 stands (failures hit strong-signal draws; λ=1 summaries slightly
+  optimistic).
+- **Aggregation**: new `code/rubin_full_aggregate.R` (flattens all 750 rds →
+  `results_2026-10/{full,agg}_{cells,disc_cells/disc,estimands/down}.csv`,
+  `agg_failures.csv`, `sanity_full.txt`). Headlines: per-value 95% coverage
+  0.94–0.97 in every scenario for c1/c2/cnt/prp; discrete credible-set coverage
+  0.89–1.00 (dips only ordinal λ=0.3 n=100); downstream (PGLS slope + phylo cor,
+  Rubin-pooled M=20) coverage 0.94–1.00 everywhere, |bias| ≤ 0.04 except
+  λ=1×ρ=0.5 slope attenuation −0.104 → −0.045 → −0.024 at n=100/300/1000
+  (fmi 0.51–0.68 there, so coverage stays 0.96–0.98). Discrete traits scored at
+  n ≤ 300 by launcher design. At λ=1 cat3 is effectively binary (DGP degeneracy).
+- **ms/ms.qmd "Simulation results"**: placeholder replaced with a drafted
+  3-paragraph results text (marked DRAFT for Shinichi & Dan) + two executable
+  figure chunks reading the agg CSVs: `fig-sim-values` (per-value coverage /
+  zRMSE / discrete accuracy, 7 traits) and `fig-sim-downstream` (bias +
+  coverage for slope & correlation, the attenuation + honest-interval story).
+  Captions carry the n_ok counts and the singular-failure caveat. Verified by a
+  full `quarto render ms.qmd --to docx` (clean; only the pre-existing empty
+  tbl-studyb warning). The old 2026-09 "beats frequentist arms" claim is left as
+  a bracketed note — it comes from the paired 2026-09 study, not these runs.
+- **System-library BACE reinstalled from source** post-campaign (2026-11-04) —
+  the TODO below is done; interactive sessions now have the current printouts.
+- 3-hourly checkpoint auto-commits retired (campaign over).
+
 ## Tutorial render gotcha: render uses the INSTALLED package (2026-11-01)
 - The tutorial's setup chunk loads BACE with `pacman::p_load(BACE)` — i.e. the
   **installed** copy, not the source tree (the `install_github` line was removed

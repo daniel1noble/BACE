@@ -18,8 +18,17 @@ coverage ≥0.96; discrete accuracy ≈ 2026-09 with better calibration. Two fla
 for the ms: (1) λ=1 × ρ=0.5 slope attenuation −0.10 (known, conservative,
 needs an honest sentence); (2) 15/100 λ=1 cells failed with MCMCglmm
 singular-MME (recorded, not silent; survivors at λ=1 ρ=0.5 are a non-random
-39/50). Details in [project-state.md](project-state.md). n=300/1000 tiers
-running; ms figures build after full completion.
+39/50). Details in [project-state.md](project-state.md).
+
+**2026-11-04 — campaign COMPLETE (750/750), aggregated, ms figures in:** final
+ledger 22/750 failures (all λ=1 singular-MME); per-value coverage 0.94–0.97
+everywhere; downstream coverage 0.94–1.00 with the λ=1 × ρ=0.5 attenuation
+−0.10 → −0.02 across n. `code/rubin_full_aggregate.R` → agg CSVs in
+`results_2026-10/`; ms/ms.qmd "Simulation results" now carries drafted text +
+`fig-sim-values` + `fig-sim-downstream` (render-verified to docx; text marked
+DRAFT for Shinichi & Dan). Remaining from this thread: Shinichi's design
+section, tbl-studyb (Study B response-type table), and the roadmap candidate
+"auto-strengthen prior on singular-MME retry in bace()".
 
 Consolidated view of everything remaining to take BACE from "usable research code"
 to "submittable manuscript + release-ready package". Created 2026-07-11.
