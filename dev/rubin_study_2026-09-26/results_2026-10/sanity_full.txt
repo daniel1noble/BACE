@@ -1,0 +1,22 @@
+files read: 750; datasets with recorded failures: 22 (expect 20, all lambda=1 bace_fit singular-MME)
+cells rows: 2912; disc rows: 1720; estimand rows: 2956
+    n lambda rho n_total n_ok n_fail err_arms
+  100      1 0.0      50   46      4 bace_fit
+  300      1 0.0      50   48      2 bace_fit
+ 1000      1 0.0      25   24      1 bace_fit
+  100      1 0.5      50   39     11 bace_fit
+  300      1 0.5      50   47      3 bace_fit
+ 1000      1 0.5      25   24      1 bace_fit
+--- bace per-value coverage by n (c1+c2 cell-weighted) ---
+    n coverage.mean coverage.se
+  100        0.9548      0.0018
+  300        0.9532      0.0011
+ 1000        0.9531      0.0008
+--- downstream (bace arm) coverage/bias by estimand x n ---
+ estimand    n coverage    bias datasets
+      cor  100    0.975 -0.0228      285
+    slope  100    0.972 -0.0201      285
+      cor  300    0.966 -0.0105      295
+    slope  300    0.976 -0.0106      295
+      cor 1000    0.966  0.0008      148
+    slope 1000    0.959  0.0032      148
