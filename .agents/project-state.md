@@ -384,3 +384,23 @@ thinning 25). Scoring definitions now match `code/rubin_lib.R`,
 `code/rubin_cell.R` and `code/rubin_discrete.R` under
 `dev/rubin_study_2026-09-26/`. Both slope and correlation attenuate at λ=1, ρ=0.5.
 No simulation results or package code were changed.
+
+## 2026-11-05: performance-measure definitions clarified
+
+`ms/ms.qmd` now gives explicit zRMSE and accuracy equations, defines coverage
+separately, and documents fractional credit for tied modal categories. The figure
+caption matches these definitions: zRMSE=1 means RMSE equals the observed SD;
+fixed accuracy references represent uniform guessing, not majority-category
+predictions. `code/oracle_floor.R` uses known parameters and observed-cell latent
+values, averaging four trees and two masks per tree. Its references use population
+scaling and are optimistic comparisons, not hard bounds on plotted dataset-level
+summaries. No scoring code, simulation data or plotted values were changed.
+
+## 2026-11-05: manuscript PDF and DOCX rerendered
+
+Regenerated `ms/ms.pdf` and `ms/ms.docx` with the revised metrics text and native
+equations. The two simulation plots now use `cairo_pdf` for LaTeX output, preserving
+Greek plot labels. Portrait figures use a 6.9-inch DOCX output width to avoid
+clipping inside Quarto figure tables. Full PDF and DOCX page previews inspected;
+remaining Word-preview template quirks include duplicate footer page numbers and
+a comparison-table row split across pages.

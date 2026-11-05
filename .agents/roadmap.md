@@ -1,5 +1,9 @@
 # BACE completion roadmap
 
+**2026-11-05 — performance-measure wording:** zRMSE and classification
+accuracy equations added; coverage, uniform-guessing baselines and optimistic
+oracle references clarified in the manuscript and matching caption.
+
 **2026-11-04 — manuscript simulation text checked and tightened:** design,
 results and captions now match the campaign implementation and saved results.
 Discrete-set coverage is 0.89–1.00, and categorical traits are not uniformly
