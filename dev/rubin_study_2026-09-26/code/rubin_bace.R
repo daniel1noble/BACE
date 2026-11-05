@@ -36,7 +36,7 @@
 #' @return list(outb = the "bace_complete" object, wall_s = fit wall time in seconds,
 #'   converged = BACE's own convergence verdict, ess_med = median effective sample size over the
 #'   final fits' fixed effects, diag = the full bace_diagnostics() list -- same extraction G9b/v1 use)
-fit_bace_mi <- function(cell, M = 20L, nitt, burnin, thin, runs) {
+fit_bace_mi <- function(cell, M = 20L, nitt, burnin, thin, runs, ovr_categorical = TRUE) {
   tree_b <- cell$tree
   if (any(tree_b$edge.length == 0)) tree_b$edge.length[tree_b$edge.length == 0] <- 1e-8
   # Input cleaning (2026-09-24, campaign): at lambda = 1 with fixed thresholds most datasets leave a discrete
@@ -63,7 +63,7 @@ fit_bace_mi <- function(cell, M = 20L, nitt, burnin, thin, runs) {
   outb <- BACE::bace(fixformula = fixformula, ran_phylo_form = "~1|Species", phylo = tree_b,
                      data = df_b, nitt = nitt, burnin = burnin, thin = thin, runs = runs,
                      n_final = M, n_cores = 1L, verbose = FALSE, skip_conv = TRUE,
-                     ovr_categorical = TRUE)
+                     ovr_categorical = ovr_categorical)   # campaign default TRUE; coverage_experiment.R varies it
   wall_s <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
 
   d <- bace_diagnostics(outb)   # same convergence/ESS extraction v1/G9b use (campaign_gnn_off_lib.R)
