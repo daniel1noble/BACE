@@ -404,3 +404,28 @@ Greek plot labels. Portrait figures use a 6.9-inch DOCX output width to avoid
 clipping inside Quarto figure tables. Full PDF and DOCX page previews inspected;
 remaining Word-preview template quirks include duplicate footer page numbers and
 a comparison-table row split across pages.
+
+## 2026-11-05: bird case study and illustrated manuscript panels
+
+Replaced the bird placeholder in `ms/ms.qmd` with a concise account grounded in
+Ayumi's saved `vignettes/bird_social/results/` files. The example covers 10,563
+species, with social records missing for 4,265; random and whole-family social
+validation have category-averaged accuracies of 54% and 36%. Mixed-variable
+validation of 2,113 measured hand-wing indices gives r=0.9646 and RMSE=3.9981.
+Panel c shows wing-shape validation; panel d shows accuracy within each social
+category, separating the two holdout sets. These use separate saved validation
+fits; no imputation runs were repeated.
+
+Panel d now includes four transparent scientific illustrations selected from
+observed BIRDBASE records: Alcedo atthis, Tyto alba, Dacelo novaeguineae and
+Cacatua galerita, in category order. Assets, source references and exact built-in
+image-generation prompts are in `vignettes/figs/bird_social/`. They sit outside
+the plotting area, are not to scale, and the caption identifies the coding
+examples. Standalone exports are in `ms/figures/`; the PDF (18 pages) and Word
+manuscript (17 pages) were regenerated, and the new figure/caption checked in
+both formats. Concurrent user edits to the title and HWI intervals/wording were
+preserved.
+
+User instruction: edit project files directly; do not create scratch copies in
+the repo. Temporary render copies from this work were removed. Keep future QA
+previews and scratch work outside the repo.

@@ -1,5 +1,11 @@
 # BACE completion roadmap
 
+**2026-11-05 — bird manuscript example and figure:** Ayumi's case-study text and
+panels c–d are in `ms/ms.qmd`, with per-category social accuracy and four verified
+species illustrations. PDF/Word and standalone figure exports refreshed. Details
+and asset provenance are in `project-state.md` and `vignettes/figs/bird_social/`.
+Edit source files directly; keep scratch/render-preview files outside the repo.
+
 **2026-11-05 — performance-measure wording:** zRMSE and classification
 accuracy equations added; coverage, uniform-guessing baselines and optimistic
 oracle references clarified in the manuscript and matching caption.
