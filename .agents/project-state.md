@@ -429,3 +429,29 @@ preserved.
 User instruction: edit project files directly; do not create scratch copies in
 the repo. Temporary render copies from this work were removed. Keep future QA
 previews and scratch work outside the repo.
+
+## 2026-11-05: Stacked-posterior arm complete; discrete-coverage experiment launched
+
+- **Stacked-posterior arm done** (580/580 datasets, 0 MCMCglmm failures;
+  `results_2026-10/stack_down.csv`, `agg_stack.csv`, generator
+  `code/rubin_stack_posthoc.R`). BACE-native workflow (with_imputations ->
+  pool_posteriors -> get_pooled_model), analysis model MCMCglmm(c2 ~ c1, phylo).
+  Paired vs Rubin on identical datasets: coverage 0.972 vs 0.974, point estimates
+  differ 0.0025 on average, stacked intervals ~6% narrower (biggest gap at
+  lambda = 1, where Rubin's small-M df correction is most conservative). The
+  lambda=1 x rho=0.5 attenuation (-0.10 at n=100 -> -0.04 at n=300) is identical
+  in both arms: it lives in the imputations, not the pooling.
+- **Discrete set-coverage investigation** (Dan's "50k too short?" question):
+  (1) set rule exonerated - perfectly calibrated M=20 imputer scores >= 0.95
+  under the campaign's exact rule (oracle demo); (2) generic chain length
+  disfavoured - well-covered lambda=1 cells mix WORSE (ess_med 224 vs 730) and
+  continuous traits in the same runs are nominal; (3) remaining hypotheses =
+  OvR construction (cat3) and cutpoint uncertainty (ord).
+  `code/coverage_experiment.R` now running: multi (ovr_categorical=FALSE) and
+  long3x (150k/30k/75) arms, n=100 lambda=0.3 rho={0,0.5}, seeds 1-25, paired
+  to campaign datasets. ~14 h on 7 cores; cache results_2026-10/coverage_exp_cache/.
+- **Oracle references in ms**: `code/oracle_floor.R` -> `oracle_floor.csv`
+  (mask-aware conditional-variance floors for zRMSE, Bayes ceilings + chance for
+  accuracy); fig-sim-values panels (b)/(c) now draw per-scenario dashed lines;
+  0 violations across all 108 observed cells.
+- Hourly stacking checkpoint cycle retired (purpose fulfilled).
