@@ -1,5 +1,5 @@
 ---
-title: "Estimating missing trait data in comparative analyses: the BACE R package"
+title: "Estimating missing continuous, count and categorical trait data in comparative analyses: the BACE R package"
 author:
   - name: Daniel W.A. Noble
     affiliations:
@@ -43,7 +43,7 @@ format:
       text: |
         \usepackage{bm}\usepackage{lineno}\linenumbers
         \usepackage{pdflscape}
-        \usepackage{pifont}\usepackage{newunicodechar}
+        \usepackage{pifont}\usepackage{newunicodechar}\usepackage{float}
         \newunicodechar{✓}{\ding{51}}
         \newunicodechar{✗}{\ding{55}}
         \newunicodechar{λ}{\ensuremath{\lambda}}
@@ -86,8 +86,8 @@ crossref:
 
 1. Missing trait data are pervasive in comparative datasets limiting the types of questions that can be tested and compromising the power of comparative analyses. Standard approaches, such as complete-case analyses and single imputation, can bias inference and underestimate uncertainty, particularly when missing data is non-random. While robust imputation methods exits, many existing software are restricted to imputing only continuous or count variables and lack the capacity to impute discrete / categorical traits (e.g., multinomial, ordered categorical), which are common trait types in comparative datasets. Such limitations have prevented the widespread use of imputation approaches in comparative biology.
 2. We introduce **BACE**, an R package implementing **B**ayesian **A**ugmentation by **C**hained **E**quations for phylogenetic comparative data. *BACE* enables imputation with phylogeny-informed covariance that can account for both phylogenetic and non-phylogenetic species effects, along with mixed data types. *BACE* provides substantial flexibility in the imputation models fit, can decouple imputation models from analysis models, and propagates both parameter and imputation uncertainty in subsequent downstream analyses. 
-3. Using simulations, we show that *BACE* provides little bias and nominal coverage in analyses with even a small number of species (~100) for diverse trait types, and those with small to moderate phylogenetic signal. We illustrate the use of *BACE* using two case studies: 1) imputing missing heat tolerance data across 5,203 species of amphibians from 524 species with data (89.9% missing data) and 2) . We provide a detailed tutorial on how it can be used and it is available for download on CRAN.
-4. *BACE* provides a flexible, accessible workflow for imputing diverse trait types in comparative datasets. Although computationally demanding, it makes multiple imputation more widely applicable, supporting a broader range of evolutionary questions while accounting for missing-data uncertainty. 
+3. Using simulations, we show that *BACE* provides little bias and nominal coverage in analyses with even a small number of species (~100) for diverse trait types, and those with small to moderate phylogenetic signal. We illustrate the use of *BACE* using two case studies: 1) imputing missing heat tolerance data across 5,203 species of amphibians from 524 species with data (89.9% missing data) and 2) jointly imputing an bird social-grouping and wing shape across 10,563 bird species, where social behaviour was missing for 40% of species. We provide a detailed tutorial on how it can be used and it is available for download on CRAN.
+4. *BACE* provides a flexible, accessible workflow for imputing diverse trait types in comparative datasets. We show with our case studies and simulations that it can provide powerful ways to recover missing trait data when phylogenetic signal and trait covariance is high. Although computationally demanding, it makes multiple imputation more widely applicable, supporting a broader range of evolutionary questions while accounting for missing-data uncertainty. 
 
 # Introduction
 
@@ -340,6 +340,7 @@ Of the `r format(n_data, big.mark = ",")` simulated datasets, `r n_fail` (`r pct
 ```{r}
 #| label: fig-sim-values
 #| echo: false
+#| fig-pos: "H"
 #| out-width: !expr if (identical(knitr::pandoc_to(), "docx")) "6.9in" else "100%"
 #| dev: !expr if (knitr::is_latex_output()) "cairo_pdf" else "png"
 #| fig-width: 9
@@ -419,6 +420,7 @@ p_acc <- ggplot(ac, aes(n_f, accuracy, colour = lam, shape = rho_f,
 ```{r}
 #| label: fig-sim-downstream
 #| echo: false
+#| fig-pos: "H"
 #| out-width: !expr if (identical(knitr::pandoc_to(), "docx")) "6.9in" else "100%"
 #| dev: !expr if (knitr::is_latex_output()) "cairo_pdf" else "png"
 #| fig-width: 9
@@ -461,24 +463,52 @@ p_dcov <- ggplot(dn, aes(n_f, coverage, colour = lam, shape = estimand,
 
 
 # Worked examples
-We now turn to two case studies to demonstrate application of *BACE*. The first case study involves data from @pottier2025. @pottier2025 imputed heat tolerance (continuous trait) under standardised conditions for 5,203 amphibian species of which only 524 species (10.1%) have trait data. Applying the *BACE* workflow with an imputation model that accounted for x,x,x, shows a high correspondance between imputed and The cross-validated accuracy of imputed CTmax against experimental data is shown in @fig-case-studies (a, b).  
 
-The second case study, uses BIRDBASE and AVONET to impute social (categocial and continuous data), for 10,563 bird species. 
+```{r}
+#| label: case-studies-numbers
+#| include: false
+bird_mix_txt  <- readRDS("../vignettes/bird_social/results/mixed_results.rds")
+hwi_r_txt     <- cor(bird_mix_txt$hwi_true, bird_mix_txt$hwi_imputed_mean)
+hwi_rmse_txt  <- sqrt(mean((bird_mix_txt$hwi_imputed_mean - bird_mix_txt$hwi_true)^2))
+hwi_zrmse_txt <- hwi_rmse_txt / sd(bird_mix_txt$hwi_true)
+# Total computation time (chained phase + all independent final runs), hours.
+# Bird: minutes["final_mean"] is per final run; 20 runs (the M of @fig-case-studies c).
+ctmax_hours_txt <- sum(readRDS("../vignettes/amphibian_ctmax/results/full_imputation.rds")$minutes) / 60
+bird_hours_txt  <- (bird_mix_txt$minutes[["chained"]] + 20 * bird_mix_txt$minutes[["final_mean"]]) / 60
+```
+
+We now turn to two case studies to demonstrate application of *BACE*. The first case study involves data from @pottier2025. @pottier2025 imputed heat tolerance (continuous trait) under standardised conditions for 5,203 amphibian species of which only 524 species (10.1%) have trait data. Using *BACE*, we modelled CTmax as a function of acclimation temperature and duration, heating rate, test medium, assay endpoint, acclimation status, life stage and ecotype, with phylogenetic and non-phylogenetic random intercepts for species. Imputed and experimental CTmax values were strongly correlated in cross-validation (r = 0.86; RMSE = 1.44 °C across 375 held-out estimates; @fig-case-studies a, b), demonstrating an excellent ability to estimate missing CTmax trait data.
+
+Our second case study combined social-behaviour records from BIRDBASE [@sekercioglu2025] with AVONET traits [@tobias2022] on a phylogeny of 10,563 bird species [@mctavish2025]. We treated the largest reported social grouping as four ordered categories, from solitary to flocks or colonies, and imputed missing records for 4,265 species (40.4%) using log body mass, hand-wing index (a measure of wing pointedness) and phylogeny. To validate social predictions, we withheld 630 species at random and 631 species from 38 entire families. Accuracy averaged equally across the four categories was 54% and 36%, respectively, with especially poor recovery of solitary species when whole families were withheld (@fig-case-studies d). Keeping these social records hidden, we then hid 2,113 measured hand-wing indices to demonstrate joint imputation of ordinal and continuous traits. Imputed and measured wing shape were strongly correlated ($r$ = `r sprintf("%.2f", hwi_r_txt)`; RMSE = `r sprintf("%.2f", hwi_rmse_txt)` points on the 0–100 hand-wing-index scale, equivalent to `r sprintf("%.2f", hwi_zrmse_txt)` SDs of the measured values; @fig-case-studies c).
 
 ```{r}
 #| label: fig-case-studies
 #| echo: false
 #| out-width: !expr if (identical(knitr::pandoc_to(), "docx")) "6.9in" else "100%"
 #| fig-width: 9
-#| fig-height: 4.2
+#| fig-height: 7.8
+#| dev: !expr if (knitr::is_latex_output()) "cairo_pdf" else "png"
 #| fig-cap: |
-#|   Example imputations of two case studies. (a & b) Imputing amphibian heat
-#|   tolerance, CTmax, cross-validated against experimental data [@pottier2025].
+#|   Validation of imputed amphibian heat tolerance and bird traits.
 #|   (a) Imputed against experimental CTmax for the estimates hidden in
 #|   cross-validation. Each point is one hidden estimate, with the 95% credible
 #|   interval of its imputed values; the dashed line shows perfect agreement.
 #|   (b) Distributions of experimental and imputed values for the same hidden
-#|   estimates.
+#|   estimates. (c) Mean imputed against measured hand-wing index for 2,113
+#|   bird species in the joint imputation of wing shape and social grouping
+#|   (20 completed datasets), with approximate 95% intervals (mean ± t-based
+#|   multiple-imputation interval across the 20 imputed values); the dashed
+#|   line shows perfect agreement.
+#|   (d) Percentage of species assigned the correct social category within each
+#|   observed category, in a separate validation withholding 630 species at random
+#|   or 631 species from 38 whole families. Predictions use the category with the
+#|   highest averaged posterior probability. Category-averaged accuracy is the
+#|   unweighted mean of the four percentages. Sample sizes beside each category
+#|   give the random and whole-family counts, respectively.
+#|   Illustrated species exemplify the BIRDBASE coding, from top to bottom:
+#|   common kingfisher (*Alcedo atthis*), western barn owl (*Tyto alba*),
+#|   laughing kookaburra (*Dacelo novaeguineae*) and sulphur-crested cockatoo
+#|   (*Cacatua galerita*); illustrations are not to scale.
 # Precomputed cross-validation results from the tutorial's amphibian case study
 # (vignettes/amphibian_ctmax/; regenerated by its scripts 01-03).
 library(ggplot2)
@@ -541,14 +571,109 @@ p_b <- ggplot(amph_long, aes(CTmax, fill = source)) +
   labs(x = "CTmax (°C)", y = "Density", tag = "(b)") +
   amph_theme + theme(legend.position = c(0.02, 0.98), legend.justification = c(0, 1))
 
-# TODO(Ayumi): AVONET bird case study -> panels (c) and (d). When those results
-# are in: build p_c and p_d here, raise fig-height to ~8.4, extend the caption,
-# and replace the final line with
-#   (p_a + p_b + plot_layout(widths = c(1, 1.2))) / (p_c + p_d)
-p_a + p_b + plot_layout(widths = c(1, 1.2))
+# Saved validation results from Ayumi's bird example. The social-only and
+# mixed-variable validations are separate fits; neither uses the full-data fit.
+bird_dir <- "../vignettes/bird_social/results"
+bird_val <- readRDS(file.path(bird_dir, "validation_results.rds"))
+bird_mix <- readRDS(file.path(bird_dir, "mixed_results.rds"))
+bird_hwi <- data.frame(observed = bird_mix$hwi_true,
+                       imputed = bird_mix$hwi_imputed_mean,
+                       sd = bird_mix$hwi_imputed_sd)
+ci_mult <- qt(0.975, 19) * sqrt(1 + 1 / 20)   # same MI interval as the simulations
+bird_hwi$lower <- bird_hwi$imputed - ci_mult * bird_hwi$sd
+bird_hwi$upper <- bird_hwi$imputed + ci_mult * bird_hwi$sd
+hwi_r <- cor(bird_hwi$observed, bird_hwi$imputed)
+hwi_rmse <- sqrt(mean((bird_hwi$imputed - bird_hwi$observed)^2))
+hwi_lims <- c(0, ceiling(max(bird_hwi$observed, bird_hwi$upper) / 10) * 10)
+
+p_c <- ggplot(bird_hwi, aes(observed, imputed)) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+  geom_linerange(aes(ymin = lower, ymax = upper),
+                 colour = amph_cols[["imputed"]], alpha = 0.15) +
+  geom_point(colour = amph_cols[["imputed"]], alpha = 0.35, size = 1.3) +
+  annotate("text", x = 2, y = hwi_lims[2] - 2, hjust = 0, vjust = 1, size = 3.3,
+           label = sprintf("n = %s\nr = %.2f\nRMSE = %.2f",
+                           format(nrow(bird_hwi), big.mark = ","), hwi_r, hwi_rmse)) +
+  scale_x_continuous(breaks = seq(0, hwi_lims[2], 20)) +
+  scale_y_continuous(breaks = seq(0, hwi_lims[2], 20)) +
+  coord_equal(xlim = hwi_lims, ylim = hwi_lims) +
+  labs(x = "Measured hand-wing index", y = "Imputed hand-wing index", tag = "(c)") +
+  amph_theme
+
+bird_sets <- c("random", "family_block")
+bird_categories <- rownames(bird_val$confusion$random)
+bird_recall <- do.call(rbind, lapply(bird_sets, function(s) {
+  tab <- bird_val$confusion[[s]]
+  data.frame(set = s, category = rownames(tab), n = rowSums(tab),
+             correct = 100 * diag(tab) / rowSums(tab))
+}))
+bird_recall$set <- factor(bird_recall$set, levels = bird_sets)
+bird_recall$category <- factor(bird_recall$category, levels = rev(bird_categories))
+bird_labels <- setNames(c("Solitary", "Singly / pairs", "Pairs / family", "Flocks / colonies"),
+                        bird_categories)
+bird_labels <- paste0(bird_labels, "\n(n = ", rowSums(bird_val$confusion$random),
+                      " / ", rowSums(bird_val$confusion$family_block), ")") |>
+  setNames(bird_categories)
+bird_acc <- vapply(bird_sets, function(s) mean(bird_recall$correct[bird_recall$set == s]), numeric(1))
+bird_legend <- setNames(sprintf(c("Random species (n = 630; category mean %.0f%%)",
+                                  "Whole families (n = 631; category mean %.0f%%)"), bird_acc), bird_sets)
+dodge <- position_dodge(width = 0.38)
+
+p_d <- ggplot(bird_recall, aes(correct, category, colour = set, shape = set, group = set)) +
+  geom_vline(xintercept = seq(0, 100, 25), colour = "grey91", linewidth = 0.35) +
+  geom_point(position = dodge, size = 2.8) +
+  geom_text(aes(label = sprintf("%.0f%%", correct)), position = dodge,
+            hjust = -0.55, size = 3.1, show.legend = FALSE) +
+  scale_colour_manual(values = c(random = "#21918c", family_block = "#CE5B97"),
+                      labels = bird_legend, name = NULL) +
+  scale_shape_manual(values = c(random = 16, family_block = 17),
+                     labels = bird_legend, name = NULL) +
+  scale_x_continuous(breaks = seq(0, 100, 25), limits = c(0, 105),
+                     expand = expansion(mult = c(0.03, 0.03))) +
+  scale_y_discrete(labels = bird_labels, expand = expansion(add = 0.55)) +
+  coord_cartesian(clip = "off") +
+  labs(x = "Correct social category (%)", y = NULL, tag = "(d)") +
+  amph_theme +
+  theme(legend.position = "bottom", legend.direction = "vertical",
+        legend.justification = "left", legend.text = element_text(size = 9),
+        legend.key.height = grid::unit(0.42, "cm"),
+        axis.text.y = element_text(size = 9, lineheight = 0.95, margin = margin(r = 43)),
+        axis.ticks.y = element_blank())
+
+# One observed BIRDBASE example per category; the images sit in the axis margin,
+# not at a numerical x-position. Square transparent assets retain their aspect.
+bird_icons <- setNames(c("common_kingfisher", "western_barn_owl",
+                         "laughing_kookaburra", "sulphur_crested_cockatoo"),
+                       bird_categories)
+for (category in bird_categories) {
+  icon <- png::readPNG(file.path("../vignettes/figs/bird_social",
+                                paste0(bird_icons[[category]], ".png")))
+  row_y <- match(category, rev(bird_categories))
+  p_d <- p_d + annotation_custom(
+    grid::rasterGrob(icon, x = grid::unit(-0.28, "in"),
+                     y = grid::unit((row_y - 0.45) / 4.1, "npc"),
+                     width = grid::unit(0.5, "in"), height = grid::unit(0.5, "in"),
+                     interpolate = TRUE),
+    xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf)
+}
+
+case_studies_figure <- wrap_plots(p_a, p_b, p_c, p_d, ncol = 2, widths = c(1, 1.2))
+case_studies_figure
 ```
 
 # Discussion
+
+Comparative biologists currently lack flexible and robust methods for dealing with missing trait data. Existing tools for imputation are limited in that many do not allow for the incorporation of phylogenetic covariance matrices, are not able to handle multi-level data, impute only a single dataset or are limited to specific trait types (mostly continuous variables) [e.g., @goolsby2017; @stekhoven2012; @vanbuuren2011; @gendre2024] (@tbl-software). We developed Bayesian Augmentation by Chained Equations (*BACE*) for multiple imputation of continuous, count and categorical traits in phylogenetic comparative datasets. The accompanying R package, *BACE*, combines chained equations with phylogenetic mixed models and accommodates repeated observations within species in a fully Bayesian workflow. The package provides flexibility in the imputation and analysis models fit along with downstream processing of imputed datasets and models. 
+
+Simulations show that *BACE* performs well when phylogenetic signal is moderate to large across most trait types. For continous traits with  moderate datasets (~ 300 species), *BACE* had high accuracy (low zRMSE)
+
+Application of *BACE* two two case studies, imputing frog $CT_{max}$ using 
+
+While *BACE* provides flexible and robust approaches to deal with missing trait data there are limitations. First, Bayesian approaches are computationally demanding. Running Bayesian chained equations for large datasets, and diverse trait types, will require substantial computational resources. For example, the full amphibian imputation (5,203 species) took ~`r round(ctmax_hours_txt)` hours of computation, and the joint bird imputation (10,563 species) ~`r round(bird_hours_txt)` hours, on a standard desktop computer. The final imputation runs are independent, so parallelising them (the `n_cores` argument of `bace()`) shortens the elapsed time. Second, given models are fitted using Bayesian methods, priors and MCMC chain settings (iterations, burnin and thinning) will likely need to be adjusted depending on the trait being imputed. Short test runs prior to a full *BACE* imputation can help overcome MCMC chain mixing issues and should be attempted as a starting point. Finally, imputation success will depend on the phylogenetic signal in the trait of interest. As our simulations have shown, partyicularly for categeroial data, high phylogenetic structure in the data is important for accurate imputation. Traits with low phylogenetic signal can still be imputed but it will be cricual to include auxillary variables in the imputation model that are predicted to be tighly correlated with missing data. Additionally, even for categroical traits with high phylogenetic signal, imputaton could be challenging. As we have shown, rare categries of traits are very challeging to accurately impute. 
+
+Missing data in comparative biology has been a thorn in the side of comparative biologists for some time, limiting opportunities to test key evolutionary hypotheses. We belive that the flexibility of Bayesian Chained Equations, along with the *BACE* R package, will provide a path forward that will open up new opportunities for combining a multitude of different traits and datasets that will be cricual for addressing broad evolutionary questions in the future. 
+
+
 *(Structure only.)*
 - What BACE adds relative to existing MI and phylogenetic-prediction tools.
 - Honest limitations <!-- TODO(authors): from .agents/project-state.md -
