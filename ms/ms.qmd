@@ -48,6 +48,9 @@ format:
         \newunicodechar{✗}{\ding{55}}
         \newunicodechar{λ}{\ensuremath{\lambda}}
         \newunicodechar{ρ}{\ensuremath{\rho}}
+        % unicode-math (Quarto's xelatex default) breaks bm/amsbsy's \boldsymbol
+        % on Greek letters; route it through unicode-math's bold-italic instead
+        \ifdefined\symbfit\renewcommand{\boldsymbol}[1]{\symbfit{#1}}\fi
   html:
     toc: true
     toc-location: left
@@ -137,7 +140,7 @@ The main function `bace()` runs this workflow and returns a single object contai
 ```{r}
 #| label: fig-bace-workflow
 #| echo: false
-#| out-width: "100%"
+#| out-width: !expr if (identical(knitr::pandoc_to(), "docx")) "6.9in" else "100%"
 #| fig-cap: |
 #|   **Overview of the BACE imputation workflow**. (1) Inputs are an incomplete
 #|   trait dataset and a phylogeny covering the species. (2) Chained imputation:
@@ -226,6 +229,7 @@ res_dir   <- "../dev/rubin_study_2026-09-26/results_2026-10"
 agg_cells <- read.csv(file.path(res_dir, "agg_cells.csv"))
 agg_disc  <- read.csv(file.path(res_dir, "agg_disc.csv"))
 agg_down  <- read.csv(file.path(res_dir, "agg_down.csv"))
+oracle    <- read.csv(file.path(res_dir, "oracle_floor.csv"))
 agg_fail  <- read.csv(file.path(res_dir, "agg_failures.csv"))
 
 fmt2 <- function(x) formatC(x, format = "f", digits = 2)
@@ -255,10 +259,15 @@ cap_sim_values <- paste0(
   "Colours indicate phylogenetic signal λ and symbols indicate correlation ρ ",
   "on the latent Gaussian scale. (a) Coverage of the 95% prediction intervals ",
   "and category sets defined in the text (dashed line: 0.95). ",
-  "(b) Standardised root mean squared error (RMSE) of the mean imputation; ",
-  "the dotted line marks an RMSE equal to the SD of the observed values. ",
-  "Proportions are scored on the logit scale. (c) Classification accuracy ",
-  "of the modal imputed category. Each scenario included ", reps_small,
+  "(b) Standardised root mean squared error (zRMSE) of the mean imputation; ",
+  "the grey dotted line marks an RMSE equal to the SD of the observed values. ",
+  "Proportions are scored on the ",
+  "logit scale. (c) Classification accuracy of the modal imputed category; ",
+  "grey dotted lines mark uniform random guessing (1/2, 1/4 and 1/3 for ",
+  "binary, ordinal and categorical traits, respectively). Dashed coloured ",
+  "lines show idealised reference values calculated using the true simulation ",
+  "model and the continuous values underlying the observed traits (see text). ",
+  "Each scenario included ", reps_small,
   " datasets at n = 100 and 300, and ", reps_big, " at n = 1,000. ",
   "Failed fits were excluded; discrete traits were scored only at n ≤ 300 ",
   "and only when at least two categories occurred in the complete data.")
@@ -275,9 +284,7 @@ cap_sim_downstream <- paste0(
   "Replicate counts and exclusions are described in @fig-sim-values.")
 ```
 
-<!-- Draft for Shinichi and Dan to review. -->
-
-We evaluated *BACE* across `r n_scen` scenarios combining three species sample sizes (n = 100, 300 or 1,000), three levels of phylogenetic signal (Pagel's λ = 0.3, 0.7 or 1) and two correlations among traits (ρ = 0 or 0.5). Each scenario included `r reps_small` replicate datasets at n = 100 and 300, and `r reps_big` at n = 1,000.
+We evaluated *BACE* across `r n_scen` scenarios combining varying numbers of species (n = 100, 300 or 1,000), three levels of phylogenetic signal (Pagel's λ = 0.3, 0.7 or 1) and two levels of correlation among traits (ρ = 0 or 0.5). Each scenario included `r reps_small` replicate datasets at n = 100 and 300, and `r reps_big` at n = 1,000.
 
 **Simulated data.** Each dataset contained seven traits and one fully observed covariate on an ultrametric coalescent tree (`ape::rcoal`; height scaled to 1). We generated an n × 8 matrix of latent Gaussian values:
 
@@ -295,7 +302,28 @@ Two traits retained their Gaussian values ($c_1 = \ell_1$, $c_2 = \ell_2$). Coun
 
 We ran five initial passes of point imputation, recording convergence diagnostics but disabling automatic retries to limit computation. Each of M = `r m_imp` independent final runs started from the resulting dataset and made three passes of posterior-predictive updates, retaining one completed dataset. Initial-phase fits and the last pass of each final run used 50,000 MCMC iterations; the first two passes of each final run used 11,250. All fits used a burn-in of 10,000 and thinning of 25.
 
-**Performance measures.** We evaluated predictions against the values removed from each dataset. For continuous, count and proportion traits, we calculated standardised root mean squared error (RMSE) of the mean imputation and coverage of 95% prediction intervals, $\bar{y} \pm t_{M-1,0.975}\sqrt{(1+1/M)s^2}$, where $\bar{y}$ and $s^2$ are the mean and variance of the M imputations for a missing value. RMSE was divided by the SD of the observed values. Proportions were clipped to [0.0001, 0.9999] and logit-transformed for scoring. For discrete traits, we measured modal-category accuracy and coverage of the smallest category set containing at least 95% of imputed draws. Discrete traits were scored only at n ≤ 300, excluding traits with a single category in the complete data.
+**Performance measures.** We compared imputations with the true values removed from each dataset. For continuous, count and proportion traits, we measured prediction error using standardised root mean squared error:
+
+$$
+\mathrm{zRMSE}
+= \frac{1}{s_{\mathrm{obs}}}
+\sqrt{\frac{1}{H}\sum_{i=1}^{H}(\bar{y}_i-y_i)^2},
+$$
+
+where H is the number of removed values, $y_i$ is the true value, $\bar{y}_i$ is its mean across M imputations, and $s_{\mathrm{obs}}$ is the SD of the observed values. Lower zRMSE indicates better prediction: zero means exact recovery, and one means an RMSE equal to the observed SD. Proportions were clipped to [0.0001, 0.9999] and logit-transformed before scoring.
+
+For discrete traits, we predicted the most frequently imputed category and calculated
+
+$$
+\mathrm{Accuracy}
+= \frac{\text{number of correctly classified values}}{\text{number of values assessed}}.
+$$
+
+Tied predictions received fractional credit: if two categories were equally frequent and one was correct, the score was 0.5. We assessed discrete traits only at n ≤ 300, excluding traits with a single category in the complete data. The chance references in @fig-sim-values assume uniform random guessing among the defined categories.
+
+We assessed uncertainty using *coverage*: the proportion of removed values contained in their 95% prediction intervals or category sets. Numeric intervals were $\bar{y}_i \pm t_{M-1,0.975}\sqrt{(1+1/M)s_i^2}$, where $s_i^2$ is the variance across imputations. Discrete sets contained the fewest categories needed to include at least 95% of imputed draws.
+
+We calculated idealised reference values for prediction error and accuracy using the true simulation model and the continuous values underlying the observed traits. For example, where *BACE* sees a binary yes/no trait, the reference calculation knows the continuous value that generated it. This extra information makes the references optimistic. Calculations used 30% missingness and were averaged over four trees and two missingness patterns per tree, giving approximate benchmarks for interpreting the results (@fig-sim-values).
 
 **Downstream analysis.** For each completed dataset, we estimated the phylogenetic generalised least-squares (PGLS) slope of $c_2$ on $c_1$, estimating Pagel's λ by restricted maximum likelihood within [0, 1]. We also estimated their correlation after accounting for this phylogenetic covariance. Estimates were pooled using Rubin's rules [@rubin1987], with correlations pooled on Fisher's z scale and slope intervals using Barnard–Rubin degrees of freedom [@barnard1999]. Both population parameters equal ρ under the simulation design. We assessed their bias and 95% confidence-interval coverage.
 
@@ -312,6 +340,8 @@ Of the `r format(n_data, big.mark = ",")` simulated datasets, `r n_fail` (`r pct
 ```{r}
 #| label: fig-sim-values
 #| echo: false
+#| out-width: !expr if (identical(knitr::pandoc_to(), "docx")) "6.9in" else "100%"
+#| dev: !expr if (knitr::is_latex_output()) "cairo_pdf" else "png"
 #| fig-width: 9
 #| fig-height: 6.2
 #| fig-cap: !expr cap_sim_values
@@ -346,10 +376,19 @@ p_cov <- ggplot(cov_all, aes(n_f, cov, colour = lam, shape = rho_f,
   labs(x = NULL, y = "95% interval coverage", colour = "λ", shape = NULL) +
   coord_cartesian(ylim = c(0.85, 1)) + sim_theme
 
+orc <- prep(oracle)
+orc_zr  <- subset(orc, trait %in% c("c1", "c2", "cnt", "prp"))
+orc_acc <- subset(orc, trait %in% c("bin", "ord", "cat3") & n <= 300)
+orc_zr$trait  <- factor(orc_zr$trait, names(trait_lab), trait_lab)
+orc_acc$trait <- factor(orc_acc$trait, names(trait_lab), trait_lab)
+chance_lines  <- unique(orc_acc[, c("trait", "chance")])
+
 zr <- cc; zr$trait <- factor(zr$trait, names(trait_lab), trait_lab)
 p_zr <- ggplot(zr, aes(n_f, zRMSE, colour = lam, shape = rho_f,
                        group = interaction(lam, rho_f))) +
   geom_hline(yintercept = 1, linetype = "dotted", colour = "grey40") +
+  geom_line(data = orc_zr, aes(y = floor), position = pd,
+            linetype = "dashed", linewidth = 0.35, alpha = 0.7) +
   geom_errorbar(aes(ymin = zRMSE - 1.96 * zRMSE_se, ymax = zRMSE + 1.96 * zRMSE_se),
                 width = 0, position = pd, linewidth = 0.4) +
   geom_point(position = pd, size = 1.6) +
@@ -360,6 +399,10 @@ p_zr <- ggplot(zr, aes(n_f, zRMSE, colour = lam, shape = rho_f,
 ac <- dd; ac$trait <- factor(ac$trait, names(trait_lab), trait_lab)
 p_acc <- ggplot(ac, aes(n_f, accuracy, colour = lam, shape = rho_f,
                         group = interaction(lam, rho_f))) +
+  geom_hline(data = chance_lines, aes(yintercept = chance),
+             linetype = "dotted", colour = "grey40", inherit.aes = FALSE) +
+  geom_line(data = orc_acc, aes(y = ceiling), position = pd,
+            linetype = "dashed", linewidth = 0.35, alpha = 0.7) +
   geom_errorbar(aes(ymin = accuracy - 1.96 * accuracy_se,
                     ymax = accuracy + 1.96 * accuracy_se),
                 width = 0, position = pd, linewidth = 0.4) +
@@ -376,6 +419,8 @@ p_acc <- ggplot(ac, aes(n_f, accuracy, colour = lam, shape = rho_f,
 ```{r}
 #| label: fig-sim-downstream
 #| echo: false
+#| out-width: !expr if (identical(knitr::pandoc_to(), "docx")) "6.9in" else "100%"
+#| dev: !expr if (knitr::is_latex_output()) "cairo_pdf" else "png"
 #| fig-width: 9
 #| fig-height: 3.8
 #| fig-cap: !expr cap_sim_downstream
@@ -416,13 +461,14 @@ p_dcov <- ggplot(dn, aes(n_f, coverage, colour = lam, shape = estimand,
 
 
 # Worked examples
-We now turn to two case studies to demonstrate application of *BACE*. The first case study involves data from @pottier2025. @pottier2025 imputed heat tolerance (continuous trait) under standardised conditions for 5,203 amphibian species of which only 524 species (10.1%) have trait data. The cross-validated accuracy of imputed CTmax against experimental data is shown in @fig-case-studies (a, b). 
+We now turn to two case studies to demonstrate application of *BACE*. The first case study involves data from @pottier2025. @pottier2025 imputed heat tolerance (continuous trait) under standardised conditions for 5,203 amphibian species of which only 524 species (10.1%) have trait data. Applying the *BACE* workflow with an imputation model that accounted for x,x,x, shows a high correspondance between imputed and The cross-validated accuracy of imputed CTmax against experimental data is shown in @fig-case-studies (a, b).  
 
 The second case study, uses BIRDBASE and AVONET to impute social (categocial and continuous data), for 10,563 bird species. 
 
 ```{r}
 #| label: fig-case-studies
 #| echo: false
+#| out-width: !expr if (identical(knitr::pandoc_to(), "docx")) "6.9in" else "100%"
 #| fig-width: 9
 #| fig-height: 4.2
 #| fig-cap: |
