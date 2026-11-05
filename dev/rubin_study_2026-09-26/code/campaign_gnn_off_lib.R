@@ -620,10 +620,15 @@ run_bace <- function(df_miss, truth, mask, tree, cont_traits, bace_nitt, bace_bu
   # BACE's own default, pinned explicitly: parallelism here is one process per cell (xargs on Totoro,
   # array tasks on DRAC), and a fork inside MCMCglmm segfaults when the caller has already forked.
   n_final <- as.integer(Sys.getenv("PIG_BACE_NFINAL", "50"))
+  # ovr_categorical = FALSE (single multinomial probit, the package default) since 2026-11-06:
+  # the paired coverage experiment (code/coverage_experiment.R) showed one-vs-rest costs cat3
+  # ~0.021 set coverage (0.902 -> 0.923, SE 0.009) and ~0.02 accuracy on identical datasets,
+  # with bin/ord unchanged. Results produced before this date used TRUE -- do not resume an
+  # old results dir across the change; start a fresh one.
   outb <- BACE::bace(fixformula = fixformula, ran_phylo_form = "~ 1 |Species", phylo = tree_b,
                      data = df_b, nitt = bace_nitt, burnin = bace_burnin, thin = bace_thin,
                      runs = bace_runs, n_final = n_final, n_cores = 1L,
-                     verbose = FALSE, skip_conv = TRUE, ovr_categorical = TRUE)
+                     verbose = FALSE, skip_conv = TRUE, ovr_categorical = FALSE)
   sets <- if ("imputed_datasets" %in% names(outb)) outb$imputed_datasets else
           if ("imputed_data" %in% names(outb)) outb$imputed_data else list(outb$data)
   comp <- df_miss

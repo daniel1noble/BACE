@@ -28,7 +28,7 @@
 
 #' Fit BACE with n_final = M, reusing run_bace()'s data-prep conventions (script/campaign_gnn_off_lib.R
 #' L601-653: Species column from rownames, one formula per trait regressed on all the others,
-#' n_cores = 1L, skip_conv = TRUE, ovr_categorical = TRUE).
+#' n_cores = 1L, skip_conv = TRUE, ovr_categorical = FALSE).
 #'
 #' @param cell a make_cell() result (uses cell$tree, cell$df_miss)
 #' @param M number of BACE final imputation datasets (BACE's n_final)
@@ -36,7 +36,7 @@
 #' @return list(outb = the "bace_complete" object, wall_s = fit wall time in seconds,
 #'   converged = BACE's own convergence verdict, ess_med = median effective sample size over the
 #'   final fits' fixed effects, diag = the full bace_diagnostics() list -- same extraction G9b/v1 use)
-fit_bace_mi <- function(cell, M = 20L, nitt, burnin, thin, runs, ovr_categorical = TRUE) {
+fit_bace_mi <- function(cell, M = 20L, nitt, burnin, thin, runs, ovr_categorical = FALSE) {
   tree_b <- cell$tree
   if (any(tree_b$edge.length == 0)) tree_b$edge.length[tree_b$edge.length == 0] <- 1e-8
   # Input cleaning (2026-09-24, campaign): at lambda = 1 with fixed thresholds most datasets leave a discrete
@@ -63,13 +63,18 @@ fit_bace_mi <- function(cell, M = 20L, nitt, burnin, thin, runs, ovr_categorical
   outb <- BACE::bace(fixformula = fixformula, ran_phylo_form = "~1|Species", phylo = tree_b,
                      data = df_b, nitt = nitt, burnin = burnin, thin = thin, runs = runs,
                      n_final = M, n_cores = 1L, verbose = FALSE, skip_conv = TRUE,
-                     ovr_categorical = ovr_categorical)   # campaign default TRUE; coverage_experiment.R varies it
+                     ovr_categorical = ovr_categorical)   # default FALSE = multinomial (matches the package)
+                     # since 2026-11-06: the paired coverage experiment showed one-vs-rest (TRUE) costs cat3
+                     # ~0.021 set coverage and ~0.02 accuracy; bin/ord unchanged. The 2026-10 campaign results
+                     # were produced with TRUE -- never resume an old cache dir across this change.
+                     # coverage_experiment.R passes the argument explicitly to vary it.
   wall_s <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
 
   d <- bace_diagnostics(outb)   # same convergence/ESS extraction v1/G9b use (campaign_gnn_off_lib.R)
   d$input_fix <- input_fix
   list(outb = outb, wall_s = wall_s, converged = d$converged, ess_med = d$ess_med, diag = d,
-       fixformula = fixformula, tree_b = tree_b, mcmc = c(nitt = nitt, burnin = burnin, thin = thin))
+       fixformula = fixformula, tree_b = tree_b, mcmc = c(nitt = nitt, burnin = burnin, thin = thin),
+       ovr = ovr_categorical)   # so dependent arms (mi_bace_chain) match the parent fit's construction
 }
 
 #' Chained BACE (the arm Meng's review B2 proposed; Shinichi approved it 2026-09-24). BACE's own final
@@ -94,9 +99,11 @@ mi_bace_chain <- function(fb, df_miss, M = 20L) {
     r <- BACE:::bace_final_imp(obj, fixformula = fb$fixformula, ran_phylo_form = "~1|Species",
                                phylo = fb$tree_b, nitt = fb$mcmc[["nitt"]], thin = fb$mcmc[["thin"]],
                                burnin = fb$mcmc[["burnin"]], n_final = 1L, species = FALSE,
-                               verbose = FALSE, n_cores = 1L, ovr_categorical = TRUE,
+                               verbose = FALSE, n_cores = 1L, ovr_categorical = fb$ovr,
                                sweeps = 1L)  # pin one sweep per link: the 2026-09 chain algorithm
-                                             # (package default is now 3; see file header)
+                                             # (package default is now 3; see file header).
+                                             # ovr follows the parent fit so chain links use the
+                                             # same categorical construction as the shipped arm.
     raw[[m]] <- r$all_datasets[[1]]; models[[m]] <- r$all_models[[1]]
     obj$data[[k]] <- raw[[m]]   # the next run starts from this draw
   }

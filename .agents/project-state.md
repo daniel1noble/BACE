@@ -455,3 +455,26 @@ previews and scratch work outside the repo.
   accuracy); fig-sim-values panels (b)/(c) now draw per-scenario dashed lines;
   0 violations across all 108 observed cells.
 - Hourly stacking checkpoint cycle retired (purpose fulfilled).
+
+## 2026-11-06: Coverage experiment decided it — long runs go multinomial
+
+- **Results (99/100 runs; paired to campaign datasets, pooled over rho):**
+  - `long3x` (OvR kept, 3x chain 150k/30k/75, same 1,600 retained): coverage
+    unchanged for all three discrete traits (bin +0.004, cat3 -0.003, ord +0.005,
+    all << 1 SE) despite better mixing (ess_med 932) and 3x cost (89 vs 32
+    min/dataset). Dan's "50k too shallow" hypothesis is refuted by controlled test.
+  - `multi` (ovr_categorical = FALSE, campaign MCMC): cat3 set coverage
+    0.902 -> 0.923 (paired +0.021, SE 0.009), accuracy 0.51 -> 0.53; bin/ord
+    unchanged (clean internal control — the flag doesn't touch them).
+  - Residual: ord ~0.90 / cat3 ~0.92 at n=100, lambda=0.3 remains below 0.95 with
+    set rule, chain length, and OvR now all ruled out/quantified. Best remaining
+    candidate: honest model error of the chained linear-predictor conditionals at
+    small n + weak signal. Binary/continuous nominal in same runs; lambda=1 covers 0.98.
+- **Decision (Dan, 2026-11-06): all long-run simulations use the multinomial**
+  (`ovr_categorical = FALSE`, the shipped package default since the 2026-08 fixes;
+  note the flag names the ALTERNATIVE — TRUE = one-vs-rest, FALSE = multinomial).
+  Harness updated for Shinichi: `campaign_gnn_off_lib.R` run_bace() now passes
+  FALSE; `rubin_bace.R::fit_bace_mi()` default flipped to FALSE (rubin_cell.R
+  inherits it); `mi_bace_chain()` follows the parent fit via `fb$ovr`. Package
+  itself needed no change. **Never resume a pre-2026-11-06 results cache across
+  this change** — the 2026-10 campaign results were produced with OvR TRUE.
