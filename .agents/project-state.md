@@ -521,3 +521,34 @@ adversarially reviewed twice; feature 1 + its 4a prerequisite now LANDED).
   gold-standard arm + one-sided B-deflation test + sweeps dose-response, ~100
   seeds — design pre-registered in the plan) before the ms claims tree
   uncertainty is propagated correctly at default sweeps.
+
+## 2026-11-07 (later): multiPhylo gate study run — leakage REFUTED, plateau not yet shown
+
+`dev/16_multiphylo_gate.R` -> `dev/simulation_results/multiphylo_gate/`
+(committed 87089b0). 100/100 seeds, ~1 min/seed, pre-registered verdicts:
+
+- **A1 (primary, the feared anti-conservative deflation): PASS by a wide
+  margin** (p = 7e-14). The shipped shortcut's between-tree variance component
+  is NOT deflated relative to a gold standard that re-runs the chained phase
+  on every tree with replicates — it is ~2x LARGER (tau2 0.049 vs 0.023), and
+  downstream slope B is 8.5% HIGHER (ratio 1.085): the shortcut errs
+  CONSERVATIVE, never anti-conservative. Interpretation: the shared tree-1
+  start is not pulling tree groups together; each tree's model responds to
+  the shared conditioning values differently, adding (conservative)
+  between-tree spread that gold's per-tree starts average away into its
+  (subtracted) chained-noise term.
+- **A2 (positive control): SENSITIVE** — sweeps = 1 is significantly deflated
+  vs sweeps = 10 (p = 0.007), so the design can detect initialization leakage
+  when it exists. The default sweeps = 3 is what kills it.
+- **A3 (plateau, sweeps 3 ~ sweeps 10 within 10%): FAIL** — point estimate
+  -6% of the sweeps-10 level, CI [-18%, +5%]: equivalence not demonstrated at
+  100 seeds (direction: slightly LESS of the conservative inflation, i.e.
+  toward gold, not away from it).
+- **Overall registered verdict: FAIL (via A3 only).** Practical reading for
+  the ms/docs: tree uncertainty IS propagated (if anything over-propagated vs
+  the expensive gold standard); no evidence of the anti-conservative failure
+  mode; the only open question is cosmetic (sweeps 3 vs 10 differ by ~6% of
+  tau2 in the conservative-to-less-conservative direction). Options for Dan:
+  (a) accept + document (recommended: the conservative direction is safe);
+  (b) bump default sweeps for multiPhylo runs; (c) extend the study
+  (resumable cache; seeds are cheap at 1 min each).
