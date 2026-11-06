@@ -31,7 +31,26 @@ bace_final_imp(
 
 \item{ran_phylo_form}{A character string specifying the random effects and phylogenetic structure formula}
 
-\item{phylo}{A phylogenetic tree of class 'phylo' from the ape package}
+\item{phylo}{A phylogenetic tree of class \code{phylo} (ape), or a
+\code{multiPhylo} / list of trees for tree-per-imputation: final run
+\code{m} is fit under tree \code{tree_index[m]}, selected
+deterministically from the run index (an evenly spaced subsequence of the
+supplied set when \code{n_trees >= n_final}; balanced recycling
+otherwise -- \code{n_trees >= n_final} is NOT required, and with e.g. 20
+trees and 50 runs the understatement of the tree-variance component is
+only ~6\\%). Selection consumes no random numbers, so \code{seed}
+reproducibility and serial/parallel equality are unaffected. Because the
+runs then target different conditional posteriors, the between-imputation
+variance picked up by \code{\link{pool_posteriors}} /
+\code{\link{pool_mi}} includes phylogenetic (tree) uncertainty: proper
+multiple imputation with the tree as a nuisance parameter drawn from its
+posterior (Rubin 1987 ch. 3-4; Nakagawa & de Villemereuil 2019,
+Systematic Biology 68:632-641, who find ~50 trees suffice). Supply a
+post-burn-in posterior sample of trees in common branch-length units and
+drop any leading consensus/MCC summary tree. Every tree must contain all
+species in the data; node labels are stripped internally. With differing
+trees, \code{pool_posteriors()} aligns species-level BLUPs by name and
+drops internal-node BLUPs (node identities differ between trees).}
 
 \item{nitt}{An integer or list specifying the number of MCMC iterations. Default is 6000}
 
@@ -121,6 +140,11 @@ uncertainty, not non-convergence.)
 \item formulas: The formulas used
 \item types: Variable types
 \item phylo_ran: Phylogenetic random effects structure
+\item tree_index: integer vector (length n_final) -- which supplied tree each
+final run was fit under (all 1s for a single tree)
+\item tree_hashes: content hash of each supplied tree (provenance)
+\item tip_labels: tip labels of the first tree (used by pool_posteriors to
+align species-level BLUPs by name when trees differ)
 \item call: The function call
 }
 

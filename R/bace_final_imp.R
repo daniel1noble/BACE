@@ -3,7 +3,26 @@
 #' @param bace_object An object of class 'bace' from bace_imp
 #' @param fixformula A character string or list specifying the fixed effects formulas
 #' @param ran_phylo_form A character string specifying the random effects and phylogenetic structure formula
-#' @param phylo A phylogenetic tree of class 'phylo' from the ape package
+#' @param phylo A phylogenetic tree of class \code{phylo} (ape), or a
+#'   \code{multiPhylo} / list of trees for tree-per-imputation: final run
+#'   \code{m} is fit under tree \code{tree_index[m]}, selected
+#'   deterministically from the run index (an evenly spaced subsequence of the
+#'   supplied set when \code{n_trees >= n_final}; balanced recycling
+#'   otherwise -- \code{n_trees >= n_final} is NOT required, and with e.g. 20
+#'   trees and 50 runs the understatement of the tree-variance component is
+#'   only ~6\%). Selection consumes no random numbers, so \code{seed}
+#'   reproducibility and serial/parallel equality are unaffected. Because the
+#'   runs then target different conditional posteriors, the between-imputation
+#'   variance picked up by \code{\link{pool_posteriors}} /
+#'   \code{\link{pool_mi}} includes phylogenetic (tree) uncertainty: proper
+#'   multiple imputation with the tree as a nuisance parameter drawn from its
+#'   posterior (Rubin 1987 ch. 3-4; Nakagawa & de Villemereuil 2019,
+#'   Systematic Biology 68:632-641, who find ~50 trees suffice). Supply a
+#'   post-burn-in posterior sample of trees in common branch-length units and
+#'   drop any leading consensus/MCC summary tree. Every tree must contain all
+#'   species in the data; node labels are stripped internally. With differing
+#'   trees, \code{pool_posteriors()} aligns species-level BLUPs by name and
+#'   drops internal-node BLUPs (node identities differ between trees).
 #' @param nitt An integer or list specifying the number of MCMC iterations. Default is 6000
 #' @param thin An integer or list specifying the thinning rate. Default is 5
 #' @param burnin An integer or list specifying the burn-in iterations. Default is 1000
@@ -77,6 +96,11 @@
 #'   - formulas: The formulas used
 #'   - types: Variable types
 #'   - phylo_ran: Phylogenetic random effects structure
+#'   - tree_index: integer vector (length n_final) -- which supplied tree each
+#'     final run was fit under (all 1s for a single tree)
+#'   - tree_hashes: content hash of each supplied tree (provenance)
+#'   - tip_labels: tip labels of the first tree (used by pool_posteriors to
+#'     align species-level BLUPs by name when trees differ)
 #'   - call: The function call
 #'
 #'   The imputed datasets are most conveniently extracted with
@@ -124,6 +148,34 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
 
   # Validate any user-supplied priors BEFORE fitting anything (fail fast).
   .validate_priors(priors, types, miss_vars = unique(miss_dat$colname))
+
+  # --- Tree-per-imputation (phylogenetic uncertainty) ------------------------
+  # phylo may be a single tree, a multiPhylo, or a list of trees. Validation
+  # runs inverseA on every tree NOW (ultrametricity etc. surface here, named,
+  # and the per-tree Ainv cache is pre-warmed in the parent before any worker
+  # forks). Each final run m is then fit under tree tree_index[m], selected
+  # DETERMINISTICALLY from the run index (an evenly spaced subsequence when
+  # more trees than runs are supplied; balanced recycling otherwise) -- no RNG
+  # is consumed, so the per-run (seed, m) stream contract is unaffected.
+  # Between-imputation variance then includes phylogenetic (tree) uncertainty:
+  # proper MI with the tree as a nuisance parameter drawn from its posterior
+  # (Rubin 1987 ch. 3-4; Nakagawa & de Villemereuil 2019 Syst Biol 68:632).
+  .clear_ainv_cache()
+  trees <- .validate_trees(phylo,
+                           species_values = last_data[[phylo_ran[["cluster"]]]],
+                           context = "bace_final_imp", verbose = verbose)
+  n_trees <- length(trees)
+  tree_index <- .select_tree_indices(n_trees, n_final)
+  tree_hashes <- vapply(trees, .tree_cache_key, character(1L))
+  if (n_trees > 1L && verbose) {
+    used <- sort(unique(tree_index))
+    message("bace_final_imp: ", n_trees, " trees supplied; each of the ",
+            n_final, " final runs is fit under its own tree (",
+            length(used), " distinct trees used",
+            if (n_trees > n_final) ", an evenly spaced subsequence" else
+              if (n_trees < n_final) ", recycled in balanced rotation" else "",
+            "). Between-imputation variance now includes tree uncertainty.")
+  }
 
   # Build formulas if needed
   if (!is.list(fixformula)) {
@@ -222,6 +274,9 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
     if (!is.null(rng_state)) {
       assign(".Random.seed", rng_state, envir = globalenv())
     }
+    # The tree this run conditions on (tree-per-imputation; deterministic in
+    # the run index, chosen before any RNG is consumed).
+    tree_run <- trees[[tree_index[run]]]
     data_current <- data_start
     models_this_run <- list()
     ovr_models_this_run <- list()   # per-level binary models for OVR categorical vars
@@ -298,7 +353,7 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
             data_i       = data_i,
             response_var = response_var,
             fixformula   = formulas[[i]],
-            phylo        = phylo,
+            phylo        = tree_run,
             ran_phylo_form = ran_phylo_form,
             nitt         = nitt_run,
             thin         = thin_list[[i]],
@@ -347,7 +402,7 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
 
           model <- .model_fit(
             data = data_i,
-            tree = phylo,
+            tree = tree_run,
             fixformula = formulas[[i]],
             randformula = ran_phylo_form,
             type = types[[response_var]],
@@ -485,6 +540,9 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
     sweeps = eff_sweeps,            # sweeps actually performed per run
     sweeps_requested = sweeps,      # as asked (collapses to 1 if <=1 missing var)
     seed = seed,
+    tree_index  = tree_index,       # which supplied tree each run was fit under
+    tree_hashes = tree_hashes,      # content hash per supplied tree (provenance)
+    tip_labels  = trees[[1L]]$tip.label,  # for name-based BLUP pooling
     call = match.call()
   )
   

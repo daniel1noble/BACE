@@ -9,7 +9,18 @@
 #'   standard R formula syntax (e.g., x1*x2). 
 #' @param ran_phylo_form A character string specifying the random effects and phylogenetic 
 #'   structure formula used in the model.
-#' @param phylo A phylogenetic tree of class 'phylo' from the ape package.
+#' @param phylo A phylogenetic tree of class \code{phylo} (ape), or a
+#'   \code{multiPhylo} / list of trees to propagate phylogenetic (tree)
+#'   uncertainty: the convergence chain conditions on the first tree, and each
+#'   of the \code{n_final} final imputation runs is fit under its own tree
+#'   (tree \code{m} for run \code{m}, chosen deterministically -- an evenly
+#'   spaced subsequence when more trees than runs are supplied, balanced
+#'   recycling otherwise), so between-imputation variance includes tree
+#'   uncertainty (Rubin 1987; Nakagawa & de Villemereuil 2019, Systematic
+#'   Biology 68:632-641). Supply a post-burn-in posterior sample of trees in
+#'   common units (drop any leading consensus/MCC summary tree). All trees
+#'   must contain every species in the data; node labels are stripped
+#'   internally. See \code{\link{bace_final_imp}} for details.
 #' @param data A data frame containing the dataset with missing values to be imputed.
 #' @param runs An integer specifying the number of initial imputation iterations for convergence 
 #'   checking. Default is 10.
@@ -197,9 +208,15 @@ if (isTRUE(phylo_signal)) {
   sig_cluster <- .get_variables(ran_phylo_form, fix = FALSE)$cluster
   sig_species_col <- if (length(sig_cluster) >= 1) sig_cluster[[1]] else "Species"
 
+  # phylo_signal_summary() works on a single tree; with a multiPhylo the
+  # preview runs on the first tree (H2/lambda are per-tree quantities).
+  if (!inherits(phylo, "phylo")) {
+    message("phylo_signal preview: multiple trees supplied; running the ",
+            "signal screen on the first tree only.")
+  }
   preview <- phylo_signal_summary(
     data            = data,
-    tree            = phylo,
+    tree            = .first_tree(phylo),
     species_col     = sig_species_col,
     variables       = sig_vars,
     species         = species,

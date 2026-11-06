@@ -128,7 +128,31 @@ pool_posteriors <- function(bace_final_object, variable = NULL, sample_size = NU
   
   all_models <- bace_final_object$all_models
   n_runs <- length(all_models)
-  
+
+  # --- Tree-per-imputation support -------------------------------------------
+  # When the final runs were fit under different trees (bace_final_imp with a
+  # multiPhylo), Sol cannot be stacked by position: inverseA(nodes = "ALL")
+  # with pr = TRUE gives Sol tip- AND internal-node BLUP columns whose NAME
+  # SETS are identical across same-tip trees but whose ORDER differs, and
+  # whose node columns refer to different clades per tree. Detection must
+  # come from the recorded tree_index (column names cannot reveal it). The
+  # fix: fixed effects, VCV, CP and Liab stack as usual (their meaning is
+  # tree-invariant); species-level (tip) BLUP columns are aligned BY NAME
+  # (the species effect is the same target quantity under every tree);
+  # internal-node BLUP columns are dropped.
+  tree_index <- bace_final_object$tree_index
+  trees_vary <- !is.null(tree_index) && length(unique(tree_index)) > 1L
+  pool_tips  <- bace_final_object$tip_labels
+  if (trees_vary) {
+    message("pool_posteriors: the final runs were fit under different trees ",
+            "(tree-per-imputation). Fixed effects, variance components, ",
+            "cutpoints and liabilities are stacked as usual; species-level ",
+            "BLUPs are aligned by name across runs; internal-node BLUPs are ",
+            "dropped (node identities differ between trees). The pooled ",
+            "object's design matrices ($X, $Z) describe the first run's ",
+            "tree only.")
+  }
+
   # Get variable names
   if (is.null(variable)) {
     variables <- names(all_models[[1]])
@@ -165,8 +189,43 @@ pool_posteriors <- function(bace_final_object, variable = NULL, sample_size = NU
     # Get dimensions from first model
     first_model <- var_models[[1]]
     n_iter_per_model <- nrow(first_model$Sol)
-    n_fixed <- ncol(first_model$Sol)
     n_vcv <- ncol(first_model$VCV)
+
+    # Columns of Sol to keep, in the first model's order. Identical trees:
+    # all columns, by position (exact previous behaviour). Differing trees:
+    # fixed effects + tip BLUPs common to every run, matched by name.
+    sol_keep_cols <- colnames(first_model$Sol)
+    n_node_dropped <- 0L
+    if (trees_vary) {
+      if (is.null(first_model$Z) || is.null(colnames(first_model$Z))) {
+        warning("pool_posteriors: runs used different trees but the models ",
+                "carry no Z design matrix, so random-effect columns cannot ",
+                "be aligned by name. Stacking by position -- species-level ",
+                "BLUP columns may be misaligned across runs; treat pooled ",
+                "BLUPs with caution.", call. = FALSE)
+      } else {
+        z_cols <- colnames(first_model$Z)
+        fixed_cols <- setdiff(sol_keep_cols, z_cols)
+        # Node columns are named "<term>.Node<k>" once node labels are
+        # stripped at entry (.validate_trees). If a tip label itself looks
+        # like "Node<k>" (pathological), fall back to exact classification
+        # against the recorded tip set.
+        node_like <- grepl("\\.Node[0-9]+$", z_cols)
+        if (!is.null(pool_tips) && any(grepl("^Node[0-9]+$", pool_tips))) {
+          is_tip_col <- vapply(z_cols, function(cc) {
+            any(vapply(pool_tips, function(t)
+              endsWith(cc, paste0(".", t)), logical(1L)))
+          }, logical(1L))
+          node_like <- !is_tip_col
+        }
+        tip_cols <- z_cols[!node_like]
+        common <- Reduce(intersect,
+                         lapply(var_models, function(m) colnames(m$Sol)))
+        sol_keep_cols <- intersect(c(fixed_cols, tip_cols), common)
+        n_node_dropped <- ncol(first_model$Sol) - length(sol_keep_cols)
+      }
+    }
+    n_fixed <- length(sol_keep_cols)
     
     # Check what components are present in the first model
     has_cp <- !is.null(first_model$CP) && length(first_model$CP) > 0
@@ -186,7 +245,7 @@ pool_posteriors <- function(bace_final_object, variable = NULL, sample_size = NU
     
     # Preallocate matrices for pooled posteriors
     pooled_sol <- matrix(NA, nrow = total_samples, ncol = n_fixed)
-    colnames(pooled_sol) <- colnames(first_model$Sol)
+    colnames(pooled_sol) <- sol_keep_cols
     
     pooled_vcv <- matrix(NA, nrow = total_samples, ncol = n_vcv)
     colnames(pooled_vcv) <- colnames(first_model$VCV)
@@ -219,7 +278,12 @@ pool_posteriors <- function(bace_final_object, variable = NULL, sample_size = NU
         sample_idx <- 1:n_iter_per_model
       }
       
-      pooled_sol[start_idx:end_idx, ] <- var_models[[i]]$Sol[sample_idx, , drop = FALSE]
+      sol_i <- var_models[[i]]$Sol[sample_idx, , drop = FALSE]
+      if (trees_vary) {
+        # Align by NAME across runs (tip columns permute across trees).
+        sol_i <- sol_i[, sol_keep_cols, drop = FALSE]
+      }
+      pooled_sol[start_idx:end_idx, ] <- sol_i
       pooled_vcv[start_idx:end_idx, ] <- var_models[[i]]$VCV[sample_idx, , drop = FALSE]
       
       if (has_cp) {
@@ -291,7 +355,9 @@ pool_posteriors <- function(bace_final_object, variable = NULL, sample_size = NU
       total_samples = total_samples,
       variable = var,
       pooled = TRUE,
-      sampled = use_sampling
+      sampled = use_sampling,
+      trees_vary = trees_vary,
+      n_node_blup_cols_dropped = n_node_dropped
     )
     
     # Set class to bace_pooled_MCMCglmm with MCMCglmm as second class

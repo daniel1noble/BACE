@@ -1,5 +1,9 @@
 # Plan: four post-submission features (2026-11)
 
+> **Status (2026-11-07):** 4a + feature 1 IMPLEMENTED (tests 1492/0; see
+> `.agents/project-state.md` for the landing record). Feature 1's dev/ gate
+> study still owed. Features 2, 3, 4b–4d not started.
+
 Dan picked these four (2026-11-07) from the "what would make BACE better" discussion:
 
 1. **Tree-per-imputation** — accept a `multiPhylo` and use tree *m* for final run *m*,

@@ -44,3 +44,12 @@ print_sim_bace_summary       <- BACE:::print_sim_bace_summary
 sim_bace_gaussian            <- BACE:::sim_bace_gaussian
 sim_bace_poisson             <- BACE:::sim_bace_poisson
 sim_bace_binary              <- BACE:::sim_bace_binary
+# Tree-per-imputation internals (R/tree_functions.R)
+.validate_trees       <- BACE:::.validate_trees
+.select_tree_indices  <- BACE:::.select_tree_indices
+.get_ainv             <- BACE:::.get_ainv
+.compute_ainv         <- BACE:::.compute_ainv
+.clear_ainv_cache     <- BACE:::.clear_ainv_cache
+.tree_cache_key       <- BACE:::.tree_cache_key
+.as_tree_list         <- BACE:::.as_tree_list
+.first_tree           <- BACE:::.first_tree

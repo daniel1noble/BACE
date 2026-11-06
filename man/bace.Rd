@@ -40,7 +40,18 @@ standard R formula syntax (e.g., x1*x2).}
 \item{ran_phylo_form}{A character string specifying the random effects and phylogenetic
 structure formula used in the model.}
 
-\item{phylo}{A phylogenetic tree of class 'phylo' from the ape package.}
+\item{phylo}{A phylogenetic tree of class \code{phylo} (ape), or a
+\code{multiPhylo} / list of trees to propagate phylogenetic (tree)
+uncertainty: the convergence chain conditions on the first tree, and each
+of the \code{n_final} final imputation runs is fit under its own tree
+(tree \code{m} for run \code{m}, chosen deterministically -- an evenly
+spaced subsequence when more trees than runs are supplied, balanced
+recycling otherwise), so between-imputation variance includes tree
+uncertainty (Rubin 1987; Nakagawa & de Villemereuil 2019, Systematic
+Biology 68:632-641). Supply a post-burn-in posterior sample of trees in
+common units (drop any leading consensus/MCC summary tree). All trees
+must contain every species in the data; node labels are stripped
+internally. See \code{\link{bace_final_imp}} for details.}
 
 \item{data}{A data frame containing the dataset with missing values to be imputed.}
 

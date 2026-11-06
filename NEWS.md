@@ -1,3 +1,40 @@
+# BACE 0.1.0.9000 (development version)
+
+* **Phylogenetic (tree) uncertainty can now be propagated through the
+  imputations.** `bace()`, `bace_imp()` and `bace_final_imp()` accept a
+  `multiPhylo` (or list of trees) as `phylo`: the convergence chain conditions
+  on the first tree (its stabilisation diagnostic needs a fixed target), and
+  each of the `n_final` final imputation runs is fit under its own tree —
+  tree `m` for run `m`, selected deterministically from the run index (an
+  evenly spaced subsequence when more trees than runs are supplied, balanced
+  recycling otherwise), so `seed` reproducibility and serial/parallel equality
+  are untouched. Between-imputation variance then includes tree uncertainty:
+  proper multiple imputation with the phylogeny as a nuisance parameter drawn
+  from its posterior (Rubin 1987; Nakagawa & de Villemereuil 2019, *Systematic
+  Biology* 68:632–641). `bace_final_imp()` records `$tree_index` and
+  `$tree_hashes`; `pool_posteriors()` detects differing trees, aligns
+  species-level BLUPs by name across runs and drops internal-node BLUPs (node
+  identities differ between trees), with `BACE_pooling$trees_vary` set;
+  `with_imputations(tree = <multiPhylo>)` passes tree `m` to the downstream
+  fit on imputation `m`. Runtime cost is negligible (`inverseA` is ~0.05 s at
+  10,000 tips; the MCMC fits are indifferent to which tree they receive).
+
+* **Trees are validated up front, with the offending tree named.** Tip
+  coverage of the data, negative or zero-length branch lengths (with the
+  standard `1e-8` remedy in the message), and every condition
+  `MCMCglmm::inverseA()` enforces — most importantly ultrametricity, which
+  previously surfaced as an opaque error deep inside a fit (and for a
+  `multiPhylo`, only after hours) — are now checked at entry. Node labels
+  (e.g. support values) are stripped internally: `inverseA()` rejects
+  duplicated ones, and they fragment internal bookkeeping. A warning flags
+  trees whose root depths suggest mixed branch-length scalings.
+
+* **`inverseA()` is computed once per distinct tree per phase** instead of
+  once per model fit (it was recomputed for every variable × sweep × run),
+  via an internal per-tree cache cleared at each phase entry. Results are
+  bitwise unchanged; the saving is seconds on long runs, but the cache is
+  what makes per-run trees cheap.
+
 # BACE 0.1.0
 
 First public release.

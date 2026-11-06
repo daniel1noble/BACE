@@ -33,7 +33,15 @@
 #' @description Function to perform Bayesian imputation using BACE for missing data in a dataset
 #' @param fixformula A character string specifying the fixed effects formula that is of major interest or a list of formulas that one wishes to estimate. This should be of the form: y ~ x. Providing a list gives users complex flexibility in the types of models fit for the different variables. Note that users can also include interaction terms using the standard R formula syntax (e.g., x1*x2). 
 #' @param ran_phylo_form A character string specifying the random effects and phylogenetic structure formula used in the model.
-#' @param phylo A phylogenetic tree of class 'phylo' from the ape package.
+#' @param phylo A phylogenetic tree of class \code{phylo} (ape). A
+#'   \code{multiPhylo} / list of trees is accepted: the convergence chain
+#'   conditions on the FIRST tree only, by necessity -- its stabilisation
+#'   diagnostic reads deterministic point imputations settling toward a fixed
+#'   target, and cycling trees would inject tree-to-tree jitter into exactly
+#'   those trajectories. Tree uncertainty is propagated where it belongs, in
+#'   \code{\link{bace_final_imp}}'s per-run trees. Trees are validated up
+#'   front (tip coverage, branch lengths, \code{MCMCglmm::inverseA}
+#'   acceptance, e.g. ultrametricity); node labels are stripped internally.
 #' @param data A data frame containing the dataset with missing values to be imputed.
 #' @param runs An integer specifying the number of imputation iterations to perform. Default is 10.
 #' @param nitt An integer or list specifying the number of iterations to run the MCMC algorithm. Can be a single value (applied to all models) or a list of values (one per formula). Default is 6000.
@@ -106,6 +114,25 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 		if(any(is.na(data[, phylo_ran[["cluster"]]]))){
 			stop(paste("There are missing data in the random effect cluster variable:", phylo_ran[["cluster"]], ". This variable must be complete. Please remove missing data from this variable before proceeding."))
 		}
+
+	# Validate the tree(s) up front (tip coverage, branch lengths, and every
+	# condition MCMCglmm::inverseA enforces -- e.g. ultrametricity -- surfaces
+	# here with the tree named, not hours into a fit) and reset the per-tree
+	# Ainv cache for this phase. A multiPhylo is accepted: the convergence
+	# chain conditions on ONE tree by necessity (the stabilisation diagnostic
+	# needs deterministic point imputations settling toward a fixed target),
+	# so trees[[1]] is used here; tree uncertainty is propagated by
+	# bace_final_imp(), which assigns a tree to each final imputation run.
+		.clear_ainv_cache()
+		trees <- .validate_trees(phylo, species_values = data[[phylo_ran[["cluster"]]]],
+		                         context = "bace_imp", verbose = verbose)
+		if (length(trees) > 1L && verbose) {
+			message("bace_imp: ", length(trees), " trees supplied; the convergence ",
+			        "chain conditions on trees[[1]]. Pass the full set to ",
+			        "bace_final_imp()/bace() so tree uncertainty enters the final ",
+			        "imputations (one tree per run).")
+		}
+		phylo <- trees[[1L]]
 
 	# Validate replicated species when species=TRUE
 	if(species){

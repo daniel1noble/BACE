@@ -23,8 +23,10 @@ completed data.frame and returns the fitted model.}
 
 \item{...}{Additional arguments passed to \code{.f} for every imputation.}
 
-\item{tree}{Optional phylogeny (class \code{phylo}) passed to \code{.f} when
-\code{.f} declares a \code{tree} argument. Default \code{NULL}.}
+\item{tree}{Optional phylogeny passed to \code{.f} when \code{.f} declares a
+\code{tree} argument: a single \code{phylo} (same tree for every fit) or a
+\code{multiPhylo}/list of \code{phylo} (tree \code{m} for imputation
+\code{m}, recycled if shorter). Default \code{NULL}.}
 
 \item{.progress}{Logical; show a progress line (default: interactive only).}
 
@@ -53,9 +55,15 @@ fits, \code{\link[stats]{coef}} and \code{\link[stats]{vcov}} must work on
 the return value.
 
 If \code{.f} declares a \code{tree} argument and \code{tree} is supplied
-here, the phylogeny is passed through to every fit (e.g. for a phylogenetic
-GLS). This also leaves room for a future posterior-tree workflow without an
-API change.
+here, the phylogeny is passed through to the fits (e.g. for a phylogenetic
+GLS). A single \code{phylo} is passed to every fit. A \code{multiPhylo} (or
+plain list of \code{phylo}) assigns tree \code{m} to imputation \code{m},
+recycled in balanced rotation when there are fewer trees than imputations --
+the same deterministic rule \code{\link{bace_final_imp}} uses, so a
+downstream phylogenetic model can condition on the same tree that generated
+each imputation (tree-per-imputation workflow). If \code{.f}'s own
+\code{tree} argument expects a whole tree set, wrap it instead:
+\code{.f = function(d) g(d, my_trees)}.
 }
 \examples{
 # with_imputations() also accepts a plain list of completed data.frames,

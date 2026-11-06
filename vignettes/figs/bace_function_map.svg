@@ -48,9 +48,10 @@
   <!-- Raw data box -->
   <g>
     <rect x="70" y="445" width="250" height="160" rx="6" fill="#ffffff" stroke="#9aa3ad" stroke-width="1.5"/>
-    <text x="195" y="503" font-size="22" font-weight="700" fill="#1f2937" text-anchor="middle">raw data + tree</text>
+    <text x="195" y="503" font-size="22" font-weight="700" fill="#1f2937" text-anchor="middle">raw data + tree(s)</text>
     <text x="195" y="537" font-size="16" fill="#6b7280" text-anchor="middle">comparative data with NAs;</text>
-    <text x="195" y="561" font-size="16" fill="#6b7280" text-anchor="middle">phylogeny covering the taxa</text>
+    <text x="195" y="561" font-size="16" fill="#6b7280" text-anchor="middle">one phylo, or a multiPhylo</text>
+    <text x="195" y="585" font-size="16" fill="#6b7280" text-anchor="middle">posterior tree sample</text>
   </g>
 
   <!-- Step 1: bace_imp() -->
@@ -78,9 +79,9 @@
     <rect x="1500" y="430" width="360" height="190" rx="6" fill="#d0e0e3" stroke="#2f3b4c" stroke-width="2"/>
     <text x="1680" y="478" font-size="26" font-weight="700" fill="#1f2937" text-anchor="middle">bace_final_imp()</text>
     <text x="1680" y="514" font-size="16" fill="#4b5563" text-anchor="middle"><tspan font-weight="700">Step 3</tspan> — n_final independent</text>
-    <text x="1680" y="538" font-size="16" fill="#4b5563" text-anchor="middle">posterior-predictive imputations</text>
-    <text x="1680" y="562" font-size="16" fill="#4b5563" text-anchor="middle">(proper multiple imputation;</text>
-    <text x="1680" y="586" font-size="16" fill="#4b5563" text-anchor="middle">parallel via n_cores)</text>
+    <text x="1680" y="538" font-size="16" fill="#4b5563" text-anchor="middle">posterior-predictive imputations;</text>
+    <text x="1680" y="562" font-size="16" fill="#4b5563" text-anchor="middle">with a multiPhylo, run m is fit under</text>
+    <text x="1680" y="586" font-size="16" fill="#4b5563" text-anchor="middle">tree m (tree uncertainty; n_cores)</text>
   </g>
 
   <!-- Step 4: pool_posteriors() -->
@@ -134,8 +135,8 @@
     <text x="1920" y="908" font-size="26" font-weight="700" fill="#1f2937" text-anchor="middle">with_imputations()</text>
     <text x="1920" y="944" font-size="16" fill="#4b5563" text-anchor="middle">fit any model to each imputed</text>
     <text x="1920" y="968" font-size="16" fill="#4b5563" text-anchor="middle">dataset — lm, gls, phylolm,</text>
-    <text x="1920" y="992" font-size="16" fill="#4b5563" text-anchor="middle">MCMCglmm, &#8230;; tree = passes</text>
-    <text x="1920" y="1016" font-size="16" fill="#4b5563" text-anchor="middle">the phylogeny to every fit</text>
+    <text x="1920" y="992" font-size="16" fill="#4b5563" text-anchor="middle">MCMCglmm, &#8230;; tree = one phylogeny</text>
+    <text x="1920" y="1016" font-size="16" fill="#4b5563" text-anchor="middle">for every fit, or one per imputation</text>
   </g>
   <line x1="2100" y1="950" x2="2242" y2="950" stroke="#2f3b4c" stroke-width="2.5" marker-end="url(#arrow)"/>
   <g>

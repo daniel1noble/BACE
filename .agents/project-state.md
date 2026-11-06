@@ -478,3 +478,46 @@ previews and scratch work outside the repo.
   inherits it); `mi_bace_chain()` follows the parent fit via `fb$ovr`. Package
   itself needed no change. **Never resume a pre-2026-11-06 results cache across
   this change** — the 2026-10 campaign results were produced with OvR TRUE.
+
+## 2026-11-07: Feature 1 implemented — tree-per-imputation (multiPhylo)
+
+Plan: `.agents/plans/next-features-2026-11.md` (built on a 4-reader code map,
+adversarially reviewed twice; feature 1 + its 4a prerequisite now LANDED).
+
+- **What shipped** (version bumped to 0.1.0.9000; full NEWS bullet written):
+  `phylo` accepts phylo | multiPhylo | list-of-phylo in `bace()`, `bace_imp()`
+  (uses trees[[1]] — the convergence diagnostic needs a fixed target) and
+  `bace_final_imp()` (run m fit under tree_index[m], deterministic in the run
+  index, zero RNG consumed). New `R/tree_functions.R`: per-tree inverseA cache
+  (`.get_ainv`/`.compute_ainv`, cleared at each phase entry; key = content hash
+  incl. node labels), `.validate_trees` (tip coverage; negative AND zero-length
+  branch errors with the 1e-8 remedy — inverseA rejects zero edges
+  unconditionally, so this breaks nothing that worked; runs inverseA per tree
+  up front so ultrametricity failures surface named at entry; strips node
+  labels; root-depth CV warning), `.select_tree_indices` (subsequence /
+  balanced recycling), `.hash_obj` (serialize-v2-minus-header, R-version
+  stable — feature 3 will reuse it). `bace_final` gains $tree_index,
+  $tree_hashes, $tip_labels. `pool_posteriors` detects trees_vary from
+  tree_index (NOT colnames — same-tip trees have identical name SETS in
+  different orders), stacks fixed/VCV/CP/Liab as before, aligns tip BLUPs BY
+  NAME, drops node BLUPs ("\.Node\d+$" with an exact-tip-set fallback),
+  records BACE_pooling$trees_vary + n_node_blup_cols_dropped; single-tree
+  path byte-identical. `with_imputations(tree=)` accepts a tree list (tree m
+  to fit m, balanced recycling; consistency message against $tree_hashes).
+- **Verified**: new test file tests/testthat/test-multiphylo.R (68
+  expectations) incl. the load-bearing IDENTITY test — on one shared converged
+  object with the same seed, multiPhylo(A,B) runs 1,3 are bitwise-identical to
+  single-tree-A runs 1,3 and runs 2,4 to single-tree-B (proves the tree
+  reaches each run AND no stray RNG), serial==parallel under multiPhylo, the
+  skip_conv=TRUE forwarding spy, pooling alignment on permuted-name fakes with
+  a dotted tip label. Full suite: **1492 pass / 0 fail** (was 1424).
+  R CMD check --as-cran running at time of writing.
+- **Function map updated** (vignettes/figs/bace_function_map.svg + PNG
+  regenerated): input node "raw data + tree(s) … one phylo, or a multiPhylo
+  posterior tree sample"; bace_final_imp chip "with a multiPhylo, run m is fit
+  under tree m"; with_imputations note "tree = one phylogeny for every fit, or
+  one per imputation". ms.qmd/vignette embed the PNG automatically.
+- **Still owed for feature 1**: the dev/ statistical gate study (replicated
+  gold-standard arm + one-sided B-deflation test + sweeps dose-response, ~100
+  seeds — design pre-registered in the plan) before the ms claims tree
+  uncertainty is propagated correctly at default sweeps.

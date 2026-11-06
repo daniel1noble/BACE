@@ -225,8 +225,10 @@ phylo_signal_summary <- function(
                   collapse = ", "))
   }
 
-  # ----- Phylo inverse matrix (computed once) -----
-  A <- MCMCglmm::inverseA(tree, nodes = "ALL")$Ainv
+  # ----- Phylo inverse matrix (computed once, then served from the per-tree
+  # cache; .fit_signal_one's .model_fit calls hit the same cache entry) -----
+  .clear_ainv_cache()
+  A <- .get_ainv(tree)
 
   # ----- Fit per-variable models -----
   rows   <- vector("list", length(variables))

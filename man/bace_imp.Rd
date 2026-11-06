@@ -26,7 +26,15 @@ bace_imp(
 
 \item{ran_phylo_form}{A character string specifying the random effects and phylogenetic structure formula used in the model.}
 
-\item{phylo}{A phylogenetic tree of class 'phylo' from the ape package.}
+\item{phylo}{A phylogenetic tree of class \code{phylo} (ape). A
+\code{multiPhylo} / list of trees is accepted: the convergence chain
+conditions on the FIRST tree only, by necessity -- its stabilisation
+diagnostic reads deterministic point imputations settling toward a fixed
+target, and cycling trees would inject tree-to-tree jitter into exactly
+those trajectories. Tree uncertainty is propagated where it belongs, in
+\code{\link{bace_final_imp}}'s per-run trees. Trees are validated up
+front (tip coverage, branch lengths, \code{MCMCglmm::inverseA}
+acceptance, e.g. ultrametricity); node labels are stripped internally.}
 
 \item{data}{A data frame containing the dataset with missing values to be imputed.}
 

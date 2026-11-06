@@ -15,8 +15,12 @@
 
 .model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 6000, thin = 5, burnin = 1000) {
 
-	# Create sparse matrix of phylogeny. Make sure to include all nodes because the algorithm used for nodes = "ALL" is more stable and orders of magnitude faster. Very important for large trees.
-		   A  <- MCMCglmm::inverseA(tree, nodes = "ALL")$Ainv
+	# Sparse inverse phylogenetic covariance, cached per tree (.get_ainv,
+	# R/tree_functions.R): bace_imp/bace_final_imp fit many models on the same
+	# tree(s), and inverseA(nodes = "ALL") need only run once per distinct tree
+	# per phase. nodes = "ALL" is more stable and orders of magnitude faster on
+	# large trees.
+		   A  <- .get_ainv(tree)
 	
 	# Handle random formula structure - can be a single formula or a list with phylo and species
 	if (is.list(randformula) && !inherits(randformula, "formula")) {

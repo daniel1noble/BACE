@@ -17,9 +17,15 @@
 #' the return value.
 #'
 #' If \code{.f} declares a \code{tree} argument and \code{tree} is supplied
-#' here, the phylogeny is passed through to every fit (e.g. for a phylogenetic
-#' GLS). This also leaves room for a future posterior-tree workflow without an
-#' API change.
+#' here, the phylogeny is passed through to the fits (e.g. for a phylogenetic
+#' GLS). A single \code{phylo} is passed to every fit. A \code{multiPhylo} (or
+#' plain list of \code{phylo}) assigns tree \code{m} to imputation \code{m},
+#' recycled in balanced rotation when there are fewer trees than imputations --
+#' the same deterministic rule \code{\link{bace_final_imp}} uses, so a
+#' downstream phylogenetic model can condition on the same tree that generated
+#' each imputation (tree-per-imputation workflow). If \code{.f}'s own
+#' \code{tree} argument expects a whole tree set, wrap it instead:
+#' \code{.f = function(d) g(d, my_trees)}.
 #'
 #' @param object A \code{bace_complete} (from \code{\link{bace}}), a
 #'   \code{bace_final} (from \code{\link{bace_final_imp}}), or a plain list of
@@ -27,8 +33,10 @@
 #' @param .f A function \code{function(dataset, ...)} that fits a model to one
 #'   completed data.frame and returns the fitted model.
 #' @param ... Additional arguments passed to \code{.f} for every imputation.
-#' @param tree Optional phylogeny (class \code{phylo}) passed to \code{.f} when
-#'   \code{.f} declares a \code{tree} argument. Default \code{NULL}.
+#' @param tree Optional phylogeny passed to \code{.f} when \code{.f} declares a
+#'   \code{tree} argument: a single \code{phylo} (same tree for every fit) or a
+#'   \code{multiPhylo}/list of \code{phylo} (tree \code{m} for imputation
+#'   \code{m}, recycled if shorter). Default \code{NULL}.
 #' @param .progress Logical; show a progress line (default: interactive only).
 #' @param .on_error One of \code{"continue"} (default) or \code{"stop"}. With
 #'   \code{"continue"}, a fit that errors is captured and the loop proceeds;
@@ -72,13 +80,35 @@ with_imputations <- function(object, .f, ..., tree = NULL,
   fits      <- vector("list", M)
   failures  <- integer(0)
 
+  # Per-imputation trees: a multiPhylo or bare list of phylo assigns tree m to
+  # imputation m (balanced recycling, mirroring bace_final_imp's rule); a
+  # single phylo keeps the same-tree-for-all behaviour.
+  tree_list <- NULL
+  if (!is.null(tree) && !inherits(tree, "phylo")) {
+    tree_list <- .as_tree_list(tree, context = "with_imputations")
+    gen_hashes <- if (inherits(object, "bace_complete")) {
+      object$final_results$tree_hashes
+    } else if (inherits(object, "bace_final")) {
+      object$tree_hashes
+    } else NULL
+    if (!is.null(gen_hashes) && length(gen_hashes) > 1L &&
+        length(tree_list) != length(gen_hashes)) {
+      message("with_imputations: ", length(tree_list), " trees supplied, but ",
+              "the imputations were generated under ", length(gen_hashes),
+              " trees (see $tree_index on the bace_final object). Pass the ",
+              "same tree set in the same order for each fit to condition on ",
+              "the tree that generated its imputation.")
+    }
+  }
+
   for (i in seq_len(M)) {
     if (isTRUE(.progress)) {
       message(sprintf("\r  fitting imputation %d/%d", i, M), appendLF = FALSE)
     }
     call_args <- c(list(datasets[[i]]), dots)
     if (!is.null(tree) && "tree" %in% f_formals && !("tree" %in% names(dots))) {
-      call_args[["tree"]] <- tree
+      call_args[["tree"]] <- if (is.null(tree_list)) tree else
+        tree_list[[((i - 1L) %% length(tree_list)) + 1L]]
     }
     res <- tryCatch(
       do.call(.f, call_args),
