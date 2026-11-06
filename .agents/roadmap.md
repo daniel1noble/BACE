@@ -224,3 +224,14 @@ DONE 2026-07-11 — two production studies, full report in
 - Track B: run production benchmark on GitHub Actions vs locally overnight?
 - Track B3: which competitors are in scope (missForest + Rphylopars minimum; add mice?).
 - Track C4: how aggressive on trimming the exported API for v1?
+
+## Post-submission features (planned 2026-11-07)
+
+Four features picked by Dan, planned in detail (code touch points, breakage
+analysis, tests, workflow impact) and adversarially reviewed against the code:
+**[plans/next-features-2026-11.md](plans/next-features-2026-11.md)** —
+(1) multiPhylo tree-per-imputation, (2) `bace_validate()` overimputation check,
+(3) checkpoint/resume, (4) runtime (inverseA cache, final-phase MCMC args,
+convergence-phase parallelism, per-run ESS floor). Order of work and effort
+estimates in the plan. Speed is a first-class acceptance criterion throughout
+(Dan, 2026-11-07); measured: multiPhylo adds ~2.5 s to a case-study run.
