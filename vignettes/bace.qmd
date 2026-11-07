@@ -354,6 +354,42 @@ table(imputed_df$.imputation)
 
 ```
 
+For reporting individual imputed values with honest uncertainty, use `get_imputation_intervals()`. For every imputed cell it gives the best guess (the mean across the `n_final` imputations) and a calibrated 95% interval built with the standard multiple-imputation formula [Rubin's t-interval; @rubin1987].
+
+```{r}
+#| label: imputation_intervals
+#| echo: true
+#| eval: true
+
+head(get_imputation_intervals(bace_final1))
+```
+
+These are exactly the intervals to put in a table of imputed trait values, or to draw as error bars when plotting imputed alongside observed values.
+
+## Propagating phylogenetic (tree) uncertainty
+
+Nobody knows the true phylogeny — there is always a multitude of plausible trees. Imputing with a single tree makes your results look more certain than they are. *BACE* handles this with one argument change: pass the whole tree set as `phylo`, and each of the `n_final` final imputation runs is fit under its own tree. The spread between imputations — the quantity every pooling route uses — then automatically includes tree uncertainty. This is standard multiple-imputation logic with the tree treated as missing information, following @nakagawa2018, who also show a modest tree sample (~50) is typically enough.
+
+```{r}
+#| label: multiphylo
+#| echo: true
+#| eval: false
+
+# trees: a multiPhylo, e.g. read with ape::read.tree()/read.nexus()
+res <- bace(
+  fixformula     = "y ~ x1 + x2",
+  ran_phylo_form = "~ 1 | Species",
+  phylo          = trees,       # the only change: a tree SET, not one tree
+  data           = mydata
+)
+
+# which tree each imputation run used:
+res$final_results$tree_index
+```
+
+Importantly, you do not need as many trees as imputations. When there are fewer trees than runs they are recycled in a balanced rotation. With more trees than runs an evenly spaced subset is used.
+The convergence phase runs on the first tree only (its job is to let point imputations settle, which needs a fixed target). When trees differ across runs, `pool_posteriors()` aligns species-level effects by name and drops the internal-node effects (node identities differ between trees) — fixed effects, variance components and cutpoints pool exactly as usual.
+
 ## Interpreting the pooled output {#sec-pooled-output}
 
 It is worth being precise about what the pooled posterior returned by `bace()` actually is, because the terminology in the multiple-imputation literature can be confusing.
