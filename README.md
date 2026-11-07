@@ -70,9 +70,19 @@ summary(get_pooled_model(result, "y"))
 
 # Imputed datasets (one per final run) for downstream analyses
 imputed_list <- get_imputed_data(result)
+
+# Each imputed cell with its mean and a calibrated 95% interval
+# (the error bars to report alongside imputed values)
+intervals <- get_imputation_intervals(result)
+
+# How well does the imputation work on THIS dataset? Hide some known
+# cells, re-impute them, and compare against the hidden truth —
+# reusing the finished run's data, tree and settings:
+validation <- bace_validate(result, prop = 0.1, seed = 1)
+validation
 ```
 
-See `?bace`, `?bace_imp`, `?bace_final_imp`, `?pool_posteriors`, `?assess_convergence`, `?get_pooled_model` and `?get_imputed_data` for details.
+See `?bace`, `?bace_imp`, `?bace_final_imp`, `?pool_posteriors`, `?assess_convergence`, `?get_pooled_model`, `?get_imputed_data`, `?get_imputation_intervals` and `?bace_validate` for details.
 
 ## Tutorial
 
@@ -94,6 +104,9 @@ A full tutorial — including when BACE is appropriate relative to other MI tool
 - [x] **Rubin's-rules pathway** — `with_imputations()` fits any downstream analysis model to each imputed dataset and `pool_mi()` combines the estimates with Rubin's rules (Barnard–Rubin small-sample degrees of freedom, `fmi`/`riv` diagnostics; matches `mice::pool` to machine precision on identical inputs)
 - [x] Parallel execution of final imputation runs (`bace_final_imp(n_cores = …)`) via `parallel::mclapply`
 - [x] Accessor helpers `get_pooled_model()` and `get_imputed_data()` for extracting pooled models and imputed datasets from `bace_complete` / `bace_pooled` / `bace_final` objects
+- [x] `get_imputation_intervals()`: calibrated per-cell 95% intervals for imputed values (Rubin t), for reporting and plotting
+- [x] `bace_validate()`: hide known cells, re-impute, compare — one-call validation of imputation quality on your own data, reusing a finished run's settings
+- [x] Phylogenetic (tree) uncertainty: pass a `multiPhylo` and each final imputation run is fit under its own tree
 - [x] Simulation engine `sim_bace()` for generating phylogenetically-structured comparative datasets with arbitrary response types, interaction terms and random slopes — useful for method validation
 
 ## Future development
