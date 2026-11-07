@@ -38,7 +38,7 @@ deterministically from the run index (an evenly spaced subsequence of the
 supplied set when \code{n_trees >= n_final}; balanced recycling
 otherwise -- \code{n_trees >= n_final} is NOT required, and with e.g. 20
 trees and 50 runs the understatement of the tree-variance component is
-only ~6\\%). Selection consumes no random numbers, so \code{seed}
+only about 6 percent). Selection consumes no random numbers, so \code{seed}
 reproducibility and serial/parallel equality are unaffected. Because the
 runs then target different conditional posteriors, the between-imputation
 variance picked up by \code{\link{pool_posteriors}} /
@@ -59,11 +59,11 @@ drops internal-node BLUPs (node identities differ between trees).}
 \item{burnin}{An integer or list specifying the burn-in iterations. Default is 1000}
 
 \item{n_final}{An integer specifying the number of final imputation runs.
-Default is 50 -- large enough that the empirical 2.5 and 97.5 percent
-quantiles of per-cell imputed values give a reasonable estimate of the
-95 percent posterior predictive interval. Smaller values undercover:
-n_final = 5 gives roughly 67 percent effective coverage, n_final = 20
-gives roughly 88 percent, n_final = 50 gives roughly 92 percent.}
+Default is 50. For per-cell 95 percent intervals use
+\code{\link{get_imputation_intervals}} (t-based; holds its level for any
+n_final of about 20 or more). Raw empirical 2.5/97.5 percent quantiles
+of the per-cell imputed values undercover instead: roughly 67 percent at
+n_final = 5, 88 percent at n_final = 20, 92 percent at n_final = 50.}
 
 \item{species}{A logical indicating whether to decompose phylogenetic and non-phylogenetic species effects. Default is FALSE}
 
@@ -145,6 +145,13 @@ final run was fit under (all 1s for a single tree)
 \item tree_hashes: content hash of each supplied tree (provenance)
 \item tip_labels: tip labels of the first tree (used by pool_posteriors to
 align species-level BLUPs by name when trees differ)
+\item trees_used: the validated tree(s) themselves, stored so
+\code{\link{bace_validate}} can re-run the pipeline faithfully
+\item settings: the model settings as the user supplied them
+(ran_phylo_form, nitt, thin, burnin, species, ovr_categorical,
+nitt_cat_mult, priors), stored for the same reason
+\item miss_dat: which cells were originally missing (row, column, name)
+\item n_final, sweeps, sweeps_requested, seed: the run sizes and seed as used
 \item call: The function call
 }
 

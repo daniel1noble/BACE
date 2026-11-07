@@ -53,3 +53,12 @@ sim_bace_binary              <- BACE:::sim_bace_binary
 .tree_cache_key       <- BACE:::.tree_cache_key
 .as_tree_list         <- BACE:::.as_tree_list
 .first_tree           <- BACE:::.first_tree
+# bace_validate internals (R/bace_validate.R)
+.mask_observed_cells       <- BACE:::.mask_observed_cells
+.score_validation          <- BACE:::.score_validation
+.score_numeric_var         <- BACE:::.score_numeric_var
+.score_class_var           <- BACE:::.score_class_var
+.expected_coverage_counts  <- BACE:::.expected_coverage_counts
+.summarise_validation      <- BACE:::.summarise_validation
+.vote_credit          <- BACE:::.vote_credit
+.derive_mask_seeds    <- BACE:::.derive_mask_seeds

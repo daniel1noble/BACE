@@ -10,7 +10,7 @@
 #'   supplied set when \code{n_trees >= n_final}; balanced recycling
 #'   otherwise -- \code{n_trees >= n_final} is NOT required, and with e.g. 20
 #'   trees and 50 runs the understatement of the tree-variance component is
-#'   only ~6\%). Selection consumes no random numbers, so \code{seed}
+#'   only about 6 percent). Selection consumes no random numbers, so \code{seed}
 #'   reproducibility and serial/parallel equality are unaffected. Because the
 #'   runs then target different conditional posteriors, the between-imputation
 #'   variance picked up by \code{\link{pool_posteriors}} /
@@ -27,11 +27,11 @@
 #' @param thin An integer or list specifying the thinning rate. Default is 5
 #' @param burnin An integer or list specifying the burn-in iterations. Default is 1000
 #' @param n_final An integer specifying the number of final imputation runs.
-#'   Default is 50 -- large enough that the empirical 2.5 and 97.5 percent
-#'   quantiles of per-cell imputed values give a reasonable estimate of the
-#'   95 percent posterior predictive interval. Smaller values undercover:
-#'   n_final = 5 gives roughly 67 percent effective coverage, n_final = 20
-#'   gives roughly 88 percent, n_final = 50 gives roughly 92 percent.
+#'   Default is 50. For per-cell 95 percent intervals use
+#'   \code{\link{get_imputation_intervals}} (t-based; holds its level for any
+#'   n_final of about 20 or more). Raw empirical 2.5/97.5 percent quantiles
+#'   of the per-cell imputed values undercover instead: roughly 67 percent at
+#'   n_final = 5, 88 percent at n_final = 20, 92 percent at n_final = 50.
 #' @param species A logical indicating whether to decompose phylogenetic and non-phylogenetic species effects. Default is FALSE
 #' @param verbose A logical indicating whether to print progress messages. Default is TRUE
 #' @param n_cores Integer specifying the number of parallel cores to use. Default is 1
@@ -101,6 +101,13 @@
 #'   - tree_hashes: content hash of each supplied tree (provenance)
 #'   - tip_labels: tip labels of the first tree (used by pool_posteriors to
 #'     align species-level BLUPs by name when trees differ)
+#'   - trees_used: the validated tree(s) themselves, stored so
+#'     \code{\link{bace_validate}} can re-run the pipeline faithfully
+#'   - settings: the model settings as the user supplied them
+#'     (ran_phylo_form, nitt, thin, burnin, species, ovr_categorical,
+#'     nitt_cat_mult, priors), stored for the same reason
+#'   - miss_dat: which cells were originally missing (row, column, name)
+#'   - n_final, sweeps, sweeps_requested, seed: the run sizes and seed as used
 #'   - call: The function call
 #'
 #'   The imputed datasets are most conveniently extracted with
@@ -139,6 +146,10 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
   if (!inherits(bace_object, "bace")) {
     stop("bace_object must be an object of class 'bace' from bace_imp function")
   }
+
+  # Keep the random-formula string as the USER wrote it (it is rebuilt below
+  # for fitting): bace_validate() needs the original to re-run the pipeline.
+  ran_form_input <- ran_phylo_form
 
   # Extract components from bace_object
   last_data <- bace_object$data[[length(bace_object$data)]]
@@ -543,6 +554,14 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
     tree_index  = tree_index,       # which supplied tree each run was fit under
     tree_hashes = tree_hashes,      # content hash per supplied tree (provenance)
     tip_labels  = trees[[1L]]$tip.label,  # for name-based BLUP pooling
+    trees_used  = trees,            # the validated trees themselves, so
+                                    # bace_validate(fit) can re-run faithfully
+    # The settings a faithful re-run needs (bace_validate(fit) reads these;
+    # the checkpoint fingerprint will too). Stored as the user gave them.
+    settings = list(ran_phylo_form = ran_form_input, nitt = nitt, thin = thin,
+                    burnin = burnin, species = species,
+                    ovr_categorical = ovr_categorical,
+                    nitt_cat_mult = nitt_cat_mult, priors = priors),
     call = match.call()
   )
   

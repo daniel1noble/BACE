@@ -34,14 +34,13 @@
 #'   Default is 1000.
 #' @param n_final An integer specifying the number of final imputation runs to
 #'   perform after convergence is achieved. Default is 50. These runs are used
-#'   for posterior pooling and to estimate per-cell prediction intervals. The
-#'   default is set high enough that the empirical 2.5 and 97.5 percent
-#'   quantiles of the per-cell imputed values give a reasonable estimate of the
-#'   95 percent posterior predictive interval -- at small n_final the empirical
-#'   quantile shrinks toward the per-cell min and max and undercovers (e.g.
-#'   n_final = 5 gives roughly 67 percent effective coverage, n_final = 50
-#'   gives roughly 92 percent, asymptotic 95 percent). Reduce only if compute
-#'   is constrained AND you do not need calibrated intervals.
+#'   for posterior pooling and to estimate per-cell prediction intervals. For
+#'   per-cell intervals use \code{\link{get_imputation_intervals}}: its
+#'   t-based interval holds its stated 95 percent level for any n_final of
+#'   about 20 or more. (Raw empirical 2.5/97.5 percent quantiles of the
+#'   imputed values undercover instead: roughly 67 percent at n_final = 5,
+#'   92 percent at n_final = 50.) Reduce n_final only if compute is
+#'   constrained AND you do not need calibrated intervals.
 #' @param species A logical indicating whether to decompose phylogenetic and non-phylogenetic 
 #'   species effects. Default is FALSE. When TRUE, the random effects structure is modified to 
 #'   include both a phylogenetic effect and a non-phylogenetic species effect (with identity 
