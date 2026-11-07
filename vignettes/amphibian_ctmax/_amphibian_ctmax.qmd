@@ -287,10 +287,11 @@ Each final imputation is a complete dataset, so each imputed CTmax value has `r 
 #| label: amph-extract
 #| echo: true
 #| eval: false
-imp   <- get_imputed_data(amph_bace, format = "list")
-draws <- sapply(imp, function(d) d$CTmax)             # rows x imputations
-ctmax_mean <- rowMeans(draws)
-ctmax_pi95 <- apply(draws, 1, quantile, c(0.025, 0.975))
+# Each imputed cell with its mean and a calibrated 95% interval (Rubin's
+# t-interval across the 50 imputations; see ?get_imputation_intervals for
+# why raw 2.5/97.5% quantiles of the draws undercover at ~92%)
+ctmax_intervals <- get_imputation_intervals(amph_bace)
+head(ctmax_intervals)
 ```
 
 ```{r}
@@ -300,13 +301,17 @@ ctmax_pi95 <- apply(draws, 1, quantile, c(0.025, 0.975))
 amph_imp <- amph_full$imputed[amph_full$imputed$temp_level == "p50", ]   # median temperature
 amph_imp$data <- factor(ifelse(amph_imp$species %in% amph_exp$species, "experimental", "imputed"),
                         levels = names(amph_cols))
-amph_imp$width <- amph_imp$upper95 - amph_imp$lower95
+# 95% multiple-imputation interval per cell (mean +/- t * sqrt(1 + 1/M) * sd,
+# M = 50) -- the same construction as get_imputation_intervals(), computed
+# here from the archived per-cell mean and sd
+amph_ci <- qt(0.975, 50 - 1) * sqrt(1 + 1 / 50)
+amph_imp$width <- 2 * amph_ci * amph_imp$CTmax_sd
 amph_w <- tapply(amph_imp$width, amph_imp$data, median)
 amph_s <- tapply(amph_imp$CTmax_mean, amph_imp$data, sd)
 amph_n <- table(amph_imp$data)
 ```
 
-At the median acclimation temperature, imputed CTmax averaged `r fmt(mean(amph_imp$CTmax_mean), 1)` °C across the `r fmt0(nrow(amph_imp))` species (@fig-amph-imputed). Imputations were more uncertain for species without experimental data. The median 95% credible interval spanned `r fmt(amph_w[["experimental"]], 1)` °C for the `r fmt0(amph_n[["experimental"]])` species with experimental data, but `r fmt(amph_w[["imputed"]], 1)` °C for the `r fmt0(amph_n[["imputed"]])` species without. The imputed means of species without data were also less variable (s.d. = `r fmt(amph_s[["imputed"]], 1)` vs `r fmt(amph_s[["experimental"]], 1)` °C), because BACE predicts their CTmax from their relatives only.
+At the median acclimation temperature, imputed CTmax averaged `r fmt(mean(amph_imp$CTmax_mean), 1)` °C across the `r fmt0(nrow(amph_imp))` species (@fig-amph-imputed). Imputations were more uncertain for species without experimental data. The median 95% imputation interval (as from `get_imputation_intervals()`) spanned `r fmt(amph_w[["experimental"]], 1)` °C for the `r fmt0(amph_n[["experimental"]])` species with experimental data, but `r fmt(amph_w[["imputed"]], 1)` °C for the `r fmt0(amph_n[["imputed"]])` species without. The imputed means of species without data were also less variable (s.d. = `r fmt(amph_s[["imputed"]], 1)` vs `r fmt(amph_s[["experimental"]], 1)` °C), because BACE predicts their CTmax from their relatives only.
 
 ```{r}
 #| label: fig-amph-imputed
@@ -314,7 +319,7 @@ At the median acclimation temperature, imputed CTmax averaged `r fmt(mean(amph_i
 #| code-fold: true
 #| fig-width: 9
 #| fig-height: 3.8
-#| fig-cap: "Imputed CTmax at the median acclimation temperature of each species. (a) Imputed means for species with and without experimental data. (b) Width of the 95% credible interval of the imputed values."
+#| fig-cap: "Imputed CTmax at the median acclimation temperature of each species. (a) Imputed means for species with and without experimental data. (b) Width of the 95% imputation interval of the imputed values (from get_imputation_intervals())."
 amph_lab <- c(experimental = sprintf("Species with experimental data (n = %s)", fmt0(amph_n[["experimental"]])),
               imputed = sprintf("Species without experimental data (n = %s)", fmt0(amph_n[["imputed"]])))
 p_a <- ggplot(amph_imp, aes(CTmax_mean, fill = data)) +
@@ -327,7 +332,7 @@ p_b <- ggplot(amph_imp, aes(data, width, colour = data)) +
   geom_boxplot(fill = NA, colour = "black", outlier.shape = NA, width = 0.4) +
   scale_colour_manual(values = amph_cols) +
   scale_x_discrete(labels = c(experimental = "With data", imputed = "Without data")) +
-  labs(x = NULL, y = "Width of 95% credible interval (°C)", tag = "(b)") +
+  labs(x = NULL, y = "Width of 95% imputation interval (°C)", tag = "(b)") +
   amph_theme
 p_a + p_b + plot_layout(widths = c(1.4, 1))
 ```
@@ -354,11 +359,11 @@ cv_results <- lapply(cv_folds, function(fold) {
               phylo = tree, data = d[, ctmax_vars], species = TRUE,
               runs = 10, n_final = 50, nitt = 15000, burnin = 3000, thin = 24)
 
-  # Mean and 95% credible interval of the 50 imputations of each hidden estimate
-  draws <- sapply(get_imputed_data(fit, format = "list"), function(x) x$CTmax[hidden])
-  data.frame(row_n = d$row_n[hidden], observed = observed, imputed = rowMeans(draws),
-             lower = apply(draws, 1, quantile, 0.025),
-             upper = apply(draws, 1, quantile, 0.975))
+  # Mean and 95% interval of each hidden estimate's 50 imputations
+  iv <- get_imputation_intervals(fit)
+  iv <- iv[iv$row %in% which(hidden), ]
+  data.frame(row_n = d$row_n[hidden], observed = observed,
+             imputed = iv$mean, lower = iv$lower, upper = iv$upper)
 })
 ```
 
@@ -366,12 +371,15 @@ cv_results <- lapply(cv_folds, function(fold) {
 #| label: amph-cv-summary
 #| echo: true
 #| code-fold: true
-# Results of the five folds, as returned by the code above
+# Results of the five folds, as returned by the code above.
+# Intervals: mean +/- t * sqrt(1 + 1/50) * sd across the 50 imputations
+# (get_imputation_intervals()'s construction; raw quantiles undercover)
+amph_cv_ci <- qt(0.975, 50 - 1) * sqrt(1 + 1 / 50)
 amph_cv_df <- do.call(rbind, lapply(amph_cv, function(f) data.frame(
   fold = f$fold, row_n = f$row_n, species = f$species, observed = f$truth,
   imputed = rowMeans(f$draws),
-  lower = apply(f$draws, 1, quantile, 0.025),
-  upper = apply(f$draws, 1, quantile, 0.975))))
+  lower = rowMeans(f$draws) - amph_cv_ci * apply(f$draws, 1, sd),
+  upper = rowMeans(f$draws) + amph_cv_ci * apply(f$draws, 1, sd))))
 
 # Three species were hidden in two folds; count each hidden estimate once
 twice <- amph_cv_df$row_n[duplicated(amph_cv_df$row_n)]
@@ -390,14 +398,16 @@ amph_cv_tab <- data.frame(
 ```{r}
 #| label: tbl-amph-cv
 #| echo: false
-#| tbl-cap: "Accuracy of imputed CTmax for the experimental estimates hidden in cross-validation. r: correlation between imputed and experimental values. RMSE: root-mean-square error (°C). Mean error: imputed minus experimental CTmax (°C). Coverage: percentage of hidden estimates within the 95% credible interval of the imputed values."
+#| tbl-cap: "Accuracy of imputed CTmax for the experimental estimates hidden in cross-validation. r: correlation between imputed and experimental values. RMSE: root-mean-square error (°C). Mean error: imputed minus experimental CTmax (°C). Coverage: percentage of hidden estimates within the 95% imputation interval."
 amph_cv_show <- amph_cv_tab
 amph_cv_show$coverage95 <- sprintf("%.0f%%", 100 * amph_cv_show$coverage95)
 knitr::kable(amph_cv_show, digits = 2, align = "rrrrr",
              col.names = c("n", "r", "RMSE", "Mean error", "Coverage"))
 ```
 
-BACE imputed the `r fmt0(amph_cv_tab$n)` hidden estimates of `r length(unique(amph_cv_df$species))` species with r = `r fmt(amph_cv_tab$r)` and a root-mean-square error (RMSE) of `r fmt(amph_cv_tab$RMSE)` °C (@tbl-amph-cv; @fig-amph-cv). The 95% credible intervals contained `r sum(amph_cv_df$observed >= amph_cv_df$lower & amph_cv_df$observed <= amph_cv_df$upper)` of the `r fmt0(amph_cv_tab$n)` hidden estimates (`r round(100 * amph_cv_tab$coverage95)`%), close to the nominal 95%.
+BACE imputed the `r fmt0(amph_cv_tab$n)` hidden estimates of `r length(unique(amph_cv_df$species))` species with r = `r fmt(amph_cv_tab$r)` and a root-mean-square error (RMSE) of `r fmt(amph_cv_tab$RMSE)` °C (@tbl-amph-cv; @fig-amph-cv). The 95% imputation intervals contained `r sum(amph_cv_df$observed >= amph_cv_df$lower & amph_cv_df$observed <= amph_cv_df$upper)` of the `r fmt0(amph_cv_tab$n)` hidden estimates (`r round(100 * amph_cv_tab$coverage95)`%), close to the nominal 95%.
+
+This RMSE equals a zRMSE of `r fmt(amph_cv_tab$RMSE / sd(amph_exp$CTmax[!amph_exp$row_n %in% amph_cv_df$row_n]))` on the standardised scale used by the simulations and by `bace_validate()`. We kept this cross-validation hand-coded to show how it works step-by-step, and because its folds are fixed, published sets of species tested under comparable conditions. `bace_validate()` instead hides cells at random, so it is a useful check when no such structured design exists.
 
 On average, imputed values were `r fmt(abs(amph_cv_tab$mean_error))` °C `r if (amph_cv_tab$mean_error < 0) "lower" else "higher"` than experimental values (`r fmt(mean(amph_cv_df$imputed))` ± `r fmt(sd(amph_cv_df$imputed))` vs `r fmt(mean(amph_cv_df$observed))` ± `r fmt(sd(amph_cv_df$observed))` °C). Here, imputations primarily underestimated the heat tolerance of the most tolerant species, but there was overall good congruence with the experimental dataset.
 

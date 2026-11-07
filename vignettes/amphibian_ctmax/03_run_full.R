@@ -63,8 +63,9 @@ if (mode == "combine") {
     acclimation_temp = ctmax_data$acclimation_temp[std],
     CTmax_mean = rowMeans(draws[std, ]),
     CTmax_sd   = apply(draws[std, ], 1, sd),
-    lower95    = apply(draws[std, ], 1, quantile, 0.025),
-    upper95    = apply(draws[std, ], 1, quantile, 0.975))
+    # 95% imputation interval (Rubin t, as in get_imputation_intervals())
+    lower95    = rowMeans(draws[std, ]) - qt(0.975, 49) * sqrt(1.02) * apply(draws[std, ], 1, sd),
+    upper95    = rowMeans(draws[std, ]) + qt(0.975, 49) * sqrt(1.02) * apply(draws[std, ], 1, sd))
 
   # Pooled posterior of the CTmax model: stack the per-imputation draws, as
   # pool_posteriors() does. Coefficients are on BACE's internal z-scale; the

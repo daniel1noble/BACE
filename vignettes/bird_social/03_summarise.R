@@ -495,8 +495,12 @@ hwi_scores <- data.frame(method = names(hwi_pred),
                          rmse = sapply(hwi_pred, function(p) sqrt(mean((p - hwi_true)^2))),
                          correlation = sapply(hwi_pred, function(p) suppressWarnings(cor(p, hwi_true))),
                          row.names = NULL)
-hwi_scores$coverage90 <- c(mean(hwi_true >= apply(hwi_imp, 1, quantile, 0.05) &
-                                  hwi_true <= apply(hwi_imp, 1, quantile, 0.95)), NA, NA, NA)
+# 95% imputation interval (Rubin t, as in get_imputation_intervals();
+# raw quantiles of 20 imputations undercover). Field keeps its old name so
+# archived results and the qmd stay compatible.
+hwi_t <- qt(0.975, ncol(hwi_imp) - 1) * sqrt(1 + 1 / ncol(hwi_imp))
+hwi_scores$coverage90 <- c(mean(abs(hwi_true - rowMeans(hwi_imp)) <=
+                                  hwi_t * apply(hwi_imp, 1, sd)), NA, NA, NA)
 # Squared error of the closest-relatives mean minus that of BACE, resampling families
 set.seed(30)
 hwi_gain_d  <- (hwi_pred$nearest_relatives - hwi_true)^2 - (hwi_pred$bace - hwi_true)^2
