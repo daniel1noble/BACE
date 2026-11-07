@@ -552,3 +552,100 @@ adversarially reviewed twice; feature 1 + its 4a prerequisite now LANDED).
   (a) accept + document (recommended: the conservative direction is safe);
   (b) bump default sweeps for multiPhylo runs; (c) extend the study
   (resumable cache; seeds are cheap at 1 min each).
+
+## 2026-11-07 (later still): Feature 2 implemented — bace_validate() + get_imputation_intervals()
+
+Per plan feature 2 (Dan asked for plain-language docs, simple functions,
+accuracy). New `R/bace_validate.R`:
+
+- **bace_validate()**: hides `prop` of each variable's OBSERVED cells (never
+  the cluster; never empties a factor class; <10 observed cells -> skip +
+  warn), runs the full bace() pipeline on the masked data, scores against the
+  hidden truth. Metrics match the ms EXACTLY: zRMSE = RMSE of across-M mean /
+  SD of remaining observed (mean-filler baseline printed beside it); coverage
+  = per-cell Rubin t-interval, with a simulated fair expectation for
+  low-count poisson (<2 mean rate); accuracy/balanced accuracy vs
+  commonest-class baseline; Brier from MI-averaged prob_preds; optional
+  per-variable logit scoring (ms clipping 1e-4). reps>=2 gives
+  between-rep SEs. Scoring lives in its own seam (.score_validation) so every
+  formula is unit-tested on hand-computed answers. Honest-docs: MCAR caveat
+  (cannot detect MNAR), Amelia overimpute() comparison (ours masks a share at
+  once = harsher), cost note (retry ladder multiplies). seed fixes masks
+  exactly; scores only approximately (chained phase unseeded by design —
+  doc corrected after a test caught my over-claim).
+- **get_imputation_intervals()**: exported per-cell Rubin t-intervals from
+  $all_datasets (nominal for any n_final >= ~20); the n_final roxygen in
+  bace()/bace_final_imp() now points here instead of teaching the ~92%
+  empirical-quantile recipe.
+- **Verified**: 89 new expectations (hand-checked zRMSE/coverage/Brier/
+  balanced-accuracy/logit arithmetic incl. adversarial prob-row matching with
+  replicated species and pre-existing NAs; calibrated-imputer coverage sim
+  0.92-0.98 band; mask bookkeeping + RNG restore). Full suite **1581 pass /
+  0 fail**; `R CMD check --as-cran` **0/0/0** (one roxygen-markdown bracket
+  autolink fixed). dev/17_validate_metric_gates.R at realistic scale (60 sp,
+  prop 0.3, 5 reps/type): **ALL PASS** (gaussian zRMSE well under baseline,
+  coverage in band; categorical accuracy 0.57 > 0.53 baseline).
+- Vignette benchmarking section rewritten around bace_validate(); function
+  map gains a "check it works" box (SVG + PNG regenerated). NEWS updated.
+- **Outstanding**: the 3-agent adversarial review of this code died on the
+  account's 5-hour usage limit before producing findings; it re-runs after
+  the 12:20pm reset (timer set). Treat feature 2 as implemented but not yet
+  adversarially reviewed.
+
+## 2026-11-07 (validate follow-up): bace_validate() is now fit-first; map updated
+
+Dan asked why validation sat at the START of the workflow and whether it could
+take a finished bace object. Answer (now in the docs): a finished run cannot
+be scored directly (nothing held out), so the check always RE-RUNS on masked
+data — but `bace_validate(fit)` now takes the `bace_complete` object and
+reuses its data, formulas, tree(s), chained-iteration count and settings, so
+nothing is re-typed. Implementation: bace_validate is an S3 generic
+(.bace_complete / .character / .list methods over one workhorse);
+bace_final_imp now stores `$settings` (ran_phylo_form as given, nitt/thin/
+burnin, species, ovr_categorical, nitt_cat_mult, priors) and `$trees_used`
+(additive fields — also future checkpoint-fingerprint inputs). Older objects
+without settings get a clear error. Function map: bace_validate() box retitled
+("check a finished run"; arrow now data -> box) and a third accessor box
+get_imputation_intervals() added under get_imputed_data() (accessor column
+compacted to fit; pool_mi untouched). Both figure captions (vignette + ms)
+name the new functions. Vignette leads with bace_validate(fit). Tests: 1598
+pass / 0 fail (settings-handover mock test + end-to-end fit-method test).
+Adversarial review of feature 2 still pending the usage-limit reset.
+
+Correction to the map note above (Dan, same day): bace_validate() is now its
+OWN dashed box in the bottom helper row, downstream of the bace() band (dashed
+arrow from the band's bottom edge), not attached to the raw-data node; the
+left node is back to "simulate test data" (sim_bace/sim_tree). PNG regenerated
+and visually checked.
+
+## 2026-11-07 (validate review): adversarial review done, all findings fixed
+
+3-agent review (statistics / break-it-by-running-it / docs accuracy) of
+bace_validate + get_imputation_intervals. Verified sound: zRMSE, t-interval,
+logit path, count floors all reproduced exactly against ms + rubin_lib; the
+fit-first handover faithful (mock + real fits); Brier row-matching safe.
+Fixed from findings (all reproduced by the reviewers before fixing):
+- MUST: list-formula fits with a complete predictor-only covariate crashed
+  bace_validate(fit) — masking now targets only response (imputed) variables.
+- MUST: roxygen \% under markdown double-escaped and CORRUPTED the rendered
+  help pages (bace_validate, get_imputation_intervals, bace_final_imp) — all
+  now "percent"/plain text (house style).
+- MUST: bace_final_imp's new $settings/$trees_used return fields were
+  undocumented — @return now lists them (+ miss_dat/n_final/sweeps/seed).
+- Tie votes now get FRACTIONAL credit (ms rule; was first-alphabetical —
+  ~11% of maximally-uncertain binary cells were decided by label order at
+  even M); baseline uses the same rule.
+- Count coverage expectation: always simulated from the variable's own rates
+  (the mean<2 gate misreported mixtures on both sides), fixed internal seed
+  (printed expectation is reproducible), n_sim scaled to ~20k total draws.
+- Date-style seeds (e.g. 20261107) no longer overflow (mask seeds derived
+  via RNG, not seed*1000); character vectors of formulas refused with a
+  clear message; a formula method added; scale typos warn; settings
+  overrides on the fit method warn instead of being silently dropped; type
+  flips caused by masking warn; numeric masking always leaves >= 2 observed
+  cells; summaries drop NA reps per metric; intervals degrade clearly at
+  M=1 / all-factor; print wording fixes (SE label, zero-width instances,
+  Brier 0-2 anchor, commonest OBSERVED class, per-repetition).
+- NEWS leads with the fit-first form and scopes the "manuscript metrics"
+  claim honestly; vignette's "well calibrated" quantile-interval claim
+  corrected. Suite: **1626 pass / 0 fail**; R CMD check **0/0/0**.

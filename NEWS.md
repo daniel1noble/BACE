@@ -1,5 +1,28 @@
 # BACE 0.1.0.9000 (development version)
 
+* **New `bace_validate()`: check how well BACE imputes YOUR data.** The
+  natural call is on a finished run — `bace_validate(fit)` reuses the run's
+  data, formulas, tree(s) and settings (now stored on the result as
+  `$settings` and `$trees_used`) and re-runs the pipeline on freshly masked
+  observed cells, scoring the imputations against the hidden truth; the
+  direct data-and-formulas form works without a prior run. zRMSE (with its
+  mean-filling baseline), 95% interval coverage (with a simulated fair
+  expectation for counts) and accuracy (with fractional credit for tied
+  votes) match the manuscript's definitions exactly; balanced accuracy and
+  the Brier score are reported in addition. Repetitions (`reps`) give an
+  honest between-repetition uncertainty. Inspired by Amelia's `overimpute()`
+  (Honaker, King & Blackwell 2011, *J Stat Softw* 45(7)), but deliberately
+  harsher (a share of cells is hidden at once). The docs state plainly what
+  the check cannot do: it validates prediction where data were observed and
+  cannot detect missing-not-at-random bias.
+
+* **New `get_imputation_intervals()`: calibrated per-cell intervals for
+  imputed values.** The standard multiple-imputation t-interval (Rubin 1987),
+  which holds its 95% level for any `n_final` of about 20 or more — unlike
+  the raw 2.5/97.5% quantiles of the imputed values (≈92% at `n_final = 50`),
+  which the documentation previously suggested. The `n_final` documentation
+  now points here.
+
 * **Phylogenetic (tree) uncertainty can now be propagated through the
   imputations.** `bace()`, `bace_imp()` and `bace_final_imp()` accept a
   `multiPhylo` (or list of trees) as `phylo`: the convergence chain conditions

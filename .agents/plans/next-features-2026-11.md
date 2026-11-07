@@ -2,7 +2,9 @@
 
 > **Status (2026-11-07):** 4a + feature 1 IMPLEMENTED (tests 1492/0; see
 > `.agents/project-state.md` for the landing record). Feature 1's dev/ gate
-> study still owed. Features 2, 3, 4b–4d not started.
+> study RUN (leakage refuted; sweeps-3-vs-10 equivalence not shown at 100
+> seeds -- see project-state). Feature 2 (bace_validate + get_imputation_intervals)
+> IMPLEMENTED and adversarially reviewed. Features 3, 4b–4d not started.
 
 Dan picked these four (2026-11-07) from the "what would make BACE better" discussion:
 
