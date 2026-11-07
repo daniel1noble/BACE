@@ -491,8 +491,10 @@ Our second case study combined social-behaviour records from BIRDBASE [@sekercio
 #| fig-cap: |
 #|   Validation of imputed amphibian heat tolerance and bird traits.
 #|   (a) Imputed against experimental CTmax for the estimates hidden in
-#|   cross-validation. Each point is one hidden estimate, with the 95% credible
-#|   interval of its imputed values; the dashed line shows perfect agreement.
+#|   cross-validation. Each point is one hidden estimate, with the 95%
+#|   multiple-imputation interval of its imputed values (mean ± t-based
+#|   interval across the 50 imputations, as in panel c); the dashed line
+#|   shows perfect agreement.
 #|   (b) Distributions of experimental and imputed values for the same hidden
 #|   estimates. (c) Mean imputed against measured hand-wing index for 2,113
 #|   bird species in the joint imputation of wing shape and social grouping
@@ -522,11 +524,15 @@ amph_theme <- theme_classic(base_size = 11) +
   theme(panel.border = element_rect(fill = NA, colour = "black"),
         legend.position = "none")
 
+# 95% multiple-imputation interval per hidden estimate (mean +/- t-based
+# interval across the 50 imputations; same construction as panel c and as
+# BACE::get_imputation_intervals())
+amph_ci <- qt(0.975, 50 - 1) * sqrt(1 + 1 / 50)
 amph_cv_df <- do.call(rbind, lapply(amph_cv, function(f) data.frame(
   fold = f$fold, row_n = f$row_n, species = f$species, observed = f$truth,
   imputed = rowMeans(f$draws),
-  lower = apply(f$draws, 1, quantile, 0.025),
-  upper = apply(f$draws, 1, quantile, 0.975))))
+  lower = rowMeans(f$draws) - amph_ci * apply(f$draws, 1, sd),
+  upper = rowMeans(f$draws) + amph_ci * apply(f$draws, 1, sd))))
 
 # Three species were hidden in two folds; count each hidden estimate once
 twice <- amph_cv_df$row_n[duplicated(amph_cv_df$row_n)]
@@ -580,6 +586,7 @@ bird_hwi <- data.frame(observed = bird_mix$hwi_true,
                        imputed = bird_mix$hwi_imputed_mean,
                        sd = bird_mix$hwi_imputed_sd)
 ci_mult <- qt(0.975, 19) * sqrt(1 + 1 / 20)   # same MI interval as the simulations
+                                              # and BACE::get_imputation_intervals()
 bird_hwi$lower <- bird_hwi$imputed - ci_mult * bird_hwi$sd
 bird_hwi$upper <- bird_hwi$imputed + ci_mult * bird_hwi$sd
 hwi_r <- cor(bird_hwi$observed, bird_hwi$imputed)

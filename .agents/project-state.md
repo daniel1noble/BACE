@@ -649,3 +649,45 @@ Fixed from findings (all reproduced by the reviewers before fixing):
 - NEWS leads with the fit-first form and scopes the "manuscript metrics"
   claim honestly; vignette's "well calibrated" quantile-interval claim
   corrected. Suite: **1626 pass / 0 fail**; R CMD check **0/0/0**.
+
+## 2026-11-08: New functions integrated into both case studies
+
+Dan asked to integrate bace_validate()/get_imputation_intervals() into
+Patrice's and Ayumi's case studies, with two rules: outputs must match what
+the case studies already do, and the ms case-studies figure must reproduce.
+Mapping (2-agent workflow, archives str()-verified) + integration done:
+
+- **What CANNOT be replaced, and why (documented in each case study):**
+  both validation DESIGNS are structured — Patrice re-runs Pottier et al.
+  2025's five fixed, species-clustered, condition-stratified folds; Ayumi
+  holds out 630 random species + 631 species in 38 whole families (and
+  measured-only hwi cells). bace_validate() masks random observed cells
+  only (no fixed sets/folds/blocks; every response variable masked) and
+  lacks their metrics (raw-unit RMSE, bias, RPS, recall/confusion,
+  calibration, family bootstrap, bespoke baselines). The hand-coded designs
+  stay authoritative; each case study now says so in one plain sentence.
+  Also: NO archived object is a bace_final/bace_complete (plain summary
+  lists only; results/tmp deleted; runs at dc79be1 predate $settings), so
+  the functions cannot be CALLED on archives — the t-interval FORMULA
+  integrates instead, recomputed from archived draws/means/sds, no refits.
+- **What integrated (verified from archives before editing):**
+  (1) Interval construction everywhere: amphibian CV + full-run intervals,
+  bird hwi coverage, ms fig panel (a) switched from empirical quantiles to
+  the Rubin t-interval (= get_imputation_intervals, proven identical to the
+  ms panel-c hand formula to machine precision). Coverage: amphibian CV
+  0.925 -> 0.941 (353/375; r/RMSE/bias unchanged 0.864/1.437/-0.451); bird
+  hwi 0.856 (empirical 90%) -> 0.950 (exactly nominal) — the tutorial's
+  "~82% expected even if calibrated" apology deleted. Widths ~+12%.
+  (2) Displayed (eval:false) code now shows get_imputation_intervals(fit).
+  (3) Bird holdout gains a Brier line (0.519) tied to bace_validate
+  vocabulary; amphibian CV gains the zRMSE bridge (0.400, computed inline).
+  (4) Future-rerun patches: 03_run_full.R (amph) and 03_summarise.R (bird)
+  now compute t-intervals (field names kept for compatibility).
+- **ms figure verified reproduced** (page 14 eyeballed): all four panels,
+  identical headline stats; caption now calls panels (a) and (c) the same
+  95% multiple-imputation interval (was "95% credible interval" over a ~92%
+  quantile interval — an internal inconsistency, now fixed).
+- NOT done (optional, flagged to Dan): running bace_validate() as a NEW
+  complementary analysis on the case data (~4 h/rep amphibian experimental
+  subset; ~hours bird) — a fresh analysis, not an integration.
+- README quick-start updated with both functions (same day, earlier).
