@@ -691,3 +691,22 @@ Mapping (2-agent workflow, archives str()-verified) + integration done:
   complementary analysis on the case data (~4 h/rep amphibian experimental
   subset; ~hours bird) — a fresh analysis, not an integration.
 - README quick-start updated with both functions (same day, earlier).
+
+## 2026-11-08: CRAN-ready at 0.2.0 (not submitted)
+
+Full checklist: `.agents/plans/cran-submission.md`. Headline: `R CMD check
+--as-cran --run-donttest` is **0 errors / 0 warnings / 0 notes**, tarball
+`BACE_0.2.0.tar.gz` (223 KB) builds clean with no dev/ms/vignettes leakage.
+Version bumped 0.1.0.9000 -> 0.2.0 (0.1.0 is already on GitHub and pinned by
+the bird case study, so it cannot be reused for different code).
+
+Two genuine defects found and fixed, both of which CRAN would have caught:
+(1) graphics/grDevices/stats/utils were imported in NAMESPACE and parallel::
+and tools:: called in code, with NONE declared in DESCRIPTION Imports;
+(2) get_imputation_intervals() had no examples, and the bace_validate()
+example ran 6.4 s (over CRAN's 5 s flag) -- now 0.5 s and 2.9 s.
+Also updated: NEWS header, cran-comments.md (incl. why 0.2.0), inst/WORDLIST.
+
+NOT sent: no win-builder, no submission -- both need Dan's explicit go.
+Open question for Dan: the package ships no vignette (tutorial is a 12 MB
+website); acceptable but a reviewer may ask.

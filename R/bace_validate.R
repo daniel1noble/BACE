@@ -48,6 +48,20 @@
 #' @references Rubin, D. B. (1987) Multiple Imputation for Nonresponse in
 #'   Surveys. Wiley.
 #' @seealso \code{\link{get_imputed_data}}, \code{\link{bace_validate}}
+#' @examples
+#' \donttest{
+#' set.seed(1)
+#' sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
+#'                 phylo_signal = c(0.6, 0.6), missingness = c(0.2, 0),
+#'                 n_cases = 40, n_species = 40)
+#' fit <- bace(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
+#'             phylo = sim$tree, data = sim$data, runs = 2, nitt = 400,
+#'             burnin = 100, thin = 2, n_final = 5, skip_conv = TRUE,
+#'             verbose = FALSE)
+#'
+#' # Mean and 95% interval for every imputed cell
+#' head(get_imputation_intervals(fit))
+#' }
 #' @export
 get_imputation_intervals <- function(object, variable = NULL, level = 0.95) {
   fin <- if (inherits(object, "bace_complete")) object$final_results else object
@@ -229,8 +243,8 @@ get_imputation_intervals <- function(object, variable = NULL, level = 0.95) {
 #' # A (deliberately fast) run, then validate it: the finished object's
 #' # data, tree and settings are reused -- nothing re-typed.
 #' fit <- bace(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
-#'             phylo = sim$tree, data = sim$data, runs = 3, nitt = 800,
-#'             burnin = 200, thin = 2, n_final = 10, skip_conv = TRUE,
+#'             phylo = sim$tree, data = sim$data, runs = 2, nitt = 400,
+#'             burnin = 100, thin = 2, n_final = 5, skip_conv = TRUE,
 #'             verbose = FALSE)
 #' v <- bace_validate(fit, prop = 0.2, seed = 1, verbose = FALSE)
 #' v
@@ -238,8 +252,8 @@ get_imputation_intervals <- function(object, variable = NULL, level = 0.95) {
 #' # The same check straight from data and formulas (no prior run needed):
 #' v2 <- bace_validate("y ~ x1", ran_phylo_form = "~ 1 | Species",
 #'                     phylo = sim$tree, data = sim$data, prop = 0.2,
-#'                     runs = 3, nitt = 800, burnin = 200, thin = 2,
-#'                     n_final = 10, skip_conv = TRUE, verbose = FALSE,
+#'                     runs = 2, nitt = 400, burnin = 100, thin = 2,
+#'                     n_final = 5, skip_conv = TRUE, verbose = FALSE,
 #'                     seed = 1)
 #' }
 #' @export

@@ -42,6 +42,21 @@ stays close to its stated level from M of about 20. Taking the 2.5 and
 Intervals are only meaningful for numeric variables (continuous or count);
 rows for factor variables are left out.
 }
+\examples{
+\donttest{
+set.seed(1)
+sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
+                phylo_signal = c(0.6, 0.6), missingness = c(0.2, 0),
+                n_cases = 40, n_species = 40)
+fit <- bace(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
+            phylo = sim$tree, data = sim$data, runs = 2, nitt = 400,
+            burnin = 100, thin = 2, n_final = 5, skip_conv = TRUE,
+            verbose = FALSE)
+
+# Mean and 95\% interval for every imputed cell
+head(get_imputation_intervals(fit))
+}
+}
 \references{
 Rubin, D. B. (1987) Multiple Imputation for Nonresponse in
 Surveys. Wiley.

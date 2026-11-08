@@ -1,4 +1,4 @@
-# CRAN comments for BACE 0.1.0
+# CRAN comments for BACE 0.2.0
 
 ## Test environments
 
@@ -20,15 +20,17 @@ resolves normally in a browser.
 
 ## Comments
 
-* First submission of BACE to CRAN.
+* First submission of BACE to CRAN. The version is 0.2.0 because 0.1.0 was
+  distributed from GitHub and is pinned by published analyses; this release
+  adds new user-facing functions, so it carries a distinct version number.
 * All examples are executable. Examples that fit MCMC models are wrapped in
   \donttest{} and use deliberately small simulated datasets and short chains;
-  the full set (including \donttest) completes in roughly 10 seconds locally.
-* The test suite (1424 tests) completes in about two minutes: MCMC-dependent
+  the full set (including \donttest) completes in well under a minute locally.
+* The test suite (1600+ tests) completes in about two minutes: MCMC-dependent
   tests use very small chains, and the heaviest scenarios are additionally
   guarded with skip_on_cran().
 * Words flagged by spell checking are statistical/phylogenetics terminology,
-  author surnames, and R package names (see inst/WORDLIST). In particular,
-  the DESCRIPTION words flagged by win-builder — Hadfield, Zhou, Reiter —
-  are surnames from the method references, and "phylogenetically" is
+  author surnames, and R package or argument names (see inst/WORDLIST). In
+  particular, the DESCRIPTION words flagged by win-builder — Hadfield, Zhou,
+  Reiter — are surnames from the method references, and "phylogenetically" is
   standard phylogenetics terminology.

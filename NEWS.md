@@ -1,4 +1,4 @@
-# BACE 0.1.0.9000 (development version)
+# BACE 0.2.0
 
 * **New `bace_validate()`: check how well BACE imputes YOUR data.** The
   natural call is on a finished run — `bace_validate(fit)` reuses the run's

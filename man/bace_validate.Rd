@@ -205,8 +205,8 @@ sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
 # A (deliberately fast) run, then validate it: the finished object's
 # data, tree and settings are reused -- nothing re-typed.
 fit <- bace(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
-            phylo = sim$tree, data = sim$data, runs = 3, nitt = 800,
-            burnin = 200, thin = 2, n_final = 10, skip_conv = TRUE,
+            phylo = sim$tree, data = sim$data, runs = 2, nitt = 400,
+            burnin = 100, thin = 2, n_final = 5, skip_conv = TRUE,
             verbose = FALSE)
 v <- bace_validate(fit, prop = 0.2, seed = 1, verbose = FALSE)
 v
@@ -214,8 +214,8 @@ v
 # The same check straight from data and formulas (no prior run needed):
 v2 <- bace_validate("y ~ x1", ran_phylo_form = "~ 1 | Species",
                     phylo = sim$tree, data = sim$data, prop = 0.2,
-                    runs = 3, nitt = 800, burnin = 200, thin = 2,
-                    n_final = 10, skip_conv = TRUE, verbose = FALSE,
+                    runs = 2, nitt = 400, burnin = 100, thin = 2,
+                    n_final = 5, skip_conv = TRUE, verbose = FALSE,
                     seed = 1)
 }
 }
