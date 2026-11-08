@@ -71,6 +71,15 @@
 #'   scale, which the category-probability computations rely on). For a
 #'   one-vs-rest categorical variable the same prior is reused for each of its
 #'   binary sub-models. See the Priors section in \code{?bace} for the defaults.
+#' @param checkpoint_dir Optional directory in which to save the finished
+#'   convergence chain, so an interrupted analysis can resume instead of
+#'   re-running it. This phase is deliberately unseeded and so cannot be
+#'   reproduced by re-running it; saving it is what makes a resume faithful.
+#'   Calling again with the same arguments and directory loads the saved
+#'   chain. No seed is needed here (the final phase is where reproducibility
+#'   is pinned). If a setting that would change the result differs from the
+#'   saved work, the resume is refused and the differing settings are named.
+#'   Default \code{NULL} (no checkpointing).
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
 #' @return A list containing imputed datasets and model summaries.
 #' @examples
@@ -88,7 +97,7 @@
 #' str(fit$types)
 #' }
 #' @export
-bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, species = FALSE, verbose = TRUE, nitt_cat_mult = 1L, ovr_categorical = FALSE, priors = NULL, ...){
+bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, species = FALSE, verbose = TRUE, nitt_cat_mult = 1L, ovr_categorical = FALSE, priors = NULL, checkpoint_dir = NULL, ...){
 	#---------------------------------------------#
 	# Preparation steps & Checks
 	#---------------------------------------------#
@@ -238,6 +247,51 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 				}
 			}
 		}
+
+	#---------------------------------------------#
+	# Checkpoint/resume
+	#---------------------------------------------#
+	# This phase is deliberately unseeded, so it cannot be reproduced by
+	# re-running it: a finished chain is therefore SAVED, and a resume loads
+	# it rather than computing a different one. No seed is needed (or used)
+	# here; the final phase is where reproducibility is pinned.
+	ckpt_files <- NULL
+	if (!is.null(checkpoint_dir)) {
+		checkpoint_dir <- .ckpt_dir_prepare(checkpoint_dir, "bace_imp")
+		.ckpt_sweep_stale(checkpoint_dir, verbose = verbose)
+		ckpt_files <- .ckpt_chain_files(checkpoint_dir, runs)
+		ckpt_manifest <- c(list(
+			data            = .hash_obj(data_sub),
+			formulas        = .ckpt_formula_text(formulas),
+			ran_phylo_form  = .ckpt_formula_text(ran_phylo_form),
+			nitt            = .hash_obj(nitt_list),
+			thin            = .hash_obj(thin_list),
+			burnin          = .hash_obj(burnin_list),
+			runs            = runs,
+			priors          = .hash_obj(priors),
+			ovr_categorical = ovr_categorical,
+			species         = species,
+			trees           = vapply(.as_tree_list(phylo, "bace_imp"),
+			                         .tree_cache_key, character(1L))
+		), .ckpt_common())
+		had_manifest <- .ckpt_manifest_check(ckpt_files$manifest, ckpt_manifest,
+		                                     what = "convergence-chain",
+		                                     verbose = verbose)
+		if (had_manifest && file.exists(ckpt_files$object)) {
+			saved <- tryCatch(readRDS(ckpt_files$object), error = function(e) NULL)
+			if (inherits(saved, "bace")) {
+				if (verbose) {
+					cat("\nResuming from checkpoint: convergence chain (",
+					    runs, " iterations) loaded from disk.\n", sep = "")
+				}
+				return(saved)
+			}
+			if (verbose) {
+				message("checkpoint: the saved convergence chain could not be ",
+				        "read; running it again.")
+			}
+		}
+	}
 
 	# Now, we can loop through the number of runs specified by the user
 		for(r in 2:(runs+1)){
@@ -424,6 +478,13 @@ if(verbose){
 	# Still compute diagnostics but don't print
 	    diagnostics <- .check_mcmc_diagnostics(out)
 	out$diagnostics <- diagnostics
+}
+
+# Save the finished chain so an interrupted session can resume from here
+# rather than re-running a phase whose result cannot be reproduced.
+if (!is.null(ckpt_files)) {
+	.ckpt_write(out, ckpt_files$object, compress = FALSE)
+	if (verbose) cat("Convergence chain saved to", ckpt_files$object, "\n")
 }
 
 return(out)

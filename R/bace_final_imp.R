@@ -73,6 +73,20 @@
 #'   \code{n_cores}), and the serial retry of a failed parallel worker reuses
 #'   exactly the stream that worker should have consumed. The caller's RNG
 #'   state is restored on exit. Default NULL (previous behaviour).
+#' @param checkpoint_dir Optional directory in which to save each final
+#'   imputation run as soon as it completes, so an interrupted analysis can be
+#'   resumed instead of restarted. Calling again with the same arguments and
+#'   the same directory loads the runs that finished and computes only the
+#'   rest. Requires \code{seed}: each run draws from its own random-number
+#'   stream derived from the seed and the run number, which is what makes a
+#'   resumed run identical to one that was never interrupted. If a setting
+#'   that would change the results differs from the saved work, the resume is
+#'   refused and the differing settings are named. A saved run is treated as
+#'   final and never recomputed. Default \code{NULL} (no checkpointing).
+#' @param checkpoint_compress Logical; compress the saved runs. Default
+#'   \code{FALSE}: on MCMC output compression costs roughly 28 times the
+#'   writing time for about 4 percent of the size. Saved runs hold full model
+#'   fits, so expect large files on big datasets.
 #' @param ... Additional arguments passed to modeling functions
 #' @return A list of class 'bace_final' containing:
 #'   - all_models: List of length n_final, each containing models for all variables
@@ -103,9 +117,12 @@
 #'     align species-level BLUPs by name when trees differ)
 #'   - trees_used: the validated tree(s) themselves, stored so
 #'     \code{\link{bace_validate}} can re-run the pipeline faithfully
-#'   - settings: the model settings as the user supplied them
+#'   - settings: the settings THESE final runs were fitted with
 #'     (ran_phylo_form, nitt, thin, burnin, species, ovr_categorical,
-#'     nitt_cat_mult, priors), stored for the same reason
+#'     nitt_cat_mult, priors), stored for the same reason. When the run came
+#'     from \code{\link{bace}} with \code{final_nitt} and friends, these are
+#'     the final-phase values; \code{bace()} records both phases' settings on
+#'     its own result
 #'   - miss_dat: which cells were originally missing (row, column, name)
 #'   - n_final, sweeps, sweeps_requested, seed: the run sizes and seed as used
 #'   - call: The function call
@@ -140,7 +157,9 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
                            nitt = 6000, thin = 5, burnin = 1000,
                            n_final = 50, species = FALSE, verbose = TRUE,
                            n_cores = 1, nitt_cat_mult = 1L, ovr_categorical = FALSE,
-                           priors = NULL, sweeps = 3L, seed = NULL, ...) {
+                           priors = NULL, sweeps = 3L, seed = NULL,
+                           checkpoint_dir = NULL, checkpoint_compress = FALSE,
+                           ...) {
 
   # Check inputs
   if (!inherits(bace_object, "bace")) {
@@ -239,6 +258,57 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
   # extra passes change nothing and are skipped.
   n_miss_vars <- length(unique(miss_dat$colname))
   eff_sweeps  <- if (n_miss_vars <= 1L) 1L else sweeps
+
+  # --- Checkpoint/resume -----------------------------------------------------
+  # Each completed final run is saved as soon as it finishes, so an
+  # interrupted session can be resumed instead of restarted. A manifest
+  # records the settings this work was produced under; if a later call
+  # disagrees on anything that would change the results, the resume is
+  # refused and the differing settings are named.
+  if (!is.null(checkpoint_dir)) {
+    if (is.null(seed)) {
+      stop("bace_final_imp(): checkpoint_dir needs a seed. Each final run ",
+           "draws from its own random-number stream derived from the seed ",
+           "and the run number, which is what makes a resumed run identical ",
+           "to one that was never interrupted. Without a seed the resumed ",
+           "runs would differ from the saved ones, so please supply seed.",
+           call. = FALSE)
+    }
+    checkpoint_dir <- .ckpt_dir_prepare(checkpoint_dir, "bace_final_imp")
+    .ckpt_sweep_stale(checkpoint_dir, verbose = verbose)
+    manifest <- c(list(
+      # Every final run starts from this dataset. The convergence phase is
+      # unseeded, so re-running it gives a DIFFERENT starting point under
+      # identical arguments: without this field a resume could silently mix
+      # runs begun from two different converged states.
+      converged_data  = .hash_obj(last_data),
+      missing_cells   = .hash_obj(miss_dat),
+      types           = .hash_obj(types),
+      formulas        = .ckpt_formula_text(formulas),
+      ran_phylo_form  = .ckpt_formula_text(ran_phylo_form),
+      nitt            = .hash_obj(nitt_list),
+      thin            = .hash_obj(thin_list),
+      burnin          = .hash_obj(burnin_list),
+      sweeps          = eff_sweeps,
+      priors          = .hash_obj(priors),
+      ovr_categorical = ovr_categorical,
+      species         = species,
+      seed            = seed,
+      n_final         = n_final,
+      trees           = tree_hashes,
+      tree_index      = tree_index
+    ), .ckpt_common())
+    resuming <- .ckpt_manifest_check(
+      .ckpt_paths(checkpoint_dir)$final_manifest, manifest,
+      what = "final-imputation", verbose = verbose)
+    n_cached <- sum(file.exists(vapply(seq_len(n_final),
+                                       function(r) .ckpt_run_file(checkpoint_dir, r),
+                                       character(1L))))
+    if (verbose && n_cached > 0L) {
+      cat(sprintf("\nResuming from checkpoint: %d of %d final runs already done.\n",
+                  n_cached, n_final))
+    }
+  }
 
   # --- Reproducibility: one L'Ecuyer-CMRG stream per run --------------------
   # With `seed` set, serial and parallel execution give identical results,
@@ -493,8 +563,28 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
 
   # Run serially or in parallel
   run_one <- function(run, worker_verbose) {
-    .one_final_run(run, last_data, worker_verbose = worker_verbose,
-                   rng_state = if (is.null(streams)) NULL else streams[[run]])
+    cf <- if (is.null(checkpoint_dir)) NULL else
+      .ckpt_run_file(checkpoint_dir, run)
+    if (!is.null(cf) && file.exists(cf)) {
+      # A saved run is taken as final and never recomputed: a run that hit a
+      # tolerated warm-up failure consumed random numbers differently, so
+      # redoing it would not reproduce the saved values anyway.
+      cached <- tryCatch(readRDS(cf), error = function(e) NULL)
+      if (!is.null(cached)) {
+        if (worker_verbose) {
+          cat(paste0("Run ", run, "/", n_final, " - loaded from checkpoint\n"))
+        }
+        return(cached)
+      }
+      if (worker_verbose) {
+        cat(paste0("Run ", run, "/", n_final,
+                   " - saved file unreadable; recomputing\n"))
+      }
+    }
+    res <- .one_final_run(run, last_data, worker_verbose = worker_verbose,
+                          rng_state = if (is.null(streams)) NULL else streams[[run]])
+    if (!is.null(cf)) .ckpt_write(res, cf, compress = checkpoint_compress)
+    res
   }
 
   if (n_cores > 1L) {

@@ -1,5 +1,17 @@
 # BACE 0.2.0
 
+* **Long runs can now be resumed instead of restarted.** Give `bace()` (or
+  `bace_imp()` / `bace_final_imp()`) a `checkpoint_dir` and the convergence
+  chain is saved when it finishes, and each final imputation run as soon as it
+  completes. Calling again with the same arguments and the same directory
+  loads that work and computes only what is missing — so a session that dies
+  at hour 20 of a 24-hour run picks up where it left off. A resumed run gives
+  exactly the same answer as one that was never interrupted, which is why
+  `seed` is required. If any setting that would change the results differs
+  from the saved work, the resume is refused and the differing settings are
+  named, so results from two different analyses are never mixed. Default
+  `NULL`, i.e. off, and nothing else changes.
+
 * **The final imputation runs can now have their own MCMC settings.**
   `bace()` gains `final_nitt`, `final_thin` and `final_burnin` (default
   `NULL` = reuse the chained-phase settings, exactly as before). The two

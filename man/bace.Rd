@@ -30,6 +30,7 @@ bace(
   final_nitt = NULL,
   final_thin = NULL,
   final_burnin = NULL,
+  checkpoint_dir = NULL,
   ...
 )
 }
@@ -161,6 +162,19 @@ case study) keeps about 1,000 draws per model in each phase.
 \code{nitt_cat_mult} multiplies \code{final_nitt} and
 \code{final_burnin} for categorical and threshold variables, exactly as
 it does \code{nitt} and \code{burnin}; thinning is never multiplied.}
+
+\item{checkpoint_dir}{Optional directory in which to save progress, so an
+interrupted run can be resumed instead of restarted. The convergence
+chain is saved when it finishes and each final imputation run is saved as
+soon as it completes; calling \code{bace()} again with the same arguments
+and the same directory loads that work and computes only what is missing.
+Requires \code{seed}, which is what makes a resumed run identical to one
+that was never interrupted. If any setting that would change the results
+differs from the saved work, the resume is refused and the differing
+settings are named, so results from two different analyses are never
+mixed; use a new, empty directory to start fresh. Default \code{NULL}
+(no checkpointing). Saved final runs hold full model fits, so the files
+are large for big datasets.}
 
 \item{...}{Additional arguments to be passed to the underlying modeling functions.}
 }

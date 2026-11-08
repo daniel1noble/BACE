@@ -104,6 +104,18 @@
 #'   the other variables rather than on fixed point estimates. Automatically
 #'   reduced to 1 when at most one variable has missing data. See
 #'   \code{?bace_final_imp}.
+#' @param checkpoint_dir Optional directory in which to save progress, so an
+#'   interrupted run can be resumed instead of restarted. The convergence
+#'   chain is saved when it finishes and each final imputation run is saved as
+#'   soon as it completes; calling \code{bace()} again with the same arguments
+#'   and the same directory loads that work and computes only what is missing.
+#'   Requires \code{seed}, which is what makes a resumed run identical to one
+#'   that was never interrupted. If any setting that would change the results
+#'   differs from the saved work, the resume is refused and the differing
+#'   settings are named, so results from two different analyses are never
+#'   mixed; use a new, empty directory to start fresh. Default \code{NULL}
+#'   (no checkpointing). Saved final runs hold full model fits, so the files
+#'   are large for big datasets.
 #' @param seed Optional integer passed to \code{bace_final_imp()}: per-run RNG
 #'   streams make the final imputations reproducible and identical across serial
 #'   and parallel execution. Note it does not seed the convergence phase.
@@ -189,7 +201,7 @@ bace <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5,
                 nitt_cat_mult = 1L, ovr_categorical = FALSE,
                 phylo_signal = FALSE, priors = NULL, sweeps = 3L,
                 seed = NULL, final_nitt = NULL, final_thin = NULL,
-                final_burnin = NULL, ...) {
+                final_burnin = NULL, checkpoint_dir = NULL, ...) {
 
 # Arguments in ... have no consumer downstream (bace_imp / bace_final_imp
 # accept but never use them), so a typo like prior = ... would vanish
@@ -209,6 +221,16 @@ if (length(dots) > 0) {
 # user asked for their own. Resolved here, once, so both bace_final_imp()
 # call sites below (converged and skip_conv/non-converged) get the same
 # values; leaving these NULL reproduces the previous behaviour exactly.
+# Checkpointing needs a seed: each final run draws from its own stream
+# derived from the seed and the run number, which is what makes a resumed run
+# identical to one that was never interrupted. Checked here so the user is
+# told before any fitting starts, not hours later.
+if (!is.null(checkpoint_dir) && is.null(seed)) {
+  stop("bace(): checkpoint_dir needs a seed, so that a resumed run gives ",
+       "exactly the same results as one that was never interrupted. ",
+       "Please supply seed.", call. = FALSE)
+}
+
 # Check the user's final-phase settings BEFORE the chained phase runs: a typo
 # here would otherwise surface hours later, reported under the name "nitt".
 if (!is.null(final_nitt) || !is.null(final_thin) || !is.null(final_burnin)) {
@@ -294,7 +316,8 @@ start <- bace_imp(fixformula = fixformula, ran_phylo_form = ran_phylo_form,
                  phylo = phylo, data = data, nitt = nitt, thin = thin,
                  burnin = burnin, runs = runs, species = species,
                  verbose = verbose, nitt_cat_mult = nitt_cat_mult,
-                 ovr_categorical = ovr_categorical, priors = priors, ...)
+                 ovr_categorical = ovr_categorical, priors = priors,
+                 checkpoint_dir = checkpoint_dir, ...)
 
 ##-----------------------## 
 # Check convergence 
@@ -336,7 +359,8 @@ while (!converged && n_attempts < max_attempts && !skip_conv) {
                    phylo = phylo, data = data, nitt = nitt, thin = thin,
                    burnin = burnin, runs = runs_new, species = species,
                    verbose = verbose, nitt_cat_mult = nitt_cat_mult,
-                   ovr_categorical = ovr_categorical, priors = priors, ...)
+                   ovr_categorical = ovr_categorical, priors = priors,
+                   checkpoint_dir = checkpoint_dir, ...)
   
   converge <- assess_convergence(start, method = "summary")
 
@@ -379,6 +403,7 @@ if (converged) {
     priors = priors,
     sweeps = sweeps,
     seed = seed,
+    checkpoint_dir = checkpoint_dir,
     ...
   )
 
@@ -430,6 +455,7 @@ if (converged) {
     priors = priors,
     sweeps = sweeps,
     seed = seed,
+    checkpoint_dir = checkpoint_dir,
     ...
   )
 

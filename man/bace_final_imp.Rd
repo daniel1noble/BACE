@@ -21,6 +21,8 @@ bace_final_imp(
   priors = NULL,
   sweeps = 3L,
   seed = NULL,
+  checkpoint_dir = NULL,
+  checkpoint_compress = FALSE,
   ...
 )
 }
@@ -114,6 +116,22 @@ identical whether runs execute serially or in parallel (any
 exactly the stream that worker should have consumed. The caller's RNG
 state is restored on exit. Default NULL (previous behaviour).}
 
+\item{checkpoint_dir}{Optional directory in which to save each final
+imputation run as soon as it completes, so an interrupted analysis can be
+resumed instead of restarted. Calling again with the same arguments and
+the same directory loads the runs that finished and computes only the
+rest. Requires \code{seed}: each run draws from its own random-number
+stream derived from the seed and the run number, which is what makes a
+resumed run identical to one that was never interrupted. If a setting
+that would change the results differs from the saved work, the resume is
+refused and the differing settings are named. A saved run is treated as
+final and never recomputed. Default \code{NULL} (no checkpointing).}
+
+\item{checkpoint_compress}{Logical; compress the saved runs. Default
+\code{FALSE}: on MCMC output compression costs roughly 28 times the
+writing time for about 4 percent of the size. Saved runs hold full model
+fits, so expect large files on big datasets.}
+
 \item{...}{Additional arguments passed to modeling functions}
 }
 \value{
@@ -147,9 +165,12 @@ final run was fit under (all 1s for a single tree)
 align species-level BLUPs by name when trees differ)
 \item trees_used: the validated tree(s) themselves, stored so
 \code{\link{bace_validate}} can re-run the pipeline faithfully
-\item settings: the model settings as the user supplied them
+\item settings: the settings THESE final runs were fitted with
 (ran_phylo_form, nitt, thin, burnin, species, ovr_categorical,
-nitt_cat_mult, priors), stored for the same reason
+nitt_cat_mult, priors), stored for the same reason. When the run came
+from \code{\link{bace}} with \code{final_nitt} and friends, these are
+the final-phase values; \code{bace()} records both phases' settings on
+its own result
 \item miss_dat: which cells were originally missing (row, column, name)
 \item n_final, sweeps, sweeps_requested, seed: the run sizes and seed as used
 \item call: The function call

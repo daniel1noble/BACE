@@ -62,3 +62,14 @@ sim_bace_binary              <- BACE:::sim_bace_binary
 .summarise_validation      <- BACE:::.summarise_validation
 .vote_credit          <- BACE:::.vote_credit
 .derive_mask_seeds    <- BACE:::.derive_mask_seeds
+# checkpoint internals (R/checkpoint.R)
+.ckpt_dir_prepare     <- BACE:::.ckpt_dir_prepare
+.ckpt_write           <- BACE:::.ckpt_write
+.ckpt_sweep_stale     <- BACE:::.ckpt_sweep_stale
+.ckpt_manifest_check  <- BACE:::.ckpt_manifest_check
+.ckpt_formula_text    <- BACE:::.ckpt_formula_text
+.ckpt_chain_files     <- BACE:::.ckpt_chain_files
+.ckpt_run_file        <- BACE:::.ckpt_run_file
+.ckpt_diff            <- BACE:::.ckpt_diff
+.hash_obj             <- BACE:::.hash_obj
+.model_fit            <- BACE:::.model_fit

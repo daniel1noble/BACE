@@ -18,6 +18,7 @@ bace_imp(
   nitt_cat_mult = 1L,
   ovr_categorical = FALSE,
   priors = NULL,
+  checkpoint_dir = NULL,
   ...
 )
 }
@@ -74,6 +75,16 @@ variables (their residual variance is fixed at 1 on the latent probit
 scale, which the category-probability computations rely on). For a
 one-vs-rest categorical variable the same prior is reused for each of its
 binary sub-models. See the Priors section in \code{?bace} for the defaults.}
+
+\item{checkpoint_dir}{Optional directory in which to save the finished
+convergence chain, so an interrupted analysis can resume instead of
+re-running it. This phase is deliberately unseeded and so cannot be
+reproduced by re-running it; saving it is what makes a resume faithful.
+Calling again with the same arguments and directory loads the saved
+chain. No seed is needed here (the final phase is where reproducibility
+is pinned). If a setting that would change the result differs from the
+saved work, the resume is refused and the differing settings are named.
+Default \code{NULL} (no checkpointing).}
 
 \item{...}{Additional arguments to be passed to the underlying modeling functions.}
 }
