@@ -104,6 +104,8 @@
 #'   the other variables rather than on fixed point estimates. Automatically
 #'   reduced to 1 when at most one variable has missing data. See
 #'   \code{?bace_final_imp}.
+#' @param checkpoint_compress Logical; compress the saved final runs. Default
+#'   \code{FALSE}. See \code{\link{bace_final_imp}}.
 #' @param checkpoint_dir Optional directory in which to save progress, so an
 #'   interrupted run can be resumed instead of restarted. The convergence
 #'   chain is saved when it finishes and each final imputation run is saved as
@@ -113,9 +115,14 @@
 #'   that was never interrupted. If any setting that would change the results
 #'   differs from the saved work, the resume is refused and the differing
 #'   settings are named, so results from two different analyses are never
-#'   mixed; use a new, empty directory to start fresh. Default \code{NULL}
-#'   (no checkpointing). Saved final runs hold full model fits, so the files
-#'   are large for big datasets.
+#'   mixed; use a new, empty directory to start fresh. \code{n_final} is part
+#'   of the saved settings, so asking for more imputations later needs a fresh
+#'   directory. Use one directory per analysis, and one process at a time: the
+#'   directory is not safe for several \code{bace()} calls running against it
+#'   concurrently. The convergence chain is saved only once it finishes, so a
+#'   crash during that phase restarts it; the final runs are saved
+#'   individually. Default \code{NULL} (no checkpointing). Saved final runs
+#'   hold full model fits, so the files are large for big datasets.
 #' @param seed Optional integer passed to \code{bace_final_imp()}: per-run RNG
 #'   streams make the final imputations reproducible and identical across serial
 #'   and parallel execution. Note it does not seed the convergence phase.
@@ -201,7 +208,8 @@ bace <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5,
                 nitt_cat_mult = 1L, ovr_categorical = FALSE,
                 phylo_signal = FALSE, priors = NULL, sweeps = 3L,
                 seed = NULL, final_nitt = NULL, final_thin = NULL,
-                final_burnin = NULL, checkpoint_dir = NULL, ...) {
+                final_burnin = NULL, checkpoint_dir = NULL,
+                checkpoint_compress = FALSE, ...) {
 
 # Arguments in ... have no consumer downstream (bace_imp / bace_final_imp
 # accept but never use them), so a typo like prior = ... would vanish
@@ -317,7 +325,7 @@ start <- bace_imp(fixformula = fixformula, ran_phylo_form = ran_phylo_form,
                  burnin = burnin, runs = runs, species = species,
                  verbose = verbose, nitt_cat_mult = nitt_cat_mult,
                  ovr_categorical = ovr_categorical, priors = priors,
-                 checkpoint_dir = checkpoint_dir, ...)
+                 checkpoint_dir = checkpoint_dir, checkpoint_tag = "a01", ...)
 
 ##-----------------------## 
 # Check convergence 
@@ -360,7 +368,8 @@ while (!converged && n_attempts < max_attempts && !skip_conv) {
                    burnin = burnin, runs = runs_new, species = species,
                    verbose = verbose, nitt_cat_mult = nitt_cat_mult,
                    ovr_categorical = ovr_categorical, priors = priors,
-                   checkpoint_dir = checkpoint_dir, ...)
+                   checkpoint_dir = checkpoint_dir,
+                   checkpoint_tag = sprintf("a%02d", n_attempts + 1L), ...)
   
   converge <- assess_convergence(start, method = "summary")
 
@@ -404,6 +413,7 @@ if (converged) {
     sweeps = sweeps,
     seed = seed,
     checkpoint_dir = checkpoint_dir,
+    checkpoint_compress = checkpoint_compress,
     ...
   )
 
@@ -416,7 +426,11 @@ if (converged) {
     }
   }
 
-  pooled <- pool_posteriors(final_results, sample_size = sample_size)
+  # Seeded so that the subsample does not depend on how far the ambient
+  # random stream has advanced: a resumed run skips the chained phase, so
+  # without this the pooled draws would differ from an uninterrupted run.
+  pooled <- .with_seed(seed, pool_posteriors(final_results,
+                                             sample_size = sample_size))
 
   if (verbose) {
     cat("\nPosterior pooling complete!\n")
@@ -456,6 +470,7 @@ if (converged) {
     sweeps = sweeps,
     seed = seed,
     checkpoint_dir = checkpoint_dir,
+    checkpoint_compress = checkpoint_compress,
     ...
   )
 
@@ -463,7 +478,11 @@ if (converged) {
     cat("\nPooling posteriors with sampling:", sample_size, "samples per imputation\n")
   }
   
-  pooled <- pool_posteriors(final_results, sample_size = sample_size)
+  # Seeded so that the subsample does not depend on how far the ambient
+  # random stream has advanced: a resumed run skips the chained phase, so
+  # without this the pooled draws would differ from an uninterrupted run.
+  pooled <- .with_seed(seed, pool_posteriors(final_results,
+                                             sample_size = sample_size))
   
   # Only warn if convergence was attempted but not achieved (not when explicitly skipped)
   if (!skip_conv) {

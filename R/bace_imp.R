@@ -71,6 +71,9 @@
 #'   scale, which the category-probability computations rely on). For a
 #'   one-vs-rest categorical variable the same prior is reused for each of its
 #'   binary sub-models. See the Priors section in \code{?bace} for the defaults.
+#' @param checkpoint_tag Optional short string distinguishing this chain from
+#'   others saved in the same directory. \code{bace()} uses it to give each
+#'   convergence-retry attempt its own file. Default \code{NULL}.
 #' @param checkpoint_dir Optional directory in which to save the finished
 #'   convergence chain, so an interrupted analysis can resume instead of
 #'   re-running it. This phase is deliberately unseeded and so cannot be
@@ -79,7 +82,8 @@
 #'   chain. No seed is needed here (the final phase is where reproducibility
 #'   is pinned). If a setting that would change the result differs from the
 #'   saved work, the resume is refused and the differing settings are named.
-#'   Default \code{NULL} (no checkpointing).
+#'   The saved chain holds the last iteration's model fits, so the file is
+#'   large for big datasets. Default \code{NULL} (no checkpointing).
 #' @param ... Additional arguments to be passed to the underlying modeling functions.
 #' @return A list containing imputed datasets and model summaries.
 #' @examples
@@ -97,7 +101,7 @@
 #' str(fit$types)
 #' }
 #' @export
-bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, species = FALSE, verbose = TRUE, nitt_cat_mult = 1L, ovr_categorical = FALSE, priors = NULL, checkpoint_dir = NULL, ...){
+bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5, burnin = 1000, runs = 10, species = FALSE, verbose = TRUE, nitt_cat_mult = 1L, ovr_categorical = FALSE, priors = NULL, checkpoint_dir = NULL, checkpoint_tag = NULL, ...){
 	#---------------------------------------------#
 	# Preparation steps & Checks
 	#---------------------------------------------#
@@ -259,7 +263,7 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 	if (!is.null(checkpoint_dir)) {
 		checkpoint_dir <- .ckpt_dir_prepare(checkpoint_dir, "bace_imp")
 		.ckpt_sweep_stale(checkpoint_dir, verbose = verbose)
-		ckpt_files <- .ckpt_chain_files(checkpoint_dir, runs)
+		ckpt_files <- .ckpt_chain_files(checkpoint_dir, runs, checkpoint_tag)
 		ckpt_manifest <- c(list(
 			data            = .hash_obj(data_sub),
 			formulas        = .ckpt_formula_text(formulas),

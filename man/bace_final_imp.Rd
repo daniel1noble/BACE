@@ -128,9 +128,11 @@ refused and the differing settings are named. A saved run is treated as
 final and never recomputed. Default \code{NULL} (no checkpointing).}
 
 \item{checkpoint_compress}{Logical; compress the saved runs. Default
-\code{FALSE}: on MCMC output compression costs roughly 28 times the
-writing time for about 4 percent of the size. Saved runs hold full model
-fits, so expect large files on big datasets.}
+\code{FALSE}: on MCMC output compression saves roughly 40 percent of the
+file size but costs about ten times the writing time (a fraction of a
+second per run, against hours of model fitting), so turn it on if disk
+space matters more than speed. Saved runs hold full model fits, so expect
+large files on big datasets.}
 
 \item{...}{Additional arguments passed to modeling functions}
 }

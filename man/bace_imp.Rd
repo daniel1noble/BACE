@@ -19,6 +19,7 @@ bace_imp(
   ovr_categorical = FALSE,
   priors = NULL,
   checkpoint_dir = NULL,
+  checkpoint_tag = NULL,
   ...
 )
 }
@@ -84,7 +85,12 @@ Calling again with the same arguments and directory loads the saved
 chain. No seed is needed here (the final phase is where reproducibility
 is pinned). If a setting that would change the result differs from the
 saved work, the resume is refused and the differing settings are named.
-Default \code{NULL} (no checkpointing).}
+The saved chain holds the last iteration's model fits, so the file is
+large for big datasets. Default \code{NULL} (no checkpointing).}
+
+\item{checkpoint_tag}{Optional short string distinguishing this chain from
+others saved in the same directory. \code{bace()} uses it to give each
+convergence-retry attempt its own file. Default \code{NULL}.}
 
 \item{...}{Additional arguments to be passed to the underlying modeling functions.}
 }

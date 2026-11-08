@@ -166,7 +166,7 @@ testthat::test_that("a resumed run reloads finished work and matches an uninterr
 
   A <- run_counted(c(args, list(checkpoint_dir = dir)))
   testthat::expect_true(file.exists(file.path(dir, "final_run0004.rds")))
-  testthat::expect_true(file.exists(file.path(dir, "chain_runs0002.rds")))
+  testthat::expect_true(file.exists(file.path(dir, "chain_a01_runs0002.rds")))
 
   # lose the last two final runs, as a crash would
   file.remove(file.path(dir, c("final_run0003.rds", "final_run0004.rds")))
@@ -198,4 +198,154 @@ testthat::test_that("a resume with changed settings is refused, not silently mix
     suppressWarnings(do.call(bace, utils::modifyList(base_args,
                                                      list(data = d2)))),
     "different settings|Differing")
+})
+
+# ---------------------------------------------------------------------------
+# Review regressions (adversarial review 2026-11-08)
+# ---------------------------------------------------------------------------
+
+testthat::test_that("a saved run is only reused when the manifest proves it is ours", {
+  # The bug this pins: the manifest verdict was computed and then ignored, so
+  # a missing or unreadable manifest let ANOTHER analysis's imputations load
+  # as if they were ours - silently, and with the wrong values at cells that
+  # were missing in this analysis but observed in the other.
+  testthat::skip_on_cran()
+  set.seed(31)
+  n <- 14; tr <- ape::rcoal(n)
+  mk <- function(seed) { set.seed(seed)
+    d <- data.frame(Species = tr$tip.label, y = rnorm(n), x1 = rnorm(n))
+    d$y[1:3] <- NA; d }
+  d1 <- mk(1); d2 <- mk(2)
+  args <- function(d, dir) list(fixformula = "y ~ x1",
+    ran_phylo_form = "~ 1 | Species", phylo = tr, data = d, runs = 1,
+    nitt = 300, burnin = 100, thin = 2, n_final = 2, skip_conv = TRUE,
+    verbose = FALSE, seed = 5, checkpoint_dir = dir)
+
+  dir <- tmpdir_fresh()
+  A <- suppressWarnings(do.call(bace, args(d1, dir)))
+  testthat::expect_true(file.exists(file.path(dir, "final_run0001.rds")))
+
+  # lose the manifest, keep the saved runs: must NOT hand analysis 1's
+  # imputations to analysis 2
+  file.remove(file.path(dir, "final_manifest.rds"))
+  chain2 <- suppressWarnings(bace_imp("y ~ x1", "~ 1 | Species", phylo = tr,
+                                      data = d2, runs = 1, nitt = 300,
+                                      burnin = 100, thin = 2, verbose = FALSE))
+  testthat::expect_error(
+    suppressWarnings(bace_final_imp(chain2, "y ~ x1", "~ 1 | Species",
+                                    phylo = tr, n_final = 2, nitt = 300,
+                                    burnin = 100, thin = 2, seed = 5,
+                                    verbose = FALSE, checkpoint_dir = dir)),
+    "cannot be matched")
+})
+
+testthat::test_that("a readable file of the wrong shape is not pooled as an imputation", {
+  # Previously any non-NULL object readRDS returned was accepted, silently
+  # dropping that imputation from the pooling while n_final still said 4.
+  testthat::expect_false(.ckpt_is_run(data.frame(a = 1:3)))
+  testthat::expect_false(.ckpt_is_run(list(nonsense = 1)))
+  testthat::expect_false(.ckpt_is_run(NULL))
+  testthat::expect_true(.ckpt_is_run(list(models = list(), dataset = data.frame(),
+                                          prob_preds = list(), ovr_models = list())))
+
+  testthat::skip_on_cran()
+  set.seed(32)
+  n <- 14; tr <- ape::rcoal(n)
+  d <- data.frame(Species = tr$tip.label, y = rnorm(n), x1 = rnorm(n))
+  d$y[1:3] <- NA
+  a <- list(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
+            phylo = tr, data = d, runs = 1, nitt = 300, burnin = 100,
+            thin = 2, n_final = 3, skip_conv = TRUE, verbose = FALSE, seed = 9)
+  dir <- tmpdir_fresh()
+  A <- suppressWarnings(do.call(bace, c(a, list(checkpoint_dir = dir))))
+  # plant a readable but wrong file where run 2 lives
+  saveRDS(data.frame(a = 1:3), file.path(dir, "final_run0002.rds"))
+  B <- suppressWarnings(do.call(bace, c(a, list(checkpoint_dir = dir))))
+  # run 2 was recomputed, not swallowed: all three imputations are present
+  testthat::expect_length(B$final_results$all_models, 3L)
+  testthat::expect_false(any(vapply(B$final_results$all_models,
+                                    function(m) is.null(m$y), logical(1))))
+  testthat::expect_identical(B$imputed_datasets, A$imputed_datasets)
+})
+
+testthat::test_that("the converged dataset is part of the final-phase fingerprint", {
+  # Every final run starts from it, and the chained phase is unseeded, so two
+  # runs of that phase give different starting points under identical
+  # arguments. Without this field a resume could mix runs from both.
+  tr <- ape::rcoal(8)
+  d <- data.frame(Species = tr$tip.label, y = c(NA, rnorm(7)), x1 = rnorm(8))
+  d2 <- d; d2$y[4] <- NA
+  testthat::expect_false(identical(.hash_obj(d), .hash_obj(d2)))
+
+  dir <- .ckpt_dir_prepare(tmpdir_fresh())
+  mf <- .ckpt_manifest_file(dir)
+  m1 <- list(converged_data = .hash_obj(d), seed = 1)
+  .ckpt_manifest_check(mf, m1, "final-imputation", verbose = FALSE)
+  m2 <- list(converged_data = .hash_obj(d2), seed = 1)
+  testthat::expect_error(
+    .ckpt_manifest_check(mf, m2, "final-imputation", verbose = FALSE),
+    "converged_data")
+})
+
+testthat::test_that("a truncated checkpoint is detected and recomputed, not trusted", {
+  testthat::skip_on_cran()
+  set.seed(33)
+  n <- 14; tr <- ape::rcoal(n)
+  d <- data.frame(Species = tr$tip.label, y = rnorm(n), x1 = rnorm(n))
+  d$y[1:3] <- NA
+  a <- list(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
+            phylo = tr, data = d, runs = 1, nitt = 300, burnin = 100,
+            thin = 2, n_final = 2, skip_conv = TRUE, verbose = FALSE, seed = 4)
+  dir <- tmpdir_fresh()
+  A <- suppressWarnings(do.call(bace, c(a, list(checkpoint_dir = dir))))
+  f <- file.path(dir, "final_run0001.rds")
+  writeBin(readBin(f, "raw", 40), f)             # crash mid-write
+  B <- suppressWarnings(do.call(bace, c(a, list(checkpoint_dir = dir))))
+  testthat::expect_identical(B$imputed_datasets, A$imputed_datasets)
+})
+
+testthat::test_that("the pooled subsample is reproducible, so a resume matches", {
+  # sample_size subsamples the pooled draws. A resumed run skips the chained
+  # phase, so the ambient random stream sits elsewhere; seeding the subsample
+  # is what keeps the two identical.
+  testthat::skip_on_cran()
+  set.seed(34)
+  n <- 14; tr <- ape::rcoal(n)
+  d <- data.frame(Species = tr$tip.label, y = rnorm(n), x1 = rnorm(n))
+  d$y[1:3] <- NA
+  a <- list(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
+            phylo = tr, data = d, runs = 1, nitt = 400, burnin = 100,
+            thin = 2, n_final = 2, skip_conv = TRUE, verbose = FALSE,
+            seed = 42, sample_size = 30)
+  dir <- tmpdir_fresh()
+  A <- suppressWarnings(do.call(bace, c(a, list(checkpoint_dir = dir))))
+  B <- suppressWarnings(do.call(bace, c(a, list(checkpoint_dir = dir))))  # full resume
+  testthat::expect_identical(B$pooled_models$models$y$Sol,
+                             A$pooled_models$models$y$Sol)
+})
+
+testthat::test_that("each convergence-retry attempt saves to its own file", {
+  # round(runs * 1.5^k) can repeat a value (runs = 1 gives 1, 2, 2), which
+  # would make attempt 3 silently replay attempt 2's saved chain.
+  f2a <- .ckpt_chain_files("d", 2, tag = "a02")
+  f2b <- .ckpt_chain_files("d", 2, tag = "a03")
+  testthat::expect_false(identical(f2a$object, f2b$object))
+  testthat::expect_match(basename(f2a$object), "a02")
+})
+
+testthat::test_that(".with_seed is deterministic and restores the caller's stream", {
+  set.seed(1); before <- .Random.seed
+  x <- .with_seed(99, runif(3))
+  testthat::expect_identical(.Random.seed, before)
+  testthat::expect_identical(x, .with_seed(99, runif(3)))
+  testthat::expect_false(identical(x, .with_seed(100, runif(3))))
+  # NULL seed is a pass-through
+  testthat::expect_length(.with_seed(NULL, runif(2)), 2L)
+})
+
+testthat::test_that("checkpoint_dir rejects malformed paths clearly", {
+  testthat::expect_error(.ckpt_dir_prepare(c("a", "b")), "single directory")
+  testthat::expect_error(.ckpt_dir_prepare(NA_character_), "single directory")
+  testthat::expect_error(.ckpt_dir_prepare(""), "single directory")
+  testthat::expect_error(.ckpt_dir_prepare(42), "single directory")
 })

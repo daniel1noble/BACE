@@ -31,6 +31,7 @@ bace(
   final_thin = NULL,
   final_burnin = NULL,
   checkpoint_dir = NULL,
+  checkpoint_compress = FALSE,
   ...
 )
 }
@@ -172,9 +173,17 @@ Requires \code{seed}, which is what makes a resumed run identical to one
 that was never interrupted. If any setting that would change the results
 differs from the saved work, the resume is refused and the differing
 settings are named, so results from two different analyses are never
-mixed; use a new, empty directory to start fresh. Default \code{NULL}
-(no checkpointing). Saved final runs hold full model fits, so the files
-are large for big datasets.}
+mixed; use a new, empty directory to start fresh. \code{n_final} is part
+of the saved settings, so asking for more imputations later needs a fresh
+directory. Use one directory per analysis, and one process at a time: the
+directory is not safe for several \code{bace()} calls running against it
+concurrently. The convergence chain is saved only once it finishes, so a
+crash during that phase restarts it; the final runs are saved
+individually. Default \code{NULL} (no checkpointing). Saved final runs
+hold full model fits, so the files are large for big datasets.}
+
+\item{checkpoint_compress}{Logical; compress the saved final runs. Default
+\code{FALSE}. See \code{\link{bace_final_imp}}.}
 
 \item{...}{Additional arguments to be passed to the underlying modeling functions.}
 }

@@ -26,11 +26,18 @@
 
 #' @keywords internal
 #' @noRd
-.ckpt_paths <- function(dir) {
-  list(dir            = dir,
-       chain          = file.path(dir, "chain.rds"),
-       chain_manifest = file.path(dir, "chain_manifest.rds"),
-       final_manifest = file.path(dir, "final_manifest.rds"))
+.ckpt_manifest_file <- function(dir) file.path(dir, "final_manifest.rds")
+
+#' Is this object a completed final imputation run?
+#'
+#' A file can be readable and still not be one of our runs (a leftover from
+#' another analysis, or something the user put there). Accepting the wrong
+#' shape would quietly drop an imputation from the pooling instead of failing.
+#' @keywords internal
+#' @noRd
+.ckpt_is_run <- function(x) {
+  is.list(x) && !is.data.frame(x) &&
+    all(c("models", "dataset", "prob_preds", "ovr_models") %in% names(x))
 }
 
 #' @keywords internal
@@ -48,8 +55,9 @@
 #' reloads the attempts that finished and only runs the ones that did not.
 #' @keywords internal
 #' @noRd
-.ckpt_chain_files <- function(dir, runs) {
-  stem <- sprintf("chain_runs%04d", as.integer(runs))
+.ckpt_chain_files <- function(dir, runs, tag = NULL) {
+  stem <- if (is.null(tag)) sprintf("chain_runs%04d", as.integer(runs)) else
+    sprintf("chain_%s_runs%04d", tag, as.integer(runs))
   list(object   = file.path(dir, paste0(stem, ".rds")),
        manifest = file.path(dir, paste0(stem, "_manifest.rds")))
 }
@@ -58,6 +66,10 @@
 #' @keywords internal
 #' @noRd
 .ckpt_dir_prepare <- function(dir, context = "bace") {
+  if (!is.character(dir) || length(dir) != 1L || is.na(dir) || !nzchar(dir)) {
+    stop(context, ": checkpoint_dir must be a single directory path.",
+         call. = FALSE)
+  }
   if (!dir.exists(dir)) {
     ok <- dir.create(dir, recursive = TRUE, showWarnings = FALSE)
     if (!ok && !dir.exists(dir)) {
@@ -66,7 +78,8 @@
     }
   }
   probe <- file.path(dir, ".bace_write_probe")
-  ok <- tryCatch({ saveRDS(TRUE, probe); TRUE }, error = function(e) FALSE)
+  ok <- tryCatch({ saveRDS(TRUE, probe); TRUE }, error = function(e) FALSE,
+                 warning = function(w) FALSE)
   unlink(probe)
   if (!ok) {
     stop(context, ": checkpoint_dir '", dir, "' is not writable.",
@@ -86,8 +99,10 @@
 #' failure would silently lose the run. Several parallel workers may write
 #' here at once, hence the unique temporary name.
 #'
-#' Compression is off by default: on MCMC output it costs roughly 28x the time
-#' for about 4% of the size.
+#' Compression is off by default: on MCMC output it roughly halves the file
+#' but costs about ten times the writing time. Against hours of model fitting
+#' that is a fraction of a second per run, so turn it on if disk space is
+#' tighter than patience.
 #' @keywords internal
 #' @noRd
 .ckpt_write <- function(object, path, compress = FALSE) {
@@ -162,13 +177,31 @@
 #' @keywords internal
 #' @noRd
 .ckpt_manifest_check <- function(path, manifest, what, mutable = character(0),
-                                 verbose = TRUE) {
+                                 verbose = TRUE, guard_files = character(0)) {
   if (!file.exists(path)) {
+    # Saved work with no manifest beside it cannot be shown to belong to this
+    # analysis. Refuse rather than either trusting it or deleting it.
+    if (length(guard_files) > 0L) {
+      stop("checkpoint: this directory holds ", length(guard_files),
+           " saved file(s) but no ", what, " manifest, so they cannot be ",
+           "matched to this analysis. Use a different (empty) checkpoint_dir, ",
+           "or delete the saved files to start this phase again.",
+           call. = FALSE)
+    }
     .ckpt_write(manifest, path, compress = TRUE)
     return(FALSE)
   }
   old <- tryCatch(readRDS(path), error = function(e) NULL)
   if (is.null(old)) {
+    # Without a readable manifest there is no way to show that saved work
+    # belongs to this analysis, so refuse rather than guess.
+    if (length(guard_files) > 0L) {
+      stop("checkpoint: the ", what, " manifest in this directory cannot be ",
+           "read, so the ", length(guard_files), " saved file(s) beside it ",
+           "cannot be matched to this analysis. Use a different (empty) ",
+           "checkpoint_dir, or delete the saved files to start this phase ",
+           "again.", call. = FALSE)
+    }
     if (verbose) {
       message("checkpoint: the existing ", what, " manifest could not be read;",
               " starting this phase from scratch.")
@@ -214,4 +247,27 @@
        gelman       = if (is.null(getOption("BACE.gelman")))
                         bace_option_defaults()$gelman else
                         getOption("BACE.gelman"))
+}
+
+#' Evaluate an expression under a fixed random seed, restoring the caller's state
+#'
+#' Used for the pooled-posterior subsample: a resumed run skips the chained
+#' phase, so the ambient random stream sits in a different place than it would
+#' after an uninterrupted run. Seeding the subsample makes it depend on the
+#' user's `seed` instead, which is what makes a resumed run match.
+#' @keywords internal
+#' @noRd
+.with_seed <- function(seed, expr) {
+  if (is.null(seed)) return(expr)
+  old <- if (exists(".Random.seed", envir = globalenv(), inherits = FALSE))
+    get(".Random.seed", envir = globalenv()) else NULL
+  on.exit({
+    if (is.null(old)) {
+      suppressWarnings(rm(".Random.seed", envir = globalenv()))
+    } else {
+      assign(".Random.seed", old, envir = globalenv())
+    }
+  }, add = TRUE)
+  set.seed(seed)
+  expr
 }

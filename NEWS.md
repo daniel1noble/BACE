@@ -5,7 +5,9 @@
   chain is saved when it finishes, and each final imputation run as soon as it
   completes. Calling again with the same arguments and the same directory
   loads that work and computes only what is missing — so a session that dies
-  at hour 20 of a 24-hour run picks up where it left off. A resumed run gives
+  during the final runs picks up where it left off rather than starting over.
+  (The convergence chain is saved once it finishes, so a crash during that
+  phase still restarts it.) A resumed run gives
   exactly the same answer as one that was never interrupted, which is why
   `seed` is required. If any setting that would change the results differs
   from the saved work, the resume is refused and the differing settings are

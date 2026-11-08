@@ -84,9 +84,11 @@
 #'   refused and the differing settings are named. A saved run is treated as
 #'   final and never recomputed. Default \code{NULL} (no checkpointing).
 #' @param checkpoint_compress Logical; compress the saved runs. Default
-#'   \code{FALSE}: on MCMC output compression costs roughly 28 times the
-#'   writing time for about 4 percent of the size. Saved runs hold full model
-#'   fits, so expect large files on big datasets.
+#'   \code{FALSE}: on MCMC output compression saves roughly 40 percent of the
+#'   file size but costs about ten times the writing time (a fraction of a
+#'   second per run, against hours of model fitting), so turn it on if disk
+#'   space matters more than speed. Saved runs hold full model fits, so expect
+#'   large files on big datasets.
 #' @param ... Additional arguments passed to modeling functions
 #' @return A list of class 'bace_final' containing:
 #'   - all_models: List of length n_final, each containing models for all variables
@@ -259,6 +261,7 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
   n_miss_vars <- length(unique(miss_dat$colname))
   eff_sweeps  <- if (n_miss_vars <= 1L) 1L else sweeps
 
+  resuming <- FALSE
   # --- Checkpoint/resume -----------------------------------------------------
   # Each completed final run is saved as soon as it finishes, so an
   # interrupted session can be resumed instead of restarted. A manifest
@@ -298,12 +301,32 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
       trees           = tree_hashes,
       tree_index      = tree_index
     ), .ckpt_common())
+    # `resuming` is the verdict that the saved work belongs to THIS analysis.
+    # Saved runs are only reused when it is TRUE: without this check a missing
+    # or unreadable manifest would let another analysis's imputations be
+    # loaded as if they were ours.
     resuming <- .ckpt_manifest_check(
-      .ckpt_paths(checkpoint_dir)$final_manifest, manifest,
-      what = "final-imputation", verbose = verbose)
-    n_cached <- sum(file.exists(vapply(seq_len(n_final),
-                                       function(r) .ckpt_run_file(checkpoint_dir, r),
-                                       character(1L))))
+      .ckpt_manifest_file(checkpoint_dir), manifest,
+      what = "final-imputation", verbose = verbose,
+      guard_files = list.files(checkpoint_dir, pattern = "^final_run[0-9]+[.]rds$",
+                               full.names = TRUE))
+    cached_files <- vapply(seq_len(n_final),
+                           function(r) .ckpt_run_file(checkpoint_dir, r),
+                           character(1L))
+    n_cached <- if (resuming) sum(file.exists(cached_files)) else 0L
+    if (!resuming) {
+      # A fresh manifest with saved runs already present means those runs came
+      # from a different analysis (or an unverifiable one): start clean rather
+      # than mix.
+      stale <- cached_files[file.exists(cached_files)]
+      if (length(stale) > 0L) {
+        unlink(stale)
+        if (verbose) {
+          message("checkpoint: removed ", length(stale), " saved run(s) that ",
+                  "do not belong to this analysis.")
+        }
+      }
+    }
     if (verbose && n_cached > 0L) {
       cat(sprintf("\nResuming from checkpoint: %d of %d final runs already done.\n",
                   n_cached, n_final))
@@ -565,11 +588,16 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
   run_one <- function(run, worker_verbose) {
     cf <- if (is.null(checkpoint_dir)) NULL else
       .ckpt_run_file(checkpoint_dir, run)
-    if (!is.null(cf) && file.exists(cf)) {
+    # Saved runs are reused only when the manifest has confirmed they belong
+    # to this analysis; writing always happens, so a fresh run still saves.
+    if (!is.null(cf) && resuming && file.exists(cf)) {
       # A saved run is taken as final and never recomputed: a run that hit a
       # tolerated warm-up failure consumed random numbers differently, so
       # redoing it would not reproduce the saved values anyway.
       cached <- tryCatch(readRDS(cf), error = function(e) NULL)
+      # A readable file is not necessarily a completed run: accepting the
+      # wrong shape here would quietly drop an imputation from the pooling.
+      if (!.ckpt_is_run(cached)) cached <- NULL
       if (!is.null(cached)) {
         if (worker_verbose) {
           cat(paste0("Run ", run, "/", n_final, " - loaded from checkpoint\n"))

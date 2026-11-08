@@ -73,3 +73,6 @@ sim_bace_binary              <- BACE:::sim_bace_binary
 .ckpt_diff            <- BACE:::.ckpt_diff
 .hash_obj             <- BACE:::.hash_obj
 .model_fit            <- BACE:::.model_fit
+.ckpt_manifest_file <- BACE:::.ckpt_manifest_file
+.ckpt_is_run        <- BACE:::.ckpt_is_run
+.with_seed          <- BACE:::.with_seed
