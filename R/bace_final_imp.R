@@ -348,7 +348,12 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
     old_kind <- RNGkind()
     on.exit({
       do.call(RNGkind, as.list(old_kind))
-      if (!is.null(old_seed)) {
+      # Restoring the RNG kind itself writes `.Random.seed`, so clear it when
+      # the caller had none -- otherwise the user's next random draw would
+      # silently continue this function's fixed stream.
+      if (is.null(old_seed)) {
+        suppressWarnings(rm(".Random.seed", envir = globalenv()))
+      } else {
         assign(".Random.seed", old_seed, envir = globalenv())
       }
     }, add = TRUE)

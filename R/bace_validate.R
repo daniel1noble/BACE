@@ -385,8 +385,17 @@ bace_validate.list <- function(x, ran_phylo_form, phylo, data,
 .derive_mask_seeds <- function(seed, reps) {
   old_seed <- if (exists(".Random.seed", envir = globalenv(), inherits = FALSE))
     get(".Random.seed", envir = globalenv()) else NULL
-  on.exit(if (!is.null(old_seed))
-    assign(".Random.seed", old_seed, envir = globalenv()), add = TRUE)
+  # Put the caller's random state back exactly as it was. If there was none
+  # (a fresh session), remove the `.Random.seed` that set.seed() created here:
+  # leaving it behind would silently continue this function's fixed stream into
+  # the user's own random draws.
+  on.exit({
+    if (is.null(old_seed)) {
+      suppressWarnings(rm(".Random.seed", envir = globalenv()))
+    } else {
+      assign(".Random.seed", old_seed, envir = globalenv())
+    }
+  }, add = TRUE)
   if (!is.null(seed)) set.seed(seed)
   sample.int(.Machine$integer.max, reps)
 }
@@ -539,8 +548,17 @@ bace_validate.list <- function(x, ran_phylo_form, phylo, data,
   # own RNG sandbox: restore the caller's random state afterwards
   old_seed <- if (exists(".Random.seed", envir = globalenv(), inherits = FALSE))
     get(".Random.seed", envir = globalenv()) else NULL
-  on.exit(if (!is.null(old_seed))
-    assign(".Random.seed", old_seed, envir = globalenv()), add = TRUE)
+  # Put the caller's random state back exactly as it was. If there was none
+  # (a fresh session), remove the `.Random.seed` that set.seed() created here:
+  # leaving it behind would silently continue this function's fixed stream into
+  # the user's own random draws.
+  on.exit({
+    if (is.null(old_seed)) {
+      suppressWarnings(rm(".Random.seed", envir = globalenv()))
+    } else {
+      assign(".Random.seed", old_seed, envir = globalenv())
+    }
+  }, add = TRUE)
   set.seed(mask_seed)
 
   out_data <- data
@@ -785,8 +803,17 @@ bace_validate.list <- function(x, ran_phylo_form, phylo, data,
 .expected_coverage_counts <- function(rates, M, n_total = 20000L) {
   old_seed <- if (exists(".Random.seed", envir = globalenv(), inherits = FALSE))
     get(".Random.seed", envir = globalenv()) else NULL
-  on.exit(if (!is.null(old_seed))
-    assign(".Random.seed", old_seed, envir = globalenv()), add = TRUE)
+  # Put the caller's random state back exactly as it was. If there was none
+  # (a fresh session), remove the `.Random.seed` that set.seed() created here:
+  # leaving it behind would silently continue this function's fixed stream into
+  # the user's own random draws.
+  on.exit({
+    if (is.null(old_seed)) {
+      suppressWarnings(rm(".Random.seed", envir = globalenv()))
+    } else {
+      assign(".Random.seed", old_seed, envir = globalenv())
+    }
+  }, add = TRUE)
   set.seed(20261107L)
 
   rates <- pmax(rates, 1e-6)
