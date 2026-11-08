@@ -46,6 +46,9 @@ bace_validate(x, ...)
   ovr_categorical = FALSE,
   priors = NULL,
   sweeps = 3L,
+  final_nitt = NULL,
+  final_thin = NULL,
+  final_burnin = NULL,
   ...
 )
 
@@ -74,6 +77,9 @@ bace_validate(x, ...)
   ovr_categorical = FALSE,
   priors = NULL,
   sweeps = 3L,
+  final_nitt = NULL,
+  final_thin = NULL,
+  final_burnin = NULL,
   ...
 )
 }
@@ -111,7 +117,7 @@ draws is deliberately unseeded (see \code{\link{bace}}). If NULL, mask
 seeds are drawn at random and recorded in the result's
 \code{$settings}.}
 
-\item{ran_phylo_form, phylo, data, nitt, thin, burnin, runs, n_final, species, verbose, max_attempts, skip_conv, n_cores, nitt_cat_mult, ovr_categorical, priors, sweeps}{Passed to \code{\link{bace}}, with the same meaning and defaults. For a
+\item{ran_phylo_form, phylo, data, nitt, thin, burnin, final_nitt, final_thin, final_burnin, runs, n_final, species, verbose, max_attempts, skip_conv, n_cores, nitt_cat_mult, ovr_categorical, priors, sweeps}{Passed to \code{\link{bace}}, with the same meaning and defaults. For a
 \code{bace_complete} input these are taken from the finished run; only
 \code{verbose}, \code{n_cores}, \code{max_attempts} and \code{skip_conv}
 remain free (they are run-time choices, not model settings), and any

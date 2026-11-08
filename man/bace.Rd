@@ -27,6 +27,9 @@ bace(
   priors = NULL,
   sweeps = 3L,
   seed = NULL,
+  final_nitt = NULL,
+  final_thin = NULL,
+  final_burnin = NULL,
   ...
 )
 }
@@ -140,6 +143,24 @@ reduced to 1 when at most one variable has missing data. See
 \item{seed}{Optional integer passed to \code{bace_final_imp()}: per-run RNG
 streams make the final imputations reproducible and identical across serial
 and parallel execution. Note it does not seed the convergence phase.}
+
+\item{final_nitt, final_thin, final_burnin}{Optional MCMC settings for the
+FINAL imputation runs only, in the same form as \code{nitt}, \code{thin}
+and \code{burnin} (a single value, or a list with one value per formula).
+Default \code{NULL}: the final runs reuse the chained-phase settings,
+exactly as before. The two phases do different jobs, so they often want
+different chains: the chained phase only needs the imputed values to
+settle, while the final runs supply the posterior draws that are pooled
+for inference and so benefit from longer chains. Scale the thinning with
+the chain, because every retained draw is stored for all \code{n_final}
+runs: each model keeps \code{(final_nitt - final_burnin) / final_thin}
+draws per imputation, so raising \code{final_nitt} alone multiplies
+memory by the same factor. For example \code{nitt = 50000, thin = 40}
+with \code{final_nitt = 5e5, final_thin = 450} (the settings of the bird
+case study) keeps about 1,000 draws per model in each phase.
+\code{nitt_cat_mult} multiplies \code{final_nitt} and
+\code{final_burnin} for categorical and threshold variables, exactly as
+it does \code{nitt} and \code{burnin}; thinning is never multiplied.}
 
 \item{...}{Additional arguments to be passed to the underlying modeling functions.}
 }

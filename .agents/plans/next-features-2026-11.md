@@ -4,7 +4,9 @@
 > `.agents/project-state.md` for the landing record). Feature 1's dev/ gate
 > study RUN (leakage refuted; sweeps-3-vs-10 equivalence not shown at 100
 > seeds -- see project-state). Feature 2 (bace_validate + get_imputation_intervals)
-> IMPLEMENTED and adversarially reviewed. Features 3, 4b–4d not started.
+> IMPLEMENTED and adversarially reviewed. Feature 4b (per-phase MCMC
+> settings) IMPLEMENTED and adversarially reviewed (tests 1639+/0).
+> Feature 3 (checkpoint/resume) IN PROGRESS. Features 4c-4d not started.
 
 Dan picked these four (2026-11-07) from the "what would make BACE better" discussion:
 

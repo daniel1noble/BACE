@@ -307,6 +307,7 @@ It's worth highlighting a few key arguments within `bace`.
 - Second, the `sample_size` argument allows users to specify the number of posterior samples to pool across final runs. This can be useful if you have a large dataset and want to reduce the size of the final `bace` object.
 - Third, the `species` argument allows users to specify whether to include a non-phylogenetic random effect for species identity in addition to the phylogenetic random effect. This is important if multiple replicates of species are included in the dataset (e.g., multiple populations of the same species).
 - Fourth, the `n_final` argument sets how many independent posterior-predictive imputations are drawn in the final phase (default 50). More imputations give a better Monte Carlo approximation to the marginal posterior and tighter calibration of per-cell prediction intervals, at a linear cost in compute. The final runs are completely independent of one another, so they can be run simultaneously: on multi-core machines set `n_cores` to spread them across cores. Supplying `seed` gives each run its own random-number stream, making the results reproducible and identical.
+- Fifth, `final_nitt`, `final_thin` and `final_burnin` give the final imputation runs their own chain settings. The convergence phase only needs the imputed values to settle, while the final runs supply the draws used for inference, so the final runs often want much longer chains. Scale the thinning with the chain (for example `nitt = 50000, thin = 40` with `final_nitt = 5e5, final_thin = 450`), because every retained draw is stored for all `n_final` runs.
 
 Once the imputation is complete, you can access the final pooled models and evaluate them as you would any `MCMCglmm` model for each of the models fit. This is important for checking model fit and convergence along with downstream inference. For example, you can check the summary of the model for the response variable `y` as follows:
 
@@ -333,7 +334,7 @@ names(all_models)
 
 ```
 
-The banner above reports whether the chained loop passed the convergence check (and, if not, how many retry attempts `bace()` made). Whatever the banner says, it is worth looking at the trace and density plots of the pooled `MCMCglmm` models: variance components in particular can mix slowly, and if they look poorly converged it's best to adjust the `bace` MCMC parameters (`nitt`, `burnin`, `thin`) to allow for longer runtimes and better mixing before trusting downstream inference.
+The banner above reports whether the chained loop passed the convergence check (and, if not, how many retry attempts `bace()` made). Whatever the banner says, it is worth looking at the trace and density plots of the pooled `MCMCglmm` models: variance components in particular can mix slowly, and if they look poorly converged it's best to lengthen the chains before trusting downstream inference — usually with `final_nitt`, `final_burnin` and `final_thin`, since these are the final-phase models that feed inference.
 
 Another important feature is that users can also access all the final datasets with imputed values for each run. This can be useful for checking the imputed values (i.e., cross-validation) and exploring the imputation process in more detail. You can access the imputed datasets using the `get_imputed_data()` function, which returns them as either a list or a single stacked data frame:
 
@@ -422,7 +423,7 @@ coda::effectiveSize(fixed_sols)
 coda::autocorr.diag(fixed_sols)
 ```
 
-**How to read this output.** The trace plots should look like fuzzy caterpillars with no drift or sticky patches, and the density plots should be smooth and unimodal. `effectiveSize()` reports how many *independent* draws the autocorrelated chain is worth: values close to the number of stored samples indicate good mixing, while values below a few hundred mean the posterior summaries for that parameter are unstable and the chain should be run longer. `autocorr.diag()` should drop towards zero within a few lags; values that stay high at large lags are the same warning in a different form. If these look poor, increase `nitt` and/or `burnin` and re-run `bace()` rather than simply trusting the pooled banner.
+**How to read this output.** The trace plots should look like fuzzy caterpillars with no drift or sticky patches, and the density plots should be smooth and unimodal. `effectiveSize()` reports how many *independent* draws the autocorrelated chain is worth: values close to the number of stored samples indicate good mixing, while values below a few hundred mean the posterior summaries for that parameter are unstable and the chain should be run longer. `autocorr.diag()` should drop towards zero within a few lags; values that stay high at large lags are the same warning in a different form. If these look poor, lengthen the final chains (`final_nitt`, `final_burnin`) and re-run `bace()` rather than simply trusting the pooled banner.
 
 # Downstream analysis with Rubin's rules {#sec-rubins-rules}
 

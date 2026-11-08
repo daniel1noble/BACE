@@ -710,3 +710,59 @@ Also updated: NEWS header, cran-comments.md (incl. why 0.2.0), inst/WORDLIST.
 NOT sent: no win-builder, no submission -- both need Dan's explicit go.
 Open question for Dan: the package ships no vignette (tutorial is a 12 MB
 website); acceptable but a reviewer may ask.
+
+## 2026-11-08 (later): feature 4b implemented — per-phase MCMC settings
+
+`bace()` gains `final_nitt`, `final_thin`, `final_burnin` (default NULL =
+reuse the chained-phase values, byte-identical to previous behaviour).
+Resolved once in bace() with `%||%` immediately after the unused-dots
+warning, so BOTH bace_final_imp() call sites (converged and
+skip_conv/non-converged) get the same values; `nitt_cat_mult` still applies
+downstream as usual. This removes one of the two reasons the case studies
+bypass bace() (the other, memory/chunking on 18k rows, remains).
+
+Tests: new `tests/testthat/test-final-mcmc-args.R` (13 expectations) —
+defaults identical to chained; final_* reach only the final phase; forwarding
+on the skip_conv branch; per-formula lists; and a real tiny fit proving the
+phases stored (400-100)/2 = 150 vs (600-100)/2 = 250 draws. Suite 1639/0.
+
+Docs: roxygen @param, NEWS bullet under 0.2.0, README feature list. Also
+corrected an now-outdated sentence in the bird case study that said bace()
+"uses one set of MCMC settings for both phases".
+
+### 4b adversarial review (2026-11-08) — one silent breaking change caught
+
+3-agent review (correctness-by-running / docs consistency / test adequacy).
+The forwarding mechanism itself survived: with final_* NULL the arguments
+reaching both phases are byte-identical to HEAD (verified by diffing spies
+against a HEAD copy), the retry ladder and phylo_signal paths leak nothing,
+and nitt_cat_mult applies once per phase. Mutation testing confirmed the new
+tests catch all five seeded forwarding bugs. Fixed from findings:
+
+- **MUST: the three arguments had been inserted mid-signature** (between
+  `burnin` and `runs`), silently rebinding positional calls:
+  `bace(..., 600, 2, 100, 3, 4)` read runs=3,n_final=4 as
+  final_nitt=3,final_thin=4 with runs/n_final back at defaults — no error.
+  Moved to the END of the formals; positional compatibility re-verified
+  against the 0.1.0 order. Residual, documented in NEWS: `fixformula` can no
+  longer be abbreviated to `f`/`fi` (`fix` and longer still work).
+- **MUST: bace_validate(fit) re-ran the CHAINED phase at FINAL chain length.**
+  bace_final_imp's $settings necessarily records the settings IT received.
+  bace() now stores both phases on its result; bace_validate reads chained
+  from there (falling back for older objects) and forwards final_* through
+  .bace_validate_run and all three entry methods. Verified end to end.
+- Bad final_* now validated in bace() BEFORE the chained phase runs, naming
+  the argument the user wrote (was: hours wasted, error said "nitt").
+- Warning when final_nitt < nitt (the convergence check says nothing about
+  the final chains).
+- Docs corrected: nitt_cat_mult multiplies nitt/burnin but never thin; the
+  worked example now scales thinning with the chain (it was a multi-GB memory
+  trap); NEWS no longer claims both case studies bypassed bace() for this
+  reason (only the bird one did — the amphibian splits for memory); the bird
+  case study's stale justification removed; tutorial gained a bullet and two
+  "increase nitt" tips now point at the final-phase arguments; ms.qmd gained
+  one sentence; plan header + roadmap updated.
+- Tests: 1653 -> +7 (formals order pin, positional-call compat, early
+  validation naming, short-chain warning, retry-ladder chained settings,
+  settings round-trip incl. legacy objects, and the real fit now varies all
+  three settings so honouring only final_nitt fails).

@@ -1,5 +1,21 @@
 # BACE 0.2.0
 
+* **The final imputation runs can now have their own MCMC settings.**
+  `bace()` gains `final_nitt`, `final_thin` and `final_burnin` (default
+  `NULL` = reuse the chained-phase settings, exactly as before). The two
+  phases do different jobs — the chained phase only needs point imputations
+  to settle, while the final runs supply the draws that are pooled for
+  inference — so they often want very different chains, for example
+  `nitt = 50000, thin = 40` with `final_nitt = 5e5, final_thin = 450` (scale
+  the thinning with the chain: every retained draw is stored for all
+  `n_final` runs). Previously this required bypassing `bace()` and calling
+  `bace_imp()` and `bace_final_imp()` separately, which is what the bird case
+  study had to do. (The amphibian study splits the phases for a different
+  reason — memory on an 18,000-row dataset — which this does not change.)
+  The new arguments sit at the end of `bace()`'s argument list, so existing
+  calls are unaffected; the only change is that `fixformula` can no longer be
+  abbreviated as far as `f` or `fi` (`fix` and longer still work).
+
 * **New `bace_validate()`: check how well BACE imputes YOUR data.** The
   natural call is on a finished run — `bace_validate(fit)` reuses the run's
   data, formulas, tree(s) and settings (now stored on the result as

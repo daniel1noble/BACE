@@ -32,6 +32,23 @@
 #' @param burnin An integer or list specifying the number of iterations to discard as burnin. 
 #'   Can be a single value (applied to all models) or a list of values (one per formula). 
 #'   Default is 1000.
+#' @param final_nitt,final_thin,final_burnin Optional MCMC settings for the
+#'   FINAL imputation runs only, in the same form as \code{nitt}, \code{thin}
+#'   and \code{burnin} (a single value, or a list with one value per formula).
+#'   Default \code{NULL}: the final runs reuse the chained-phase settings,
+#'   exactly as before. The two phases do different jobs, so they often want
+#'   different chains: the chained phase only needs the imputed values to
+#'   settle, while the final runs supply the posterior draws that are pooled
+#'   for inference and so benefit from longer chains. Scale the thinning with
+#'   the chain, because every retained draw is stored for all \code{n_final}
+#'   runs: each model keeps \code{(final_nitt - final_burnin) / final_thin}
+#'   draws per imputation, so raising \code{final_nitt} alone multiplies
+#'   memory by the same factor. For example \code{nitt = 50000, thin = 40}
+#'   with \code{final_nitt = 5e5, final_thin = 450} (the settings of the bird
+#'   case study) keeps about 1,000 draws per model in each phase.
+#'   \code{nitt_cat_mult} multiplies \code{final_nitt} and
+#'   \code{final_burnin} for categorical and threshold variables, exactly as
+#'   it does \code{nitt} and \code{burnin}; thinning is never multiplied.
 #' @param n_final An integer specifying the number of final imputation runs to
 #'   perform after convergence is achieved. Default is 50. These runs are used
 #'   for posterior pooling and to estimate per-cell prediction intervals. For
@@ -171,7 +188,8 @@ bace <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5,
                 sample_size = NULL, n_cores = 1L,
                 nitt_cat_mult = 1L, ovr_categorical = FALSE,
                 phylo_signal = FALSE, priors = NULL, sweeps = 3L,
-                seed = NULL, ...) {
+                seed = NULL, final_nitt = NULL, final_thin = NULL,
+                final_burnin = NULL, ...) {
 
 # Arguments in ... have no consumer downstream (bace_imp / bace_final_imp
 # accept but never use them), so a typo like prior = ... would vanish
@@ -185,6 +203,38 @@ if (length(dots) > 0) {
           paste(dot_names, collapse = ", "),
           ". Did you mean one of the documented arguments (e.g. 'priors')?",
           call. = FALSE)
+}
+
+# The final imputation runs reuse the chained-phase MCMC settings unless the
+# user asked for their own. Resolved here, once, so both bace_final_imp()
+# call sites below (converged and skip_conv/non-converged) get the same
+# values; leaving these NULL reproduces the previous behaviour exactly.
+# Check the user's final-phase settings BEFORE the chained phase runs: a typo
+# here would otherwise surface hours later, reported under the name "nitt".
+if (!is.null(final_nitt) || !is.null(final_thin) || !is.null(final_burnin)) {
+  n_models_chk <- length(if (is.list(fixformula) && !inherits(fixformula, "formula"))
+                           fixformula else .build_formula_string(fixformula))
+  if (!is.null(final_nitt))
+    invisible(.standardize_mcmc_params(final_nitt, n_models_chk, "final_nitt"))
+  if (!is.null(final_thin))
+    invisible(.standardize_mcmc_params(final_thin, n_models_chk, "final_thin"))
+  if (!is.null(final_burnin))
+    invisible(.standardize_mcmc_params(final_burnin, n_models_chk, "final_burnin"))
+}
+
+final_nitt   <- final_nitt   %||% nitt
+final_thin   <- final_thin   %||% thin
+final_burnin <- final_burnin %||% burnin
+
+# The final runs produce the draws that inference is based on, so a shorter
+# final chain than the convergence chain is almost always a mistake: the
+# convergence check says nothing about the final chains.
+if (is.numeric(final_nitt) && is.numeric(nitt) &&
+    length(final_nitt) == 1L && length(nitt) == 1L && final_nitt < nitt) {
+  warning("final_nitt (", final_nitt, ") is shorter than nitt (", nitt,
+          "). The final imputation runs supply the draws used for inference, ",
+          "so they normally need at least as long a chain as the ",
+          "convergence phase.", call. = FALSE)
 }
 
 ##-----------------------##
@@ -317,9 +367,9 @@ if (converged) {
     fixformula = fixformula,
     ran_phylo_form = ran_phylo_form,
     phylo = phylo,
-    nitt = nitt,
-    thin = thin,
-    burnin = burnin,
+    nitt = final_nitt,
+    thin = final_thin,
+    burnin = final_burnin,
     n_final = n_final,
     species = species,
     verbose = verbose,
@@ -368,9 +418,9 @@ if (converged) {
     fixformula = fixformula,
     ran_phylo_form = ran_phylo_form,
     phylo = phylo,
-    nitt = nitt,
-    thin = thin,
-    burnin = burnin,
+    nitt = final_nitt,
+    thin = final_thin,
+    burnin = final_burnin,
     n_final = n_final,
     species = species,
     verbose = verbose,
@@ -407,6 +457,13 @@ out <- list(
   convergence = converge,
   converged = converged,
   n_attempts = n_attempts,
+  # Both phases' MCMC settings, so a later bace_validate(fit) can re-run the
+  # pipeline the way it was actually run. The final phase's own record
+  # (final_results$settings) necessarily holds the FINAL values, which are not
+  # the chained ones once final_* are used.
+  settings = list(nitt = nitt, thin = thin, burnin = burnin,
+                  final_nitt = final_nitt, final_thin = final_thin,
+                  final_burnin = final_burnin),
   call = match.call()
 )
 

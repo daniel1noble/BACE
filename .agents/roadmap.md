@@ -235,3 +235,10 @@ analysis, tests, workflow impact) and adversarially reviewed against the code:
 convergence-phase parallelism, per-run ESS floor). Order of work and effort
 estimates in the plan. Speed is a first-class acceptance criterion throughout
 (Dan, 2026-11-07); measured: multiPhylo adds ~2.5 s to a case-study run.
+
+- **2026-11-08:** feature 4b landed — `bace()` gained `final_nitt`,
+  `final_thin`, `final_burnin` (per-phase MCMC settings), so the one-call
+  wrapper can now do what the bird case study needed. Features 1 (multiPhylo),
+  2 (`bace_validate`/`get_imputation_intervals`) and 4a also landed; feature 3
+  (checkpoint/resume) is in progress. See
+  [plans/next-features-2026-11.md](plans/next-features-2026-11.md).

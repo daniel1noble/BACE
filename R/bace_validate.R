@@ -195,7 +195,7 @@ get_imputation_intervals <- function(object, variable = NULL, level = 0.95) {
 #'   iterations (\code{runs}) and model settings are reused -- or the
 #'   \code{fixformula} (a single string, a formula, or a list of formulas),
 #'   with the data and tree given alongside, exactly as in \code{bace()}.
-#' @param ran_phylo_form,phylo,data,nitt,thin,burnin,runs,n_final,species,verbose,max_attempts,skip_conv,n_cores,nitt_cat_mult,ovr_categorical,priors,sweeps
+#' @param ran_phylo_form,phylo,data,nitt,thin,burnin,final_nitt,final_thin,final_burnin,runs,n_final,species,verbose,max_attempts,skip_conv,n_cores,nitt_cat_mult,ovr_categorical,priors,sweeps
 #'   Passed to \code{\link{bace}}, with the same meaning and defaults. For a
 #'   \code{bace_complete} input these are taken from the finished run; only
 #'   \code{verbose}, \code{n_cores}, \code{max_attempts} and \code{skip_conv}
@@ -286,6 +286,13 @@ bace_validate.bace_complete <- function(x, prop = 0.1, reps = 1, scale = NULL,
   }
   st    <- fin$settings
   trees <- fin$trees_used
+  # The chained and final phases can have different MCMC settings. bace()
+  # records both on the result; fin$settings holds only what the FINAL runs
+  # used, so fall back to it for objects made before bace() stored its own.
+  bs    <- if (is.list(x$settings)) x$settings else list()
+  ch_nitt   <- if (!is.null(bs$nitt))   bs$nitt   else st$nitt
+  ch_thin   <- if (!is.null(bs$thin))   bs$thin   else st$thin
+  ch_burnin <- if (!is.null(bs$burnin)) bs$burnin else st$burnin
   .bace_validate_run(
     # the per-variable formulas the run actually used, as strings
     fixformula = lapply(fin$formulas,
@@ -295,7 +302,8 @@ bace_validate.bace_complete <- function(x, prop = 0.1, reps = 1, scale = NULL,
     # the raw data as the run received it (original NAs intact)
     data = x$initial_results$data[["Initial_Data"]],
     prop = prop, reps = reps, scale = scale, seed = seed,
-    nitt = st$nitt, thin = st$thin, burnin = st$burnin,
+    nitt = ch_nitt, thin = ch_thin, burnin = ch_burnin,
+    final_nitt = st$nitt, final_thin = st$thin, final_burnin = st$burnin,
     runs = length(x$initial_results$data) - 1L,  # chained iterations as run
     n_final = fin$n_final, species = st$species, verbose = verbose,
     max_attempts = max_attempts, skip_conv = skip_conv, n_cores = n_cores,
@@ -315,7 +323,9 @@ bace_validate.character <- function(x, ran_phylo_form, phylo, data,
                                     max_attempts = 3, skip_conv = FALSE,
                                     n_cores = 1L, nitt_cat_mult = 1L,
                                     ovr_categorical = FALSE, priors = NULL,
-                                    sweeps = 3L, ...) {
+                                    sweeps = 3L, final_nitt = NULL,
+                                    final_thin = NULL, final_burnin = NULL,
+                                    ...) {
   if (length(x) > 1L) {
     stop("Supply several formulas as a list(), not a character vector.",
          call. = FALSE)
@@ -328,7 +338,8 @@ bace_validate.character <- function(x, ran_phylo_form, phylo, data,
                      max_attempts = max_attempts, skip_conv = skip_conv,
                      n_cores = n_cores, nitt_cat_mult = nitt_cat_mult,
                      ovr_categorical = ovr_categorical, priors = priors,
-                     sweeps = sweeps)
+                     sweeps = sweeps, final_nitt = final_nitt,
+                     final_thin = final_thin, final_burnin = final_burnin)
 }
 
 #' @rdname bace_validate
@@ -349,7 +360,9 @@ bace_validate.list <- function(x, ran_phylo_form, phylo, data,
                                max_attempts = 3, skip_conv = FALSE,
                                n_cores = 1L, nitt_cat_mult = 1L,
                                ovr_categorical = FALSE, priors = NULL,
-                               sweeps = 3L, ...) {
+                               sweeps = 3L, final_nitt = NULL,
+                               final_thin = NULL, final_burnin = NULL,
+                               ...) {
   .bace_validate_run(fixformula = x, ran_phylo_form = ran_phylo_form,
                      phylo = phylo, data = data, prop = prop, reps = reps,
                      scale = scale, seed = seed, nitt = nitt, thin = thin,
@@ -358,7 +371,8 @@ bace_validate.list <- function(x, ran_phylo_form, phylo, data,
                      max_attempts = max_attempts, skip_conv = skip_conv,
                      n_cores = n_cores, nitt_cat_mult = nitt_cat_mult,
                      ovr_categorical = ovr_categorical, priors = priors,
-                     sweeps = sweeps)
+                     sweeps = sweeps, final_nitt = final_nitt,
+                     final_thin = final_thin, final_burnin = final_burnin)
 }
 
 #' Per-repetition mask seeds, overflow-safe
@@ -387,7 +401,8 @@ bace_validate.list <- function(x, ran_phylo_form, phylo, data,
                           max_attempts = 3, skip_conv = FALSE, n_cores = 1L,
                           nitt_cat_mult = 1L, ovr_categorical = FALSE,
                           priors = NULL, sweeps = 3L,
-                          expected_types = NULL) {
+                          final_nitt = NULL, final_thin = NULL,
+                          final_burnin = NULL, expected_types = NULL) {
 
   if (!is.numeric(prop) || length(prop) != 1L || prop <= 0 || prop >= 1) {
     stop("`prop` must be a single number between 0 and 1.", call. = FALSE)
@@ -453,7 +468,9 @@ bace_validate.list <- function(x, ran_phylo_form, phylo, data,
                 max_attempts = max_attempts, skip_conv = skip_conv,
                 n_cores = n_cores, nitt_cat_mult = nitt_cat_mult,
                 ovr_categorical = ovr_categorical, priors = priors,
-                sweeps = sweeps, seed = mask_seeds[r])
+                sweeps = sweeps, seed = mask_seeds[r],
+                final_nitt = final_nitt, final_thin = final_thin,
+                final_burnin = final_burnin)
 
     # Masking can, in corner cases, flip a variable's detected type (e.g.
     # hiding an integer variable's only negative value makes it look like a
