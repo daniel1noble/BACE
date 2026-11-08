@@ -1,4 +1,9 @@
-# BACE 0.2.0
+# BACE 1.0.0
+
+First CRAN release. Earlier versions were distributed from GitHub only. The
+1.0.0 number marks a stable user-facing API, not a change in method. Every
+change below is additive, with one small exception noted under the per-phase
+MCMC settings (`fixformula` can no longer be abbreviated as far as `f`/`fi`).
 
 * **Long runs can now be resumed instead of restarted.** Give `bace()` (or
   `bace_imp()` / `bace_final_imp()`) a `checkpoint_dir` and the convergence
