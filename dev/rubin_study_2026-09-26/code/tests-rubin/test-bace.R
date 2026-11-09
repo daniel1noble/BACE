@@ -8,6 +8,7 @@
 # everything downstream reuses the single fit rather than re-fitting per expectation.
 
 source(normalizePath(file.path(testthat::test_path(), "..", "campaign_gnn_off_lib.R")))
+source(normalizePath(file.path(testthat::test_path(), "..", "rubin_covariate.R")))   # attach_covs()
 source(normalizePath(file.path(testthat::test_path(), "..", "rubin_bace.R")))
 
 testthat::skip_if_not_installed("BACE")

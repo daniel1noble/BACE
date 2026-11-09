@@ -1,8 +1,11 @@
 # script/rubin_bace.R
 #
-# BACE arms for the Rubin's-rules MI-arm comparison lane. Assumes campaign_gnn_off_lib.R has
-# already been sourced (make_cell(), run_bace()'s data-prep conventions, bace_diagnostics());
-# rubin_cell.R sources it first. BACE itself is installed as a package and never edited here.
+# BACE arms for the Rubin's-rules MI-arm comparison lane.
+#
+# REQUIRES, sourced before this file:
+#   campaign_gnn_off_lib.R  make_cell(), run_bace()'s data-prep conventions, bace_diagnostics()
+#   rubin_covariate.R       attach_covs(), which puts the auxiliary covariate into the model data
+# rubin_cell.R sources both first. BACE itself is installed as a package and never edited here.
 #
 # 2026-10 campaign: re-run on the CORRECTED package. The original (2026-09) campaign's
 # "BACE as shipped" arm measured the pre-fix package, in which every final imputation started
@@ -36,10 +39,14 @@
 #' @return list(outb = the "bace_complete" object, wall_s = fit wall time in seconds,
 #'   converged = BACE's own convergence verdict, ess_med = median effective sample size over the
 #'   final fits' fixed effects, diag = the full bace_diagnostics() list -- same extraction G9b/v1 use)
-fit_bace_mi <- function(cell, M = 20L, nitt, burnin, thin, runs, ovr_categorical = FALSE) {
+fit_bace_mi <- function(cell, M = 20L, nitt, burnin, thin, runs, ovr_categorical = FALSE,
+                        covs = cell$covs) {
+  ## STEP 1. The tree. MCMCglmm cannot take a zero-length branch, so nudge any to a tiny positive
+  ##         number. A no-op on almost every tree.
   tree_b <- cell$tree
   if (any(tree_b$edge.length == 0)) tree_b$edge.length[tree_b$edge.length == 0] <- 1e-8
-  # Input cleaning (2026-09-24, campaign): at lambda = 1 with fixed thresholds most datasets leave a discrete
+  ## STEP 2. Input cleaning, before the model ever sees the data.
+  # (2026-09-24, campaign): at lambda = 1 with fixed thresholds most datasets leave a discrete
   # level unobserved, and BACE passes the unused level to MCMCglmm, which stops at once with "Mixed model
   # equations singular". A careful user drops unused levels, so do that; a discrete trait with fewer than two
   # observed classes cannot be modelled and is left out of BACE's model (discrete traits are not scored).
@@ -54,10 +61,21 @@ fit_bace_mi <- function(cell, M = 20L, nitt, burnin, thin, runs, ovr_categorical
       df_b[[v]] <- droplevels(df_b[[v]])
     }
   }
+  ## STEP 3. BACE wants the species as a column, not as row names.
   df_b$Species <- rownames(cell$df_miss)
+
+  ## STEP 4. Decide what is a TRAIT (gets imputed) and what is a PREDICTOR (helps, never imputed).
+  ##         Everything left in df_b is a trait. The auxiliary covariate, if there is one, is
+  ##         attached here but deliberately kept OUT of all_traits -- see rubin_covariate.R.
   all_traits <- setdiff(names(df_b), "Species")
+  att <- attach_covs(df_b, covs, rownames(cell$df_miss))
+  df_b <- att$df; cov_names <- att$cov_names
+
+  ## STEP 5. One imputation model per trait: that trait on the left, every OTHER trait plus every
+  ##         covariate on the right. Because cov_names never appears on the left, no covariate is
+  ##         ever given a model of its own.
   fixformula <- lapply(all_traits, function(v)
-    paste0(v, " ~ ", paste(setdiff(all_traits, v), collapse = " + ")))
+    paste0(v, " ~ ", paste(c(setdiff(all_traits, v), cov_names), collapse = " + ")))
 
   t0 <- Sys.time()
   outb <- BACE::bace(fixformula = fixformula, ran_phylo_form = "~1|Species", phylo = tree_b,
@@ -74,6 +92,8 @@ fit_bace_mi <- function(cell, M = 20L, nitt, burnin, thin, runs, ovr_categorical
   d$input_fix <- input_fix
   list(outb = outb, wall_s = wall_s, converged = d$converged, ess_med = d$ess_med, diag = d,
        fixformula = fixformula, tree_b = tree_b, mcmc = c(nitt = nitt, burnin = burnin, thin = thin),
+       cov_names = cov_names, df_b = df_b,   # df_b is carried so mi_bace_chain() reuses the SAME
+                                             # covariate columns instead of rebuilding them
        ovr = ovr_categorical)   # so dependent arms (mi_bace_chain) match the parent fit's construction
 }
 

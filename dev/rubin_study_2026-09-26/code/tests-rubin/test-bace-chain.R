@@ -5,6 +5,7 @@
 # runs in BOTH arms. The old assertion is inverted and kept as a regression test of the fix.
 root <- normalizePath(file.path(testthat::test_path(), "..", ".."))
 source(file.path(root, "script", "campaign_gnn_off_lib.R"))
+source(file.path(root, "script", "rubin_covariate.R"))   # attach_covs(), used by fit_bace_mi()
 source(file.path(root, "script", "rubin_bace.R"))
 
 cell <- make_cell("types_mixed", n = 40, seed = 1L, lambda = 0.7, rho = 0.5)

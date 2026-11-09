@@ -20,15 +20,45 @@
 #
 # Usage:
 #   Rscript script/rubin_cell.R --n 100 --seed 1 --lambda 0.7 --rho 0.5 --out results/ \
-#           [--arms freqA,freqB,bace,bace_chain] [--M 20] [--miss mcar --frac 0.30] \
+#           [--arms bace,complete_case] [--M 20] [--miss mcar|mar|clade --frac 0.30] \
+#           [--n_cov 1 --rho_cov 0.8 --cov_target c1] \
 #           [--thresholds fixed] [--no_driver] [--save_imp] [--discrete] \
 #           [--bace_nitt 50000 --bace_burnin 10000 --bace_thin 25 --bace_runs 10] [--smoke]
 #
-# Output: rubin_types_mixed_BM_l<lambda>_r<rho>_<miss><frac>_n<n>_M<M>_s<seed>[_smoke].rds
+# Output: rubin_types_mixed_BM_l<lambda>_r<rho>[_cov<n_cov>-<rho_cov>]_<miss><frac>_n<n>_M<M>_s<seed>[_smoke].rds
 # Resumable: a cell whose rds already exists is skipped.
+#
+# THE _cov PART OF THE FILENAME IS LOAD-BEARING, not decoration. The 2026-11 design runs two
+# scenarios that share lambda, rho, n, M and seed and differ ONLY in whether an auxiliary
+# covariate is present ("typical" vs "good covariate", see .agents/plans/simulation-plan-2026-11.md
+# section 3.2). Without a covariate token in the name those two write the same filename, and
+# because the runner skips a cell whose rds already exists, the second one would be silently
+# skipped and the regime would never run. When n_cov = 0 the token is omitted entirely, so every
+# filename written before 2026-11 is unchanged and old results still resume correctly.
 
 suppressPackageStartupMessages({ library(ape) })
 RNGkind("L'Ecuyer-CMRG")
+
+# -------------------------------------------------------------------------------------------------
+# WHICH BACE IS THIS? -- checked here, before a single dataset is built.
+#
+# This campaign measures a specific version of BACE. Running it against an older build that happens
+# to be sitting in the R library produces results that look perfectly normal and mean nothing, and
+# that has already happened once (2026-11-09: the repository was at 1.0.0 while the installed
+# library was still 0.1.0.9000, built two days earlier). Nothing warned anybody.
+#
+# So: refuse to start on the wrong version, and record the version that actually ran in every
+# result file. To move the campaign to a new BACE, change BACE_MIN_VERSION deliberately -- which
+# leaves a line in the diff and in git history saying when and why the target changed.
+# -------------------------------------------------------------------------------------------------
+BACE_MIN_VERSION <- "1.0.0"
+bace_version <- as.character(utils::packageVersion("BACE"))
+if (utils::compareVersion(bace_version, BACE_MIN_VERSION) < 0) {
+  stop(sprintf(paste0("BACE %s is installed but this campaign requires >= %s.\n",
+                      "  Install the current source first:  R CMD INSTALL .\n",
+                      "  (run from the BACE repository root, then rerun this script)"),
+               bace_version, BACE_MIN_VERSION), call. = FALSE)
+}
 
 args <- commandArgs(trailingOnly = TRUE)
 get_arg <- function(flag, default = NULL) {
@@ -46,6 +76,22 @@ lambda   <- as.numeric(get_arg("--lambda", 0.7))
 rho      <- as.numeric(get_arg("--rho", 0.5))
 miss     <- get_arg("--miss", "mcar")
 frac     <- as.numeric(get_arg("--frac", 0.30))
+# The auxiliary covariate (code/rubin_covariate.R). n_cov = 0, the default, reproduces every run
+# made before 2026-11 exactly: build_covs() returns NULL, draws no random numbers, and shifts
+# nothing downstream.
+#   --n_cov       how many fully observed covariates to build (0 = none, 1 = the planned design)
+#   --rho_cov     how strongly each one correlates with the trait it proxies, on the latent scale
+#   --cov_target  which trait it proxies, recorded so the realised correlation can be checked
+n_cov      <- as.integer(get_arg("--n_cov", 0L))
+rho_cov    <- as.numeric(get_arg("--rho_cov", 0.8))
+cov_target <- get_arg("--cov_target", "c1")
+# --driver_as_predictor: the MAR driver d1 is fully observed by construction, so there is nothing
+# in it to impute, yet the campaign has always given it an imputation model of its own. Setting
+# this flag moves d1 to the right-hand side of every other trait's model and gives it none of its
+# own. The other traits' models are unchanged either way (d1 is on their right-hand side in both
+# cases), so the imputations are the same work for ~8.5% less compute -- measured on a matched
+# n = 80 fit, 14.7 s vs 13.5 s. OFF by default so runs made before 2026-11 still reproduce.
+driver_as_pred <- isTRUE(get_arg("--driver_as_predictor", FALSE))
 # v1's core stage ran every cell with --driver --thresholds fixed (script/campaign_sim_totoro.sh); match it so
 # the MI results sit beside v1's. --no_driver / --thresholds sample reproduce make_cell()'s defaults instead.
 thresholds <- get_arg("--thresholds", "fixed")
@@ -67,18 +113,26 @@ bace_runs   <- as.integer(get_arg("--bace_runs", 10L))
 if (smoke) { bace_nitt <- 6000L; bace_burnin <- 1000L; bace_thin <- 5L; bace_runs <- 3L }
 
 dir.create(out, showWarnings = FALSE, recursive = TRUE)
-tag <- sprintf("rubin_types_mixed_BM_l%s_r%s_%s%s_n%d_M%d_s%d", format(lambda), format(rho), miss,
-               format(frac), n, M, seed)
-out_path <- file.path(out, paste0(tag, if (smoke) "_smoke" else "", ".rds"))
+# The filename is built by cell_tag() in rubin_lib.R -- one definition shared with
+# rubin_missing.R and the tests, so the three can never disagree about what a dataset is called.
+source(file.path(dirname(sub("--file=", "", grep("--file=", commandArgs(), value = TRUE)[1])), "rubin_lib.R"))
+tag <- cell_tag(lambda, rho, miss, frac, n, M, seed, n_cov = n_cov, rho_cov = rho_cov, smoke = smoke)
+out_path <- file.path(out, paste0(tag, ".rds"))
 log_line <- function(...) cat(sprintf("[%s] %s\n", format(Sys.time(), "%H:%M:%S"), sprintf(...)))
 if (file.exists(out_path)) { log_line("cell %s: rds exists, skipping (resume)", tag); quit(save = "no", status = 0) }
 
 here <- dirname(sub("--file=", "", grep("--file=", commandArgs(), value = TRUE)[1]))
-source(file.path(here, "campaign_gnn_off_lib.R"))
-source(file.path(here, "rubin_lib.R"))
-source(file.path(here, "rubin_freq.R"))
-source(file.path(here, "rubin_bace.R"))
-if (discrete) source(file.path(here, "rubin_discrete.R"))
+# What this script needs, and nothing more. Each line says what the file is for, so you can follow
+# the chain outwards from here if you want to read how a particular step works.
+source(file.path(here, "campaign_gnn_off_lib.R"))   # the simulated data: make_cell(), build_covs()
+source(file.path(here, "rubin_lib.R"))              # PGLS, phylogenetic correlation, Rubin pooling
+source(file.path(here, "rubin_bace.R"))             # the BACE arm
+source(file.path(here, "rubin_covariate.R"))        # the auxiliary covariate, and its check
+source(file.path(here, "rubin_completecase.R"))     # the "drop every species with a gap" competitor
+if (discrete) source(file.path(here, "rubin_discrete.R"))   # scoring binary/ordinal/categorical
+# The frequentist arms (Rphylopars) are a separate comparison and are OFF in the 2026-11 campaign.
+# Their code is only loaded when one is actually asked for, so a BACE-only run does not pay for it.
+if (any(c("freqA", "freqB") %in% arms)) source(file.path(here, "rubin_freq.R"))
 
 git_hash <- tryCatch({
   h <- system2("git", c("-C", here, "rev-parse", "HEAD"), stdout = TRUE, stderr = FALSE)
@@ -88,9 +142,30 @@ git_hash <- tryCatch({
 if (is.na(git_hash) && file.exists(file.path(here, "DISC_COMMIT"))) git_hash <- readLines(file.path(here, "DISC_COMMIT"))[1]
 
 cell <- make_cell("types_mixed", n, seed, miss_frac = frac, miss = miss, lambda = lambda, rho = rho,
-                  thresholds = thresholds, driver = driver)
+                  thresholds = thresholds, driver = driver, n_cov = n_cov, rho_cov = rho_cov)
 truth <- cell$truth; tree <- cell$tree; mask <- cell$mask; df_miss <- cell$df_miss
 log_line("cell %s: n=%d masked=%d realised_frac=%.3f", tag, nrow(truth), sum(mask), cell$realised_frac)
+
+# Did the covariate come out the way we asked for it? This is recorded in every result file, and
+# is the one number that distinguishes "ran with a covariate" from "ran without one and nobody
+# noticed". NULL when n_cov = 0, which is a legitimate state, not a failure.
+cov_report <- covariate_check(cell$covs, truth, target_names = cov_target, rho_cov = rho_cov)
+
+# If asked, move the fully observed MAR driver out of the traits and in with the covariates. It
+# stays in `truth` (so nothing downstream changes) and simply stops being something BACE models.
+bace_cell <- cell
+if (driver_as_pred && "d1" %in% names(cell$df_miss)) {
+  bace_cell$df_miss <- cell$df_miss[, setdiff(names(cell$df_miss), "d1"), drop = FALSE]
+  d1_col <- data.frame(d1 = cell$truth$d1, row.names = rownames(cell$truth))
+  bace_cell$covs <- if (is.null(cell$covs)) d1_col else cbind(cell$covs, d1_col[rownames(cell$covs), , drop = FALSE])
+  log_line("driver d1 moved from trait to predictor (--driver_as_predictor)")
+}
+if (!is.null(cov_report)) {
+  log_line("covariate: %s", paste(sprintf("%s~%s requested %.2f realised %.3f", cov_report$cov,
+           cov_report$target, cov_report$rho_cov_requested, cov_report$rho_cov_realised), collapse = "; "))
+} else if (n_cov > 0L) {
+  stop("--n_cov was ", n_cov, " but make_cell() returned no covariates: the wiring is broken")
+}
 
 # ---- scoring -----------------------------------------------------------------------------------
 num_traits <- names(truth)[vapply(truth, is.numeric, logical(1))]
@@ -128,7 +203,10 @@ eig <- pagel_eigen(tree, rownames(truth))
 ref_slope <- est_pgls_slope_fast(truth, tree, eig = eig)
 ref_cor   <- est_phylo_cor(truth, tree, lambda = ref_slope$lambda_hat)
 
-score_estimands <- function(arm, sets) {
+# `n_eff` is the number of species the arm actually analysed. Every imputation arm sees all n of
+# them, so it defaults to n. The complete-case arm sees fewer, and must use its own count for the
+# degrees of freedom -- otherwise its intervals would be credited with information it never had.
+score_estimands <- function(arm, sets, n_eff = n) {
   sl <- lapply(sets, est_pgls_slope_fast, tree = tree, eig = eig)
   ok <- vapply(sl, function(s) is.finite(s$estimate) && is.finite(s$variance), logical(1))
   # the correlation reuses each dataset's slope-fit lambda instead of refitting (Meng N4)
@@ -136,8 +214,8 @@ score_estimands <- function(arm, sets) {
   okc <- vapply(co, function(s) is.finite(s$z), logical(1))
   if (sum(ok) < 2L || sum(okc) < 2L) stop(sprintf("%s: fewer than 2 analysable imputations", arm))
   ps <- rubin_pool(vapply(sl[ok], `[[`, numeric(1), "estimate"), vapply(sl[ok], `[[`, numeric(1), "variance"),
-                   df_com = n - 2)
-  pc <- pool_cor(vapply(co[okc], `[[`, numeric(1), "z"), n)
+                   df_com = n_eff - 2)
+  pc <- pool_cor(vapply(co[okc], `[[`, numeric(1), "z"), n_eff)
   rbind(
     data.frame(arm = arm, estimand = "slope", estimate = ps$estimate, se = ps$se, lower = ps$lower,
                upper = ps$upper, df = ps$df, fmi = ps$fmi, m_ok = sum(ok), truth = rho,
@@ -210,6 +288,25 @@ if (!is.null(est_tab$complete)) {
   est_tab$complete$fmi <- 0   # mice's small-sample fmi formula gives 2/(df+3) at B = 0, not 0
 }
 
+# ---- arm: complete case ---------------------------------------------------------------------
+# Drop every species with any gap, analyse the rest. No MCMC, so it costs milliseconds. See
+# code/rubin_completecase.R for what it does and why, step by step.
+#
+# This arm is allowed to decline. Under MCAR with 7 traits at 30% each, only about 8 species in
+# 100 survive, and sometimes too few to fit anything. That is a result about complete-case
+# analysis, not a bug in the campaign, so it is recorded as a status and a survivor count rather
+# than being hidden or allowed to crash the cell.
+cc_report <- NULL
+if ("complete_case" %in% arms) {
+  cc <- run_arm("complete_case", score_complete_case(df_miss, tree, truth_rho = rho))
+  if (!is.null(cc)) {
+    cc_report <- list(n_complete = cc$n_complete, frac_kept = cc$frac_kept, status = cc$status)
+    if (identical(cc$status, "scored")) est_tab$complete_case <- cc$estimands
+    log_line("arm complete_case: %d of %d species survived (%.1f%%), status = %s",
+             cc$n_complete, nrow(truth), 100 * cc$frac_kept, cc$status)
+  }
+}
+
 if ("freqA" %in% arms) {
   arm_seed(101L); a <- run_arm("freqA", mi_freq_A(cell, M))
   if (!is.null(a)) {
@@ -232,8 +329,8 @@ if ("freqB" %in% arms) {
 }
 if (any(c("bace", "bace_chain") %in% arms)) {
   arm_seed(303L)
-  fb <- run_arm("bace_fit", fit_bace_mi(cell, M = M, nitt = bace_nitt, burnin = bace_burnin, thin = bace_thin,
-                                        runs = bace_runs))
+  fb <- run_arm("bace_fit", fit_bace_mi(bace_cell, M = M, nitt = bace_nitt, burnin = bace_burnin,
+                                        thin = bace_thin, runs = bace_runs))
   if (!is.null(fb)) {
     diag$bace <- fb$diag
     if ("bace" %in% arms) score_arm_sets("bace", mi_bace_shipped(fb$outb, df_miss))
@@ -248,6 +345,9 @@ cells_df <- do.call(rbind, cells_tab); est_df <- do.call(rbind, est_tab)
 res <- list(tag = tag, n = n, seed = seed, M = M, arms = arms, smoke = smoke, lambda = lambda, rho = rho,
             miss = miss, miss_frac = frac, realised_frac = cell$realised_frac,
             thresholds = thresholds, driver = driver,
+            n_cov = n_cov, rho_cov = rho_cov, cov_target = cov_target, covariate = cov_report,
+            driver_as_predictor = driver_as_pred,
+            complete_case = cc_report,
             bace = c(nitt = bace_nitt, burnin = bace_burnin, thin = bace_thin, runs = bace_runs),
             cells = cells_df, estimands = est_df,
             reference = list(slope = ref_slope, cor = ref_cor),
@@ -257,6 +357,7 @@ res <- list(tag = tag, n = n, seed = seed, M = M, arms = arms, smoke = smoke, la
             disc_estimands = if (discrete) do.call(rbind, disc_est_tab) else NULL,
             disc_fill = if (discrete) disc_fill else NULL,
             disc_est_status = if (discrete) unlist(disc_est_status) else NULL,
+            bace_version = bace_version,   # the version that actually produced these numbers
             RNGkind = RNGkind(), sessionInfo = utils::sessionInfo(), git_hash = git_hash,
             host = Sys.info()[["nodename"]], time = Sys.time())
 saveRDS(res, out_path)
