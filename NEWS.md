@@ -61,6 +61,39 @@
   actual arguments and how to fix the call; a function taking `...` now
   receives the tree too.
 
+* **The stability check called settled variables "drift" most of the time**
+  (#20). When the imputed cells had no within-run spread, `.conv_assess_series()`
+  fell back to `sd()` of the very series it was judging. That makes
+  `step_mean = mean|diff(m)| / sd(m)` scale-free by construction: for any iid
+  wobble, however small, it converges to `2/sqrt(pi) = 1.128`, against a
+  `wander` gate of 1.00. A perfectly settled variable was therefore reported
+  as drift **81-89 per cent of the time**, and more runs made it worse (0.80 at
+  `runs = 10`, 0.88 at `runs = 50`), because the statistic is scale-free. Two
+  ordinary situations land on that branch: a variable with exactly **one**
+  missing cell (the SD of a length-1 vector is `NA`, recorded as 0), and a
+  **poisson** variable whose rounded point imputations all land on the same
+  integer. Each false verdict costs `bace()` a full extra chained phase and
+  still ends `converged = FALSE`. The yardstick is now the spread of the
+  variable's **observed** values — a scale independent of the series under
+  test — and when no such scale exists the verdict is `"unassessable"` rather
+  than an invented one. Settled series now return `"ok"` 100 per cent of the
+  time at every `runs`, a genuine drift of 3 data-SD is still caught 100 per
+  cent of the time, and series with a real within-run spread are unchanged.
+  This was the same defect the 1.0.1 rewrite set out to fix — a derived
+  quantity used as if it were an independent measurement — reintroduced in the
+  fix itself.
+
+* **`assess_convergence()` reported thresholds it was not using** (#20). The
+  returned `thresholds` vector was written out by hand in two places and had
+  drifted from the code: `osc_floor` was reported as 0.50 while 0.60 was
+  applied. It is now derived from `.conv_assess_series()`'s own defaults, so
+  the two cannot diverge again, and the numeric-only entries are named as such
+  (`drift_threshold_numeric`, `osc_floor_numeric`) — proportion series are
+  judged on a tightened, per-variable bar reported in each assessment's `ref`.
+  The `wander` gate is also now documented as unreachable for proportion
+  series (a per-run step cannot exceed 1), which is a detection gap, not a
+  wrong number: drift and alternation are still covered by the other tests.
+
 * **The poisson rate guard no longer truncates in silence** (#20). The cap
   (`3 * max(observed) + 5`) exists to stop log-link chain excursions — an
   `exp(20.4)` liability with a maximum observed count of 2 — becoming

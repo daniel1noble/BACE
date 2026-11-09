@@ -453,12 +453,58 @@ test_that("break: one bad variable fails the dataset and is named; the good one 
 })
 
 test_that("break: binary trait where every run imputes all-one-level, flipping levels", {
-  # within-run spread is 0 at every run while the mean flips 0 <-> 1:
-  # spread falls back to the series' own sd and the flip must be flagged
+  # Within-run spread is 0 at every run while the mean flips 0 <-> 1.
+  # A binary trait is monitored as a PROPORTION by .assess_summary_convergence,
+  # which carries its own 0-1 scale, so the flip is caught there.
   m <- rep(c(0, 1), 5)
   s <- rep(0, 10)
-  out <- BACE:::.conv_assess_series(m, s, n_cells = 10)
-  expect_identical(out$verdict, "oscillation")
+  expect_identical(
+    BACE:::.conv_assess_series(m, s, n_cells = 10, kind = "proportion")$verdict,
+    "oscillation")
+
+  # The numeric path catches it too, as long as it is given a scale that does
+  # not come from the series itself (here the SD of a 0/1 variable, ~0.5).
+  expect_identical(
+    BACE:::.conv_assess_series(m, s, n_cells = 10, kind = "numeric",
+                               data_scale = 0.5)$verdict,
+    "oscillation")
+
+  # With NO independent scale the honest answer is "unassessable". This test
+  # used to assert the old behaviour, where `spread` fell back to sd(m) -- the
+  # between-run SD of the series under test. That made the statistic
+  # scale-free (mean|diff|/sd -> 2/sqrt(pi) = 1.128 for ANY iid wobble), so a
+  # perfectly settled variable was called "drift" 81-89% of the time.
+  expect_identical(
+    BACE:::.conv_assess_series(m, s, n_cells = 10, kind = "numeric")$verdict,
+    "unassessable")
+})
+
+test_that("a settled numeric series with no within-run spread is not 'drift'", {
+  # The regression: one missing cell (sd of length 1 is NA -> recorded as 0),
+  # or rounded counts all landing on the same integer, gives s == 0 at every
+  # run. Judged against the variable's OWN observed spread, a chain that moves
+  # 0.02 on a variable whose data SD is 1.6 is plainly settled.
+  set.seed(1)
+  verdicts <- vapply(1:400, function(i)
+    BACE:::.conv_assess_series(rnorm(10, 5, 0.02), rep(0, 10), n_cells = 1L,
+                               kind = "numeric", data_scale = 1.6)$verdict,
+    character(1))
+  expect_true(mean(verdicts == "ok") > 0.98)
+
+  # more runs must not make a settled chain look worse (it used to: 0.80 at
+  # runs = 10, 0.88 at runs = 50)
+  v50 <- vapply(1:200, function(i)
+    BACE:::.conv_assess_series(rnorm(50, 5, 0.02), rep(0, 50), n_cells = 1L,
+                               kind = "numeric", data_scale = 1.6)$verdict,
+    character(1))
+  expect_true(mean(v50 == "ok") > 0.98)
+
+  # and a REAL drift on the same scale is still caught
+  ramp <- vapply(1:200, function(i)
+    BACE:::.conv_assess_series(seq(0, 3 * 1.6, length.out = 10) + rnorm(10, 0, 0.02),
+                               rep(0, 10), n_cells = 1L, kind = "numeric",
+                               data_scale = 1.6)$verdict, character(1))
+  expect_true(all(ramp == "drift"))
 })
 
 test_that("break: near-constant series just above the old 1e-10 variance cutoff passes", {

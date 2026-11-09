@@ -229,13 +229,27 @@ assess_convergence <- function(bace_object,
 #'   amplitude gate stops screening on large datasets and a lag-1 correlation
 #'   over a handful of pairs decides the verdict on its own (false
 #'   oscillation ~25% at n_cells = 1000). \code{wander} catches a chain that
-#'   keeps taking large steps without going anywhere. Calibrated against
-#'   constructed chains and the real harvested ones; see
+#'   keeps taking large steps without going anywhere.
+#'
+#'   NOTE: \code{wander} is a NUMERIC-series test only. A proportion series is
+#'   measured in proportion units, where the largest possible per-run step is
+#'   1 (every cell changing level), so \code{step_mean > 1.00} cannot be
+#'   reached and the gate never fires for binary, ordinal or categorical
+#'   variables. Those are not left unchecked -- drift is caught by the net
+#'   movement and trend tests at a proportion-appropriate bar, and
+#'   alternation by the ACF plus amplitude test -- but a proportion that
+#'   churns heavily with NO net movement and no negative lag-1 correlation is
+#'   a gap. Setting a proportion-scale wander gate needs calibration against
+#'   the harvested chains before it can be trusted not to raise false alarms,
+#'   which is the failure this check exists to avoid.
+#'
+#'   Calibrated against constructed chains and the real harvested ones; see
 #'   \code{.agents/investigation-convergence-2026-11.md}.
 #' @return list(verdict, note, stats)
 #' @noRd
 .conv_assess_series <- function(m, s, n_cells,
                                 kind = c("numeric", "proportion"),
+                                data_scale = NA_real_,
                                 drift_threshold = 0.75,
                                 stuck_ratio = 0.25,
                                 osc_acf = -0.60,
@@ -320,8 +334,37 @@ assess_convergence <- function(bace_object,
   ##    movement does not.
   if (kind == "numeric") {
     spread <- mean(sk, na.rm = TRUE)
-    if (!is.finite(spread) || spread <= 0) spread <- stats::sd(mk)
-    if (!is.finite(spread) || spread <= 0) spread <- .Machine$double.eps
+
+    ## The yardstick must come from OUTSIDE the series being judged. When the
+    ## imputed cells have no within-run spread, fall back to the spread of the
+    ## variable's OBSERVED values -- a real, independent scale.
+    ##
+    ## It used to fall back to stats::sd(mk): the between-run SD of the very
+    ## series under test. That makes step_mean = mean|diff(m)|/sd(m), which is
+    ## scale-free by construction and converges to E|X_t - X_t-1|/SD(X)
+    ## = 2/sqrt(pi) = 1.128 for ANY iid wobble, however tiny -- clearing the
+    ## `wander` gate of 1.00 about 79% of the time. A perfectly settled
+    ## variable was therefore reported as "drift" in 81-89% of runs, and MORE
+    ## runs made it worse (0.80 at runs=10, 0.88 at runs=50). Two ordinary
+    ## situations land here: a variable with exactly ONE missing cell (sd of
+    ## length 1 is NA, recorded as 0), and a poisson variable whose rounded
+    ## point imputations all land on the same integer. Each false verdict
+    ## costs bace() a full extra chained phase and still ends converged=FALSE.
+    ## This is the same defect as the bug the rewrite fixed: a DERIVED
+    ## quantity used as if it were an independent measurement.
+    if (!is.finite(spread) || spread <= 0) spread <- data_scale
+
+    if (!is.finite(spread) || spread <= 0) {
+      ## No scale independent of the series itself. Say so; do not invent one.
+      if (!is.finite(stats::sd(mk)) || stats::sd(mk) <= 0) {
+        add_note("imputed values identical in every run")
+        return(out("ok", net = 0, step = 0, sd_ratio = 1))
+      }
+      add_note(paste0("no independent scale to judge movement against: the ",
+                      "imputed cells have no within-run spread and the ",
+                      "observed values no usable SD"))
+      return(out("unassessable"))
+    }
     ref <- sqrt(2 / max(n_cells, 1))
     amp_gate <- max(osc_amp * ref, osc_floor)
   } else {
@@ -425,11 +468,7 @@ assess_convergence <- function(bace_object,
                 verdicts = character(0), notes = character(0),
                 assessments = list(), stats_df = empty, sd_df = empty,
                 warmup = max(1, floor(n_iter / 2)) - 1,
-                thresholds = c(drift_threshold = drift_threshold,
-                               stuck_ratio = stuck_ratio,
-                               osc_acf = -0.60, osc_amp = 3.0,
-                               osc_floor = 0.50, wander = 1.0,
-                               trend_alpha = 0.10),
+                thresholds = .conv_thresholds(drift_threshold, stuck_ratio),
                 types = list()))
   }
 
@@ -465,8 +504,20 @@ assess_convergence <- function(bace_object,
       }, numeric(1))
       mean_list[[var]] <- mu
       sd_list[[var]]   <- sg
+      ## An INDEPENDENT scale for this variable: the spread of the values that
+      ## were actually observed. Used only when the imputed cells have no
+      ## within-run spread of their own (one missing cell, or rounded counts
+      ## all landing on the same integer). Never derived from the series under
+      ## test -- that circularity is what made settled variables read "drift".
+      obs_scale <- {
+        full <- imputed_data[[1]][[var]]
+        obs  <- if (length(miss_idx)) full[-miss_idx] else full
+        z    <- suppressWarnings(stats::sd(as.numeric(obs), na.rm = TRUE))
+        if (is.finite(z) && z > 0) z else NA_real_
+      }
       series[[var]] <- list(list(label = var, kind = "numeric",
-                                 m = mu, s = sg, n_cells = n_cells))
+                                 m = mu, s = sg, n_cells = n_cells,
+                                 data_scale = obs_scale))
     } else {
       ## one proportion series per level; the variable takes the worst verdict.
       lev <- levels(vals_by_run[[1]])
@@ -500,6 +551,7 @@ assess_convergence <- function(bace_object,
   assessments <- lapply(vars_to_check, function(var) {
     parts <- lapply(series[[var]], function(z)
       .conv_assess_series(z$m, z$s, z$n_cells, kind = z$kind,
+                          data_scale = z$data_scale %||% NA_real_,
                           drift_threshold = drift_threshold,
                           stuck_ratio = stuck_ratio))
     worst <- which.max(vapply(parts, function(p)
@@ -543,10 +595,7 @@ assess_convergence <- function(bace_object,
     stats_df = stats_df,
     sd_df = sd_df,
     warmup = max(1, floor(n_iter / 2)) - 1,
-    thresholds = c(drift_threshold = drift_threshold,
-                   stuck_ratio = stuck_ratio,
-                   osc_acf = -0.60, osc_amp = 3.0, osc_floor = 0.50,
-                   wander = 1.0, trend_alpha = 0.10),
+    thresholds = .conv_thresholds(drift_threshold, stuck_ratio),
     types = types[vars_to_check]
   ))
 }
@@ -620,4 +669,33 @@ print.bace_convergence <- function(x, ...) {
   cat("no clear-cut test of chained-equations convergence exists (van Buuren\n")
   cat("2018, ch. 6.5.2). Inspect the traces: plot(<this object>).\n")
   invisible(x)
+}
+
+
+#' @title .conv_thresholds
+#' @description Internal: the thresholds actually in force, so the reported
+#'   settings cannot drift away from the applied ones. They were written out
+#'   by hand in two places and had already diverged: \code{osc_floor} was
+#'   reported as 0.50 while \code{.conv_assess_series()} applies 0.60.
+#'
+#'   \code{drift_threshold} and \code{osc_floor} are the values used for
+#'   NUMERIC series. A proportion series (binary, ordinal, categorical) is
+#'   judged on its own 0-1 scale, so \code{.conv_assess_series()} tightens the
+#'   drift bar to \code{max(min(drift_threshold, 0.20), 2 * ref)} and sets the
+#'   oscillation amplitude gate from \code{ref}, the Monte-Carlo noise floor
+#'   of that variable's own proportion. Those per-variable values vary by
+#'   variable and are reported in each assessment's \code{ref} statistic, not
+#'   here.
+#' @param drift_threshold,stuck_ratio The caller's settings.
+#' @return A named numeric vector of the thresholds in force.
+#' @noRd
+.conv_thresholds <- function(drift_threshold, stuck_ratio) {
+  d <- formals(.conv_assess_series)
+  c(drift_threshold_numeric = drift_threshold,
+    stuck_ratio             = stuck_ratio,
+    osc_acf                 = eval(d$osc_acf),
+    osc_amp                 = eval(d$osc_amp),
+    osc_floor_numeric       = eval(d$osc_floor),
+    wander                  = eval(d$wander),
+    trend_alpha             = eval(d$trend_alpha))
 }
