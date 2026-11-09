@@ -1,6 +1,6 @@
 # script/rubin_cell.R
 #
-# One cell of the freq-vs-BACE multiple-imputation study (docs/dev-log/arc/2026-09-24-rubin-freq-bace-plan.md).
+# ONE DATASET, END TO END. Build it, run every arm on it, score them, write one .rds.
 # Builds the cell with the v1 make_cell() (script/campaign_gnn_off_lib.R), produces M completed datasets per
 # arm, and scores everything under Rubin's rules:
 #   per cell   : mean of the M imputations, interval mean +/- t_{M-1} sqrt((1 + 1/M) B)
@@ -10,13 +10,12 @@
 # scored against rho. Each cell also carries a "complete" row (the same estimands on the complete data, same df
 # convention), because the complete-data coverage itself falls short of 0.95 at small n (Meng review N3).
 #
-# Arms (2026-10 campaign, corrected BACE package): freqA (Rphylopars: parametric bootstrap then joint
-# conditional draw -- "proper"), freqB (Rphylopars: joint conditional draws at one fixed lambda fit),
-# bace ("Current BACE": the installed corrected build -- each final dataset from an independent run with
-# 3 internal Gibbs sweeps; the 2026-09 "as shipped" arm measured the pre-fix package and is obsolete),
-# bace_chain (the 2026-09 chained variant, one sweep per link, kept for comparison; paired with bace on
-# one fit). The 2026-09 bace_resid negative control is removed with the defect it probed (git: eaca7e3).
-# Each arm reseeds with seed + a fixed offset, so an arm's draws do not depend on which arms ran before it.
+# Arms (2026-11 campaign):
+#   bace           BACE::bace() -- the method the manuscript is about
+#   complete_case  drop every species with a gap, analyse the rest -- what people do now
+#   complete       the oracle: the truth before we made holes, the best anyone could do
+# The 2026-09/10 frequentist arms (Rphylopars + castor) and the chained BACE variant are retired;
+# their code is in archive-2026-09/.
 #
 # Usage:
 #   Rscript script/rubin_cell.R --n 100 --seed 1 --lambda 0.7 --rho 0.5 --out results/ \
@@ -70,7 +69,7 @@ get_arg <- function(flag, default = NULL) {
 n        <- as.integer(get_arg("--n", 100L))
 seed     <- as.integer(get_arg("--seed", 1L))
 out      <- get_arg("--out", "results")
-arms     <- strsplit(get_arg("--arms", "freqA,freqB,bace,bace_chain"), ",")[[1]]
+arms     <- strsplit(get_arg("--arms", "bace,complete_case"), ",")[[1]]
 M        <- as.integer(get_arg("--M", 20L))
 lambda   <- as.numeric(get_arg("--lambda", 0.7))
 rho      <- as.numeric(get_arg("--rho", 0.5))
@@ -100,11 +99,7 @@ smoke    <- isTRUE(get_arg("--smoke", FALSE))
 # --save_imp keeps each arm's M completed datasets in the rds (res$imputations), so discrete traits can be
 # scored later; off by default, which leaves the continuous campaign's output unchanged.
 save_imp <- isTRUE(get_arg("--save_imp", FALSE))
-# --discrete adds the discrete traits (script/rubin_discrete.R): castor Mk with flexible rates fills the freq A
-# (bootstrapped rates) and freq B (fixed rates) datasets after their continuous draws, under their own seeds (505,
-# 606), so the continuous draws and scores do not change. Two comparison arms, freqA_er and freqB_er (seeds 707,
-# 808), fill the same continuous draws with simulation v1's equal-rates models and are scored on discrete traits
-# only. Every arm is scored on bin, ord, cat3 and on c1 ~ bin.
+# --discrete also scores the binary, ordinal and categorical traits (code/rubin_discrete.R).
 discrete <- isTRUE(get_arg("--discrete", FALSE))
 bace_nitt   <- as.integer(get_arg("--bace_nitt", 50000L))
 bace_burnin <- as.integer(get_arg("--bace_burnin", 10000L))
@@ -130,9 +125,7 @@ source(file.path(here, "rubin_bace.R"))             # the BACE arm
 source(file.path(here, "rubin_covariate.R"))        # the auxiliary covariate, and its check
 source(file.path(here, "rubin_completecase.R"))     # the "drop every species with a gap" competitor
 if (discrete) source(file.path(here, "rubin_discrete.R"))   # scoring binary/ordinal/categorical
-# The frequentist arms (Rphylopars) are a separate comparison and are OFF in the 2026-11 campaign.
-# Their code is only loaded when one is actually asked for, so a BACE-only run does not pay for it.
-if (any(c("freqA", "freqB") %in% arms)) source(file.path(here, "rubin_freq.R"))
+# (The frequentist comparison arms live in archive-2026-09/; this campaign tests bace().)
 
 git_hash <- tryCatch({
   h <- system2("git", c("-C", here, "rev-parse", "HEAD"), stdout = TRUE, stderr = FALSE)
@@ -176,7 +169,7 @@ score_cells <- function(arm, sets) {
     idx <- which(mask[, v]); if (!length(idx)) next
     draws <- t(vapply(sets, function(s) as.numeric(s[[v]][idx]), numeric(length(idx))))
     if (length(idx) == 1L) draws <- matrix(draws, ncol = 1L)
-    if (all(is.na(draws))) next                 # trait not imputed by this arm (e.g. outside the freq block)
+    if (all(is.na(draws))) next                 # this arm did not impute this trait
     n_na <- sum(is.na(draws))                   # a partial failure is recorded, never hidden (Meng N14)
     if (n_na) draws <- draws[stats::complete.cases(draws), , drop = FALSE]
     sc <- score_scale(v, draws); draws <- sc$x          # prp scored on the logit scale (Meng N10)
@@ -240,7 +233,7 @@ run_arm <- function(arm, expr) {
 }
 
 # Scoring is guarded per arm (Meng B1): a failed draw or estimand records an error and the cell still writes its
-# rds. NULL datasets (freq A draws whose refits failed twice) are dropped and counted.
+# rds. NULL datasets are dropped and counted rather than silently ignored.
 score_disc <- function(arm, sets) {
   f <- fill_degenerate(sets, df_miss, disc_traits_of(truth)); disc_fill[[arm]] <<- f$n_filled
   dc <- tryCatch(score_discrete(arm, f$sets, truth, mask), error = function(e) e)
@@ -269,14 +262,6 @@ score_arm_sets <- function(arm, sets, continuous = TRUE) {
     } else { cells_tab[[arm]] <<- res$cells; est_tab[[arm]] <<- res$est }
   }
   if (discrete) score_disc(arm, sets)
-}
-castor_fill <- function(arm, sets, offset, proper, models = CASTOR_FLEX) {
-  if (!discrete) return(sets)
-  arm_seed(offset)
-  cf <- run_arm(paste0(arm, "_castor"), mi_castor(cell, length(sets), proper = proper, base_sets = sets, models = models))
-  if (is.null(cf)) return(sets)
-  diag[[paste0(arm, "_castor")]] <<- cf$diag
-  cf$datasets
 }
 arm_seed <- function(offset) set.seed(seed + offset)
 
@@ -307,37 +292,16 @@ if ("complete_case" %in% arms) {
   }
 }
 
-if ("freqA" %in% arms) {
-  arm_seed(101L); a <- run_arm("freqA", mi_freq_A(cell, M))
-  if (!is.null(a)) {
-    a_sets <- Filter(Negate(is.null), a$datasets)
-    score_arm_sets("freqA", castor_fill("freqA", a_sets, 505L, proper = TRUE))
-    if (discrete) score_arm_sets("freqA_er", castor_fill("freqA_er", a_sets, 707L, proper = TRUE, models = CASTOR_V1),
-                                 continuous = FALSE)
-    diag$freqA <- list(n_fail = a$n_fail, n_degenerate = a$n_degenerate, m_used = sum(!vapply(a$datasets, is.null, logical(1))),
-                       lambda_star = vapply(Filter(Negate(is.null), a$pars_star), function(p) p$lambda, numeric(1)))
-  }
-}
-if ("freqB" %in% arms) {
-  arm_seed(202L); b <- run_arm("freqB", mi_freq_B(cell, M))
-  if (!is.null(b)) {
-    b_sets <- Filter(Negate(is.null), b$datasets)
-    score_arm_sets("freqB", castor_fill("freqB", b_sets, 606L, proper = FALSE))
-    if (discrete) score_arm_sets("freqB_er", castor_fill("freqB_er", b_sets, 808L, proper = FALSE, models = CASTOR_V1),
-                                 continuous = FALSE)
-  }
-}
-if (any(c("bace", "bace_chain") %in% arms)) {
+# ---- arm: BACE ------------------------------------------------------------------------------
+# One call to BACE::bace(), then score its M imputed datasets. This is the whole point of the
+# campaign; everything else here is the comparison it is measured against.
+if ("bace" %in% arms) {
   arm_seed(303L)
   fb <- run_arm("bace_fit", fit_bace_mi(bace_cell, M = M, nitt = bace_nitt, burnin = bace_burnin,
                                         thin = bace_thin, runs = bace_runs))
   if (!is.null(fb)) {
     diag$bace <- fb$diag
-    if ("bace" %in% arms) score_arm_sets("bace", mi_bace_shipped(fb$outb, df_miss))
-    if ("bace_chain" %in% arms) {
-      arm_seed(404L); ch <- run_arm("bace_chain", mi_bace_chain(fb, df_miss, M = M))
-      if (!is.null(ch)) score_arm_sets("bace_chain", ch$datasets)
-    }
+    score_arm_sets("bace", mi_bace_shipped(fb$outb, df_miss))
   }
 }
 

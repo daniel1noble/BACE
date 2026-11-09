@@ -1,153 +1,32 @@
-# script/rubin_discrete.R
+# code/rubin_discrete.R
 #
-# Discrete-trait arms and scores for the freq-vs-BACE Rubin study (script/rubin_study/study.qmd, section
-# "Discrete traits"). Assumes campaign_gnn_off_lib.R and rubin_lib.R are sourced (rubin_cell.R does this).
+# SCORING for the discrete traits: binary, ordinal and categorical.
 #
-# Frequentist discrete arms mirror the continuous freq A / freq B:
-#   freq B analogue: one castor Mk fit (castor::hsp_mk_model), then M joint conditional draws of the missing tips at
-#     the fitted rates.
-#   freq A analogue: for each m, a parametric bootstrap of the rates (simulate the trait on the tree at the fitted Q,
-#     keep the observed tips, refit), then one joint conditional draw at the refitted Q.
-# Rate models (review of 2026-09-26): the default is the flexible set CASTOR_FLEX (all rates different, ARD, for binary
-# and categorical traits; stepwise with every rate different, SRD, for the ordinal trait). Its stationary distribution
-# can match the observed class frequencies, so at low phylogenetic signal it falls back to them, as the continuous
-# arm's Pagel lambda falls back to the sample mean. Equal rates (ER) cannot: at low lambda its rate runs to the bound
-# and it imputes uniform classes, below the observed-frequency floor. Simulation v1's set (ER, ER, SUEDE) is kept as
-# CASTOR_V1 for a comparison arm.
-# The joint draw (mk_joint_draw) is forward filtering, backward sampling on the tree: exact draws from the joint
-# distribution of all missing tips given the observed tips, with the root prior castor's fit uses ("empirical":
-# observed class frequencies; at very high fitted rates the draws follow the model's stationary distribution instead).
-# Transition probabilities use the matrix exponential (Matrix::expm), which also handles the defective rate matrices
-# that boundary fits produce (a stepwise rate at exactly 0). castor's own hsp marginals are exact only for reversible
-# models, so the tests compare the joint draws with brute-force marginals.
+# The continuous traits are scored on how far the imputed number is from the truth. A category
+# cannot be scored that way, so these traits get their own measures:
 #
-# castor models one trait at a time and has no covariates, so these arms ignore c1, c2 and the driver d1.
-# A trait with fewer than two observed classes cannot be fitted (castor stops; BACE leaves it out); every arm, BACE
-# included, then imputes the single observed class (fill_degenerate()), and the filled cells are counted. A castor
-# failure on one trait leaves that trait missing for the arm (recorded in the arm's diag) and never touches the others.
+#   accuracy        how often the most frequently imputed category was the right one, with
+#                   FRACTIONAL credit for ties -- if two categories tie and one is correct, that
+#                   cell scores 0.5, which is what you would get on average by guessing between
+#                   them. Without that, a tie would be scored as a win or a loss at random.
+#   set coverage    the discrete version of a confidence interval: the smallest SET of categories
+#                   holding 95% of the imputed draws, and whether the truth was in it.
+#   set size        how big that set had to be. A set of "all three categories" covers the truth
+#                   every time and says nothing, so coverage is only meaningful beside this.
+#   Brier, ECE      how well calibrated the imputed category probabilities are.
+#
+# One edge case, handled the same way for every method: a trait with only ONE observed class has
+# nothing to predict from. Every arm then imputes that single class (fill_degenerate), and the
+# filled cells are counted rather than quietly scored as successes.
+#
+# Assumes campaign_gnn_off_lib.R and rubin_lib.R are sourced; rubin_cell.R does this.
+#
+# (The castor Mk machinery that used to live here filled the discrete traits for the frequentist
+# comparison arms. Those arms are not part of the 2026-11 campaign -- it tests BACE -- so it moved
+# to archive-2026-09/rubin_discrete_castor.R, intact and still callable if the competitor
+# benchmark is revived.)
 
 disc_traits_of <- function(truth) names(truth)[vapply(truth, is.factor, logical(1))]
-
-CASTOR_FLEX <- c(binary = "ARD", categorical = "ARD", ordinal = "SRD")
-CASTOR_V1   <- c(binary = "ER",  categorical = "ER",  ordinal = "SUEDE")
-.trait_kind <- function(f) if (is.ordered(f)) "ordinal" else if (nlevels(f) == 2L) "binary" else "categorical"
-
-.edge_P <- function(Q, t) {
-  lapply(t, function(s) { P <- as.matrix(Matrix::expm(Q * s)); P[P < 0] <- 0; P / rowSums(P) })
-}
-
-#' Joint conditional draws of the missing tip states of one Mk trait.
-#' @param tree ape phylo; @param tip integer states 1..K in tree$tip.label order, NA = missing
-#' @param Q K x K transition-rate matrix; @param root_prior length-K probabilities; @param M number of draws
-#' @return M x Ntip integer matrix of complete tip states (observed tips kept). Stops if the observed tips have zero
-#'   likelihood under Q (possible for a bootstrap refit with rates at exactly 0), instead of returning NA draws.
-mk_joint_draw <- function(tree, tip, Q, root_prior, M) {
-  K <- nrow(Q); nt <- length(tree$tip.label); nn <- tree$Nnode
-  tr <- ape::reorder.phylo(tree, "postorder")
-  P <- .edge_P(Q, tr$edge.length)
-  lik <- matrix(1, nt + nn, K)
-  obs <- !is.na(tip); lik[which(obs), ] <- 0; lik[cbind(which(obs), tip[obs])] <- 1
-  for (i in seq_len(nrow(tr$edge))) {
-    p <- tr$edge[i, 1]; c <- tr$edge[i, 2]
-    lik[p, ] <- lik[p, ] * as.numeric(P[[i]] %*% lik[c, ])
-    mx <- max(lik[p, ])
-    if (!is.finite(mx) || mx <= 0) stop("the observed tips have zero likelihood under Q")
-    lik[p, ] <- lik[p, ] / mx              # rescale against underflow; sampling ignores the scale
-  }
-  root <- nt + 1L
-  draw_cat <- function(pr) {                 # pr: M x K unnormalised probabilities, one row per draw
-    rs <- rowSums(pr)
-    if (any(!is.finite(rs) | rs <= 0)) stop("the observed tips have zero likelihood under Q")
-    cp <- t(apply(pr / rs, 1, cumsum))
-    1L + rowSums(cp < stats::runif(nrow(pr)))
-  }
-  st <- matrix(NA_integer_, M, nt + nn)
-  st[, root] <- draw_cat(matrix(root_prior * lik[root, ], M, K, byrow = TRUE))
-  for (i in rev(seq_len(nrow(tr$edge)))) {   # reverse postorder visits every parent before its children
-    p <- tr$edge[i, 1]; c <- tr$edge[i, 2]
-    st[, c] <- draw_cat(P[[i]][st[, p], , drop = FALSE] * matrix(lik[c, ], M, K, byrow = TRUE))
-  }
-  st[, seq_len(nt), drop = FALSE]
-}
-
-.empirical_prior <- function(tip, K) { f <- tabulate(tip[!is.na(tip)], K); f / sum(f) }
-
-.castor_fit <- function(tree, tip, K, rate_model) {
-  h <- castor::hsp_mk_model(tree, tip_states = tip, Nstates = K, rate_model = rate_model, Ntrials = 3,
-                            root_prior = "empirical", include_likelihoods = FALSE, Nthreads = 1)
-  if (!isTRUE(h$success)) stop("castor hsp_mk_model failed: ", h$error %||% "unknown")
-  h$transition_matrix
-}
-`%||%` <- function(x, y) if (is.null(x)) y else x
-
-#' castor arms for every discrete trait of a cell.
-#' @param cell a make_cell() result; @param M draws; @param proper TRUE = freq A analogue (bootstrap rates)
-#' @param base_sets optional list of M data.frames (e.g. the freq A continuous draws) whose discrete columns are
-#'   filled; default copies of df_miss
-#' @param models named rate models for binary, categorical and ordinal traits (CASTOR_FLEX or CASTOR_V1)
-#' @return list(datasets, diag = per-trait data.frame: rate model, degenerate flag, largest exit rate of the fit and
-#'   median over the refits used, bootstrap re-simulations (< 2 observed classes), failed refits, rejected refits
-#'   (observed tips impossible under Q*), draws that fell back to the fitted Q, error)
-mi_castor <- function(cell, M, proper, base_sets = NULL, models = CASTOR_FLEX) {
-  tree <- cell$tree; df <- cell$df_miss
-  sets <- base_sets %||% rep(list(df), M)
-  dg <- list()
-  for (v in disc_traits_of(cell$truth)) {
-    f <- df[[v]]; lev <- levels(f); K <- length(lev)
-    tip <- as.integer(f)[match(tree$tip.label, rownames(df))]
-    rm <- models[[.trait_kind(f)]]
-    miss_sp <- tree$tip.label[is.na(tip)]
-    row <- data.frame(trait = v, rate_model = rm, degenerate = FALSE, q_hat = NA_real_, q_star_med = NA_real_,
-                      n_resim = 0L, n_refit_fail = 0L, n_reject = 0L, n_fallback = 0L, error = NA_character_)
-    if (length(unique(tip[!is.na(tip)])) < 2L) {   # castor cannot fit; leave NA for fill_degenerate()
-      row$degenerate <- TRUE; dg[[v]] <- row; next
-    }
-    res <- tryCatch({
-      Q <- .castor_fit(tree, tip, K, rm); prior <- .empirical_prior(tip, K)
-      n_resim <- 0L; n_fail <- 0L; n_reject <- 0L; n_fallback <- 0L
-      if (!proper) {
-        draws <- mk_joint_draw(tree, tip, Q, prior, M); q_star <- rep(max(-diag(Q)), M)
-      } else {
-        draws <- matrix(NA_integer_, M, length(tip)); q_star <- numeric(M)
-        obs <- !is.na(tip)
-        for (m in seq_len(M)) {
-          dm <- NULL; tries <- 0L
-          # A bootstrap Q* is kept only if the observed tips are possible under it (a refit can put rates at exactly
-          # 0); otherwise it is redrawn. After 20 failed tries the fitted Q is used. All three events are counted.
-          while (is.null(dm) && tries < 20L) {
-            tries <- tries + 1L
-            repeat {                           # a bootstrap sample needs >= 2 observed classes to refit
-              sim <- castor::simulate_mk_model(tree, Q, root_probabilities = prior, include_nodes = FALSE)$tip_states
-              tip_b <- ifelse(obs, sim, NA_integer_)
-              if (length(unique(tip_b[obs])) >= 2L || n_resim > 50L * M) break
-              n_resim <- n_resim + 1L
-            }
-            Qm <- tryCatch(.castor_fit(tree, tip_b, K, rm), error = function(e) NULL)
-            if (is.null(Qm)) { n_fail <- n_fail + 1L; next }
-            dm <- tryCatch(mk_joint_draw(tree, tip, Qm, prior, 1L), error = function(e) NULL)
-            if (is.null(dm)) n_reject <- n_reject + 1L
-          }
-          if (is.null(dm)) { Qm <- Q; dm <- mk_joint_draw(tree, tip, Q, prior, 1L); n_fallback <- n_fallback + 1L }
-          draws[m, ] <- dm; q_star[m] <- max(-diag(Qm))
-        }
-      }
-      list(draws = draws, q_hat = max(-diag(Q)), q_star = q_star, n_resim = n_resim, n_fail = n_fail,
-           n_reject = n_reject, n_fallback = n_fallback)
-    }, error = function(e) e)
-    if (inherits(res, "error")) { row$error <- conditionMessage(res); dg[[v]] <- row; next }
-    draws <- res$draws; colnames(draws) <- tree$tip.label
-    for (m in seq_len(M)) {
-      x <- as.character(sets[[m]][[v]]); x[match(miss_sp, rownames(df))] <- lev[draws[m, miss_sp]]
-      sets[[m]][[v]] <- factor(x, levels = lev, ordered = is.ordered(f))
-    }
-    row$q_hat <- res$q_hat; row$q_star_med <- stats::median(res$q_star)
-    row$n_resim <- res$n_resim; row$n_refit_fail <- res$n_fail; row$n_reject <- res$n_reject
-    row$n_fallback <- res$n_fallback
-    dg[[v]] <- row
-  }
-  list(datasets = sets, diag = do.call(rbind, dg))
-}
-
 #' A trait with a single observed class: impute that class in every missing cell, for every arm alike.
 #' @return list(sets, n_filled = number of missing cells filled per trait, per dataset)
 fill_degenerate <- function(sets, df_miss, traits) {
