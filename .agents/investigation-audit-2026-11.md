@@ -192,6 +192,73 @@ inputs in the test resemble the inputs in the wild.
 
 ---
 
+## Second pass: six more lenses, two skeptics per finding
+
+A second audit (37 agents; every claim re-checked by two independent reviewers
+who had to reproduce a wrong number before it counted) returned **12 confirmed
+findings**. One mattered, and it was a regression in the convergence rewrite
+itself.
+
+### The stability check called settled variables "drift" ~85% of the time
+
+To judge whether a variable has stopped moving you need a ruler.
+`.conv_assess_series()` used the imputation spread — fine — but when the
+imputed cells had **no** within-run spread it fell back to `sd()` of the very
+series it was judging. That is circular, and it has a closed form:
+
+```
+step_mean = mean|diff(m)| / sd(m)  ->  2/sqrt(pi) = 1.128   for ANY iid wobble
+wander gate                         =  1.00
+```
+
+So pure noise cleared the gate. Measured on a settled series over 2000
+replicates: drift 0.85 at `runs = 5`, 0.81 at 10, 0.88 at **50** — *more runs
+made it worse*, because the statistic carries no scale.
+
+Two ordinary situations land there: a variable with exactly **one** missing
+cell (SD of a length-1 vector is `NA`, recorded as 0), and any **poisson**
+variable whose rounded point imputations land on the same integer. The live
+campaign has a count trait, so this was not hypothetical.
+
+Fixed by taking the yardstick from **outside** the series — the spread of the
+variable's observed values — and returning `"unassessable"` when no such scale
+exists rather than inventing one. Settled series now return `"ok"` 100% of the
+time at every `runs`; a genuine 3-data-SD drift is still caught 100% of the
+time; series with a real within-run spread are unchanged.
+
+**This is the third appearance of the same defect class in one cycle** — a
+derived quantity used as an independent measurement — and this time it was
+introduced *by the fix for the previous instance*. Worth remembering: fixing a
+defect class does not immunise the fix against it.
+
+### The other eleven, triaged
+
+Scored by whether the live campaign can reach them:
+
+| | finding | reaches the campaign? |
+|---|---|---|
+| 1 | `phylo_signal_summary(prior=)` un-fixes the probit residual while H² still divides by 1 (H² 0.85 reported vs 0.00 true) | no — campaign never calls it |
+| 2 | random slopes in `ran_phylo_form` dropped when `species = FALSE` | no — campaign uses `~ 1 \| Species` |
+| 3 | `.pred_threshold()`/`.pred_cat()` add a second residual to an already-realised latent | no — forward path is used, and its error vs reference is exactly 0 |
+| 4 | `pool_posteriors()` stacks effects each in that imputation's own units | no — campaign pools with `pool_mi()` on data-scale datasets |
+| 5 | standardisation constants not stored on `bace_final`, so no exact back-transform | no — completed datasets are already on the data scale |
+| 6 | threshold/ordinal forward prediction drops the phylogenetic effect when the RE carries slopes | no — no slopes in the campaign |
+| 7 | a declared-but-unobserved factor level shifts threshold imputations onto the wrong label (accuracy 0.73 -> 0.07) | **possible** — `threshold4` under clade missingness could lose a level |
+| 8 | `phylo_signal_summary()` re-derives types differently from `bace()`; a whole-number double is fitted as Poisson | no — campaign never calls it |
+| 10 | `plot_steps_convergence()` re-derives the yardstick; overstates steps 5-18x | cosmetic (plot only) |
+| 11 | the `wander` gate is unreachable for proportion series (step <= 1 by construction, gate > 1.00) | missed alarm, not a wrong number |
+| 12 | `thresholds` reported `osc_floor = 0.50` while 0.60 was applied | reporting only — **fixed** |
+
+Fixed in this pass: **9** (the drift regression) and **12**. **11** is documented
+as a known gap rather than guessed at — setting a proportion-scale gate needs
+calibration against the harvested chains, and an uncalibrated gate would
+reintroduce exactly the false-alarm failure just removed.
+
+**Finding 7 is the one to look at next** for the campaign: if a `threshold4`
+trait loses a level entirely under clade missingness, imputations may be
+assigned to the wrong category label. It carried one of two skeptic votes, so
+it needs reproducing against the campaign's own generator before acting.
+
 ## State after the audit
 
 - `devtools::test()` — **1895 pass / 0 fail / 0 error / 0 warnings**.
