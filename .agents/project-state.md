@@ -861,7 +861,28 @@ sits; each pathology caught >=99%; all 18 real harvested chain-series pass
 (their measured coverage was 0.95). Old per-criterion / energy / wasserstein
 methods defunct with explanatory errors; pct_change_threshold/lag/alpha
 removed (drift_threshold/stuck_ratio added); plot type "steps" replaces
-"pct_change". Suite: 1775 pass / 0 fail. The old campaign's convergence
+"pct_change". Suite: 1803 pass / 0 fail; R CMD check 0/0/0. The old campaign's convergence
 percentages (28/51/82%) measured the bug and are struck from the plan; the
 chain-length pilot is retired (its 17 finished runs: coverage 17/17 at every
-setting — campaign settings already suffice).
+setting — campaign chain LENGTH already suffices).
+
+**Adversarial review of the fix found 12 further must-fix defects, all fixed
+and pinned by regression tests** — five of them the same error class as the
+original bug (treating a derived quantity as a measurement): sqrt(p(1-p)) read
+as an imputation spread, a categorical's first level as a proxy for the whole
+variable, a noise floor that shrank with n_cells while real movement does not
+(false oscillation 10–27% at n ≥ 500). Plus: sd() without na.rm, a tie-ridden
+trend test vetoing unlimited movement, spread watched only downward,
+"unassessable" counted as a pathology, four plot crashes, a broken bird_social
+extraction, and roxygen %-escaping truncating two help pages. See the
+investigation note's adversarial-review section.
+
+**Campaign `runs` raised 5 → 7 (2026-11-10).** Not chain length: the stability
+check discards the warm-up half, so runs = 5 leaves 4 points — one short of
+testing for flip-flopping, a pathology seen in 2 of 18 real harvested chains.
+Measured cost +6% (21.5 → 22.7 min at n = 100), ~1 day on 16.5.
+
+**Shipped:** 1.0.1 committed and pushed (issue #21 filed and closed by the fix),
+installed locally, and the simulation verified end to end against the installed
+build. One commit (runs = 7) is committed but NOT yet pushed — the push was
+blocked by a permission prompt.
