@@ -1,0 +1,98 @@
+# =================================================================================================
+# run_one.R -- ONE scenario, ONE seed, end to end. This is the unit of work.
+#
+#   Rscript run_one.R --id n100_ps0.7_typical_clade --seed 1 --out results/
+#
+# Everything the campaign does is this script, run 54,000 times with different arguments. Run it
+# once by hand and read the output to see exactly what each dataset produces.
+#
+# Resumable: if the output file already exists, it stops. So the campaign can be interrupted and
+# relaunched freely, and replicates can be added later without redoing earlier ones.
+# =================================================================================================
+
+suppressPackageStartupMessages({ library(ape); library(nlme); library(phytools) })
+
+## ---- which BACE? Checked before anything else. ------------------------------------------------
+## A campaign measures one version of BACE. An older build sitting in the R library produces
+## results that look entirely normal and mean nothing -- that happened on 2026-11-09, with the
+## repository at 1.0.0 and the library still at 0.1.0.9000.
+BACE_MIN_VERSION <- "1.0.0"
+bace_version <- as.character(utils::packageVersion("BACE"))
+if (utils::compareVersion(bace_version, BACE_MIN_VERSION) < 0)
+  stop("BACE ", bace_version, " is installed; this campaign needs >= ", BACE_MIN_VERSION,
+       ". Run  R CMD INSTALL .  from the BACE repo root.", call. = FALSE)
+
+## ---- arguments --------------------------------------------------------------------------------
+a <- commandArgs(trailingOnly = TRUE)
+arg <- function(flag, default = NULL) { i <- match(paste0("--", flag), a)
+                                        if (is.na(i)) default else a[i + 1L] }
+id      <- arg("id",   stop("--id is required"))
+seed    <- as.integer(arg("seed", 1L))
+out_dir <- arg("out",  "results")
+M       <- as.integer(arg("M", 20L))
+nitt    <- as.integer(arg("nitt", 50000L))
+burnin  <- as.integer(arg("burnin", 10000L))
+thin    <- as.integer(arg("thin", 25L))
+runs    <- as.integer(arg("runs", 5L))
+
+here <- dirname(sub("--file=", "", grep("--file=", commandArgs(), value = TRUE)[1]))
+if (is.na(here) || !nzchar(here)) here <- "."
+for (f in sprintf("R/0%d_%s.R", 1:4, c("scenarios", "simulate", "fit", "score")))
+  source(file.path(here, f))
+
+dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+out_file <- file.path(out_dir, paste0(id, "_s", seed, ".rds"))
+if (file.exists(out_file)) { message("already done: ", basename(out_file)); quit(save = "no") }
+
+## ---- find the scenario ------------------------------------------------------------------------
+scenarios <- make_scenarios()
+scenario  <- scenarios[scenarios$id == id, ]
+if (nrow(scenario) != 1L) stop("no such scenario: ", id, call. = FALSE)
+
+message(id, " seed ", seed)
+
+## ---- 1. simulate ------------------------------------------------------------------------------
+dataset <- simulate_dataset(scenario, seed)
+
+## ---- 2. run the three arms --------------------------------------------------------------------
+## The true slope of x2 on x1 is the regression slope the data were generated with. The oracle arm
+## is the check on that: if the oracle does not recover it with about 95% coverage, the assumed
+## truth is wrong and every other arm's coverage is meaningless.
+truth_slope <- scenario$trait_beta
+
+oracle <- score_slope_single(dataset$truth, dataset$tree)
+cc     <- fit_complete_case(dataset)
+cc_slope <- if (cc$status == "scored") score_slope_single(cc$data, dataset$tree) else NULL
+
+bace     <- fit_bace(dataset, n_final = M, nitt = nitt, burnin = burnin, thin = thin, runs = runs)
+bace_slope <- score_slope_bace(bace$imputed, dataset$tree)
+
+## ---- 3. score ---------------------------------------------------------------------------------
+recovery <- score_recovery(dataset$truth, dataset$mask, bace$imputed)
+coverage <- score_cell_coverage(bace$intervals, dataset$truth)
+
+## One tidy row per arm for the slope, with coverage of the TRUE value.
+slope_row <- function(arm, s) {
+  if (is.null(s)) return(NULL)
+  data.frame(arm = arm, s, truth = truth_slope,
+             bias = s$estimate - truth_slope,
+             covered = s$lower <= truth_slope & truth_slope <= s$upper)
+}
+slopes <- rbind(slope_row("oracle", oracle),
+                slope_row("complete_case", cc_slope),
+                slope_row("bace", bace_slope))
+
+## ---- 4. write a SMALL result ------------------------------------------------------------------
+## Never the fit: a fitted bace object is about 35 MB, and 54,000 of them is not storable.
+saveRDS(list(
+  id = id, seed = seed, scenario = scenario,
+  slopes = slopes, recovery = recovery, cell_coverage = coverage,
+  realised = dataset$realised, realised_frac = dataset$realised_frac,
+  complete_case = cc[c("n_complete", "frac_kept", "status")],
+  bace_converged = bace$converged, wall_s = bace$wall_s,
+  bace_version = bace_version, time = Sys.time()
+), out_file)
+
+message("wrote ", basename(out_file), "  (", round(bace$wall_s), "s)")
+print(slopes, digits = 3)
+print(recovery, digits = 3)

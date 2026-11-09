@@ -29,10 +29,15 @@ make_scenarios <- function(n_species    = c(100, 500),
   ##                   observed variable related 0.8        measured for every species
   ##
   ## Claim 2 of the manuscript is the difference between the last two at low signal.
+  ## These are REGRESSION SLOPES, not correlations. sim_bace() relates variables through
+  ## regression paths, and a slope buys a smaller correlation than its own value: measured over
+  ## 25 datasets at n = 200, slope 0.5 gave r = 0.45 (sd 0.11) and slope 0.8 gave r = 0.62
+  ## (sd 0.08). Every dataset measures and records its own realised correlation, so the paper
+  ## reports what the data actually had rather than what was asked for.
   regimes <- data.frame(
     regime     = c("floor", "typical", "good_covariate"),
-    trait_rel  = c(0,       0.5,       0.5),   # how related the traits are to each other
-    aux_rel    = c(0,       0,         0.8)    # how related the auxiliary is to its target; 0 = none
+    trait_beta = c(0,       0.5,       0.5),   # slope from x1 to the other traits
+    aux_beta   = c(0,       0,         0.8)    # slope from x1 to the auxiliary; 0 = no auxiliary
   )
 
   ## Every combination of the four axes.
@@ -57,7 +62,7 @@ make_scenarios <- function(n_species    = c(100, 500),
 
   ## Put the columns in a readable order and sort so the table reads top to bottom.
   grid <- grid[order(grid$n_species, grid$phylo_signal, grid$regime, grid$mechanism),
-               c("id", "n_species", "phylo_signal", "regime", "trait_rel", "aux_rel",
+               c("id", "n_species", "phylo_signal", "regime", "trait_beta", "aux_beta",
                  "mechanism", "miss_frac")]
   rownames(grid) <- NULL
 
