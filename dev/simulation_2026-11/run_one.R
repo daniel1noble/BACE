@@ -51,8 +51,22 @@ if (nrow(scenario) != 1L) stop("no such scenario: ", id, call. = FALSE)
 
 message(id, " seed ", seed)
 
+## ---- 0. a dataset may fail, and that must not kill the job --------------------------------
+## A campaign of 54,000 datasets will hit rare failures: BACE 1.0.0 can crash in sim_bace()
+## (softmax overflow, issue #19) and in its convergence diagnostics (issue #20). A crashed job
+## writes nothing, so a silent gap appears in the results and the failure rate is invisible.
+## Instead every stage is wrapped: a failure is RECORDED and the dataset still writes its file.
+## The failure rate is then a number we report, not a hole we never notice.
+fail <- function(stage, e) {
+  message("FAILED at ", stage, ": ", conditionMessage(e))
+  saveRDS(list(id = id, seed = seed, scenario = scenario, failed_at = stage,
+               error = conditionMessage(e), bace_version = bace_version, time = Sys.time()),
+          out_file)
+  quit(save = "no", status = 0)
+}
+
 ## ---- 1. simulate ------------------------------------------------------------------------------
-dataset <- simulate_dataset(scenario, seed)
+dataset <- tryCatch(simulate_dataset(scenario, seed), error = function(e) fail("simulate", e))
 
 ## ---- 2. run the three arms --------------------------------------------------------------------
 ## The true slope of x2 on x1 is the regression slope the data were generated with. The oracle arm
@@ -64,12 +78,15 @@ oracle <- score_slope_single(dataset$truth, dataset$tree)
 cc     <- fit_complete_case(dataset)
 cc_slope <- if (cc$status == "scored") score_slope_single(cc$data, dataset$tree) else NULL
 
-bace     <- fit_bace(dataset, n_final = M, nitt = nitt, burnin = burnin, thin = thin, runs = runs)
-bace_slope <- score_slope_bace(bace$imputed, dataset$tree)
+bace <- tryCatch(fit_bace(dataset, n_final = M, nitt = nitt, burnin = burnin,
+                          thin = thin, runs = runs),
+                 error = function(e) fail("bace", e))
+bace_slope <- tryCatch(score_slope_bace(bace$imputed, dataset$tree), error = function(e) NULL)
 
 ## ---- 3. score ---------------------------------------------------------------------------------
-recovery <- score_recovery(dataset$truth, dataset$mask, bace$imputed)
-coverage <- score_cell_coverage(bace$intervals, dataset$truth)
+recovery <- tryCatch(score_recovery(dataset$truth, dataset$mask, bace$imputed),
+                     error = function(e) NULL)
+coverage <- tryCatch(score_cell_coverage(bace$intervals, dataset$truth), error = function(e) NULL)
 
 ## One tidy row per arm for the slope, with coverage of the TRUE value.
 slope_row <- function(arm, s) {
@@ -85,7 +102,7 @@ slopes <- rbind(slope_row("oracle", oracle),
 ## ---- 4. write a SMALL result ------------------------------------------------------------------
 ## Never the fit: a fitted bace object is about 35 MB, and 54,000 of them is not storable.
 saveRDS(list(
-  id = id, seed = seed, scenario = scenario,
+  id = id, seed = seed, scenario = scenario, failed_at = NA_character_,
   slopes = slopes, recovery = recovery, cell_coverage = coverage,
   realised = dataset$realised, realised_frac = dataset$realised_frac,
   complete_case = cc[c("n_complete", "frac_kept", "status")],

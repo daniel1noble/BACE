@@ -7,6 +7,7 @@
 # material; the three summaries are what the manuscript reads.
 # =================================================================================================
 
+`%||%` <- function(x, y) if (is.null(x)) y else x
 a <- commandArgs(trailingOnly = TRUE)
 res_dir <- if (length(a)) a[1] else "results"
 files <- list.files(res_dir, pattern = "[.]rds$", full.names = TRUE)
@@ -14,6 +15,21 @@ if (!length(files)) stop("no results in ", res_dir, call. = FALSE)
 message("reading ", length(files), " results from ", res_dir)
 
 r <- lapply(files, readRDS)
+
+## STEP 0. Separate the datasets that failed. They are a RESULT -- the failure rate belongs in the
+## paper -- so they are counted and reported here rather than quietly skipped.
+failed <- Filter(function(x) !is.na(x$failed_at %||% NA), r)
+r      <- Filter(function(x)  is.na(x$failed_at %||% NA), r)
+if (length(failed)) {
+  ft <- table(vapply(failed, function(x) paste0(x$failed_at, ": ", x$error), character(1)))
+  message("\n", length(failed), " of ", length(files), " datasets failed (",
+          round(100 * length(failed) / length(files), 1), "%):")
+  for (i in seq_along(ft)) message("  ", ft[i], "x  ", names(ft)[i])
+  utils::write.csv(do.call(rbind, lapply(failed, function(x)
+    data.frame(id = x$id, seed = x$seed, failed_at = x$failed_at, error = x$error))),
+    file.path(res_dir, "failures.csv"), row.names = FALSE)
+}
+if (!length(r)) stop("every dataset failed", call. = FALSE)
 
 ## STEP 1. The scenario each dataset belongs to, so every table can be grouped by it.
 key <- function(x) data.frame(id = x$id, seed = x$seed, n_species = x$scenario$n_species,
