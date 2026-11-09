@@ -19,13 +19,21 @@
 #' If \code{.f} declares a \code{tree} argument and \code{tree} is supplied
 #' here, the phylogeny is passed through to the fits (e.g. for a phylogenetic
 #' GLS). A single \code{phylo} is passed to every fit. A \code{multiPhylo} (or
-#' plain list of \code{phylo}) assigns tree \code{m} to imputation \code{m},
-#' recycled in balanced rotation when there are fewer trees than imputations --
-#' the same deterministic rule \code{\link{bace_final_imp}} uses, so a
-#' downstream phylogenetic model can condition on the same tree that generated
-#' each imputation (tree-per-imputation workflow). If \code{.f}'s own
-#' \code{tree} argument expects a whole tree set, wrap it instead:
-#' \code{.f = function(d) g(d, my_trees)}.
+#' plain list of \code{phylo}) gives one tree per imputation
+#' (tree-per-imputation workflow).
+#'
+#' Which tree goes to which fit is \emph{read from the imputation object}: a
+#' \code{bace_final} / \code{bace_complete} records the tree each run was
+#' imputed under in \code{$tree_index}, and when the trees supplied here are
+#' the same set in the same order (checked by content hash, not by count) that
+#' recorded pairing is used exactly, so every downstream model conditions on
+#' the tree that generated its own imputation. Otherwise BACE falls back to
+#' \code{bace_final_imp}'s own assignment rule and says so with a message.
+#' Supplying a plain list of data.frames records nothing, so the fallback rule
+#' applies.
+#'
+#' If \code{.f}'s own \code{tree} argument expects a whole tree set, wrap it
+#' instead: \code{.f = function(d) g(d, my_trees)}.
 #'
 #' @param object A \code{bace_complete} (from \code{\link{bace}}), a
 #'   \code{bace_final} (from \code{\link{bace_final_imp}}), or a plain list of
@@ -80,24 +88,71 @@ with_imputations <- function(object, .f, ..., tree = NULL,
   fits      <- vector("list", M)
   failures  <- integer(0)
 
-  # Per-imputation trees: a multiPhylo or bare list of phylo assigns tree m to
-  # imputation m (balanced recycling, mirroring bace_final_imp's rule); a
-  # single phylo keeps the same-tree-for-all behaviour.
-  tree_list <- NULL
+  # A tree that cannot be delivered must never be dropped in silence. Before
+  # 1.0.1 the tree was forwarded only when `.f` declared a formal literally
+  # named `tree`; a user who wrote function(d, phy = my_tree) got their
+  # DEFAULT tree in every fit, so every model conditioned on the wrong
+  # phylogeny with no error and no warning. Measured on one such pair: the
+  # reported coefficient was 0.4407 with the tree dropped against 0.9785 with
+  # it passed. Nothing downstream looked wrong. (GitHub issue #18.)
+  if (!is.null(tree) && !("tree" %in% f_formals) && !("..." %in% f_formals) &&
+      !("tree" %in% names(dots))) {
+    looks_like_tree <- intersect(f_formals, c("phy", "phylo", "phy_tree",
+                                              "phylogeny", "treeobj"))
+    stop("`tree` was supplied but `.f` cannot receive it: `.f` has no `tree` ",
+         "argument and no `...`.\n",
+         "  `.f` takes: ", paste(f_formals, collapse = ", "), "\n",
+         if (length(looks_like_tree))
+           paste0("  Rename `", looks_like_tree[1], "` to `tree`, or ")
+         else "  Name the argument `tree`, or ",
+         "wrap it: .f = function(d) your_fun(d, my_tree).\n",
+         "  Passing it anyway would fit every imputation against the wrong ",
+         "phylogeny without warning.",
+         call. = FALSE)
+  }
+
+  # Per-imputation trees: a multiPhylo or bare list of phylo assigns one tree
+  # per imputation; a single phylo keeps the same-tree-for-all behaviour.
+  #
+  # The pairing is READ from the imputation object whenever the object records
+  # it ($tree_index), never re-derived here. Before 1.0.1 it was re-derived as
+  # plain modular recycling, which disagrees with the rule bace_final_imp
+  # actually uses (.select_tree_indices) whenever MORE trees were supplied than
+  # there are imputations: with 100 trees and 50 imputations the generator used
+  # trees 1, 3, 5, ..., 99 while the fits used 1, 2, 3, ..., 50, so 49 of the 50
+  # models conditioned on a tree that had not generated their data. The old
+  # guard compared only the tree COUNTS, so passing the same 100 trees -- the
+  # correct thing to do -- matched on count and said nothing at all.
+  tree_list    <- NULL
+  tree_pairing <- NULL
   if (!is.null(tree) && !inherits(tree, "phylo")) {
     tree_list <- .as_tree_list(tree, context = "with_imputations")
-    gen_hashes <- if (inherits(object, "bace_complete")) {
-      object$final_results$tree_hashes
-    } else if (inherits(object, "bace_final")) {
-      object$tree_hashes
-    } else NULL
-    if (!is.null(gen_hashes) && length(gen_hashes) > 1L &&
-        length(tree_list) != length(gen_hashes)) {
-      message("with_imputations: ", length(tree_list), " trees supplied, but ",
-              "the imputations were generated under ", length(gen_hashes),
-              " trees (see $tree_index on the bace_final object). Pass the ",
-              "same tree set in the same order for each fit to condition on ",
-              "the tree that generated its imputation.")
+    gen <- if (inherits(object, "bace_complete")) object$final_results
+           else if (inherits(object, "bace_final")) object
+           else NULL
+    gen_hashes <- if (is.list(gen)) gen[["tree_hashes", exact = TRUE]] else NULL
+    gen_index  <- if (is.list(gen)) gen[["tree_index",  exact = TRUE]] else NULL
+
+    # Same trees, same order? Compare contents, not counts.
+    same_set <- !is.null(gen_hashes) &&
+      length(tree_list) == length(gen_hashes) &&
+      identical(as.character(vapply(tree_list, .tree_cache_key, character(1L))),
+                as.character(gen_hashes))
+
+    if (same_set && is.numeric(gen_index) && length(gen_index) == M &&
+        all(gen_index >= 1L & gen_index <= length(tree_list))) {
+      tree_pairing <- as.integer(gen_index)        # exact recorded pairing
+    } else {
+      tree_pairing <- .select_tree_indices(length(tree_list), M)
+      if (!is.null(gen_hashes) && length(gen_hashes) > 1L) {
+        message("with_imputations: the ", length(tree_list), " tree(s) supplied ",
+                "are not the ", length(gen_hashes), " tree(s) the imputations ",
+                "were generated under (same order, same trees), so no fit can ",
+                "be matched to the tree that generated its data. Trees are ",
+                "being assigned by bace_final_imp's own rule instead. Pass the ",
+                "same tree set, in the same order, to pair them exactly (see ",
+                "$tree_index on the bace_final object).")
+      }
     }
   }
 
@@ -106,9 +161,11 @@ with_imputations <- function(object, .f, ..., tree = NULL,
       message(sprintf("\r  fitting imputation %d/%d", i, M), appendLF = FALSE)
     }
     call_args <- c(list(datasets[[i]]), dots)
-    if (!is.null(tree) && "tree" %in% f_formals && !("tree" %in% names(dots))) {
+    if (!is.null(tree) &&
+        ("tree" %in% f_formals || "..." %in% f_formals) &&
+        !("tree" %in% names(dots))) {
       call_args[["tree"]] <- if (is.null(tree_list)) tree else
-        tree_list[[((i - 1L) %% length(tree_list)) + 1L]]
+        tree_list[[tree_pairing[i]]]
     }
     res <- tryCatch(
       do.call(.f, call_args),

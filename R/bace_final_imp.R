@@ -210,6 +210,7 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
   }
 
   # Build formulas if needed
+  fixformula <- .normalise_fixformula(fixformula)
   if (!is.list(fixformula)) {
     formulas <- .build_formula_string(fixformula)
   } else {

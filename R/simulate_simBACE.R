@@ -501,13 +501,20 @@ sim_bace <- function(
         # Each liability has slightly different intercept
         liab_intercept <- intercepts$predictors[vari] + (k - n_liab / 2) * 0.5
 
-        if (length(which_deps) == 0) {
-          liab_linear <- liab_intercept
-        } else {
-          liab_linear <- liab_intercept + linear_pred - intercepts$predictors[vari]
-        }
-
-        liabilities[, k] <- liab_linear
+        # linear_pred already carries the base intercept, the dependency
+        # effects and ALL THREE random effects (phylogenetic, species,
+        # residual) -- see the "Add random effects" block above. Replacing its
+        # intercept with this liability's is therefore the whole job, and it
+        # is the same expression whether or not the predictor has
+        # dependencies.
+        #
+        # Before 1.0.1 the no-dependency case used `liab_intercept` alone,
+        # which silently discarded linear_pred and with it every random
+        # effect: a multinomial predictor with no dependencies came out with
+        # essentially no phylogenetic signal however `phylo_signal` was set,
+        # with nothing to warn the user. (GitHub issue #16.)
+        liabilities[, k] <- liab_intercept + linear_pred -
+          intercepts$predictors[vari]
       }
 
       covars[[pred_name]] <- mnom_liab2cat(liabilities, categories)

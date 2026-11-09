@@ -662,7 +662,21 @@
 					  pred_values <- apply(draws, 2L, stats::median) * sd_val + mean_val
 					} else {
 					  # Predict from model and back-transform
-					  pred_prob   <- .pred_cont(model) * sd_val + mean_val # Full prediction
+					  # Back-transform to the data scale, COLUMN BY COLUMN. A location shift
+					  # applies to the posterior mean and to the credible-interval bounds, but
+					  # never to a standard deviation: sd(a + b*X) = |b| * sd(X), with no `a`
+					  # term. Transforming the whole data frame in one expression added mean_val
+					  # to post_sd as well, so the reported posterior SD was (true SD + mean(y)):
+					  # ~1000.003 instead of 0.0031 on a variable with mean 1000 and sd 0.01 (a
+					  # factor of 3e5), and NEGATIVE for any variable with a negative mean. Only
+					  # column 1 is consumed as pred_values, so imputed values were never
+					  # affected -- but post_sd is returned to the user and nothing tested it.
+					  pred_prob <- .pred_cont(model)
+					  loc_cols  <- intersect(c("post_mean", "ci_lower", "ci_upper"), names(pred_prob))
+					  pred_prob[loc_cols] <- pred_prob[loc_cols] * sd_val + mean_val
+					  if ("post_sd" %in% names(pred_prob)) {
+					    pred_prob[["post_sd"]] <- pred_prob[["post_sd"]] * abs(sd_val)
+					  }
 					  pred_values <- pred_prob[, 1]                        # Extract posterior mean
 					}
 
@@ -698,11 +712,23 @@
 					  K <- 1L
 					  i_samps <- sample.int(n_iter, K)
 					  draws   <- matrix(NA_integer_, nrow = K, ncol = n_obs)
+					  n_capped <- 0L
 					  for (k in seq_len(K)) {
-					    rate_k <- exp(as.numeric(liab[i_samps[k], ]))
-					    rate_k <- pmin(rate_k, rate_cap)
+					    rate_k   <- exp(as.numeric(liab[i_samps[k], ]))
+					    n_capped <- n_capped + sum(rate_k > rate_cap, na.rm = TRUE)
+					    rate_k   <- pmin(rate_k, rate_cap)
 					    draws[k, ] <- rpois(n_obs, lambda = rate_k)
 					  }
+					  # Never truncate the posterior predictive in silence. The cap
+					  # cannot tell a chain excursion (exp(20) with max observed 2)
+					  # from legitimate extrapolation, and under MAR-on-high -- where
+					  # the missing counts really are larger than the observed ones,
+					  # the regime multiple imputation exists for -- it binds on real
+					  # draws: measured at 8 per cent downward bias on the cell means
+					  # and a between-imputation SD shrunk to 0.33x the uncapped value
+					  # on the worst cells. Capping may still be the right trade, but
+					  # the user has to be able to see that it happened.
+					  .warn_rate_cap(n_capped, rate_cap, response_var)
 					  pred_values <- apply(draws, 2L, stats::median)
 					} else {
 					  # Point estimate: median-based rate (exp of the median liability),
@@ -710,6 +736,8 @@
 					  # single chain excursions and produced catastrophic point
 					  # imputations that the final phase then froze into every dataset.
 					  pred_prob   <- .pred_count(model)                            # Full prediction
+					  .warn_rate_cap(sum(pred_prob[, "post_median"] > rate_cap, na.rm = TRUE),
+					                 rate_cap, response_var)
 					  pred_values <- round(pmin(pred_prob[, "post_median"], rate_cap), digits = 0)
 					}
 				 }
@@ -815,11 +843,24 @@
 					        iteration = i_samps[k])
 					    }
 					    # Align column order of probs_k to levels_var for sampling.
-					    # Categorical predictions DO carry the trained level names in
-					    # colnames(probs_k), so we can intersect by name; an unobserved
-					    # declared level simply won't appear in probs_k and is dropped
-					    # from the sampling vocabulary.
+					    # Categorical predictions carry the trained level names in
+					    # colnames(probs_k), so we intersect by name; a declared level
+					    # that the model never saw simply won't appear in probs_k.
+					    #
+					    # Tripwire: if a column of probs_k carries a name that is NOT a
+					    # declared level, the labels have been mangled and this intersect
+					    # would silently delete a real category from the sampling
+					    # vocabulary (as a dotted level name once did). Never drop a
+					    # column in silence.
 					    sample_levels <- intersect(levels_var, colnames(probs_k))
+					    unknown <- setdiff(colnames(probs_k), levels_var)
+					    if (length(unknown) > 0L) {
+					      warning(".predict_bace: the predicted-probability matrix has ",
+					              "column(s) that are not declared levels of the response: ",
+					              paste(unknown, collapse = ", "),
+					              ". Those categories cannot be imputed. Declared levels: ",
+					              paste(levels_var, collapse = ", "), ".", call. = FALSE)
+					    }
 					    probs_k <- probs_k[, sample_levels, drop = FALSE]
 					    draws[, k] <- apply(probs_k, 1, function(p) {
 					      if (any(!is.finite(p)) || sum(p) <= 0) NA_character_
@@ -1190,7 +1231,11 @@
     # Fallback: return uniform probabilities
     k  <- n_traits + 1
     df <- as.data.frame(matrix(1 / k, nrow = n_obs, ncol = k))
-    non_base <- sub(".*\\.", "", trait_names)
+    # Strip the "trait<response>." PREFIX (non-greedy), never "everything up
+    # to the LAST dot": a factor level that itself contains a dot, e.g.
+    # "forest.edge", was otherwise truncated to "edge". See the note at the
+    # all_level_names assignment below.
+    non_base <- sub("^trait.*?\\.", "", trait_names)
     colnames(df) <- c(baseline_name, non_base)
     rownames(df) <- paste0("Obs_", seq_len(n_obs))
     return(df)
@@ -1234,8 +1279,20 @@
   }
   prop_results[[n_traits + 1]] <- colMeans(1 / exp_sum)
 
-  # Category (level) names: last dot-separated component of trait identifier
-  non_baseline_names <- sub(".*\\.", "", trait_names)
+  # Category (level) names: strip the "trait<response>." PREFIX, non-greedily.
+  #
+  # This used to take "everything after the LAST dot", which silently mangles
+  # any factor level containing a dot: with levels forest | forest.edge | open
+  # MCMCglmm names the trait "traithabitat.forest.edge", and the old rule
+  # labelled that column "edge". The probabilities themselves were right -- it
+  # was purely the label -- but .predict_bace(sample = TRUE) then builds its
+  # sampling vocabulary with intersect(levels_var, colnames(probs)), so the
+  # mislabelled column was DROPPED and the remaining mass renormalised. That
+  # level could never be imputed: in one 210-draw check "forest.edge" came up
+  # 0 times although it was 35 per cent of the observed data. The sample=FALSE
+  # path escaped because .impute_levels falls back to positional alignment.
+  # The same non-greedy prefix rule is what .pred_cat / .pred_cat_iter use.
+  non_baseline_names <- sub("^trait.*?\\.", "", trait_names)
   all_level_names    <- c(baseline_name, non_baseline_names)
 
   df_final  <- as.data.frame(do.call(cbind, prop_results[c(n_traits + 1L, seq_len(n_traits))]))
@@ -1975,4 +2032,31 @@ summary.bace_diagnostics <- function(object, ...) {
   }
   
   invisible(object)
+}
+
+
+#' @title .warn_rate_cap
+#' @description Internal: report that the poisson rate guard actually bound.
+#'   The cap (3 * max(observed) + 5) exists to stop log-link chain excursions
+#'   turning into astronomical counts, but it cannot distinguish an excursion
+#'   from genuine extrapolation. When the missing counts are larger than the
+#'   observed ones it truncates legitimate posterior-predictive draws, biasing
+#'   imputations downward and shrinking between-imputation variance. That is a
+#'   trade-off the user may accept -- but not one they should have to discover.
+#' @param n_capped Number of rates that exceeded the cap.
+#' @param rate_cap The cap applied.
+#' @param response_var Name of the response, for the message.
+#' @return Invisibly NULL; called for the warning.
+#' @noRd
+.warn_rate_cap <- function(n_capped, rate_cap, response_var = "the response") {
+  if (!is.finite(n_capped) || n_capped < 1L) return(invisible(NULL))
+  warning(sprintf(
+    paste0("BACE: the poisson rate guard bound on %d predicted rate(s) for '%s' ",
+           "(cap = %.4g = 3 * max(observed) + 5). Those draws were truncated, ",
+           "which biases the imputed counts downward and understates ",
+           "between-imputation variance. This is expected when the missing ",
+           "counts are genuinely larger than the observed ones (MAR on high ",
+           "values); treat the imputations for this variable with care."),
+    as.integer(n_capped), response_var, rate_cap), call. = FALSE)
+  invisible(NULL)
 }

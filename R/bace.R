@@ -215,6 +215,11 @@ bace <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin = 5,
                 final_burnin = NULL, checkpoint_dir = NULL,
                 checkpoint_compress = FALSE, ...) {
 
+# A character vector of several formulas is the list the user meant. Normalise
+# BEFORE n_models_chk is computed below, or the final-phase parameter check
+# would size itself from only the first formula. See .normalise_fixformula().
+fixformula <- .normalise_fixformula(fixformula)
+
 # Arguments in ... have no consumer downstream (bace_imp / bace_final_imp
 # accept but never use them), so a typo like prior = ... would vanish
 # silently. Warn once here.

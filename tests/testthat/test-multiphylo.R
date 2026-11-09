@@ -191,9 +191,20 @@ testthat::test_that("with_imputations assigns tree m to imputation m, recycled",
   }, tree = trA, .progress = FALSE)
   testthat::expect_identical(unique(seen$d), depth(trA))
 
-  # .f without a tree formal: no injection, no error
+  # .f without a tree formal: supplying a tree it cannot receive is an ERROR.
+  # Until 1.0.1 this silently dropped the tree, and this test asserted that
+  # silence ("no injection, no error") -- it was pinning the defect in GitHub
+  # issue #18, where a misnamed argument made every fit use the wrong
+  # phylogeny with nothing to warn the user.
+  testthat::expect_error(
+    with_imputations(imps, function(d) stats::lm(y ~ x1, data = d),
+                     tree = c(trA, trB), .progress = FALSE),
+    regexp = "cannot receive it")
+
+  # ...and a function that genuinely does not want a tree still works when no
+  # tree is supplied.
   fits <- with_imputations(imps, function(d) stats::lm(y ~ x1, data = d),
-                           tree = c(trA, trB), .progress = FALSE)
+                           .progress = FALSE)
   testthat::expect_s3_class(fits, "bace_mi_fits")
 })
 

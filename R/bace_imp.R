@@ -107,6 +107,11 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 	#---------------------------------------------#
 	# First, we need to get the variables from the formulas that are used to subset out of the data. Returns a list of variables. Check if a list of formulas is provided and if not then create formulas
 	
+	# A character vector of several formulas is the list the user meant; see
+	# .normalise_fixformula(). Without this, as.formula() kept only the first
+	# and every other response was silently dropped.
+	fixformula <- .normalise_fixformula(fixformula)
+
 	if(!is.list(fixformula)){
 	    fix <- as.vector(unlist(.get_variables(fixformula)))
 	} else {

@@ -564,7 +564,10 @@ plot_bace_imputation_comparison <- function(bace_object,
             main = paste("Category Proportions Across Iterations:", variable),
             xlab = "Iteration",
             ylab = "Proportion",
-            legend = TRUE,
+            # barplot()'s formal is `legend.text`; `legend = TRUE` only worked
+            # by partial argument matching, which would break silently if
+            # graphics::barplot ever gained a `legend` argument of its own.
+            legend.text = TRUE,
             las = 2,
             ...)
   }

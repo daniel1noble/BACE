@@ -50,6 +50,128 @@
   the energy/Wasserstein plot helpers are defunct. Fits made with earlier
   versions re-assess cleanly with the new check.
 
+* **`with_imputations()` no longer drops the phylogeny in silence** (#18). The
+  tree was forwarded only when `.f` declared a formal literally named `tree`.
+  A user who wrote `function(d, phy = my_tree)` — the natural thing to write
+  with a tree in scope — got their *default* tree in every fit, so every
+  per-imputation model conditioned on the wrong phylogeny with no error and no
+  warning. On one such pair the reported coefficient was 0.4407 with the tree
+  dropped against 0.9785 with it passed, and nothing downstream looked wrong.
+  Supplying a tree that `.f` cannot receive is now an error that names `.f`'s
+  actual arguments and how to fix the call; a function taking `...` now
+  receives the tree too.
+
+* **The poisson rate guard no longer truncates in silence** (#20). The cap
+  (`3 * max(observed) + 5`) exists to stop log-link chain excursions — an
+  `exp(20.4)` liability with a maximum observed count of 2 — becoming
+  astronomical imputations, and it stays. But it cannot distinguish an
+  excursion from genuine extrapolation, so under MAR-on-high (the missing
+  counts really being larger than the observed ones, which is the regime
+  multiple imputation exists for) it truncates legitimate posterior-predictive
+  draws. Measured on an 80-species pipeline with the 20 largest-covariate
+  counts hidden: the summed cell means came out 8.3 per cent below truth and
+  the between-imputation SD shrank to 0.33x its uncapped value on the worst
+  cells, with nothing reported. BACE now warns when the cap actually binds,
+  naming the variable, the cap and how many rates were truncated, so the
+  trade-off is visible rather than discovered.
+
+* **A categorical level whose name contains a dot could never be imputed**
+  (#20). `.pred_cat_forward_core()` labelled the predicted-probability columns
+  by taking everything after the *last* dot of MCMCglmm's trait name, so with
+  levels `forest | forest.edge | open` the trait `traithabitat.forest.edge`
+  was labelled `edge`. `.predict_bace(sample = TRUE)` builds its sampling
+  vocabulary with `intersect(levels_var, colnames(probs))`, so that column was
+  dropped and the remaining mass renormalised: across 210 posterior-predictive
+  draws `forest.edge` was imputed **0 times** although it was 35 per cent of
+  the observed data. The probabilities themselves were always correct — only
+  the label was wrong, which is why nothing failed. Labels are now stripped by
+  the same non-greedy `trait<response>.` prefix rule `.pred_cat()` already
+  used, and a column name that is not a declared level now raises a warning
+  instead of silently deleting a category. Dotted and plain level names now
+  give identical imputations (68/28/44 in both). The `sample = FALSE` path was
+  unaffected, since `.impute_levels()` falls back to positional alignment.
+
+* **Multinomial `H2` and `R_species` were inflated** (#20).
+  `.get_multinom_diag_cols()` matched the residual diagonal with a pattern
+  requiring a *numeric* trait index, but MCMCglmm labels traits by factor
+  level (`traity.B`), never by number. The match therefore always failed on
+  real fits and a silent fallback took the first J columns — which in
+  MCMCglmm's column-major order is column 1 of R: one diagonal entry plus
+  J−1 **off-diagonal** ones. Since R is fixed at `(I + 11')/K`, that sum is
+  exactly 1 for every K instead of the true `tr(R) = 2(K-1)/K`, so the
+  residual trace was understated by 25 per cent at K=3 and 40 per cent at K=6,
+  and reported heritability grew too large with the number of categories. The
+  package's own test fabricated digit-labelled names, so it passed over a
+  broken path. Diagonals are now matched by splitting on `:` and comparing the
+  two trait identifiers, which also copes with dotted level names, and the
+  no-columns fallback is `2J/K` rather than `J²/K` (equal only at K=3).
+
+* **The reported gaussian posterior SD was not a standard deviation** (#20).
+  The back-transform multiplied the whole `.pred_cont()` data frame by `sd`
+  and added `mean`, so the location shift reached `post_sd` as well:
+  `sd(a + bX) = |b| sd(X)` has no `a` term. On a variable with mean 1000 and
+  sd 0.01 the reported SD was 1000.003 instead of 0.0031 — out by a factor of
+  3e5 — and it was **negative** for any variable with a negative mean. Imputed
+  values were never affected (only column 1 is consumed), but `post_sd` is
+  returned to the user. Columns are now transformed individually.
+
+* **`pool_mi()` reported missing information where there was none** (#20).
+  `B = 0` (every imputation agreeing exactly, which happens whenever the
+  analysis model uses only fully observed variables) and `W = 0` share a
+  fallback, but their limits differ: as `r → ∞` the df tend to `M-1`, while as
+  `r → 0` they tend to **infinity**. Sending both to `M-1` made
+  `fmi = (r + 2/(v+3))/(r+1)` report `2/(M+2)` of the information missing when
+  none was. BACE now returns `df = Inf`, `fmi = 0`, `riv = 0`, matching the
+  limit `mice` reaches by clamping lambda (df ≈ 9e8, fmi ≈ 2e-9).
+
+* **A character vector of formulas silently lost every response but the
+  first** (#20). `fixformula = c("y ~ x1", "z ~ x1")` is not a list, so it took
+  the single-formula branch, where `stats::as.formula()` keeps only the first
+  element (R warns only that `formula()` is deprecated for length > 1) and
+  auto-expands from it. `z` disappeared entirely, and the guard that every
+  variable with missing data has a formula was skipped on that same path, so
+  nothing complained. A character vector of several formulas is now treated as
+  the list the user meant, in `bace()`, `bace_imp()` and `bace_final_imp()`.
+
+* **`with_imputations()` now pairs each fit with the tree that actually
+  generated its imputation** (#18). The pairing was re-derived here as plain
+  modular recycling, but `bace_final_imp()` assigns trees with
+  `.select_tree_indices()`, which *spreads* across the supplied trees when
+  there are more trees than imputations. With 100 posterior trees and 50
+  imputations the imputations were generated under trees 1, 3, 5, ..., 99
+  while the downstream fits used trees 1, 2, 3, ..., 50 — so 49 of 50 models
+  conditioned on a tree that had not generated their data. The old guard
+  compared only the tree *counts*, so passing the same 100 trees (the correct
+  thing to do) matched on count and warned about nothing. The pairing is now
+  read from the object's recorded `$tree_index`, with the supplied trees
+  checked against it by content hash rather than by count; a set that does not
+  match falls back to `bace_final_imp()`'s own rule and says so. Runs with no
+  more trees than imputations are unaffected — the two rules always agreed
+  there.
+
+* **`pool_mi(df_fun = )` no longer skips the small-sample correction in
+  silence** (#17). `stats::df.residual()` returns `NULL` for `gls` (and for
+  `phylolm` / `MCMCglmm`), and an unusable value fell through without a
+  signal, so `pool_mi(fits, df_fun = stats::df.residual)` on the models
+  phylogenetic users actually fit produced output byte-identical to applying
+  no correction at all. The reported degrees of freedom were the uncapped
+  Rubin (1987) values, which can exceed the complete-data df absurdly: on a
+  30-tip `gls` the intercept was reported with df = 1.2e8 where the correct
+  Barnard & Rubin (1999) value is 26.2, and the slope with df = 8.5 against
+  4.2 — making nominal 95% intervals about 94% and 92%. BACE now derives the
+  complete-data df itself (`nobs - n_coef`, verified equal to
+  `df.residual()` where both are defined) and says so, or warns loudly when
+  no value can be derived.
+
+* **`sim_bace()`: a multinomial predictor with no dependencies kept none of
+  its random effects** (#16). The no-dependency branch discarded the linear
+  predictor and with it the phylogenetic, species and residual effects, so
+  such a trait had essentially no phylogenetic signal however `phylo_signal`
+  was set, silently. Both branches now use the same expression: liability SD
+  across species goes from 0.000 to 1.000, and simulated traits respond to
+  `phylo_signal` again (observed-scale lambda 0.002 at 0.10 vs 0.317 at 0.95).
+  Multinomial *responses* were never affected.
+
 * Fixed a crash in `sim_bace()` when a multinomial predictor's liabilities
   were large (softmax overflow; GitHub issue #19).
 

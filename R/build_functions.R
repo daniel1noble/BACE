@@ -171,3 +171,27 @@
     return(list(phylo = phylo_formula, species = species_formula))
   }
 }
+
+#' @title .normalise_fixformula
+#' @description Internal: accept a character VECTOR of formulas as a list.
+#'
+#'   A user who writes \code{fixformula = c("y ~ x1", "z ~ x1")} instead of
+#'   \code{list(...)} used to be handled by the single-formula branch, because
+#'   \code{is.list()} is \code{FALSE} for a character vector. That branch calls
+#'   \code{stats::as.formula()}, which silently keeps only the FIRST element
+#'   (R warns only that \code{formula(x)} is deprecated for length > 1), and
+#'   then auto-expands from it. Every other response in the vector vanished,
+#'   and the guard that every variable with missing data has a formula was
+#'   skipped on the same code path, so nothing complained. There is no other
+#'   sensible reading of a character vector of several formulas, so BACE now
+#'   treats it exactly as the list the user meant.
+#' @param fixformula User-supplied fixed-effect formula specification.
+#' @return A list of formulas when several were given; otherwise unchanged.
+#' @noRd
+.normalise_fixformula <- function(fixformula) {
+  if (inherits(fixformula, "formula")) return(fixformula)
+  if (is.character(fixformula) && length(fixformula) > 1L) {
+    return(as.list(fixformula))
+  }
+  fixformula
+}

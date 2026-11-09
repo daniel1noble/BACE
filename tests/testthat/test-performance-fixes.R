@@ -109,18 +109,34 @@ test_that(".predict_bace poisson: excursion draws cannot produce catastrophic
   dat_prep <- list(data.frame(y = y_obs), NULL)
   cap <- 3 * 2 + 5   # 3 * max observed + 5 = 11
 
-  # sample = FALSE: median-based point estimate, capped.
-  pt <- BACE:::.predict_bace(model, dat_prep, response_var = "y",
-                             type = "poisson", sample = FALSE)
+  # sample = FALSE: median-based point estimate, capped. The cap binding is
+  # the whole point of this test, so it must also SAY so -- truncating the
+  # posterior predictive in silence is what we are guarding against.
+  expect_warning(
+    pt <- BACE:::.predict_bace(model, dat_prep, response_var = "y",
+                               type = "poisson", sample = FALSE),
+    regexp = "rate guard bound")
   expect_true(all(pt$pred_values <= cap))
 
   # sample = TRUE: the rate is capped at 11, so a count anywhere near the old
   # rpois(1e6) regime is impossible (P(Pois(11) > 60) < 1e-24).
+  expect_warning(
+    BACE:::.predict_bace(model, dat_prep, response_var = "y",
+                         type = "poisson", sample = TRUE),
+    regexp = "rate guard bound")
   for (i in 1:20) {
-    dr <- BACE:::.predict_bace(model, dat_prep, response_var = "y",
-                               type = "poisson", sample = TRUE)
+    dr <- suppressWarnings(
+      BACE:::.predict_bace(model, dat_prep, response_var = "y",
+                           type = "poisson", sample = TRUE))
     expect_true(all(dr$pred_values < 100))
   }
+
+  # and a cell whose rates never approach the cap must NOT warn
+  liab_ok <- matrix(rnorm(60 * 3, 0.5, 0.3), 60, 3)
+  expect_silent(
+    BACE:::.predict_bace(mock_liab_model(liab_ok),
+                         list(data.frame(y = c(1L, 2L, NA)), NULL),
+                         response_var = "y", type = "poisson", sample = TRUE))
 })
 
 # ---- 3. Family-specific priors ---------------------------------------------

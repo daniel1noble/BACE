@@ -647,8 +647,10 @@ phylo_signal_summary <- function(
     tr_R <- if (length(units_diag) > 0) {
       rowSums(vcv[, units_diag, drop = FALSE])
     } else {
-      # Fallback: residual fixed per IJ parameterization
-      (J * J) / n_levels
+      # R is fixed at (I_J + 1 1')/K, so every diagonal entry is 2/K and
+      # tr(R) = 2J/K. The old expression J^2/K is correct only at K = 3,
+      # where J^2 = 2J by coincidence; it overstates tr(R) for every K > 3.
+      (2 * J) / n_levels
     }
 
     denom <- tr_Gphylo + tr_Gsp + tr_R
@@ -750,20 +752,38 @@ phylo_signal_summary <- function(
 #' @keywords internal
 #' @noRd
 .get_multinom_diag_cols <- function(cols, re_name, J) {
-  # Match "traitXXX.i:traitXXX.i.<re_name>" pattern
-  pat <- sprintf("trait[^.]+\\.(\\d+):trait[^.]+\\.\\1\\.%s$",
-                 gsub("([^[:alnum:]])", "\\\\\\1", re_name))
-  diag_idx <- grep(pat, cols, perl = TRUE)
-  if (length(diag_idx) == 0) {
-    # Fallback: any column ending in .<re_name> — caller may aggregate more
-    # than just diagonals, which overestimates. Emit a warning.
-    fallback <- grep(paste0("\\.", gsub("([^[:alnum:]])", "\\\\\\1", re_name),
-                            "$"), cols)
-    if (length(fallback) == 0) return(character(0))
-    # Take only the first J columns as a heuristic diagonal guess.
-    return(cols[fallback[seq_len(min(J, length(fallback)))]])
-  }
-  cols[diag_idx]
+  # Return the DIAGONAL variance-covariance columns of a multinomial block.
+  #
+  # us(trait):<re> columns are named "traity.B:traity.B.units": two trait
+  # identifiers either side of a ":", then the random-effect name. The
+  # diagonal is exactly those columns whose two halves are IDENTICAL.
+  #
+  # The old pattern required a NUMERIC trait index, but MCMCglmm labels
+  # traits by factor LEVEL ("traity.B"), never by number. The match therefore
+  # ALWAYS failed on real fits and a silent fallback took the first J matching
+  # columns -- which, in MCMCglmm's column-major order, is column 1 of R: one
+  # diagonal entry plus J-1 OFF-diagonal ones. Since R is fixed at
+  # (I + 1 1') / K that sum is exactly 1 for every K, instead of the true
+  # tr(R) = 2(K-1)/K, so H2 and R_species came out inflated and the error grew
+  # with the number of categories. The package's own unit test fabricated
+  # digit-labelled names, so it passed while the real path was broken.
+  # Splitting on ":" also copes with factor levels that contain dots.
+  esc    <- gsub("([^[:alnum:]])", "\\\\\\1", re_name)
+  suffix <- paste0("\\.", esc, "$")
+  cand   <- grep(suffix, cols, value = TRUE)
+  if (length(cand) == 0L) return(character(0))
+
+  core      <- sub(suffix, "", cand)
+  has_colon <- grepl(":", core, fixed = TRUE)
+
+  # idh(trait):<re> produces no ":" and yields only diagonal columns.
+  if (!any(has_colon)) return(cand[seq_len(min(J, length(cand)))])
+
+  halves  <- strsplit(core, ":", fixed = TRUE)
+  is_diag <- vapply(halves,
+                    function(h) length(h) == 2L && identical(h[1L], h[2L]),
+                    logical(1))
+  cand[is_diag]
 }
 
 
@@ -797,7 +817,7 @@ phylo_signal_summary <- function(
     tr_R <- if (length(units_diag) > 0) {
       rowSums(vcv[, units_diag, drop = FALSE])
     } else {
-      (J * J) / n_levels
+      (2 * J) / n_levels   # tr((I_J + 11')/K) = 2J/K
     }
     rs <- tr_Gsp / (tr_Gphylo + tr_Gsp + tr_R)
 

@@ -163,12 +163,51 @@ pool_mi <- function(fits, conf.level = 0.95,
   r      <- ifelse(W > 0, (1 + 1 / M) * B / W, Inf)
   lambda <- ifelse(total_var > 0, (1 + 1 / M) * B / total_var, 1)
 
-  v_old <- ifelse(is.finite(r) & r > 0, (M - 1) * (1 + 1 / r)^2, M - 1)
+  # Rubin (1987) degrees of freedom. The two degenerate cases have DIFFERENT
+  # limits and must not share a fallback:
+  #   r -> Inf (W = 0, no WITHIN-imputation variance): (1 + 1/r)^2 -> 1, df -> M-1
+  #   r -> 0   (B = 0, no BETWEEN-imputation variance): (1 + 1/r)^2 -> Inf, df -> Inf
+  # Sending both to M-1 understated the df whenever the imputations agreed
+  # exactly -- which happens for real whenever the analysis model uses only
+  # fully observed variables -- and fmi = (r + 2/(v+3))/(r+1) then reported
+  # 2/(M+2) of the information missing where the right answer is none at all.
+  # mice reaches the same limit by clamping lambda at 1e-4, giving df ~ 5e9.
+  v_old <- ifelse(!is.finite(r), M - 1,
+                  ifelse(r > 0, (M - 1) * (1 + 1 / r)^2, Inf))
 
   if (!is.null(df_fun)) {
-    nu_com <- tryCatch(df_fun(fits[[1]]), error = function(e) NA_real_)
-    if (is.numeric(nu_com) && length(nu_com) == 1L && is.finite(nu_com) &&
-        nu_com > 0) {
+    nu_com <- tryCatch(df_fun(fits[[1]]), error = function(e) NULL)
+    usable <- function(z) is.numeric(z) && length(z) == 1L && is.finite(z) &&
+                          z > 0
+
+    # Before 1.0.1 an unusable value here fell through in silence, so the
+    # Barnard & Rubin (1999) correction was quietly skipped and the output was
+    # byte-identical to pool_mi(fits). That bites exactly the models this
+    # package's users fit: stats::df.residual() returns NULL for gls (and for
+    # phylolm / MCMCglmm), so the most natural call -- df_fun =
+    # stats::df.residual -- did nothing at all. (GitHub issue #17.)
+    if (!usable(nu_com)) {
+      auto <- .complete_data_df(fits[[1]], length(nm_ref))
+      if (usable(auto)) {
+        message("pool_mi: `df_fun` returned ",
+                if (is.null(nu_com)) "NULL" else paste(deparse(nu_com), collapse = ""),
+                " for a ", class(fits[[1]])[1], " fit, which cannot be used as ",
+                "complete-data degrees of freedom. Using nobs - n_coef = ",
+                auto, " instead, so the Barnard-Rubin small-sample correction ",
+                "is still applied. Pass df_fun = NULL to suppress the ",
+                "correction deliberately.")
+        nu_com <- auto
+      } else {
+        warning("pool_mi: `df_fun` gave no usable complete-data degrees of ",
+                "freedom for a ", class(fits[[1]])[1], " fit, and none could ",
+                "be derived. The Barnard-Rubin small-sample correction was ",
+                "NOT applied; the reported df are the uncapped Rubin (1987) ",
+                "values, which can exceed the complete-data df in small ",
+                "samples.", call. = FALSE)
+      }
+    }
+
+    if (usable(nu_com)) {
       v_obs <- ((nu_com + 1) / (nu_com + 3)) * nu_com * (1 - lambda)
       v_bar <- 1 / (1 / v_old + 1 / v_obs)
     } else {
@@ -257,4 +296,47 @@ print.bace_pooled_mi <- function(x, digits = 4, ...) {
       max_fmi))
   }
   invisible(x)
+}
+
+
+#' @title .complete_data_df
+#' @description Internal: the complete-data residual degrees of freedom a fit
+#'   would have had with no missing data, for the Barnard & Rubin (1999)
+#'   small-sample correction. \code{stats::df.residual()} is tried first, but
+#'   it returns \code{NULL} for several of the model classes phylogenetic
+#'   comparative analyses use (\code{gls}, \code{phylolm}, \code{MCMCglmm}),
+#'   so the fallback is n - p. Verified against an equivalent \code{lm}: a
+#'   30-tip \code{gls} with an intercept and one slope gives 28 either way.
+#' @param fit A fitted model.
+#' @param p Number of pooled coefficients.
+#' @return A single positive number, or NA_real_ when neither route works.
+#' @noRd
+.complete_data_df <- function(fit, p) {
+  d <- tryCatch(stats::df.residual(fit), error = function(e) NULL)
+  if (is.numeric(d) && length(d) == 1L && is.finite(d) && d > 0) return(d)
+
+  n <- tryCatch(stats::nobs(fit), error = function(e) NULL)
+  if (!is.numeric(n) || length(n) != 1L || !is.finite(n)) {
+    # A few classes carry the sample size but have no nobs() method. Every
+    # lookup below is EXACT. `$` partial-matches on lists, so `fit$n` on an
+    # object whose only "n..." component is `nitt` returns the chain length:
+    # list(nitt = 13000)$n is 13000, and n - p would then be 12998 instead of
+    # 18. A complete-data df that large makes the Barnard-Rubin correction a
+    # no-op -- silently reinstating the very bug this fallback exists to fix.
+    pick <- function(obj, nm) if (is.list(obj)) obj[[nm, exact = TRUE]] else NULL
+    n <- tryCatch({
+      dims <- pick(fit, "dims")
+      nN   <- pick(dims, "N")
+      nn   <- pick(fit, "n")
+      nres <- pick(fit, "residuals")
+      if (!is.null(nN)) nN
+      else if (!is.null(nn)) nn
+      else if (!is.null(nres)) length(nres)
+      else NULL
+    }, error = function(e) NULL)
+  }
+  if (!is.numeric(n) || length(n) != 1L || !is.finite(n)) return(NA_real_)
+
+  out <- n - p
+  if (is.finite(out) && out > 0) out else NA_real_
 }

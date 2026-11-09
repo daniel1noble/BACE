@@ -57,13 +57,21 @@ the return value.
 If \code{.f} declares a \code{tree} argument and \code{tree} is supplied
 here, the phylogeny is passed through to the fits (e.g. for a phylogenetic
 GLS). A single \code{phylo} is passed to every fit. A \code{multiPhylo} (or
-plain list of \code{phylo}) assigns tree \code{m} to imputation \code{m},
-recycled in balanced rotation when there are fewer trees than imputations --
-the same deterministic rule \code{\link{bace_final_imp}} uses, so a
-downstream phylogenetic model can condition on the same tree that generated
-each imputation (tree-per-imputation workflow). If \code{.f}'s own
-\code{tree} argument expects a whole tree set, wrap it instead:
-\code{.f = function(d) g(d, my_trees)}.
+plain list of \code{phylo}) gives one tree per imputation
+(tree-per-imputation workflow).
+
+Which tree goes to which fit is \emph{read from the imputation object}: a
+\code{bace_final} / \code{bace_complete} records the tree each run was
+imputed under in \code{$tree_index}, and when the trees supplied here are
+the same set in the same order (checked by content hash, not by count) that
+recorded pairing is used exactly, so every downstream model conditions on
+the tree that generated its own imputation. Otherwise BACE falls back to
+\code{bace_final_imp}'s own assignment rule and says so with a message.
+Supplying a plain list of data.frames records nothing, so the fallback rule
+applies.
+
+If \code{.f}'s own \code{tree} argument expects a whole tree set, wrap it
+instead: \code{.f = function(d) g(d, my_trees)}.
 }
 \examples{
 # with_imputations() also accepts a plain list of completed data.frames,
