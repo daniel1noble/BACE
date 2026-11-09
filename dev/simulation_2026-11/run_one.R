@@ -16,7 +16,7 @@ suppressPackageStartupMessages({ library(ape); library(nlme); library(phytools) 
 ## A campaign measures one version of BACE. An older build sitting in the R library produces
 ## results that look entirely normal and mean nothing -- that happened on 2026-11-09, with the
 ## repository at 1.0.0 and the library still at 0.1.0.9000.
-BACE_MIN_VERSION <- "1.0.0"
+BACE_MIN_VERSION <- "1.0.1"
 bace_version <- as.character(utils::packageVersion("BACE"))
 if (utils::compareVersion(bace_version, BACE_MIN_VERSION) < 0)
   stop("BACE ", bace_version, " is installed; this campaign needs >= ", BACE_MIN_VERSION,

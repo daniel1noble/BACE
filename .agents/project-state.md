@@ -851,7 +851,17 @@ Also today, campaign economics settled:
   Verdict: the campaign settings (runs 5, nitt 50k) are already enough for
   nominal coverage; no evidence longer chains buy anything.
 
-In progress: 4-agent investigation (code audit / literature with real
-citations / blast radius / audit of the energy & wasserstein alternatives)
-+ harvesting real chained series (runs = 15, campaign chains, 3 seeds) to
-set any new threshold against real data. Fix lands after that evidence.
+**FIXED same day — BACE 1.0.1.** The check was replaced wholesale (see
+`.agents/investigation-convergence-2026-11.md` for the full record):
+scale-free stability check on the mean AND SD of imputed values, first half
+of the chain treated as warm-up, three named pathologies (drift /
+oscillation / stuck, each with its remedy); bace() now retries only on
+drift. Calibrated: settled chains pass >=99% at runs=10 wherever their mean
+sits; each pathology caught >=99%; all 18 real harvested chain-series pass
+(their measured coverage was 0.95). Old per-criterion / energy / wasserstein
+methods defunct with explanatory errors; pct_change_threshold/lag/alpha
+removed (drift_threshold/stuck_ratio added); plot type "steps" replaces
+"pct_change". Suite: 1775 pass / 0 fail. The old campaign's convergence
+percentages (28/51/82%) measured the bug and are struck from the plan; the
+chain-length pilot is retired (its 17 finished runs: coverage 17/17 at every
+setting — campaign settings already suffice).

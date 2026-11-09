@@ -99,10 +99,17 @@ fit_bace <- function(dataset, n_final = 20L, nitt = 50000L, burnin = 10000L,
   ## that the assessment could not run at all. The per-variable verdicts and the attempt count
   ## are small, so they travel with the result.
   conv_detail <- tryCatch({
-    v <- fit$convergence$method_results$summary$var_converged
+    cv <- fit$convergence
+    ## BACE 1.0.1's stability check names what it found per variable: "ok", or one of the
+    ## pathologies "drift" (curable with more runs), "oscillation", "stuck", "unassessable".
+    ## notes are advisory only (e.g. mild alternation) and do not affect the verdict.
+    verdicts <- cv$verdicts %||% NULL
+    v <- cv$method_results$summary$var_converged
     list(n_attempts = fit$n_attempts %||% NA_integer_,
-         n_vars = length(v), n_vars_converged = sum(isTRUE(v) | v %in% TRUE, na.rm = TRUE),
-         vars = v)
+         n_vars = length(v), n_vars_converged = sum(v %in% TRUE, na.rm = TRUE),
+         vars = v,
+         verdicts = verdicts,
+         notes = Filter(nzchar, cv$notes %||% character(0)))
   }, error = function(e) NULL)
 
   list(imputed = imputed, intervals = intervals,

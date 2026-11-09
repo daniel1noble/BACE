@@ -1,3 +1,14 @@
+# =============================================================================
+# RETIRED 2026-11-09, part-run (17 of 40). This pilot asked which chain
+# settings make BACE's convergence flag pass. That flag turned out to be
+# defective (it could never pass for mean-centred traits; replaced in BACE
+# 1.0.1 - see .agents/investigation-convergence-2026-11.md), so the question
+# dissolves. What the 17 finished runs DID show, and what retired it:
+#   - coverage 17/17 and bias ~0 at EVERY setting tested
+#   - runs 5 -> 15 and final_nitt 50k -> 150k changed nothing but cost
+# So the campaign settings (runs 5, nitt 50k) already deliver nominal
+# coverage; longer chains buy nothing measurable. Kept for the record.
+# =============================================================================
 # =================================================================================================
 # pilot_settings.R -- how long should the chains be?
 #

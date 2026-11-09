@@ -53,20 +53,19 @@ Rscript collect.R results
 
 **The wrong BACE.** An older build in the R library gives results that look entirely normal and
 mean nothing — it happened on 2026-11-09, repo at 1.0.0 and library at 0.1.0.9000. Both
-`run_one.R` and `run_all.sh` refuse to start below 1.0.0, and every result records the version
+`run_one.R` and `run_all.sh` refuse to start below **1.0.1**, and every result records the version
 that produced it.
 
 **Two known BACE crashes**, both reproduced on this grid and both deterministic:
 
 | where | error | hit |
 |---|---|---|
-| `sim_bace()` ([#19](https://github.com/daniel1noble/BACE/issues/19)) | `NA in probability vector` — the softmax in `mnom_liab2cat()` overflows (`exp(710)` is `Inf`, `Inf/Inf` is `NaN`) | 3 of 54 scenarios, all n = 500 with high signal |
-| `bace()` ([#20](https://github.com/daniel1noble/BACE/issues/20)) | `zero-variance series` — `coda::geweke.diag()` is called unguarded at `R/model_functions.R:1635`, while the same call is wrapped in `tryCatch` at `R/phylo_signal_summary.R:850` | 2 of 54 scenarios |
+| `sim_bace()` ([#19](https://github.com/daniel1noble/BACE/issues/19), **fixed in 1.0.1**) | `NA in probability vector` — softmax overflow | was 3 of 54 scenarios |
+| `bace()` ([#20](https://github.com/daniel1noble/BACE/issues/20), **fixed in 1.0.1**) | `zero-variance series` crash in the final-model diagnostics | was 2 of 54 scenarios |
 
-A crashed job writes nothing, which leaves a silent gap. So every stage is wrapped: a failure is
-**recorded** and the dataset still writes its file. `collect.R` counts them, writes
-`failures.csv`, and reports the rate. Being deterministic, these do not resume — only fixing them
-in BACE will.
+Both are fixed in the version this campaign requires; the guard above exists precisely so a stale
+library cannot re-introduce them. The belt-and-braces wrapping stays: a failure of any stage is
+**recorded** and the dataset still writes its file; `collect.R` counts them into `failures.csv`.
 
 **Interruptions are different.** A wall-time limit or a dead node can strike any dataset, and at
 n = 500 that is 2.2 hours lost. `bace()`'s `checkpoint_dir` is on by default: a resumed run takes
@@ -89,3 +88,13 @@ realised observed-scale lambda.
 `trait_beta` and `aux_beta` are **regression slopes, not correlations**. A slope buys less
 correlation than its own value: slope 0.5 gave r = 0.45 and slope 0.8 gave r = 0.62 over 25
 datasets at n = 200. Every dataset records its own realised correlation.
+
+`bace_converged` and `bace_conv_detail` record BACE 1.0.1's **stability check**: per-variable
+verdicts naming what it found — `ok`, `drift` (still travelling; the one problem more runs can
+cure), `oscillation` (variables flip-flopping in step), `stuck` (imputation spread collapsing) —
+plus advisory notes. A pass means *no pathology detected*, not a certificate: no clear-cut
+convergence test exists for chained equations (van Buuren 2018, ch. 6.5.2). The campaign reports
+these as rates per scenario. The pre-1.0.1 check was defective (it could never pass a
+mean-centred trait) and the retired chain-length pilot (`pilot_settings.R`) answered its real
+question: coverage was nominal at every chain setting tested, so the campaign's settings stand —
+see `.agents/investigation-convergence-2026-11.md`.

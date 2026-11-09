@@ -20,13 +20,19 @@ CORES="${CORES:-7}"
 REPS="${REPS:-1000}"
 OUT="${OUT:-$HERE/results}"
 M="${M:-20}"; NITT="${NITT:-50000}"; BURNIN="${BURNIN:-10000}"; THIN="${THIN:-25}"; RUNS="${RUNS:-5}"
+# The final runs reuse the chained-phase chain unless these are set (the chain-length pilot
+# found no measurable gain from longer final chains, so the default is the cheap one).
+FINAL=""
+[ -n "${FINAL_NITT:-}" ]   && FINAL="$FINAL --final_nitt $FINAL_NITT"
+[ -n "${FINAL_BURNIN:-}" ] && FINAL="$FINAL --final_burnin $FINAL_BURNIN"
+[ -n "${FINAL_THIN:-}" ]   && FINAL="$FINAL --final_thin $FINAL_THIN"
 
 mkdir -p "$OUT"
 
 # Refuse to start on the wrong BACE. Checked here as its own command (not in a pipeline, where the
 # exit status would be tee's) so a wrong version costs one second rather than 54,000 failures.
 VERS=$(Rscript -e "v <- as.character(utils::packageVersion('BACE'))
-  if (utils::compareVersion(v, '1.0.0') < 0) stop('BACE ', v, ' is too old; run  R CMD INSTALL .  from the repo root', call. = FALSE)
+  if (utils::compareVersion(v, '1.0.1') < 0) stop('BACE ', v, ' is too old; run  R CMD INSTALL .  from the repo root', call. = FALSE)
   cat('BACE', v, '| R', as.character(getRversion()), '\n')" 2>&1)
 if [ $? -ne 0 ]; then echo "$VERS" >&2; echo "REFUSING TO LAUNCH." >&2; exit 1; fi
 echo "$VERS" | tee "$OUT/versions.txt"
@@ -37,7 +43,7 @@ IDS=$(Rscript -e "source('$HERE/R/01_scenarios.R'); cat(make_scenarios()\$id, se
 TASKS="$OUT/tasks.txt"; : > "$TASKS"
 for id in $IDS; do
   for seed in $(seq 1 "$REPS"); do
-    echo "--id $id --seed $seed --out $OUT --M $M --nitt $NITT --burnin $BURNIN --thin $THIN --runs $RUNS" >> "$TASKS"
+    echo "--id $id --seed $seed --out $OUT --M $M --nitt $NITT --burnin $BURNIN --thin $THIN --runs $RUNS$FINAL" >> "$TASKS"
   done
 done
 

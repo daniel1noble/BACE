@@ -55,6 +55,10 @@ runs <- do.call(rbind, lapply(r, function(x) cbind(key(x),
              cc_frac_kept   = x$complete_case$frac_kept,
              cc_status      = x$complete_case$status,
              bace_converged = x$bace_converged,
+             ## BACE 1.0.1 names what the stability check found, per variable; a dataset
+             ## with any pathology records which. "" = every variable ok.
+             bace_pathology = paste(unique(setdiff(
+               unlist(x$bace_conv_detail$verdicts), "ok")), collapse = "+"),
              wall_s         = x$wall_s,
              bace_version   = x$bace_version))))
 
@@ -72,8 +76,11 @@ summary_recovery <- stats::aggregate(
   FUN = function(z) mean(z, na.rm = TRUE), na.action = stats::na.pass)
 
 summary_runs <- stats::aggregate(
-  cbind(bace_converged, cc_frac_kept, lambda_x1, cor_x1_x2, wall_s) ~ ., 
-  data = runs[, c(by, "bace_converged", "cc_frac_kept", "lambda_x1", "cor_x1_x2", "wall_s")],
+  cbind(bace_converged, drift = bace_pathology == "drift",
+        cc_frac_kept, lambda_x1, cor_x1_x2, wall_s) ~ .,
+  data = cbind(runs[, c(by, "bace_converged", "cc_frac_kept", "lambda_x1",
+                        "cor_x1_x2", "wall_s")],
+               bace_pathology = runs$bace_pathology),
   FUN = mean, na.rm = TRUE)
 
 ## STEP 6. Write them.

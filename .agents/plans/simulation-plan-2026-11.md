@@ -391,6 +391,14 @@ Three independent routes, all on the current package, all agreeing:
 
 **Plan on 2.2 h per dataset at n = 500**, with 2.1–2.4 h as the honest band.
 
+> **2026-11-09: now measured, not extrapolated.** One full n = 500 dataset ran
+> end to end (BACE arm, campaign settings, checkpointing on) in **109.5 min =
+> 1.83 h** — under the 2.2 h planning number — and it did so while sharing the
+> machine with five pilot jobs, so an uncontended run is faster still. The
+> extrapolation band above stands as the conservative budget; the measured
+> point says the budget is safe. Result quality on that dataset: BACE slope
+> bias +0.0006, SE 0.062 vs complete-case 0.115, all three arms covered.
+
 ### 5.3 What the chosen design costs
 
 27 scenarios per n (3 λ × 3 ρ × 3 mechanisms) × 1000 replicates × 2 levels of n
@@ -570,9 +578,16 @@ fixed effects whose effective sample size is below 100:
 
 | n | % of parameters under-mixed | BACE's own convergence verdict |
 |---|---|---|
-| **100** | **47%** | converged in **29%** of fits |
-| 300 | 20% | 54% |
-| 1000 | 3% | 81% |
+| **100** | **47%** | ~~converged in **29%** of fits~~ |
+| 300 | 20% | ~~54%~~ |
+| 1000 | 3% | ~~82%~~ |
+
+> **2026-11-09: the verdict column is struck.** Those percentages measured a
+> defective check, not the sampler: the old criterion divided each step by
+> the variable's own level, so mean-centred traits could never pass. The
+> check was replaced in BACE 1.0.1 (drift / oscillation / stuck, scale-free;
+> see `.agents/investigation-convergence-2026-11.md`). The ESS column is
+> real and stands.
 
 That pools both phases, and the convergence phase genuinely does not need good
 mixing. So we separated them on a fresh full-length n = 100, λ = 0.3 fit:
@@ -581,6 +596,20 @@ mixing. So we separated them on a fresh full-length n = 100, λ = 0.3 fit:
 |---|---|---|---|---|
 | convergence | 95 | 1430 | 13% | 2.7 |
 | **final — this is what feeds inference** | 504 | 1073 | **23%** | 2.9 |
+
+**2026-11-09: question answered — the pilot ran and is retired.** Five
+settings (runs 5/10/15 at final_nitt 50k; runs 5/10 at final_nitt 150k), 17
+datasets finished before retirement: **coverage 17/17 and bias ≈ 0 at every
+setting**; tripling the chained runs or the final chain changed nothing but
+cost (22 → 52 min per dataset). And the old convergence column above is
+struck because the verdict was produced by a defective check (never passable
+for mean-centred traits), replaced in BACE 1.0.1 — see
+`.agents/investigation-convergence-2026-11.md`. The empirical picture matches
+the literature: valid inference arrives after a handful of chained iterations,
+well before formal diagnostics look settled (Oberman, van Buuren & Vink 2021,
+arXiv:2110.11951). **Decision: the campaign keeps nitt 50,000 for both phases
+(final_* unset).** The launcher has `FINAL_NITT`/`FINAL_BURNIN`/`FINAL_THIN`
+hooks should we ever want them.
 
 So about a quarter of the parameters in the models that produce the published
 numbers are poorly mixed at n = 100 — and n = 100 is half of this design.
@@ -649,13 +678,12 @@ this is here so Shinichi can object before it starts rather than after. If it is
 too long, §5.3 records the cheapest thing to trim (replicates at n = 500, which
 is 83% of the bill).
 
-### 3. Run the ~20 core-hour pilot on chain length first? — *we recommend yes*
+### 3. Run the ~20 core-hour pilot on chain length first? — *done, 2026-11-09*
 
-§6.4. At n = 100, about a quarter of the fixed effects in the models that feed
-inference have an effective sample size below 100. BACE 1.0.0 has just added the
-means to fix that (`final_nitt`, `final_thin`). Checking costs under 0.03% of
-the campaign and gives us a defensible answer either way. Launching without it
-means finding out in three weeks' time, if at all.
+Resolved before you read this: the pilot ran (17 datasets across five settings)
+and the answer is in §6.4 — **coverage was nominal at every setting and longer
+chains bought nothing measurable**, so the campaign keeps nitt 50,000 for both
+phases. Nothing left to decide here.
 
 ### 4. Stop giving the fully observed driver its own imputation model? — *saves ~8.5%*
 

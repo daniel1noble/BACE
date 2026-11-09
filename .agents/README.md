@@ -8,6 +8,7 @@ build/test). Then:
 |---|---|
 | [`roadmap.md`](roadmap.md) | Everything remaining to reach a submittable manuscript + release. Tracks A–D, priorities, known bugs. **Start here for "what next".** |
 | [`project-state.md`](project-state.md) | Snapshot of where things stand: what's done, test status, open items. |
+| [`investigation-convergence-2026-11.md`](investigation-convergence-2026-11.md) | **The convergence-check repair (2026-11)**: the chained-equations convergence verdict measured each variable's scale, not its stability (never passed centred traits, passed drifting ones, called a collapsed sampler "converged"). Replaced in 1.0.1 by a calibrated, scale-free check (drift / oscillation / stuck); bace() retries only on drift. Full evidence, literature and calibration tables. |
 | [`investigation-2026-08.md`](investigation-2026-08.md) | **The 2026-08 performance investigation**: six root causes of the Study B coverage/accuracy failures (improper final-phase MI, finite-draw metric ceiling, poisson point-estimate/clip, mis-scaled priors, degenerate multinomial DGP, AIC-race type detection) and the fixes. |
 | [`pigauto.md`](pigauto.md) | The companion package (Nakagawa): how it works, and how BACE differs. Manuscript positioning. |
 | [`plans/pool_mi_rubin.md`](plans/pool_mi_rubin.md) | Design of the Rubin's-rules pooling pathway (`with_imputations()` + `pool_mi()`). |
