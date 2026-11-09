@@ -60,10 +60,10 @@ message(id, " seed ", seed)
 ## reproduced on this grid:
 ##   sim_bace()  "NA in probability vector" -- the softmax in mnom_liab2cat() overflows when the
 ##               liabilities are large (exp(710) is Inf, and Inf/Inf is NaN). Hit 3 of 54
-##               scenarios, all at n = 500 with high signal and related traits.
+##               scenarios, all at n = 500 with high signal and related traits.   [issue #19]
 ##   bace()      "zero-variance series" -- coda::geweke.diag() is called unguarded at
 ##               R/model_functions.R:1635, where the same call is wrapped in tryCatch at
-##               R/phylo_signal_summary.R:850. Hit 2 of 54 scenarios.
+##               R/phylo_signal_summary.R:850. Hit 2 of 54 scenarios.             [issue #20]
 ##
 ## A crashed job writes nothing, so it leaves a silent gap and the failure rate is invisible.
 ## Instead every stage is wrapped: a failure is RECORDED and the dataset still writes its file,

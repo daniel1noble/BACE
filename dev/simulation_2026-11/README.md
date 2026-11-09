@@ -60,8 +60,8 @@ that produced it.
 
 | where | error | hit |
 |---|---|---|
-| `sim_bace()` | `NA in probability vector` — the softmax in `mnom_liab2cat()` overflows (`exp(710)` is `Inf`, `Inf/Inf` is `NaN`) | 3 of 54 scenarios, all n = 500 with high signal |
-| `bace()` | `zero-variance series` — `coda::geweke.diag()` is called unguarded at `R/model_functions.R:1635`, while the same call is wrapped in `tryCatch` at `R/phylo_signal_summary.R:850` | 2 of 54 scenarios |
+| `sim_bace()` ([#19](https://github.com/daniel1noble/BACE/issues/19)) | `NA in probability vector` — the softmax in `mnom_liab2cat()` overflows (`exp(710)` is `Inf`, `Inf/Inf` is `NaN`) | 3 of 54 scenarios, all n = 500 with high signal |
+| `bace()` ([#20](https://github.com/daniel1noble/BACE/issues/20)) | `zero-variance series` — `coda::geweke.diag()` is called unguarded at `R/model_functions.R:1635`, while the same call is wrapped in `tryCatch` at `R/phylo_signal_summary.R:850` | 2 of 54 scenarios |
 
 A crashed job writes nothing, which leaves a silent gap. So every stage is wrapped: a failure is
 **recorded** and the dataset still writes its file. `collect.R` counts them, writes

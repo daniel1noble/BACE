@@ -10,7 +10,7 @@ re-run independently — treat those as needing confirmation before acting.
 
 ---
 
-## 1. A multinomial predictor loses its phylogenetic effect — VERIFIED
+## 1. A multinomial predictor loses its phylogenetic effect — VERIFIED — [issue #16](https://github.com/daniel1noble/BACE/issues/16)
 
 **Where:** `R/simulate_simBACE.R:502-509`
 
@@ -47,7 +47,7 @@ all use `linear_pred` directly and are correct. A multinomial *response* is corr
 
 ---
 
-## 2. `pool_mi(df_fun = )` silently does nothing for every phylogenetic model — VERIFIED
+## 2. `pool_mi(df_fun = )` silently does nothing for every phylogenetic model — VERIFIED — [issue #17](https://github.com/daniel1noble/BACE/issues/17)
 
 **Where:** `pool_mi()`, the `df_fun` block.
 
@@ -72,7 +72,7 @@ example.
 
 ---
 
-## 3. `with_imputations()` silently drops the tree unless the argument is literally named `tree` — VERIFIED (source)
+## 3. `with_imputations()` silently drops the tree unless the argument is literally named `tree` — VERIFIED (source) — [issue #18](https://github.com/daniel1noble/BACE/issues/18)
 
 **Where:** `with_imputations()`:
 
@@ -114,6 +114,24 @@ should be ~0. Matters whenever an imputation contributes no between-imputation v
   `Ntip(tree)` can be less than asked for. Worth documenting.
 - **Fitted objects are ~35 MB** at modest size (`$pooled_models` 14.9 MB, `$final_results` 18 MB).
   Fine for one analysis; a campaign must extract statistics in the worker and never save the fit.
+
+---
+
+## 6. Softmax overflow in `mnom_liab2cat()` — VERIFIED — [issue #19](https://github.com/daniel1noble/BACE/issues/19)
+
+`probs <- exp(liab_full) / rowSums(exp(liab_full))` in `R/simulate_auxiliary.r:196`. A liability
+over ~710 makes `exp()` return `Inf`, and `Inf/Inf` is `NaN`, which `sample(prob = )` rejects:
+`"NA in probability vector"`. Killed 3 of 54 scenarios outright, all at n = 500 with high signal
+and related traits. One-line fix: subtract the row maximum before exponentiating (softmax is
+shift-invariant, so this changes nothing mathematically).
+
+## 7. Unguarded `coda::geweke.diag()` aborts `bace()` — VERIFIED — [issue #20](https://github.com/daniel1noble/BACE/issues/20)
+
+`R/model_functions.R:1635` calls `coda::geweke.diag(param)` with no `tryCatch`, so a parameter
+whose draws have no variance takes down the whole run with `"zero-variance series"` — after the
+expensive fitting is already done. The package wraps the identical call at
+`R/phylo_signal_summary.R:850`, so the hazard is known; it is just missing here. Killed 2 of 54
+scenarios. Deterministic, so resuming does not help.
 
 ---
 
