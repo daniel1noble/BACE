@@ -43,7 +43,8 @@
 #' @param checkpoint_dir  where to save progress, or NULL for none
 #' @return list(imputed = list of completed data frames, converged = BACE's verdict, wall_s)
 fit_bace <- function(dataset, n_final = 20L, nitt = 50000L, burnin = 10000L,
-                     thin = 25L, runs = 5L, seed = 1L, checkpoint_dir = NULL) {
+                     thin = 25L, runs = 5L, seed = 1L, checkpoint_dir = NULL,
+                     final_nitt = NULL, final_burnin = NULL, final_thin = NULL) {
 
   ## STEP 1. One imputation model per trait: that trait on the left, every OTHER trait on the
   ##         right, plus `driver` and (where present) `aux`. The two helpers appear only on the
@@ -65,7 +66,13 @@ fit_bace <- function(dataset, n_final = 20L, nitt = 50000L, burnin = 10000L,
                     nitt = nitt, burnin = burnin, thin = thin, runs = runs,
                     n_final = n_final, n_cores = 1L,
                     verbose = FALSE, skip_conv = TRUE,
-                    seed = seed, checkpoint_dir = checkpoint_dir)
+                    seed = seed, checkpoint_dir = checkpoint_dir,
+                    ## The two phases do different jobs, so they can have different chains.
+                    ## The chained phase only needs the imputed values to SETTLE; the final runs
+                    ## supply the draws that are pooled for inference. NULL reuses the chained
+                    ## settings, which is what BACE did before 1.0.0.
+                    final_nitt = final_nitt, final_burnin = final_burnin,
+                    final_thin = final_thin)
   wall <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
 
   ## STEP 3. Take the completed datasets and let the fit go. Two fixes BACE's output needs:

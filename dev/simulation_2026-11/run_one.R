@@ -22,6 +22,8 @@ if (utils::compareVersion(bace_version, BACE_MIN_VERSION) < 0)
   stop("BACE ", bace_version, " is installed; this campaign needs >= ", BACE_MIN_VERSION,
        ". Run  R CMD INSTALL .  from the BACE repo root.", call. = FALSE)
 
+`%||%` <- function(x, y) if (is.null(x)) y else x
+
 ## ---- arguments --------------------------------------------------------------------------------
 a <- commandArgs(trailingOnly = TRUE)
 arg <- function(flag, default = NULL) { i <- match(paste0("--", flag), a)
@@ -34,6 +36,13 @@ nitt    <- as.integer(arg("nitt", 50000L))
 burnin  <- as.integer(arg("burnin", 10000L))
 thin    <- as.integer(arg("thin", 25L))
 runs    <- as.integer(arg("runs", 5L))
+## The final imputation runs may have their own, usually longer, chains. NULL = reuse the
+## chained-phase settings. The two real case studies both split them: amphibian_ctmax runs
+## nitt 15000 chained with final_nitt 105000, bird_social nitt 50000 with final_nitt 500000.
+int_or_null <- function(x) if (is.null(x)) NULL else as.integer(x)
+final_nitt   <- int_or_null(arg("final_nitt"))
+final_burnin <- int_or_null(arg("final_burnin"))
+final_thin   <- int_or_null(arg("final_thin"))
 ## Checkpointing is ON by default so an interrupted dataset resumes instead of restarting; it is
 ## deleted as soon as the dataset succeeds. --no_checkpoint turns it off (e.g. on a disk too small
 ## to hold one per concurrent job: budget a few hundred MB per core).
@@ -94,7 +103,9 @@ cc_slope <- if (cc$status == "scored") score_slope_single(cc$data, dataset$tree)
 
 ckpt <- if (use_ckpt) file.path(out_dir, "checkpoints", paste0(id, "_s", seed)) else NULL
 bace <- tryCatch(fit_bace(dataset, n_final = M, nitt = nitt, burnin = burnin,
-                          thin = thin, runs = runs, seed = seed, checkpoint_dir = ckpt),
+                          thin = thin, runs = runs, seed = seed, checkpoint_dir = ckpt,
+                          final_nitt = final_nitt, final_burnin = final_burnin,
+                          final_thin = final_thin),
                  error = function(e) fail("bace", e))
 bace_slope <- tryCatch(score_slope_bace(bace$imputed, dataset$tree), error = function(e) NULL)
 
@@ -122,6 +133,8 @@ saveRDS(list(
   realised = dataset$realised, realised_frac = dataset$realised_frac,
   complete_case = cc[c("n_complete", "frac_kept", "status")],
   bace_converged = bace$converged, bace_conv_detail = bace$conv_detail,
+  settings = c(M = M, nitt = nitt, burnin = burnin, thin = thin, runs = runs,
+               final_nitt = final_nitt %||% nitt, final_thin = final_thin %||% thin),
   wall_s = bace$wall_s,
   bace_version = bace_version, time = Sys.time()
 ), out_file)

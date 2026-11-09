@@ -805,3 +805,53 @@ tests catch all five seeded forwarding bugs. Fixed from findings:
   validation naming, short-chain warning, retry-ladder chained settings,
   settings round-trip incl. legacy objects, and the real fit now varies all
   three settings so honouring only final_nitt fails).
+
+## 2026-11-09: the convergence check is broken — flag means nothing; fix in progress
+
+Found while setting up the new simulation (dev/simulation_2026-11): BACE's
+chained-equations convergence verdict came back FALSE on essentially every
+run (2/20 on the 20-replicate test, 0/17 across every pilot setting), yet
+interval coverage was nominal (0.95) and the verdict showed NO relationship
+with bias, coverage, width or recovery across datasets. Diagnosed, through two demonstrations:
+
+1. **Empirical**: 20 replicates, converged vs not: |bias| 0.178 vs 0.125,
+   width 0.639 vs 0.637, coverage 1.00 vs 0.944. Nothing significant; signs
+   inconsistent. The flag carries no information about result quality.
+2. **Mechanical**: a series converged BY CONSTRUCTION (iid noise, no drift)
+   passes the whole-dataset check 3.4% of the time at campaign settings
+   (runs = 5). Matches the observed 2/20 and 0/17.
+
+Root causes in `.assess_summary_convergence()` (R/convergence_diagnostics.R):
+- **%-change criterion divides by the series' own mean**
+  (`abs(diff(s)/(s[-n]+1e-10))`): for mean-centred traits (standardised
+  gaussians — the common case) the denominator is ~0, the "percentage"
+  explodes, and the criterion can NEVER pass (0% pass rate at trait mean 0;
+  needs |mean| ≳ 2 to behave). This is why x1 and cat3 fail everywhere.
+- **ACF criterion** correlates 4 points against a |r| < 0.3 cutoff — rejects
+  ~60% of perfectly settled chains (sampling SD of r on 4 points ≈ 0.5).
+- **Geweke is silently disabled** (`geweke_result$converged <- NA`,
+  "Temporary turn-off"), so only 3 live criteria remain, one unpassable.
+- Combination: per-var needs >50% of live criteria, overall needs >70% of
+  variables (= 5 of 6). Hence ~3% overall pass rate on healthy chains.
+
+User impact: bace() defaults (skip_conv = FALSE, max_attempts = 3) retry at
+runs 5→8→11 = 24 run-units instead of 5 (~4.8× compute) and then falsely
+warn. More chain cannot help (pilot: 5→15 runs and 50k→150k final nitt all
+0/17 converged).
+
+Also today, campaign economics settled:
+- **n=500 cost measured: 109.5 min** (one full bace() at campaign settings,
+  while sharing the machine with 5 pilot jobs) — UNDER the 2.2 h budget;
+  campaign back to ~16.5 days on 200 cores. Result quality at n=500: bace
+  bias +0.0006, se 0.062 vs complete-case 0.115, all arms covered.
+- **Wall time varies ~5× between datasets** at identical settings (21.6 vs
+  115.6 min at n=100). Not yet explained; matters for per-job wall limits.
+- Chain-length pilot (17/40 done, parked): coverage 17/17, bias ≈ 0 at ALL
+  settings — runs 5/10/15 × final_nitt 50k/150k change nothing but cost.
+  Verdict: the campaign settings (runs 5, nitt 50k) are already enough for
+  nominal coverage; no evidence longer chains buy anything.
+
+In progress: 4-agent investigation (code audit / literature with real
+citations / blast radius / audit of the energy & wasserstein alternatives)
++ harvesting real chained series (runs = 15, campaign chains, 3 seeds) to
+set any new threshold against real data. Fix lands after that evidence.
