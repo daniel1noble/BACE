@@ -52,7 +52,7 @@ continuous, count, proportion, binary, ordinal and categorical traits alike.
 
 ## 2. What we already have
 
-The manuscript's simulation is `dev/rubin_study_2026-09-26/`, run on the
+The manuscript's simulation is `dev/archive-2026/rubin_study_2026-09-26/`, run on the
 corrected BACE package in 2026-10. It is complete: **750 datasets, 1,148
 core-hours**, aggregated into `results_2026-10/`.
 
@@ -492,7 +492,7 @@ Both launchers exist already and encode their own limits:
 
 All done, `devtools`-style test suite green: **455 pass, 0 fail** across the
 simulation lane, including 57 assertions in three new test files. The code lives
-in `dev/rubin_study_2026-09-26/code/`; start at its `README.md`, which gives a
+in `dev/archive-2026/rubin_study_2026-09-26/code/`; start at its `README.md`, which gives a
 reading order, or run `Rscript code/walkthrough.R`, which takes one dataset
 through every step and prints what it did at each one.
 
