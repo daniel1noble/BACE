@@ -64,11 +64,15 @@
 #'   matrix in ginverse). This requires sufficient replicated observations per species.
 #' @param verbose A logical indicating whether to print progress messages. Default is TRUE.
 #' @param plot A logical indicating whether to plot convergence diagnostics. Default is FALSE.
-#' @param max_attempts Maximum number of attempts to achieve convergence by increasing runs. 
-#'   Default is 3.
-#' @param skip_conv A logical indicating whether to skip convergence retry logic. When TRUE, 
-#'   convergence is still assessed, but if it fails, the function proceeds directly to final 
-#'   imputation instead of retrying with more runs. Default is FALSE.
+#' @param max_attempts Maximum number of attempts when the stability check
+#'   detects DRIFT (the chained equations still travelling), each retry using
+#'   50 per cent more chained runs. Drift is the one pathology that more runs can
+#'   cure, so the retry fires only for it; an oscillating or stuck chain is
+#'   reported with its remedy and not retried (see
+#'   \code{\link{assess_convergence}}). Default is 3.
+#' @param skip_conv A logical indicating whether to skip the retry logic
+#'   entirely. When TRUE, stability is still assessed and recorded, but the
+#'   function proceeds directly to final imputation. Default is FALSE.
 #' @param sample_size Integer specifying how many posterior samples to draw from each
 #'   imputation before pooling. If NULL (default), uses all posterior samples. Setting this
 #'   to a smaller value (e.g., 1000) can greatly reduce memory usage of the final pooled
@@ -335,7 +339,7 @@ if (verbose) {
   cat("-------------------------------------------------------\n")
 }
 
-converge <- assess_convergence(start, method = "summary")
+converge <- assess_convergence(start)
 
 if (plot && inherits(converge, "bace_convergence") &&
     !is.null(converge$summary_stats)) {
@@ -349,13 +353,25 @@ converged <- converge$converged
 # Treat NA as not converged
 if (is.na(converged)) converged <- FALSE
 
-##-----------------------## 
+# More chained runs can cure DRIFT (the chain is still travelling), but not
+# oscillation (variables feeding back on each other) or a stuck chain
+# (collapsing imputation variance) - retrying on those burns compute for
+# nothing. When the verdicts are available, retry only for drift; when they
+# are not (old objects), fall back to retrying on any failure.
+.conv_retry_can_help <- function(cv) {
+  if (is.null(cv$verdicts)) return(TRUE)
+  any(cv$verdicts == "drift")
+}
+
+##-----------------------##
 # If not converged, try again with more runs (unless skip_conv is TRUE)
 ##-----------------------##
-while (!converged && n_attempts < max_attempts && !skip_conv) {
-  
+while (!converged && n_attempts < max_attempts && !skip_conv &&
+       .conv_retry_can_help(converge)) {
+
   if (verbose) {
-    cat("\n\nConvergence not achieved. Running additional iterations...\n")
+    cat("\n\nDrift detected (the chained equations are still travelling).\n")
+    cat("Re-running with more chained runs...\n")
     cat("Attempt", n_attempts + 1, "of", max_attempts, "\n")
     cat("-------------------------------------------------------\n")
   }
@@ -371,7 +387,7 @@ while (!converged && n_attempts < max_attempts && !skip_conv) {
                    checkpoint_dir = checkpoint_dir,
                    checkpoint_tag = sprintf("a%02d", n_attempts + 1L), ...)
   
-  converge <- assess_convergence(start, method = "summary")
+  converge <- assess_convergence(start)
 
   if (plot && inherits(converge, "bace_convergence") &&
       !is.null(converge$summary_stats)) {
@@ -441,13 +457,26 @@ if (converged) {
 } else {
 
   if (verbose) {
-    if (!skip_conv) {
-      cat("\n\nWARNING: Convergence not achieved after", max_attempts, "attempts\n")
-      cat("Consider increasing 'runs' or 'max_attempts' parameters\n")
-    } else {
+    if (skip_conv) {
       cat("\n\nSkipping convergence retry (skip_conv = TRUE)\n")
+    } else if (!.conv_retry_can_help(converge)) {
+      cat("\n\nWARNING: Stability check flagged a pathology that more chained",
+          "runs cannot cure:\n")
+      bad <- converge$verdicts[converge$verdicts != "ok"]
+      for (v in names(bad)) {
+        remedy <- switch(bad[[v]],
+          oscillation = "flip-flops between runs - look for variables feeding back on each other (derived or collinear predictors)",
+          stuck = "imputation spread is collapsing - check this variable's model (priors, separation, near-constant values)",
+          "see print(assess_convergence(...))")
+        cat("  -", v, ":", remedy, "\n")
+      }
+      cat("Not retrying; inspect plot(assess_convergence(<bace_imp fit>)).\n")
+    } else {
+      cat("\n\nWARNING: Drift still detected after", max_attempts, "attempts\n")
+      cat("Consider increasing 'runs' or 'max_attempts' parameters\n")
     }
-    cat("Proceeding with final imputation...\n")
+    cat("Proceeding with final imputation: multiple imputation propagates\n")
+    cat("the remaining disagreement between runs into wider intervals.\n")
     cat("-------------------------------------------------------\n")
   }
 

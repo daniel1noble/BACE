@@ -12,9 +12,10 @@ plot_energy_convergence(conv_object, ...)
 \item{...}{Additional plotting arguments}
 }
 \value{
-Invisibly returns \code{NULL}; called for its side effect of drawing
-the energy-distance trace plot on the current graphics device.
+Never returns; always throws an error pointing to the replacement.
 }
 \description{
-Plot energy distance evolution
+Defunct. The energy-distance method's verdict logic passed
+steadily drifting chains and coin-flipped on settled ones, so the method
+was removed. See NEWS.
 }

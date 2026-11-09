@@ -15,8 +15,10 @@ plot_trace_convergence(conv_object, variables = NULL, ...)
 }
 \value{
 Invisibly returns \code{NULL}; called for its side effect of drawing
-base-graphics trace plots (one panel per variable) on the current device.
+trace panels (one per variable) on the current graphics device.
 }
 \description{
-Plot trace plots of summary statistics across iterations
+Trace of the monitored mean of each variable's imputed values
+across the chained runs, with the warm-up half shaded and each variable's
+verdict from the stability check in the panel header.
 }

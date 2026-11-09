@@ -93,12 +93,16 @@ matrix in ginverse). This requires sufficient replicated observations per specie
 
 \item{plot}{A logical indicating whether to plot convergence diagnostics. Default is FALSE.}
 
-\item{max_attempts}{Maximum number of attempts to achieve convergence by increasing runs.
-Default is 3.}
+\item{max_attempts}{Maximum number of attempts when the stability check
+detects DRIFT (the chained equations still travelling), each retry using
+50 per cent more chained runs. Drift is the one pathology that more runs can
+cure, so the retry fires only for it; an oscillating or stuck chain is
+reported with its remedy and not retried (see
+\code{\link{assess_convergence}}). Default is 3.}
 
-\item{skip_conv}{A logical indicating whether to skip convergence retry logic. When TRUE,
-convergence is still assessed, but if it fails, the function proceeds directly to final
-imputation instead of retrying with more runs. Default is FALSE.}
+\item{skip_conv}{A logical indicating whether to skip the retry logic
+entirely. When TRUE, stability is still assessed and recorded, but the
+function proceeds directly to final imputation. Default is FALSE.}
 
 \item{sample_size}{Integer specifying how many posterior samples to draw from each
 imputation before pooling. If NULL (default), uses all posterior samples. Setting this

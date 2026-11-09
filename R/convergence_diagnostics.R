@@ -1,30 +1,98 @@
 #' @title assess_convergence
-#' @description Assess convergence of BACE imputation using multiple diagnostic criteria
-#' @param bace_object An object of class 'bace' returned from bace_imp function
-#' @importFrom stats cor cor.test var approx
-#' @param method Character string specifying the convergence method: "summary" (all summary tests), 
-#'   "summary.acf" (ACF only), "summary.percentage" (% change only), "summary.trend" (trend only),
-#'   "summary.geweke" (Geweke only), "energy", "wasserstein", or "all" for all methods
-#' @param variables Character vector of variable names to assess. If NULL (default), 
-#'   all variables with missing data are assessed. A warning is issued for variables 
-#'   without missing data, which are ignored.
-#' @param use_all_data Logical. If TRUE, use all data from each iteration for convergence assessment.
-#'   If FALSE (default), use only the imputed values (originally missing data).
-#' @param alpha Significance level for convergence decision. Default is 0.05
-#' @param min_iterations Minimum number of iterations before testing convergence. Default is 3
-#' @param lag Maximum lag for autocorrelation assessment. Default is 1
-#' @param pct_change_threshold Threshold for percentage change between consecutive iterations. 
-#'   Variables are considered converged if the mean absolute percentage change in the 
-#'   last half of iterations is below this threshold. Default is 0.05 (5%).
-#' @return A list containing:
-#'   - converged: Logical indicating overall convergence status
-#'   - method_results: Detailed results for each method
-#'   - summary_stats: Data frame with summary statistics across iterations
-#'   - diagnostics: Additional diagnostic information
+#' @description Check a BACE convergence chain for signs that the chained
+#'   equations have NOT settled. The check watches, for every variable with
+#'   missing data, two series across the chained runs: the mean and the
+#'   standard deviation of that variable's imputed values (the two quantities
+#'   recommended for monitoring by van Buuren & Groothuis-Oudshoorn 2011 and
+#'   van Buuren 2018, ch. 6.5.2). The first half of the chain is treated as
+#'   warm-up; all movement is measured against the variable's own imputation
+#'   spread, never against its level, so the verdict does not depend on where
+#'   or on what scale a variable lives.
+#'
+#'   Three named pathologies are flagged:
+#'   \itemize{
+#'     \item \strong{drift}: the late chain is still travelling — the mean
+#'       moved by more than \code{drift_threshold} spread units across the
+#'       retained window, with a supporting trend. The one pathology that
+#'       more chained runs can cure.
+#'     \item \strong{oscillation}: the mean flip-flops between runs, loudly —
+#'       strongly negative lag-1 autocorrelation AND steps well above the
+#'       Monte-Carlo noise floor. Usually two variables feeding back on each
+#'       other; more runs will not fix it (van Buuren 2018, ch. 6.5.2).
+#'     \item \strong{stuck}: the imputation spread is collapsing towards zero
+#'       run after run — the textbook pathology in van Buuren &
+#'       Groothuis-Oudshoorn (2011, p. 37), where the sampler locks up. The
+#'       pre-1.0.1 check called this "converged", which was exactly backwards.
+#'   }
+#'
+#'   \strong{What a pass means.} "Converged" here means \emph{no pathology
+#'   detected} — a one-directional diagnostic, not a certificate. There is no
+#'   agreed numerical test of chained-equations convergence ("There is no
+#'   clear-cut method for determining when the MICE algorithm has converged",
+#'   van Buuren 2018, ch. 6.5.2), and short chains cannot support one: with
+#'   the default \code{runs = 10} the check sees ten points per variable.
+#'   Empirically, valid inference tends to arrive after 5--10 chained
+#'   iterations, well before formal diagnostics look settled (Oberman, van
+#'   Buuren & Vink 2021, arXiv:2110.11951). Always inspect the trace plots
+#'   (\code{plot(<result>)}) rather than relying on the flag alone.
+#'
+#'   Chained samplers also alternate a little by nature (each run conditions
+#'   on the previous values of the other variables), and a proportion watched
+#'   over few imputed cells moves in quantised jumps. Mild versions of both
+#'   are therefore reported as notes for the eye, not failures.
+#' @param bace_object An object of class 'bace' returned from bace_imp
+#' @param method "stability" (the check described here). "summary" is accepted
+#'   as a deprecated alias and warns. The pre-1.0.1 methods ("summary.acf",
+#'   "summary.percentage", "summary.trend", "summary.geweke", "energy",
+#'   "wasserstein", "all") are defunct: all of them measured a statistic
+#'   against its own level or mean, so their verdicts tracked the variable's
+#'   scale rather than its stability, failing settled chains and passing
+#'   drifting ones. See NEWS for the full account.
+#' @param variables Character vector of variable names to assess. If NULL
+#'   (default), all variables with missing data are assessed. A warning is
+#'   issued for variables without missing data, which are ignored.
+#' @param use_all_data Logical. If TRUE, monitor whole columns rather than
+#'   only the imputed cells. Default FALSE (imputed cells only, the
+#'   recommended practice — observed cells never change, so including them
+#'   only dilutes the signal).
+#' @param min_iterations Minimum number of chained runs before any assessment
+#'   is attempted. Default is 3.
+#' @param drift_threshold Net late-chain movement of the mean, in units of
+#'   the variable's imputation spread, above which (with a supporting trend)
+#'   the variable is flagged as drifting. Default 0.75. Calibrated so that
+#'   settled chains pass >= 99 per cent of the time and a steady drift of half a
+#'   spread per run is caught >= 99 per cent of the time at \code{runs = 10}; at
+#'   \code{runs = 5} the drift catch rate is ~75 per cent, which is as much as five
+#'   points can support.
+#' @param stuck_ratio If the late-chain imputation spread falls below this
+#'   fraction of the early-chain spread, the variable is flagged as stuck.
+#'   Default 0.25.
+#' @return A list of class \code{bace_convergence}:
+#'   \itemize{
+#'     \item converged: TRUE when no pathology was detected in any variable
+#'       (NA if nothing could be assessed)
+#'     \item verdicts: per-variable, one of "ok", "drift", "oscillation",
+#'       "stuck", or "unassessable" (fewer than 3 finite points)
+#'     \item notes: per-variable advisory notes ("" when none)
+#'     \item summary_stats: data frame of the mean series (iteration x
+#'       variable) that the check watched
+#'     \item sd_stats: data frame of the SD series
+#'     \item method_results$summary: per-variable detail (verdict, the
+#'       statistics behind it, and the thresholds used)
+#'   }
+#' @references
+#'   van Buuren S & Groothuis-Oudshoorn K (2011). mice: Multivariate
+#'   Imputation by Chained Equations in R. Journal of Statistical Software,
+#'   45(3). \cr
+#'   van Buuren S (2018). Flexible Imputation of Missing Data, 2nd ed.,
+#'   ch. 6.5.2. CRC Press. \cr
+#'   Oberman HI, van Buuren S & Vink G (2021). Missing the Point:
+#'   Non-Convergence in Iterative Imputation Algorithms. arXiv:2110.11951.
+#' @importFrom stats cor cor.test var sd median approx
 #' @examples
 #' \donttest{
 #' # Simulate a small phylogenetic dataset with missing values, run a short
-#' # bace_imp() convergence chain, then assess chained-equations convergence
+#' # bace_imp() convergence chain, then check it for pathologies
 #' set.seed(1)
 #' sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
 #'                 phylo_signal = c(0.6, 0.6), missingness = c(0.2, 0),
@@ -32,131 +100,100 @@
 #' fit <- bace_imp(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
 #'                 phylo = sim$tree, data = sim$data,
 #'                 runs = 3, nitt = 600, burnin = 100, thin = 2, verbose = FALSE)
-#' conv <- assess_convergence(fit, method = "summary")
+#' conv <- assess_convergence(fit)
 #' conv$converged
 #' }
 #' @export
-assess_convergence <- function(bace_object, 
-                               method = c("summary", "summary.acf", "summary.percentage", 
-                                         "summary.trend", "summary.geweke",
-                                         "energy", "wasserstein", "all"),
+assess_convergence <- function(bace_object,
+                               method = c("stability", "summary"),
                                variables = NULL,
                                use_all_data = FALSE,
-                               alpha = 0.05,
                                min_iterations = 3,
-                               lag = 1,
-                               pct_change_threshold = 0.05) {
-  
+                               drift_threshold = 0.75,
+                               stuck_ratio = 0.25) {
+
   # Check inputs
   if (!inherits(bace_object, "bace")) {
     stop("Input must be an object of class 'bace' from bace_imp function")
   }
-  
-  
+
+  # The pre-1.0.1 methods are defunct, with an explanation rather than a
+  # match.arg error: their verdicts measured scale, not stability.
+  defunct <- c("summary.acf", "summary.percentage", "summary.trend",
+               "summary.geweke", "energy", "wasserstein", "all")
+  if (length(method) == 1 && method %in% defunct) {
+    stop("method = \"", method, "\" is defunct. The pre-1.0.1 convergence ",
+         "criteria compared each statistic to its own level or mean, so ",
+         "their verdicts tracked the variable's scale rather than its ",
+         "stability (failing settled chains and passing drifting ones). ",
+         "Use the default method = \"stability\" and inspect plot() of the ",
+         "result. See NEWS for details.")
+  }
   method <- match.arg(method)
-  
-  # Extract imputed datasets
+  if (method == "summary") {
+    warning("method = \"summary\" is deprecated; using method = \"stability\" ",
+            "(the repaired check). See NEWS.")
+    method <- "stability"
+  }
+
+  if (!is.numeric(min_iterations) || length(min_iterations) != 1 ||
+      !is.finite(min_iterations) || min_iterations < 3) {
+    stop("min_iterations must be a single number >= 3: fewer than three ",
+         "chained runs cannot support any stability statement.")
+  }
+
+  # Extract imputed datasets (element 1 is the un-imputed starting frame)
   imputed_data <- bace_object$data[-1]
   n_iter <- length(imputed_data)
-  
+
   if (n_iter < min_iterations) {
-    warning(paste("Only", n_iter, "iterations available. Minimum of", 
+    warning(paste("Only", n_iter, "iterations available. Minimum of",
                   min_iterations, "recommended for convergence assessment"))
-    return(list(converged = NA, 
+    return(list(converged = NA,
                 message = "Insufficient iterations for convergence assessment"))
   }
-  
+
   # Get variable types and missing data info
   types <- bace_object$types
   miss_dat <- bace_object$miss_dat
-  
+
   # Filter variables if specified
   vars_with_missing <- unique(miss_dat$colname)
-  
+
   if (!is.null(variables)) {
-    # Check which requested variables don't have missing data
     vars_without_missing <- setdiff(variables, vars_with_missing)
-    
+
     if (length(vars_without_missing) > 0) {
       warning(paste("The following variables have no missing data and will be ignored:",
                     paste(vars_without_missing, collapse = ", ")))
     }
-    
-    # Filter to only variables with missing data
+
     variables <- intersect(variables, vars_with_missing)
-    
+
     if (length(variables) == 0) {
       stop("None of the specified variables have missing data")
     }
   }
-  
-  # Initialize results
+
+  summary_result <- .assess_summary_convergence(
+    imputed_data, types, miss_dat,
+    variables = variables,
+    use_all_data = use_all_data,
+    drift_threshold = drift_threshold,
+    stuck_ratio = stuck_ratio)
+
   results <- list(
-    converged = FALSE,
-    method_results = list(),
-    summary_stats = NULL,
-    diagnostics = list()
+    converged = summary_result$converged,
+    verdicts = summary_result$verdicts,
+    notes = summary_result$notes,
+    method_results = list(summary = summary_result),
+    summary_stats = summary_result$stats_df,
+    sd_stats = summary_result$sd_df,
+    diagnostics = list(n_iter = n_iter,
+                       warmup = summary_result$warmup,
+                       thresholds = summary_result$thresholds)
   )
-  
-  # Parse method to extract summary criterion if specified
-  summary_criterion <- NULL
-  if (grepl("^summary\\.", method)) {
-    parts <- strsplit(method, "\\.")[[1]]
-    summary_criterion <- parts[2]  # Extract criterion (acf, percentage, trend, geweke)
-    base_method <- "summary"
-  } else {
-    base_method <- method
-  }
-  
-  # Method 1: Summary statistics convergence
-  if (base_method %in% c("summary", "all")) {
-    summary_result <- .assess_summary_convergence(imputed_data, types, miss_dat, 
-                                                   variables = variables,
-                                                   use_all_data = use_all_data,
-                                                   alpha = alpha, lag = lag,
-                                                   pct_change_threshold = pct_change_threshold,
-                                                   criterion = summary_criterion)
-    results$method_results$summary <- summary_result
-    results$summary_stats <- summary_result$stats_df
-  }
-  
-  # Method 2: Energy distance
-  if (base_method %in% c("energy", "all")) {
-    energy_result <- .assess_energy_convergence(imputed_data, miss_dat, 
-                                                 variables = variables,
-                                                 use_all_data = use_all_data,
-                                                 alpha = alpha)
-    results$method_results$energy <- energy_result
-  }
-  
-  # Method 3: Wasserstein distance
-  if (base_method %in% c("wasserstein", "all")) {
-    wasserstein_result <- .assess_wasserstein_convergence(imputed_data, miss_dat, 
-                                                           types, 
-                                                           variables = variables,
-                                                           use_all_data = use_all_data,
-                                                           alpha = alpha)
-    results$method_results$wasserstein <- wasserstein_result
-  }
-  
-  # Overall convergence decision
-  if (base_method == "all") {
-    # Converged if at least 2 out of 3 methods indicate convergence
-    convergence_votes <- c(
-      summary = results$method_results$summary$converged,
-      energy = results$method_results$energy$converged,
-      wasserstein = results$method_results$wasserstein$converged
-    )
-    results$converged <- sum(convergence_votes, na.rm = TRUE) >= 2
-    results$diagnostics$votes <- convergence_votes
-  } else if (base_method == "summary") {
-    results$converged <- results$method_results$summary$converged
-  } else if (base_method == "energy") {
-    results$converged <- results$method_results$energy$converged
-  } else if (base_method == "wasserstein") {
-    results$converged <- results$method_results$wasserstein$converged
-  }
-  
+
   results$types <- bace_object$types[setdiff(names(results$summary_stats), "iteration")]
 
   class(results) <- c("bace_convergence", "list")
@@ -164,599 +201,354 @@ assess_convergence <- function(bace_object,
 }
 
 
+#' @title .conv_assess_series
+#' @description The stability check for ONE monitored series: the shared core
+#'   used by the convergence assessment and by the diagnostic plots, so the
+#'   two can never disagree. Scale-free and location-free throughout: all
+#'   movement is measured in units of the imputation spread, never the level.
+#' @param m Numeric vector: the monitored statistic at each chained run — the
+#'   mean of the imputed values (\code{kind = "numeric"}) or the proportion of
+#'   imputed cells in one level (\code{kind = "proportion"}).
+#' @param s Numeric vector: for \code{kind = "numeric"}, the SD of those
+#'   imputed values at each run — an independent measurement of how uncertain
+#'   the imputations are, so it can be watched for collapse or explosion. For
+#'   \code{kind = "proportion"} it is ignored: sqrt(p(1-p)) is an arithmetic
+#'   function of \code{m}, not a second measurement, so watching it would
+#'   re-read the mean and mislabel an extreme proportion as a collapse.
+#' @param n_cells How many cells the statistic at each run is computed over.
+#' @param kind "numeric" or "proportion". Sets the yardstick: a numeric series
+#'   is standardised by its own imputation spread, a proportion is already on
+#'   a 0--1 scale and is measured in proportion units.
+#' @param drift_threshold,stuck_ratio See \code{assess_convergence}.
+#' @param osc_acf,osc_amp,osc_floor,wander,trend_alpha Fixed internals.
+#'   Oscillation needs lag-1 autocorrelation < \code{osc_acf} AND a mean step
+#'   above BOTH \code{osc_amp} noise floors and the absolute floor
+#'   \code{osc_floor}. The absolute floor matters: the Monte-Carlo noise floor
+#'   sqrt(2/n_cells) shrinks with the number of imputed cells, but real
+#'   between-run movement is refit noise that does not, so without it the
+#'   amplitude gate stops screening on large datasets and a lag-1 correlation
+#'   over a handful of pairs decides the verdict on its own (false
+#'   oscillation ~25% at n_cells = 1000). \code{wander} catches a chain that
+#'   keeps taking large steps without going anywhere. Calibrated against
+#'   constructed chains and the real harvested ones; see
+#'   \code{.agents/investigation-convergence-2026-11.md}.
+#' @return list(verdict, note, stats)
+#' @noRd
+.conv_assess_series <- function(m, s, n_cells,
+                                kind = c("numeric", "proportion"),
+                                drift_threshold = 0.75,
+                                stuck_ratio = 0.25,
+                                osc_acf = -0.60,
+                                osc_amp = 3.0,
+                                osc_floor = 0.60,
+                                wander = 1.00,
+                                trend_alpha = 0.10) {
+
+  kind <- match.arg(kind)
+  if (missing(s) || is.null(s)) s <- rep(NA_real_, length(m))
+  if (!is.finite(n_cells) || n_cells < 1) n_cells <- 1
+
+  ## A series that cannot be assessed must say so, never pass silently.
+  ## Non-finite runs (a run whose imputations are all NA) drop out pairwise.
+  finite <- is.finite(m) & (is.finite(s) | kind == "proportion")
+  base_stats <- c(net = NA_real_, step = NA_real_, acf1 = NA_real_,
+                  sd_ratio = NA_real_, n_kept = NA_real_, ref = NA_real_)
+  if (sum(finite) < 3) {
+    base_stats["n_kept"] <- sum(finite)
+    return(list(verdict = "unassessable",
+                note = "fewer than 3 finite points in the monitored series",
+                stats = base_stats))
+  }
+  m <- m[finite]
+  s <- s[finite]
+
+  runs <- length(m)
+  keep <- max(1, floor(runs / 2)):runs        # discard the warm-up half
+  mk   <- m[keep]
+  sk   <- s[keep]
+  note <- character(0)
+
+  add_note <- function(x) note <<- c(note, x)
+
+  out <- function(verdict, net = NA_real_, step = NA_real_, acf1 = NA_real_,
+                  sd_ratio = NA_real_, ref = NA_real_) {
+    list(verdict = verdict,
+         note = if (length(note)) paste(note, collapse = "; ") else "",
+         stats = c(net = net, step = step, acf1 = acf1, sd_ratio = sd_ratio,
+                   n_kept = length(mk), ref = ref))
+  }
+
+  ## 0. constant chain: identical imputations every run. Legitimate certainty
+  ##    (e.g. a binary trait the model is sure about), not a pathology — but
+  ##    worth a note, since a frozen chain also looks like this. The tolerance
+  ##    is RELATIVE so the branch cannot swallow a drift that happens to live
+  ##    at a tiny absolute scale.
+  ## The tolerance is RELATIVE to the series' own scale (with a true-zero
+  ## special case), so this branch cannot swallow a drift that happens to
+  ## live at a tiny absolute scale — an absolute 1e-12 floor did exactly
+  ## that, calling a clean 0 -> 1e-13 ramp "identical imputations".
+  m_scale <- max(abs(m), na.rm = TRUE)
+  tol     <- if (m_scale > 0) 1e-12 * m_scale else 0
+  s_const <- if (kind == "proportion") TRUE else all(s <= tol, na.rm = TRUE)
+  if (stats::sd(m) <= tol && s_const) {
+    add_note("identical imputations in every run; inspect if unexpected")
+    return(out("ok", net = 0, step = 0, sd_ratio = 1))
+  }
+
+  ## 1. the imputation spread, watched in BOTH directions — but only when it
+  ##    is a real measurement. For a proportion, sqrt(p(1-p)) is a function of
+  ##    the mean, so reading it as a spread turns "the model became confident"
+  ##    into a false collapse (and a drifting proportion into a false stuck).
+  sd_ratio <- NA_real_
+  if (kind == "numeric") {
+    first_s <- stats::median(s[seq_len(ceiling(runs / 2))], na.rm = TRUE)
+    late_s  <- mean(utils::tail(sk, 2), na.rm = TRUE)
+    if (is.finite(first_s) && first_s > 0 && is.finite(late_s)) {
+      sd_ratio <- late_s / first_s
+      if (sd_ratio < stuck_ratio)
+        return(out("stuck", sd_ratio = sd_ratio))
+      if (sd_ratio > 1 / stuck_ratio)
+        return(out("diverging", sd_ratio = sd_ratio))
+    }
+  }
+
+  ## 2. the yardsticks.
+  ##    numeric    -> standardise by the variable's own late imputation spread
+  ##    proportion -> already on 0-1; measure in proportion units
+  ##    ref is the Monte-Carlo noise floor of the statistic, with an absolute
+  ##    floor (see @param osc_floor): it shrinks with n_cells, real refit
+  ##    movement does not.
+  if (kind == "numeric") {
+    spread <- mean(sk, na.rm = TRUE)
+    if (!is.finite(spread) || spread <= 0) spread <- stats::sd(mk)
+    if (!is.finite(spread) || spread <= 0) spread <- .Machine$double.eps
+    ref <- sqrt(2 / max(n_cells, 1))
+    amp_gate <- max(osc_amp * ref, osc_floor)
+  } else {
+    ## A proportion is already on 0-1, so it carries its own scale: movement
+    ## is in proportion units and the largest possible step is 1 (every cell
+    ## changing level). The gates are therefore smaller AND capped below 1,
+    ## or they could never fire when few cells make the sampling noise of the
+    ## proportion itself large.
+    spread <- 1
+    pbar <- mean(mk, na.rm = TRUE)
+    ref  <- max(sqrt(2 * pbar * (1 - pbar) / max(n_cells, 1)),
+                1 / max(n_cells, 1))
+    ## A proportion over FEW cells is intrinsically jumpy (sampling SD
+    ## sqrt(p(1-p)/n)), so the drift bar scales with that noise: tight when
+    ## there is enough data to see a drift, honest when there is not.
+    drift_threshold <- max(min(drift_threshold, 0.20), 2 * ref)
+    amp_gate <- min(max(2 * ref, 0.15), 0.80)
+  }
+  steps     <- abs(diff(mk)) / spread
+  step_mean <- mean(steps, na.rm = TRUE)
+
+  ## 3. flip-flop: strong negative lag-1 autocorrelation with LOUD amplitude.
+  ##    Chained equations alternate a little by nature, and a proportion over
+  ##    few cells moves in quantised jumps, so the amplitude must clear an
+  ##    absolute floor as well as the noise floor.
+  acf1 <- NA_real_
+  if (length(mk) >= 5 && stats::sd(mk) > 0) {
+    acf1 <- suppressWarnings(stats::cor(mk[-length(mk)], mk[-1]))
+    if (is.finite(acf1) && acf1 < osc_acf && step_mean > amp_gate)
+      return(out("oscillation", step = step_mean, acf1 = acf1,
+                 sd_ratio = sd_ratio, ref = ref))
+    if (is.finite(acf1) && acf1 < -0.7 && step_mean > ref)
+      add_note("alternating structure; inspect the trace")
+  } else if (length(mk) < 5) {
+    add_note("chain too short to test for flip-flopping (needs runs >= 7)")
+  }
+
+  ## 4. still moving? Either a net journey (with trend support, or so large
+  ##    that no test is needed) or sustained large steps going nowhere.
+  net <- NA_real_
+  k   <- max(1, floor(length(mk) / 3))
+  net <- abs(mean(utils::tail(mk, k)) - mean(utils::head(mk, k))) / spread
+  trend_p <- if (length(mk) >= 4) {
+    suppressWarnings(stats::cor.test(seq_along(mk), mk,
+                                     method = "kendall")$p.value)
+  } else {
+    NA_real_
+  }
+  big_net <- net > 3 * drift_threshold          # too large to need a test
+  trended <- net > drift_threshold &&
+             is.finite(trend_p) && trend_p < trend_alpha
+  if (big_net || trended || step_mean > wander)
+    return(out("drift", net = net, step = step_mean, acf1 = acf1,
+               sd_ratio = sd_ratio, ref = ref))
+  if (length(mk) < 4)
+    add_note("chain too short to test for drift (needs runs >= 5)")
+
+  out("ok", net = net, step = step_mean, acf1 = acf1,
+      sd_ratio = sd_ratio, ref = ref)
+}
+
+
 #' @title .assess_summary_convergence
-#' @description Internal function to assess convergence using summary statistics
+#' @description Internal: build the monitored series (mean and SD of the
+#'   imputed values per chained run, per variable) and run the stability
+#'   check on each. See \code{assess_convergence} for semantics.
+#'
+#'   Categorical and ordinal variables are monitored on EVERY level, not just
+#'   the first, and take their variable's verdict from the worst level. The
+#'   first level alone is blind to movement among the others: a chain flipping
+#'   all its imputed cells between levels 2 and 3 leaves level 1's proportion
+#'   flat, which reads as a perfectly settled chain.
 #' @param imputed_data List of imputed datasets across iterations
 #' @param types Named list of variable types
 #' @param miss_dat Data frame with missing data information
 #' @param variables Character vector of variables to check, or NULL for all
 #' @param use_all_data Logical. Use all data (TRUE) or only imputed values (FALSE)
-#' @param alpha Significance level
-#' @param lag Maximum lag for autocorrelation
-#' @param pct_change_threshold Threshold for mean absolute percentage change (default 0.05)
-#' @param criterion Which specific criterion to use (NULL for all, "acf", "percentage", "trend", or "geweke")
+#' @param drift_threshold,stuck_ratio See \code{assess_convergence}
 #' @return List with convergence assessment
 #' @noRd
-.assess_summary_convergence <- function(imputed_data, types, miss_dat, 
+.assess_summary_convergence <- function(imputed_data, types, miss_dat,
                                         variables = NULL,
                                         use_all_data = FALSE,
-                                        alpha = 0.05, lag = 1,
-                                        pct_change_threshold = 0.05,
-                                        criterion = NULL) {
-  
+                                        drift_threshold = 0.75,
+                                        stuck_ratio = 0.25) {
+
   n_iter <- length(imputed_data)
-  
+
   # Get unique variables with missing data
   vars_to_check <- unique(miss_dat$colname)
-  
+
   # Filter to specified variables if provided
   if (!is.null(variables)) {
     vars_to_check <- intersect(vars_to_check, variables)
   }
-  
-  # Initialize storage
-  stats_list <- list()
-  
-  # Calculate summary statistics for each variable across iterations
+
+  ## Nothing to assess is a documented outcome, not a crash.
+  if (length(vars_to_check) == 0) {
+    empty <- data.frame(iteration = seq_len(n_iter))
+    return(list(converged = NA, var_converged = logical(0),
+                verdicts = character(0), notes = character(0),
+                assessments = list(), stats_df = empty, sd_df = empty,
+                warmup = max(1, floor(n_iter / 2)) - 1,
+                thresholds = c(drift_threshold = drift_threshold,
+                               stuck_ratio = stuck_ratio,
+                               osc_acf = -0.60, osc_amp = 3.0,
+                               osc_floor = 0.50, wander = 1.0,
+                               trend_alpha = 0.10),
+                types = list()))
+  }
+
+  mean_list <- list()   # one entry per variable: the series shown to the user
+  sd_list   <- list()
+  series    <- list()   # one entry per variable: list of series to ASSESS
+
   for (var in vars_to_check) {
     var_type <- types[[var]]
-    var_stats <- numeric(n_iter)
-    
-    # Get indices with missing data for this variable
-    miss_idx <- miss_dat[miss_dat$colname == var, "row"]
-    
-    for (i in 1:n_iter) {
-      # Use all data or only imputed values
-      if (use_all_data) {
-        imputed_values <- imputed_data[[i]][[var]]
-      } else {
-        imputed_values <- imputed_data[[i]][[var]][miss_idx]
-      }
-      
-      if (var_type == "gaussian" || var_type == "poisson") {
-        # Use mean for continuous/count variables
-        var_stats[i] <- mean(imputed_values, na.rm = TRUE)
-      } else if (var_type %in% c("categorical", "threshold")) {
-        # Use proportion of first category (alphabetically) for categorical
-        if (is.factor(imputed_values)) {
-          first_level <- levels(imputed_values)[1]
-        } else {
-          first_level <- sort(unique(imputed_values))[1]
-        }
-        var_stats[i] <- mean(imputed_values == first_level, na.rm = TRUE)
-      }
+    if (is.null(var_type) ||
+        !var_type %in% c("gaussian", "poisson", "categorical", "threshold")) {
+      # The pre-1.0.1 code fell through silently here, leaving an all-zero
+      # series that auto-passed every criterion. Unknown must be loud.
+      stop("assess_convergence: variable '", var, "' has unrecognised type '",
+           if (is.null(var_type)) "NULL" else var_type,
+           "'; cannot monitor it.")
     }
-    
-    stats_list[[var]] <- var_stats
-  }
-  
-  # Create data frame with all statistics
-  stats_matrix <- do.call(cbind, stats_list)
-  stats_df <- data.frame(
-    iteration = 1:n_iter,
-    stats_matrix,
-    check.names = FALSE
-  )
-  # Ensure column names are preserved from stats_list
-  names(stats_df)[-1] <- names(stats_list)
-  
-  # Test for stationarity using multiple criteria
-  stationarity_tests <- list()
-  
-  for (var in vars_to_check) {
-    var_series <- stats_list[[var]]
-    
-    # Check if variable has zero variance (all values the same)
-    var_variance <- var(var_series, na.rm = TRUE)
-    has_zero_variance <- is.na(var_variance) || var_variance < 1e-10
-    
-    # 1. Geweke diagnostic (compare first 10% vs last 50%)
-    geweke_result <- .geweke_test(var_series, alpha = alpha)
-    
-    # 2. Check autocorrelation at specified lag
-    if (n_iter > lag + 1 && sum(is.finite(var_series)) >= lag + 2 && !has_zero_variance) {
-      acf_val <- tryCatch({
-        cor(var_series[1:(n_iter - lag)], 
-            var_series[(1 + lag):n_iter], 
-            use = "complete.obs")
-      }, error = function(e) {
-        NA
-      }, warning = function(w) {
-        NA
-      })
-      # Low autocorrelation indicates mixing/convergence
-      acf_converged <- if (is.finite(acf_val)) abs(acf_val) < 0.3 else NA
-    } else if (has_zero_variance) {
-      # Zero variance means perfectly stable (converged)
-      acf_val <- 0
-      acf_converged <- TRUE
-    } else {
-      acf_val <- NA
-      acf_converged <- NA
-    }
-    
-    # 3. Check if trend is stable (no significant linear trend)
-    if (n_iter >= 3 && sum(is.finite(var_series)) >= 3 && !has_zero_variance) {
-      trend_test <- tryCatch({
-        cor.test(1:n_iter, var_series)
-      }, error = function(e) {
-        list(p.value = NA)
-      }, warning = function(w) {
-        list(p.value = NA)
-      })
-      trend_converged <- if (!is.na(trend_test$p.value)) trend_test$p.value > alpha else NA
-    } else if (has_zero_variance) {
-      # Zero variance means perfectly stable (converged)
-      trend_converged <- TRUE
-    } else {
-      trend_converged <- NA
-    }
-    
-    # 4. Check percentage change between consecutive iterations
-    if (n_iter >= 3 && sum(is.finite(var_series)) >= 3) {
-      # Calculate absolute percentage changes between consecutive iterations
-      pct_changes <- abs(diff(var_series) / (var_series[-n_iter] + 1e-10)) * 100
-      
-      # Focus on last half of iterations
-      last_half_idx <- ceiling(length(pct_changes) / 2)
-      last_half_changes <- pct_changes[last_half_idx:length(pct_changes)]
-      
-      # Mean absolute percentage change
-      mean_pct_change <- mean(last_half_changes, na.rm = TRUE)
-      
-      # Converged if mean change is below threshold
-      pct_change_converged <- if (is.finite(mean_pct_change)) {
-        mean_pct_change < (pct_change_threshold * 100)
-      } else {
-        NA
-      }
-    } else {
-      mean_pct_change <- NA
-      pct_change_converged <- NA
-    }
-    
-    # TODO - Consider additional tests like KPSS for stationarity, but may be too strict for short series
-    # Temporary turn-off Geweke stats
-    geweke_result$converged <- NA
-    geweke_result$z_score <- NA
 
-    stationarity_tests[[var]] <- list(
-      geweke_converged = geweke_result$converged,
-      geweke_z = geweke_result$z_score,
-      acf = acf_val,
-      acf_converged = acf_converged,
-      trend_converged = trend_converged,
-      mean_pct_change = mean_pct_change,
-      pct_change_converged = pct_change_converged
-    )
-  }
-  
-  # Overall convergence: all variables should show convergence
-  # Build convergence matrix based on selected criterion
-  if (!is.null(criterion)) {
-    # Use only the specified criterion
-    convergence_matrix <- switch(criterion,
-      "acf" = sapply(stationarity_tests, function(x) x$acf_converged),
-      "percentage" = sapply(stationarity_tests, function(x) x$pct_change_converged),
-      "trend" = sapply(stationarity_tests, function(x) x$trend_converged),
-      "geweke" = sapply(stationarity_tests, function(x) x$geweke_converged),
-      stop(paste("Unknown criterion:", criterion))
-    )
-    # For single criterion, convergence_matrix is a vector
-    var_converged <- convergence_matrix
-    names(var_converged) <- names(stationarity_tests)
-  } else {
-    # Use all criteria
-    convergence_matrix <- sapply(stationarity_tests, function(x) {
-      c(x$geweke_converged, x$acf_converged, x$trend_converged, x$pct_change_converged)
+    miss_idx <- miss_dat[miss_dat$colname == var, "row"]
+
+    vals_by_run <- lapply(seq_len(n_iter), function(i) {
+      if (use_all_data) imputed_data[[i]][[var]]
+      else imputed_data[[i]][[var]][miss_idx]
     })
-    # Converged if majority of tests pass for each variable
-    var_converged <- colMeans(convergence_matrix, na.rm = TRUE) > 0.5
+    n_cells <- length(vals_by_run[[1]])
+
+    if (var_type %in% c("gaussian", "poisson")) {
+      ## mean and SD of the imputed values: two independent measurements.
+      mu <- vapply(vals_by_run, function(v) mean(v, na.rm = TRUE), numeric(1))
+      sg <- vapply(vals_by_run, function(v) {
+        z <- stats::sd(v, na.rm = TRUE)       # na.rm: one NA cell must not
+        if (is.na(z)) 0 else z                # masquerade as a collapsed spread
+      }, numeric(1))
+      mean_list[[var]] <- mu
+      sd_list[[var]]   <- sg
+      series[[var]] <- list(list(label = var, kind = "numeric",
+                                 m = mu, s = sg, n_cells = n_cells))
+    } else {
+      ## one proportion series per level; the variable takes the worst verdict.
+      lev <- levels(vals_by_run[[1]])
+      if (is.null(lev)) lev <- sort(unique(unlist(lapply(vals_by_run,
+                                    function(v) as.character(v)))))
+      props <- lapply(lev, function(L)
+        vapply(vals_by_run,
+               function(v) mean(as.character(v) == L, na.rm = TRUE),
+               numeric(1)))
+      names(props) <- lev
+      ## shown to the user: the first level, as before (and its binomial sd)
+      mean_list[[var]] <- props[[1]]
+      sd_list[[var]]   <- sqrt(props[[1]] * (1 - props[[1]]))
+      series[[var]] <- lapply(lev, function(L)
+        list(label = paste0(var, ":", L), kind = "proportion",
+             m = props[[L]], s = NULL, n_cells = n_cells))
+    }
   }
-  
-  # Overall: converged if majority of variables converged
-  overall_converged <- mean(var_converged, na.rm = TRUE) > 0.7
-  
+
+  # Data frames of the monitored series (kept for plots and for the user)
+  stats_df <- data.frame(iteration = seq_len(n_iter),
+                         do.call(cbind, mean_list), check.names = FALSE)
+  names(stats_df)[-1] <- names(mean_list)
+  sd_df <- data.frame(iteration = seq_len(n_iter),
+                      do.call(cbind, sd_list), check.names = FALSE)
+  names(sd_df)[-1] <- names(sd_list)
+
+  ## Assess every series; a variable's verdict is its worst level's.
+  rank_of <- c(ok = 0, unassessable = 1, drift = 2, oscillation = 3,
+               stuck = 4, diverging = 4)
+  assessments <- lapply(vars_to_check, function(var) {
+    parts <- lapply(series[[var]], function(z)
+      .conv_assess_series(z$m, z$s, z$n_cells, kind = z$kind,
+                          drift_threshold = drift_threshold,
+                          stuck_ratio = stuck_ratio))
+    worst <- which.max(vapply(parts, function(p)
+      unname(rank_of[p$verdict]), numeric(1)))
+    a <- parts[[worst]]
+    ## name the offending level when it is not the first
+    if (length(parts) > 1 && a$verdict != "ok") {
+      lbl <- series[[var]][[worst]]$label
+      a$note <- paste(c(a$note[nzchar(a$note)],
+                        paste0("level ", sub("^[^:]*:", "", lbl))),
+                      collapse = "; ")
+    }
+    if (length(parts) > 1 && a$verdict == "ok") {
+      nts <- unique(unlist(lapply(parts, function(p) p$note)))
+      nts <- nts[nzchar(nts)]
+      a$note <- if (length(nts)) paste(nts, collapse = "; ") else ""
+    }
+    a
+  })
+  names(assessments) <- vars_to_check
+
+  verdicts <- vapply(assessments, function(a) a$verdict, character(1))
+  notes    <- vapply(assessments, function(a) a$note, character(1))
+  var_converged <- verdicts == "ok"
+
+  # One pathology anywhere is a failure, and it is named. (The pre-1.0.1 rule,
+  # mean(var_converged) > 0.7, demanded 100% agreement for 1-3 variables but
+  # only 71% for 7 — an accident of arithmetic, not a design.) A variable that
+  # could not be assessed is NOT a pathology: if nothing could be assessed the
+  # verdict is NA, as documented.
+  overall_converged <- if (length(verdicts) == 0 ||
+                           all(verdicts == "unassessable")) NA
+                       else all(verdicts[verdicts != "unassessable"] == "ok")
+
   return(list(
     converged = overall_converged,
-    stats_df = stats_df,
-    stationarity_tests = stationarity_tests,
     var_converged = var_converged,
-    types = types
+    verdicts = verdicts,
+    notes = notes,
+    assessments = assessments,
+    stats_df = stats_df,
+    sd_df = sd_df,
+    warmup = max(1, floor(n_iter / 2)) - 1,
+    thresholds = c(drift_threshold = drift_threshold,
+                   stuck_ratio = stuck_ratio,
+                   osc_acf = -0.60, osc_amp = 3.0, osc_floor = 0.50,
+                   wander = 1.0, trend_alpha = 0.10),
+    types = types[vars_to_check]
   ))
-}
-
-
-#' @title .geweke_test
-#' @description Geweke convergence diagnostic comparing early vs late chain segments
-#' @param x Numeric vector of summary statistics across iterations
-#' @param alpha Significance level
-#' @param frac1 Fraction of chain for first window. Default 0.1
-#' @param frac2 Fraction of chain for second window. Default 0.5
-#' @return List with convergence status and z-score
-#' @noRd
-.geweke_test <- function(x, alpha = 0.05, frac1 = 0.1, frac2 = 0.5) {
-  n <- length(x)
-  
-  if (n < 10 || sum(is.finite(x)) < 10) {
-    return(list(converged = NA, z_score = NA, p_value = NA))
-  }
-  
-  # First and last segments
-  n1 <- floor(frac1 * n)
-  n2_start <- ceiling((1 - frac2) * n)
-  
-  seg1 <- x[1:n1]
-  seg2 <- x[n2_start:n]
-  
-  # Check for sufficient finite observations
-  if (sum(is.finite(seg1)) < 2 || sum(is.finite(seg2)) < 2) {
-    return(list(converged = NA, z_score = NA, p_value = NA))
-  }
-  
-  # Calculate means and variances
-  mean1 <- mean(seg1, na.rm = TRUE)
-  mean2 <- mean(seg2, na.rm = TRUE)
-  var1 <- var(seg1, na.rm = TRUE) / sum(is.finite(seg1))
-  var2 <- var(seg2, na.rm = TRUE) / sum(is.finite(seg2))
-  
-  # Check for valid variance
-  if (!is.finite(var1) || !is.finite(var2) || (var1 + var2) <= 0) {
-    return(list(converged = NA, z_score = NA, p_value = NA))
-  }
-  
-  # Z-score
-  z_score <- (mean1 - mean2) / sqrt(var1 + var2)
-  
-  # Check if z_score is finite
-  if (!is.finite(z_score)) {
-    return(list(converged = NA, z_score = NA, p_value = NA))
-  }
-  
-  # Two-tailed test
-  p_value <- 2 * (1 - pnorm(abs(z_score)))
-  converged <- p_value > alpha
-  
-  return(list(
-    converged = converged,
-    z_score = z_score,
-    p_value = p_value
-  ))
-}
-
-
-#' @title .assess_energy_convergence
-#' @description Assess convergence using energy distance between consecutive iterations
-#' @param imputed_data List of imputed datasets
-#' @param miss_dat Missing data information
-#' @param variables Character vector of variables to check, or NULL for all
-#' @param use_all_data Logical. Use all data (TRUE) or only imputed values (FALSE)
-#' @param alpha Significance level
-#' @return List with convergence assessment
-#' @noRd
-.assess_energy_convergence <- function(imputed_data, miss_dat, 
-                                       variables = NULL,
-                                       use_all_data = FALSE, alpha = 0.05) {
-  
-  n_iter <- length(imputed_data)
-  
-  if (n_iter < 2) {
-    return(list(converged = NA, message = "Need at least 2 iterations"))
-  }
-  
-  # Calculate energy distance between consecutive iterations
-  energy_distances <- numeric(n_iter - 1)
-  
-  for (i in 1:(n_iter - 1)) {
-    # Get imputed values or all data
-    data1_imputed <- .extract_imputed_values(imputed_data[[i]], miss_dat, variables, use_all_data)
-    data2_imputed <- .extract_imputed_values(imputed_data[[i + 1]], miss_dat, variables, use_all_data)
-    
-    # Calculate energy distance
-    energy_distances[i] <- .energy_distance(data1_imputed, data2_imputed)
-  }
-  
-  # Test for decreasing trend and stabilization
-  # Converged if:
-  # 1. No significant increasing trend
-  # 2. Low variation in last iterations
-  
-  if (n_iter >= 4 && sum(is.finite(energy_distances)) >= 3) {
-    # Test trend in energy distances
-    trend_test <- tryCatch({
-      suppressWarnings(cor.test(1:length(energy_distances), energy_distances))
-    }, error = function(e) {
-      list(estimate = 0, p.value = 1)
-    })
-    no_increase <- trend_test$estimate <= 0 || trend_test$p.value > alpha
-    
-    # Check if stabilized (low CV in last half)
-    last_half <- energy_distances[ceiling(length(energy_distances) / 2):length(energy_distances)]
-    if (sum(is.finite(last_half)) >= 2 && mean(last_half, na.rm = TRUE) != 0) {
-      cv <- sd(last_half, na.rm = TRUE) / mean(last_half, na.rm = TRUE)
-      stabilized <- cv < 0.5  # Coefficient of variation < 50%
-    } else {
-      stabilized <- NA
-    }
-    
-    converged <- if (!is.na(no_increase) && !is.na(stabilized)) no_increase && stabilized else NA
-  } else {
-    converged <- NA
-    no_increase <- NA
-    stabilized <- NA
-  }
-  
-  return(list(
-    converged = converged,
-    energy_distances = energy_distances,
-    no_increase = no_increase,
-    stabilized = stabilized
-  ))
-}
-
-
-#' @title .energy_distance
-#' @description Calculate energy distance between two multivariate samples
-#' @param x1 Matrix or data frame (first sample)
-#' @param x2 Matrix or data frame (second sample)
-#' @return Numeric energy distance
-#' @noRd
-.energy_distance <- function(x1, x2) {
-  
-  # Convert to matrix if needed
-  if (is.data.frame(x1)) x1 <- as.matrix(x1)
-  if (is.data.frame(x2)) x2 <- as.matrix(x2)
-  
-  # Remove rows with any NA
-  x1 <- x1[complete.cases(x1), , drop = FALSE]
-  x2 <- x2[complete.cases(x2), , drop = FALSE]
-  
-  n1 <- nrow(x1)
-  n2 <- nrow(x2)
-  
-  # Check if we have enough data
-  if (n1 == 0 || n2 == 0) {
-    return(NA_real_)
-  }
-  
-  # Subsample if large (for computational efficiency)
-  max_sample <- 100
-  if (n1 > max_sample) {
-    idx1 <- sample(n1, max_sample)
-    x1 <- x1[idx1, , drop = FALSE]
-    n1 <- max_sample
-  }
-  if (n2 > max_sample) {
-    idx2 <- sample(n2, max_sample)
-    x2 <- x2[idx2, , drop = FALSE]
-    n2 <- max_sample
-  }
-  
-  # Calculate pairwise distances
-  # E[||X-Y||] - 0.5*E[||X-X'||] - 0.5*E[||Y-Y'||]
-  
-  # Between samples
-  dist_between <- 0
-  for (i in 1:n1) {
-    for (j in 1:n2) {
-      dist_between <- dist_between + sqrt(sum((x1[i, ] - x2[j, ])^2, na.rm = TRUE))
-    }
-  }
-  dist_between <- dist_between / (n1 * n2)
-  
-  # Within sample 1
-  dist_within1 <- 0
-  n_pairs1 <- 0
-  if (n1 > 1) {
-    for (i in 1:(n1 - 1)) {
-      for (j in (i + 1):n1) {
-        dist_within1 <- dist_within1 + sqrt(sum((x1[i, ] - x1[j, ])^2, na.rm = TRUE))
-        n_pairs1 <- n_pairs1 + 1
-      }
-    }
-    dist_within1 <- dist_within1 / n_pairs1
-  }
-  
-  # Within sample 2
-  dist_within2 <- 0
-  n_pairs2 <- 0
-  if (n2 > 1) {
-    for (i in 1:(n2 - 1)) {
-      for (j in (i + 1):n2) {
-        dist_within2 <- dist_within2 + sqrt(sum((x2[i, ] - x2[j, ])^2, na.rm = TRUE))
-        n_pairs2 <- n_pairs2 + 1
-      }
-    }
-    dist_within2 <- dist_within2 / n_pairs2
-  }
-  
-  energy_dist <- 2 * dist_between - dist_within1 - dist_within2
-  
-  # Check for valid result
-  if (!is.finite(energy_dist)) {
-    return(NA_real_)
-  }
-  
-  return(energy_dist)
-}
-
-
-#' @title .assess_wasserstein_convergence
-#' @description Assess convergence using Wasserstein distance for each variable
-#' @param imputed_data List of imputed datasets
-#' @param miss_dat Missing data information
-#' @param types Variable types
-#' @param variables Character vector of variables to check, or NULL for all
-#' @param use_all_data Logical. Use all data (TRUE) or only imputed values (FALSE)
-#' @param alpha Significance level
-#' @return List with convergence assessment
-#' @noRd
-.assess_wasserstein_convergence <- function(imputed_data, miss_dat, types, 
-                                            variables = NULL,
-                                            use_all_data = FALSE, alpha = 0.05) {
-  
-  n_iter <- length(imputed_data)
-  vars_to_check <- unique(miss_dat$colname)
-  
-  # Filter to specified variables if provided
-  if (!is.null(variables)) {
-    vars_to_check <- intersect(vars_to_check, variables)
-  }
-  
-  if (n_iter < 2) {
-    return(list(converged = NA, message = "Need at least 2 iterations"))
-  }
-  
-  # Calculate Wasserstein distance for each variable
-  wasserstein_results <- list()
-  
-  for (var in vars_to_check) {
-    var_type <- types[[var]]
-    miss_idx <- miss_dat[miss_dat$colname == var, "row"]
-    
-    # Only for continuous variables
-    if (var_type %in% c("gaussian", "poisson")) {
-      distances <- numeric(n_iter - 1)
-      
-      for (i in 1:(n_iter - 1)) {
-        # Use all data or only imputed values
-        if (use_all_data) {
-          vals1 <- imputed_data[[i]][[var]]
-          vals2 <- imputed_data[[i + 1]][[var]]
-        } else {
-          vals1 <- imputed_data[[i]][[var]][miss_idx]
-          vals2 <- imputed_data[[i + 1]][[var]][miss_idx]
-        }
-        
-        # 1D Wasserstein distance (simple implementation)
-        distances[i] <- .wasserstein_1d(vals1, vals2)
-      }
-      
-      # Test for stabilization
-      if (length(distances) >= 3) {
-        # Use last half of iterations to assess stability
-        last_half_idx <- ceiling(length(distances) / 2)
-        last_half <- distances[last_half_idx:length(distances)]
-        
-        # Check multiple criteria for stabilization:
-        # 1. Low coefficient of variation (CV < 0.3) in later iterations
-        cv <- sd(last_half) / mean(last_half)
-        low_variation <- !is.na(cv) && cv < 0.3
-        
-        # 2. No significant increasing trend in last half
-        if (length(last_half) >= 3) {
-          trend_test <- tryCatch({
-            suppressWarnings(cor.test(seq_along(last_half), last_half))
-          }, error = function(e) list(estimate = 0, p.value = 1))
-          no_increase <- trend_test$estimate <= 0 || trend_test$p.value > alpha
-        } else {
-          no_increase <- TRUE
-        }
-        
-        # 3. Later iterations are not substantially higher than earlier ones
-        first_quarter <- distances[1:max(1, floor(length(distances) / 4))]
-        not_increasing <- mean(last_half) <= mean(first_quarter) * 1.5
-        
-        # Stabilized if low variation AND (no increase OR not increasing overall)
-        stabilized <- low_variation && (no_increase || not_increasing)
-      } else {
-        stabilized <- NA
-      }
-      
-      wasserstein_results[[var]] <- list(
-        distances = distances,
-        stabilized = stabilized
-      )
-    }
-  }
-  
-  # Overall convergence: most variables should be stabilized
-  if (length(wasserstein_results) > 0) {
-    stabilized_vars <- sapply(wasserstein_results, function(x) x$stabilized)
-    converged <- mean(stabilized_vars, na.rm = TRUE) > 0.7
-  } else {
-    converged <- NA
-  }
-  
-  return(list(
-    converged = converged,
-    wasserstein_results = wasserstein_results
-  ))
-}
-
-
-#' @title .wasserstein_1d
-#' @description Calculate 1-dimensional Wasserstein distance
-#' @param x First sample
-#' @param y Second sample
-#' @return Numeric Wasserstein distance
-#' @noRd
-.wasserstein_1d <- function(x, y) {
-  x <- sort(x)
-  y <- sort(y)
-  
-  n <- length(x)
-  m <- length(y)
-  
-  # Make equal length by linear interpolation
-  if (n != m) {
-    if (n < m) {
-      x <- approx(1:n, x, n = m)$y
-    } else {
-      y <- approx(1:m, y, n = n)$y
-    }
-  }
-  
-  # L1 distance between sorted values
-  mean(abs(x - y))
-}
-
-
-#' @title .extract_imputed_values
-#' @description Extract imputed values or all values from a dataset
-#' @param data Data frame with imputed values
-#' @param miss_dat Missing data information
-#' @param variables Character vector of variables to extract, or NULL for all
-#' @param use_all_data Logical. If TRUE, extract all data; if FALSE, extract only imputed values
-#' @return Matrix of values
-#' @noRd
-.extract_imputed_values <- function(data, miss_dat, variables = NULL, use_all_data = FALSE) {
-  
-  vars <- unique(miss_dat$colname)
-  
-  # Filter to specified variables if provided
-  if (!is.null(variables)) {
-    vars <- intersect(vars, variables)
-  }
-  
-  imputed_list <- list()
-  
-  for (var in vars) {
-    if (use_all_data) {
-      values <- data[[var]]
-    } else {
-      miss_idx <- miss_dat[miss_dat$colname == var, "row"]
-      values <- data[[var]][miss_idx]
-    }
-    
-    # Convert factors to numeric for distance calculation
-    if (is.factor(values)) {
-      values <- as.numeric(values)
-    }
-    
-    imputed_list[[var]] <- values
-  }
-  
-  # Create matrix with equal length (pad with NA if needed)
-  max_len <- max(sapply(imputed_list, length))
-  imputed_matrix <- sapply(imputed_list, function(x) {
-    c(x, rep(NA, max_len - length(x)))
-  })
-  
-  # Remove rows with all NA
-  imputed_matrix <- imputed_matrix[rowSums(is.na(imputed_matrix)) < ncol(imputed_matrix), , drop = FALSE]
-  
-  return(imputed_matrix)
 }
 
 
@@ -768,33 +560,64 @@ assess_convergence <- function(bace_object,
 #'   the convergence assessment to the console.
 #' @export
 print.bace_convergence <- function(x, ...) {
-  cat("\n=== BACE Imputation Convergence Assessment ===\n\n")
-  
-  cat("Overall Convergence:", ifelse(x$converged, "YES", "NO"), "\n\n")
-  
-  if (!is.null(x$method_results$summary)) {
-    cat("--- Summary Statistics Method ---\n")
-    cat("Converged:", x$method_results$summary$converged, "\n")
-    cat("Variables converged:", 
-        sum(x$method_results$summary$var_converged, na.rm = TRUE), "/", 
-        length(x$method_results$summary$var_converged), "\n\n")
+  cat("\n=== BACE Chained-Equations Stability Check ===\n\n")
+
+  if (is.na(x$converged)) {
+    cat("Nothing could be assessed.\n")
+    if (!is.null(x$message)) cat(x$message, "\n")
+    if (!is.null(x$verdicts) && length(x$verdicts))
+      cat("Variables seen:", paste(names(x$verdicts), collapse = ", "), "\n")
+    return(invisible(x))
   }
-  
-  if (!is.null(x$method_results$energy)) {
-    cat("--- Energy Distance Method ---\n")
-    cat("Converged:", x$method_results$energy$converged, "\n\n")
+
+  cat("Pathologies detected:", ifelse(x$converged, "none", "YES"), "\n")
+  n_iter <- x$diagnostics$n_iter
+  if (!is.null(n_iter)) {
+    cat("Chained runs:", n_iter,
+        sprintf("(first %d treated as warm-up)\n", x$diagnostics$warmup))
   }
-  
-  if (!is.null(x$method_results$wasserstein)) {
-    cat("--- Wasserstein Distance Method ---\n")
-    cat("Converged:", x$method_results$wasserstein$converged, "\n\n")
+  cat("\n")
+
+  det <- x$method_results$summary$assessments
+  if (!is.null(det)) {
+    tab <- data.frame(
+      variable = names(det),
+      verdict  = vapply(det, function(a) a$verdict, character(1)),
+      net_drift = round(vapply(det, function(a)
+        unname(a$stats["net"]), numeric(1)), 2),
+      step     = round(vapply(det, function(a)
+        unname(a$stats["step"]), numeric(1)), 2),
+      acf1     = round(vapply(det, function(a)
+        unname(a$stats["acf1"]), numeric(1)), 2),
+      note     = vapply(det, function(a)
+        if (nzchar(a$note)) a$note else "", character(1)),
+      row.names = NULL, check.names = FALSE)
+    print(tab, row.names = FALSE)
+    cat("\n(net_drift and step are in units of the variable's imputation",
+        "spread;\n under settled chains, step has a noise floor of about",
+        "sqrt(2/n_missing).)\n\n")
   }
-  
-  if (!is.null(x$diagnostics$votes)) {
-    cat("--- Method Votes ---\n")
-    print(x$diagnostics$votes)
+
+  if (!x$converged) {
+    v <- x$verdicts[!x$verdicts %in% c("ok", "unassessable")]
+    for (var in names(v)) {
+      remedy <- switch(v[[var]],
+        drift = "still travelling; more chained runs (larger 'runs') can settle it",
+        oscillation = paste0("flip-flops between runs; more runs will NOT fix this - ",
+                             "look for variables feeding back on each other ",
+                             "(derived or collinear predictors)"),
+        stuck = paste0("imputation spread is collapsing; check this variable's ",
+                       "model (priors, separation, near-constant values)"),
+        diverging = paste0("imputation spread is growing without bound; check ",
+                           "this variable's model (priors, scaling, separation)"),
+        "could not be assessed; inspect the imputations for this variable")
+      cat(" - ", var, ": ", remedy, "\n", sep = "")
+    }
+    cat("\n")
   }
-  
-  cat("\nUse plot() to visualize convergence diagnostics\n")
+
+  cat("A pass means NO PATHOLOGY DETECTED, not a certificate of convergence:\n")
+  cat("no clear-cut test of chained-equations convergence exists (van Buuren\n")
+  cat("2018, ch. 6.5.2). Inspect the traces: plot(<this object>).\n")
   invisible(x)
 }

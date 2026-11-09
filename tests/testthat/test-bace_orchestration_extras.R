@@ -2,7 +2,7 @@
 # test-verbose_orchestration.R: phylo_signal=TRUE short-circuit,
 # plot=TRUE branches, sample_size pooling messages, the
 # non-converged warning path, and the categorical-with-cluster
-# pipeline. Also covers the .geweke_test internal helper directly
+# pipeline. Also covers the .conv_assess_series internal helper directly
 # and the categorical/threshold branch of convergence summary.
 
 # ---- Shared fixture ------------------------------------------------------
@@ -140,62 +140,38 @@ test_that("bace(skip_conv=TRUE, sample_size=N, verbose=TRUE) prints sampling mes
   expect_match(combined, "sampling|Step", ignore.case = TRUE)
 })
 
-# ---- .geweke_test internal helper ----------------------------------------
+# ---- .conv_assess_series internal helper edge cases ----------------------
 
-test_that(".geweke_test returns NA list for short series (n<10)", {
-  out <- BACE:::.geweke_test(c(1, 2, 3, 4, 5))
-  expect_named(out, c("converged", "z_score", "p_value"))
-  expect_true(is.na(out$converged))
-  expect_true(is.na(out$z_score))
+test_that(".conv_assess_series handles an all-equal series without error", {
+  out <- BACE:::.conv_assess_series(rep(3.14, 10), rep(0, 10), n_cells = 20)
+  expect_identical(out$verdict, "ok")
 })
 
-test_that(".geweke_test returns finite z and p for stationary series", {
-  set.seed(2026)
-  x <- rnorm(200, 0, 1)  # stationary
-  out <- BACE:::.geweke_test(x, alpha = 0.05)
-  expect_true(is.finite(out$z_score))
-  expect_true(is.finite(out$p_value))
-  expect_true(out$p_value >= 0 && out$p_value <= 1)
+test_that(".conv_assess_series survives 3-point series (minimum assessable)", {
+  out <- BACE:::.conv_assess_series(c(1, 1.1, 0.9), rep(1, 3), n_cells = 20)
+  expect_true(out$verdict %in% c("ok", "drift", "oscillation", "stuck"))
 })
 
-test_that(".geweke_test flags non-stationary series", {
-  set.seed(2026)
-  # Strong drift between first 10% and last 50%
-  x <- c(rnorm(20, 0, 0.1), rnorm(180, 5, 0.1))
-  out <- BACE:::.geweke_test(x, alpha = 0.05)
-  expect_true(is.finite(out$z_score))
-  # Strong drift => low p-value => not converged
-  expect_false(isTRUE(out$converged))
+test_that(".conv_assess_series reports the Monte-Carlo noise floor", {
+  out <- BACE:::.conv_assess_series(rnorm(10), rep(1, 10), n_cells = 50)
+  expect_equal(unname(out$stats["ref"]), sqrt(2 / 50))
 })
 
-test_that(".geweke_test handles all-NA series", {
-  out <- BACE:::.geweke_test(rep(NA_real_, 50))
-  expect_true(is.na(out$converged))
+test_that(".conv_assess_series flags a loud two-mode flip even with sd noise", {
+  set.seed(1)
+  m <- 2 * (-1)^(1:12) + rnorm(12, 0, 0.1)
+  out <- BACE:::.conv_assess_series(m, rep(1, 12) * exp(rnorm(12, 0, 0.05)),
+                                    n_cells = 30)
+  expect_identical(out$verdict, "oscillation")
 })
 
-test_that(".geweke_test handles zero-variance series", {
-  out <- BACE:::.geweke_test(rep(3.14, 100))
-  # Zero variance => var1+var2 = 0 => returns NA list
-  expect_true(is.na(out$converged))
-})
-
-test_that(".geweke_test handles series with a few NAs", {
-  set.seed(2026)
-  x <- rnorm(100)
-  x[c(5, 12, 78)] <- NA
-  out <- BACE:::.geweke_test(x)
-  expect_true(is.finite(out$z_score) || is.na(out$z_score))
-})
-
-test_that(".geweke_test alpha threshold affects converged decision", {
-  set.seed(2026)
-  x <- c(rnorm(20, 0, 1), rnorm(180, 0.5, 1))  # mild drift
-  out_strict <- BACE:::.geweke_test(x, alpha = 0.50)
-  out_loose <- BACE:::.geweke_test(x, alpha = 0.001)
-  expect_equal(out_strict$z_score, out_loose$z_score)
-  # alpha=0.50 is stricter (rejects more), alpha=0.001 is looser
-  expect_true(is.logical(out_strict$converged) || is.na(out_strict$converged))
-  expect_true(is.logical(out_loose$converged) || is.na(out_loose$converged))
+test_that(".conv_assess_series drift beats oscillation ordering sanity", {
+  # a drifting chain whose steps also alternate slightly must come out
+  # drift or oscillation, never ok
+  set.seed(2)
+  m <- 0.6 * (1:12) + 0.2 * (-1)^(1:12)
+  out <- BACE:::.conv_assess_series(m, rep(1, 12), n_cells = 30)
+  expect_true(out$verdict %in% c("drift", "oscillation"))
 })
 
 # ---- convergence summary categorical/threshold branch --------------------
@@ -224,6 +200,6 @@ test_that("assess_convergence on a binary trait exercises factor branch", {
     runs           = 4, nitt = 400, thin = 5, burnin = 100,
     verbose        = FALSE
   )))
-  out <- suppressWarnings(assess_convergence(step1, method = "summary"))
+  out <- suppressWarnings(assess_convergence(step1))
   expect_s3_class(out, "bace_convergence")
 })

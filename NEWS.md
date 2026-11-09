@@ -1,3 +1,62 @@
+# BACE 1.0.1
+
+* **The chained-equations convergence check was defective and has been
+  replaced.** The old check compared each variable's movement between runs to
+  the variable's own *level* (`%` change) and its own mean (the energy and
+  Wasserstein variants), so its verdict tracked where a variable sat rather
+  than whether it had settled: a mean-centred trait could *never* pass
+  (division by ~0), while a trait far from zero passed even while steadily
+  drifting. Fed chains that are converged by construction, the old check
+  passed ~3% of them at default settings; fed steady drifts at level 20, it
+  passed essentially all of them. In practice this meant `bace()` silently
+  retried (5 → 8 → 11 runs, ~4.8x the compute) on nearly every real dataset
+  and then warned that convergence had failed when it had not. Separately,
+  a chain whose imputation variance collapsed to zero — the textbook
+  non-convergence of van Buuren & Groothuis-Oudshoorn (2011, p. 37) — was
+  special-cased as *converged*.
+
+  The new check (`assess_convergence()`, method `"stability"`) watches the
+  mean *and* the SD of each variable's imputed values across chained runs,
+  treats the first half as warm-up, measures all movement in units of the
+  variable's imputation spread, and flags three named pathologies: **drift**
+  (still travelling; the one thing more runs can cure — `bace()` now retries
+  only for this), **oscillation** (variables flip-flopping in step; retrying
+  is pointless and `bace()` now says so and proceeds), and **stuck**
+  (collapsing imputation variance) and **diverging** (the spread growing
+  without bound). Categorical and ordinal variables are monitored on every
+  level and take the worst level's verdict — watching only the first level
+  is blind to a chain that flips its cells between the others.
+
+  Calibration on constructed chains (pinned in the test suite): settled
+  chains pass >= 99% at `runs = 10` wherever their mean sits and however
+  many cells are imputed; drift, loud oscillation, collapse and divergence
+  are each caught >= 99%; false oscillation stays under 5% even at 1000
+  imputed cells and the most pessimistic between-run noise we have measured.
+  Short chains say what they could not do: below `runs = 5` the drift test
+  cannot run and below `runs = 7` the flip-flop test cannot, and the output
+  carries a note saying so. A pass means *no pathology detected*, not a
+  certificate — no clear-cut convergence test exists for chained equations
+  (van Buuren 2018, ch. 6.5.2; Oberman, van Buuren & Vink 2021,
+  arXiv:2110.11951) — so the trace plots remain the primary diagnostic.
+
+  Breaking changes, all loud: the per-criterion methods
+  (`"summary.acf"`, `"summary.percentage"`, `"summary.trend"`,
+  `"summary.geweke"`) and the distribution methods (`"energy"`,
+  `"wasserstein"`, `"all"`) are defunct with explanatory errors
+  (`"summary"` itself is a deprecated alias for `"stability"`); the
+  `pct_change_threshold`, `lag` and `alpha` arguments are gone (replaced by
+  `drift_threshold` and `stuck_ratio`); `plot()` type `"pct_change"` is
+  replaced by `"steps"` (movement against the Monte-Carlo noise floor) and
+  the energy/Wasserstein plot helpers are defunct. Fits made with earlier
+  versions re-assess cleanly with the new check.
+
+* Fixed a crash in `sim_bace()` when a multinomial predictor's liabilities
+  were large (softmax overflow; GitHub issue #19).
+
+* Fixed a crash in the final-model diagnostics when a chain was too short or
+  degenerate for `effectiveSize()`/`geweke.diag()`/`acf()`; each is now
+  reported as NA instead of aborting the fit (GitHub issue #20).
+
 # BACE 1.0.0
 
 First CRAN release. Earlier versions were distributed from GitHub only. The

@@ -18,5 +18,9 @@ Invisibly returns \code{NULL}; called for its side effect of drawing
 autocorrelation (ACF) panels (one per variable) on the current graphics device.
 }
 \description{
-Plot autocorrelation diagnostics
+Autocorrelation panels for each variable's monitored mean
+series. Interpretation note: a chained sampler alternates a little by
+nature, so a negative lag-1 autocorrelation is not by itself a failure —
+the stability check flags oscillation only when it is strong AND the
+movement is well above the Monte-Carlo noise floor.
 }

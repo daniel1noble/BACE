@@ -146,7 +146,7 @@ We checked both kinds of convergence (see *Two kinds of convergence* above). Fir
 #| label: amph-convergence-code
 #| echo: true
 #| eval: false
-converge <- assess_convergence(amph_bace$initial_results, method = "summary")
+converge <- assess_convergence(amph_bace$initial_results)
 converge
 plot(converge)
 ```

@@ -146,49 +146,47 @@ test_that("pool_posteriors output: pooled Sol has n_iter * n_final rows", {
   expect_true(nrow(sol) >= n_iter_per_run * n_final - 5)
 })
 
-# ---- assess_convergence with custom alpha + threshold parameters ---------
+# ---- assess_convergence tuning and defunct arguments ----------------------
 
-test_that("assess_convergence with custom alpha runs", {
+test_that("assess_convergence accepts custom drift_threshold and stuck_ratio", {
   testthat::skip_on_cran()
   fix <- build_final_imp_fixture()
   step1 <- build_step1(fix, runs = 4)
-  for (a in c(0.01, 0.05, 0.1)) {
-    out <- suppressWarnings(assess_convergence(step1,
-                                                method = "summary.geweke",
-                                                alpha = a))
+  for (dt in c(0.5, 0.75, 1.5)) {
+    out <- suppressWarnings(assess_convergence(step1, drift_threshold = dt))
     expect_s3_class(out, "bace_convergence")
   }
-})
-
-test_that("assess_convergence with custom pct_change_threshold runs", {
-  testthat::skip_on_cran()
-  fix <- build_final_imp_fixture()
-  step1 <- build_step1(fix, runs = 4)
-  out <- suppressWarnings(assess_convergence(step1,
-                                              method = "summary.percentage",
-                                              pct_change_threshold = 0.10))
+  out <- suppressWarnings(assess_convergence(step1, stuck_ratio = 0.1))
   expect_s3_class(out, "bace_convergence")
 })
 
-test_that("assess_convergence with custom lag runs", {
+test_that("the pre-1.1 per-criterion methods are defunct on a real fit", {
   testthat::skip_on_cran()
   fix <- build_final_imp_fixture()
   step1 <- build_step1(fix, runs = 4)
-  for (lg in c(1, 2, 5)) {
-    out <- suppressWarnings(assess_convergence(step1,
-                                                method = "summary.acf",
-                                                lag = lg))
-    expect_s3_class(out, "bace_convergence")
-  }
+  expect_error(assess_convergence(step1, method = "summary.geweke"),
+               regexp = "defunct")
+  expect_error(assess_convergence(step1, method = "summary.percentage"),
+               regexp = "defunct")
+  expect_error(assess_convergence(step1, method = "summary.acf"),
+               regexp = "defunct")
+})
+
+test_that("the removed tuning arguments error loudly on a real fit", {
+  testthat::skip_on_cran()
+  fix <- build_final_imp_fixture()
+  step1 <- build_step1(fix, runs = 4)
+  expect_error(assess_convergence(step1, pct_change_threshold = 0.10),
+               regexp = "unused argument")
+  expect_error(assess_convergence(step1, lag = 2),
+               regexp = "unused argument")
 })
 
 test_that("assess_convergence with use_all_data=TRUE runs", {
   testthat::skip_on_cran()
   fix <- build_final_imp_fixture()
   step1 <- build_step1(fix, runs = 4)
-  out <- suppressWarnings(assess_convergence(step1,
-                                              method = "summary",
-                                              use_all_data = TRUE))
+  out <- suppressWarnings(assess_convergence(step1, use_all_data = TRUE))
   expect_s3_class(out, "bace_convergence")
 })
 

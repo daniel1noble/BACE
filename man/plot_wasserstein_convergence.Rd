@@ -14,9 +14,10 @@ plot_wasserstein_convergence(conv_object, variables = NULL, ...)
 \item{...}{Additional plotting arguments}
 }
 \value{
-Invisibly returns \code{NULL}; called for its side effect of drawing
-Wasserstein-distance panels (one per variable) on the current graphics device.
+Never returns; always throws an error pointing to the replacement.
 }
 \description{
-Plot Wasserstein distance evolution for each variable
+Defunct. The Wasserstein method's verdict logic had the same
+divide-by-a-vanishing-mean defect as the pre-1.0.1 \%-change criterion, so
+the method was removed. See NEWS.
 }

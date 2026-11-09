@@ -443,16 +443,23 @@ a      <- make_analysis_data("mixed")
 chain  <- readRDS(file.path(tmp_dir, "mixed_chain.rds"))
 mixed_finals <- read_finals("mixed")
 
-# Chained phase. assess_convergence() tests the share of the first category
-# among the imputed values over all iterations; we rerun the same function on
-# the iterations from 5 (and from 10) onwards, after the initial transient.
+# Chained phase. assess_convergence() (BACE >= 1.0.1) watches each variable's
+# imputed values across the chained runs, already discarding the first half as
+# warm-up, and names what it finds: ok / drift / oscillation / stuck /
+# diverging. The manual "from iteration 5 / 10" re-runs below are kept only to
+# show that the verdict is not an artefact of where the window starts -- the
+# built-in warm-up handling is what the check uses in normal operation.
 chain_late <- lapply(c(from5 = 5, from10 = 10), function(k) {
   fit_late <- chain$fit
   fit_late$data <- chain$fit$data[c(1, (k + 1):length(chain$fit$data))]   # keep the initial data first
-  conv <- assess_convergence(fit_late, method = "summary")
+  conv <- assess_convergence(fit_late)
+  a <- conv$method_results$summary$assessments$social_max
   c(converged = conv$converged,
-    unlist(conv$method_results$summary$stationarity_tests$social_max[c("acf", "trend_converged",
-                                                                       "mean_pct_change")]))
+    verdict = a$verdict,
+    note    = if (nzchar(a$note)) a$note else "-",
+    net     = unname(round(a$stats[["net"]], 3)),
+    step    = unname(round(a$stats[["step"]], 3)),
+    acf1    = unname(round(a$stats[["acf1"]], 3)))
 })
 
 mixed_p <- Reduce(`+`, lapply(mixed_finals, `[[`, "probs")) / length(mixed_finals)

@@ -6,56 +6,111 @@
 \usage{
 assess_convergence(
   bace_object,
-  method = c("summary", "summary.acf", "summary.percentage", "summary.trend",
-    "summary.geweke", "energy", "wasserstein", "all"),
+  method = c("stability", "summary"),
   variables = NULL,
   use_all_data = FALSE,
-  alpha = 0.05,
   min_iterations = 3,
-  lag = 1,
-  pct_change_threshold = 0.05
+  drift_threshold = 0.75,
+  stuck_ratio = 0.25
 )
 }
 \arguments{
-\item{bace_object}{An object of class 'bace' returned from bace_imp function}
+\item{bace_object}{An object of class 'bace' returned from bace_imp}
 
-\item{method}{Character string specifying the convergence method: "summary" (all summary tests),
-"summary.acf" (ACF only), "summary.percentage" (\% change only), "summary.trend" (trend only),
-"summary.geweke" (Geweke only), "energy", "wasserstein", or "all" for all methods}
+\item{method}{"stability" (the check described here). "summary" is accepted
+as a deprecated alias and warns. The pre-1.0.1 methods ("summary.acf",
+"summary.percentage", "summary.trend", "summary.geweke", "energy",
+"wasserstein", "all") are defunct: all of them measured a statistic
+against its own level or mean, so their verdicts tracked the variable's
+scale rather than its stability, failing settled chains and passing
+drifting ones. See NEWS for the full account.}
 
-\item{variables}{Character vector of variable names to assess. If NULL (default),
-all variables with missing data are assessed. A warning is issued for variables
-without missing data, which are ignored.}
+\item{variables}{Character vector of variable names to assess. If NULL
+(default), all variables with missing data are assessed. A warning is
+issued for variables without missing data, which are ignored.}
 
-\item{use_all_data}{Logical. If TRUE, use all data from each iteration for convergence assessment.
-If FALSE (default), use only the imputed values (originally missing data).}
+\item{use_all_data}{Logical. If TRUE, monitor whole columns rather than
+only the imputed cells. Default FALSE (imputed cells only, the
+recommended practice — observed cells never change, so including them
+only dilutes the signal).}
 
-\item{alpha}{Significance level for convergence decision. Default is 0.05}
+\item{min_iterations}{Minimum number of chained runs before any assessment
+is attempted. Default is 3.}
 
-\item{min_iterations}{Minimum number of iterations before testing convergence. Default is 3}
+\item{drift_threshold}{Net late-chain movement of the mean, in units of
+the variable's imputation spread, above which (with a supporting trend)
+the variable is flagged as drifting. Default 0.75. Calibrated so that
+settled chains pass >= 99 per cent of the time and a steady drift of half a
+spread per run is caught >= 99 per cent of the time at \code{runs = 10}; at
+\code{runs = 5} the drift catch rate is ~75 per cent, which is as much as five
+points can support.}
 
-\item{lag}{Maximum lag for autocorrelation assessment. Default is 1}
-
-\item{pct_change_threshold}{Threshold for percentage change between consecutive iterations.
-Variables are considered converged if the mean absolute percentage change in the
-last half of iterations is below this threshold. Default is 0.05 (5\%).}
+\item{stuck_ratio}{If the late-chain imputation spread falls below this
+fraction of the early-chain spread, the variable is flagged as stuck.
+Default 0.25.}
 }
 \value{
-A list containing:
+A list of class \code{bace_convergence}:
 \itemize{
-\item converged: Logical indicating overall convergence status
-\item method_results: Detailed results for each method
-\item summary_stats: Data frame with summary statistics across iterations
-\item diagnostics: Additional diagnostic information
+\item converged: TRUE when no pathology was detected in any variable
+(NA if nothing could be assessed)
+\item verdicts: per-variable, one of "ok", "drift", "oscillation",
+"stuck", or "unassessable" (fewer than 3 finite points)
+\item notes: per-variable advisory notes ("" when none)
+\item summary_stats: data frame of the mean series (iteration x
+variable) that the check watched
+\item sd_stats: data frame of the SD series
+\item method_results$summary: per-variable detail (verdict, the
+statistics behind it, and the thresholds used)
 }
 }
 \description{
-Assess convergence of BACE imputation using multiple diagnostic criteria
+Check a BACE convergence chain for signs that the chained
+equations have NOT settled. The check watches, for every variable with
+missing data, two series across the chained runs: the mean and the
+standard deviation of that variable's imputed values (the two quantities
+recommended for monitoring by van Buuren & Groothuis-Oudshoorn 2011 and
+van Buuren 2018, ch. 6.5.2). The first half of the chain is treated as
+warm-up; all movement is measured against the variable's own imputation
+spread, never against its level, so the verdict does not depend on where
+or on what scale a variable lives.
+
+Three named pathologies are flagged:
+\itemize{
+\item \strong{drift}: the late chain is still travelling — the mean
+moved by more than \code{drift_threshold} spread units across the
+retained window, with a supporting trend. The one pathology that
+more chained runs can cure.
+\item \strong{oscillation}: the mean flip-flops between runs, loudly —
+strongly negative lag-1 autocorrelation AND steps well above the
+Monte-Carlo noise floor. Usually two variables feeding back on each
+other; more runs will not fix it (van Buuren 2018, ch. 6.5.2).
+\item \strong{stuck}: the imputation spread is collapsing towards zero
+run after run — the textbook pathology in van Buuren &
+Groothuis-Oudshoorn (2011, p. 37), where the sampler locks up. The
+pre-1.0.1 check called this "converged", which was exactly backwards.
+}
+
+\strong{What a pass means.} "Converged" here means \emph{no pathology
+detected} — a one-directional diagnostic, not a certificate. There is no
+agreed numerical test of chained-equations convergence ("There is no
+clear-cut method for determining when the MICE algorithm has converged",
+van Buuren 2018, ch. 6.5.2), and short chains cannot support one: with
+the default \code{runs = 10} the check sees ten points per variable.
+Empirically, valid inference tends to arrive after 5--10 chained
+iterations, well before formal diagnostics look settled (Oberman, van
+Buuren & Vink 2021, arXiv:2110.11951). Always inspect the trace plots
+(\code{plot(<result>)}) rather than relying on the flag alone.
+
+Chained samplers also alternate a little by nature (each run conditions
+on the previous values of the other variables), and a proportion watched
+over few imputed cells moves in quantised jumps. Mild versions of both
+are therefore reported as notes for the eye, not failures.
 }
 \examples{
 \donttest{
 # Simulate a small phylogenetic dataset with missing values, run a short
-# bace_imp() convergence chain, then assess chained-equations convergence
+# bace_imp() convergence chain, then check it for pathologies
 set.seed(1)
 sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
                 phylo_signal = c(0.6, 0.6), missingness = c(0.2, 0),
@@ -63,7 +118,16 @@ sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
 fit <- bace_imp(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
                 phylo = sim$tree, data = sim$data,
                 runs = 3, nitt = 600, burnin = 100, thin = 2, verbose = FALSE)
-conv <- assess_convergence(fit, method = "summary")
+conv <- assess_convergence(fit)
 conv$converged
 }
+}
+\references{
+van Buuren S & Groothuis-Oudshoorn K (2011). mice: Multivariate
+Imputation by Chained Equations in R. Journal of Statistical Software,
+45(3). \cr
+van Buuren S (2018). Flexible Imputation of Missing Data, 2nd ed.,
+ch. 6.5.2. CRC Press. \cr
+Oberman HI, van Buuren S & Vink G (2021). Missing the Point:
+Non-Convergence in Iterative Imputation Algorithms. arXiv:2110.11951.
 }

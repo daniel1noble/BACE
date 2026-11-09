@@ -79,7 +79,7 @@ build_conv_obj <- function() {
     runs           = 4, nitt = 400, thin = 5, burnin = 100,
     verbose        = FALSE
   )))
-  suppressWarnings(assess_convergence(step1, method = "summary"))
+  suppressWarnings(assess_convergence(step1))
 }
 
 test_that("plot_trace_convergence with valid variables arg runs", {
@@ -102,13 +102,13 @@ test_that("plot_trace_convergence with non-matching variables errors", {
   ), regexp = "No valid variables")
 })
 
-test_that("plot_pct_change_convergence with non-matching variables errors", {
+test_that("plot_steps_convergence with non-matching variables errors", {
   testthat::skip_on_cran()
   conv <- build_conv_obj()
   pdf(file = tempfile(fileext = ".pdf"))
   on.exit(grDevices::dev.off(), add = TRUE)
   expect_error(suppressMessages(
-    plot_pct_change_convergence(conv, variables = "nonexistent_var")
+    plot_steps_convergence(conv, variables = "nonexistent_var")
   ), regexp = "No valid variables")
 })
 
@@ -183,10 +183,10 @@ test_that("plot_bace_imputation_comparison works on a binary trait", {
 
 # ---- plot_wasserstein_convergence error paths ----------------------------
 
-test_that("plot_wasserstein_convergence errors with no wasserstein results", {
+test_that("plot_wasserstein_convergence is defunct", {
   fake_conv <- list(method_results = list(wasserstein = NULL),
                     types = list())
   class(fake_conv) <- c("bace_convergence", "list")
   expect_error(plot_wasserstein_convergence(fake_conv),
-               regexp = "No Wasserstein")
+               regexp = "defunct")
 })

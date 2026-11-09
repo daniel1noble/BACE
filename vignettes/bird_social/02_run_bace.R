@@ -48,7 +48,7 @@ if (mode == "chain") {
                   phylo = a$tree, data = a$data, runs = cs$runs,
                   nitt = cs$nitt, burnin = cs$burnin, thin = cs$thin,
                   species = FALSE, verbose = TRUE)
-  conv <- assess_convergence(fit, method = "summary")
+  conv <- assess_convergence(fit)
   # Drop the heavy fitted models of the last chained iteration
   fit$models_last_run <- NULL
   fit$pred_list_last_run <- NULL

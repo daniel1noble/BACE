@@ -298,12 +298,12 @@ bace_final1$initial_results$types
 As we can see `bace` provides a comprehensive overview of the imputation process including each of the core steps. This includes the initial set of runs to allow data to converge, followed by convergence assessment checks both across runs and within parameters of models. 
 
 ::: {.callout-note}
-If convergence is not achieved, the function will automatically restart the initial steps to allow chains to converge before running the final set of models. However, users should be aware that the check can sometimes fail even when convergence has likely been achieved. If you think this is the case then you can do the initial runs and skip the convergence assessment (see below). It is also not always the case that parameter checks signal problems with the models. Users will need to explore final models carefully before adjusting MCMC parameters or the number of runs. More on this below.
+The stability check looks for three named problems in the chained runs: *drift* (the imputations are still travelling), *oscillation* (two variables flip-flopping in step), and *stuck* (the imputation spread collapsing towards zero). Drift is the one problem that more runs can cure, so `bace()` retries — with more runs — only when drift is found; the other two are reported with their remedy and the run proceeds. A pass means *no problem was detected*, not a guarantee of convergence — no clear-cut convergence test exists for chained equations (van Buuren 2018, ch. 6.5.2) — so do look at the traces with `plot(assess_convergence(...))`, where the shaded band marks the warm-up half that the check ignores.
 :::
 
 It's worth highlighting a few key arguments within `bace`. 
 
-- First, the `skip_conv` argument allows users to skip the convergence checks and just run the imputation for the number of runs specified. This is not recommended, but it can be useful if you have a large dataset and want to run the imputation for a long time without checking convergence.
+- First, the `skip_conv` argument turns off the automatic re-running. Stability is still assessed and recorded either way — `skip_conv = TRUE` simply means `bace()` goes straight on to the final imputations instead of re-running the chained phase when it finds drift. Useful on a large dataset where you would rather inspect the diagnostics yourself than pay for another chained pass.
 - Second, the `sample_size` argument allows users to specify the number of posterior samples to pool across final runs. This can be useful if you have a large dataset and want to reduce the size of the final `bace` object.
 - Third, the `species` argument allows users to specify whether to include a non-phylogenetic random effect for species identity in addition to the phylogenetic random effect. This is important if multiple replicates of species are included in the dataset (e.g., multiple populations of the same species).
 - Fourth, the `n_final` argument sets how many independent posterior-predictive imputations are drawn in the final phase (default 50). More imputations give a better Monte Carlo approximation to the marginal posterior and tighter calibration of per-cell prediction intervals, at a linear cost in compute. The final runs are completely independent of one another, so they can be run simultaneously: on multi-core machines set `n_cores` to spread them across cores. Supplying `seed` gives each run its own random-number stream, making the results reproducible and identical.
@@ -690,7 +690,7 @@ We need to check whether the number of runs we've done has led to convergence of
 #| message: false
 
 # Assess whether number of runs was enough by looking at the stability of imputed points across runs. Adjust runs if needed
-converge <- assess_convergence(bace_impute2, method = "summary")
+converge <- assess_convergence(bace_impute2)
 plot(converge)
 
 # Now that we know that we can run BACE longer
@@ -703,7 +703,7 @@ bace_impute2_2 <- bace_imp(fixformula = "y ~ x1 + x2",
                                runs = 15, nitt = 100000, burnin = 10000, thin = 10)  
 
 # Check again for convergence
-converge <- assess_convergence(bace_impute2_2, method = "summary")
+converge <- assess_convergence(bace_impute2_2)
 plot(converge)
                               
 ```

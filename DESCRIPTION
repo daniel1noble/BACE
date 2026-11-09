@@ -1,6 +1,6 @@
 Package: BACE
 Title: Bayesian Augmentation by Chained Equations for Phylogenetic Comparative Data
-Version: 1.0.0
+Version: 1.0.1
 Authors@R: c(
     person("Daniel", "Noble", email = "daniel.noble@anu.edu.au", role = c("aut", "cre")),
     person("Szymon", "Drobniak", email = "szymek.drobniak@gmail.com", role = "aut"),

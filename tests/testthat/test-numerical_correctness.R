@@ -219,30 +219,16 @@ test_that("pool_posteriors output has expected dimensions and finite stats", {
   }
 })
 
-# ---- Convergence flag tracks chain length ---------------------------------
+# ---- Convergence check gives real verdicts on real fits --------------------
 
-test_that("assess_convergence flips OK as chains lengthen", {
+test_that("the stability check passes a healthy real fit and reports verdicts", {
   testthat::skip_on_cran()
   fix <- make_continuous_fixture(n_species = 25, phylo_signal = 0.5,
                                  n_predictors = 1, miss_frac = 0.30,
                                  seed = 7)
 
-  # Short chain: convergence likely NOT achieved
   set.seed(7)
-  short <- suppressWarnings(suppressMessages(bace_imp(
-    fixformula     = paste(fix$resp_col, "~", fix$pred_cols[1]),
-    ran_phylo_form = "~ 1 | Species",
-    phylo          = fix$tree,
-    data           = fix$masked,
-    runs           = 4, nitt = 300, thin = 1, burnin = 50,
-    verbose        = FALSE
-  )))
-  short_conv <- suppressWarnings(
-    assess_convergence(short, method = "summary"))
-
-  # Long chain: convergence more likely
-  set.seed(7)
-  long <- suppressWarnings(suppressMessages(bace_imp(
+  fit <- suppressWarnings(suppressMessages(bace_imp(
     fixformula     = paste(fix$resp_col, "~", fix$pred_cols[1]),
     ran_phylo_form = "~ 1 | Species",
     phylo          = fix$tree,
@@ -250,14 +236,17 @@ test_that("assess_convergence flips OK as chains lengthen", {
     runs           = 6, nitt = 4000, thin = 5, burnin = 1000,
     verbose        = FALSE
   )))
-  long_conv <- suppressWarnings(
-    assess_convergence(long, method = "summary"))
+  conv <- suppressWarnings(assess_convergence(fit))
 
-  # We don't insist short = FAIL and long = PASS (too noisy at n=25)
-  # but BOTH should produce a non-NULL converged flag and method
-  # results. The longer chain's summary statistics should be at least
-  # as stable (lower max %change) as the shorter one's.
-  expect_s3_class(short_conv, "bace_convergence")
-  expect_s3_class(long_conv,  "bace_convergence")
-  expect_true(!is.null(long_conv$summary_stats))
+  # The pre-1.1 test here ("flips OK as chains lengthen") asserted only the
+  # S3 class — it could not fail. This one asserts the verdict: a healthy
+  # gaussian fit with a decent chain must PASS the repaired check (the
+  # pre-1.1 criteria failed settled chains like this one ~97% of the time,
+  # which is the bug this file now guards against). Deterministic by seed.
+  expect_s3_class(conv, "bace_convergence")
+  expect_true(conv$converged)
+  expect_true(all(conv$verdicts == "ok"))
+  # and the monitored series are actually populated for every variable
+  expect_gte(ncol(conv$summary_stats), 2)
+  expect_identical(nrow(conv$summary_stats), 6L)
 })

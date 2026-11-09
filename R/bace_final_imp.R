@@ -145,7 +145,7 @@
 #' fit <- bace_imp(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
 #'                 phylo = sim$tree, data = sim$data,
 #'                 runs = 3, nitt = 600, burnin = 100, thin = 2, verbose = FALSE)
-#' conv <- assess_convergence(fit, method = "summary")
+#' conv <- assess_convergence(fit)
 #'
 #' # Final independent posterior-predictive imputations
 #' final <- bace_final_imp(fit, fixformula = "y ~ x1",

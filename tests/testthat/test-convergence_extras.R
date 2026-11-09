@@ -1,7 +1,7 @@
 # Tests for convergence_diagnostics paths not exercised elsewhere:
-# categorical/threshold use_all_data=TRUE branch, plot helpers with
-# missing inputs, plot_acf_convergence, plot_density_convergence,
-# plot_imputation_convergence categorical path.
+# categorical/threshold series (proportion + binomial spread), the
+# use_all_data=TRUE branch, defunct method errors on real fits, and the
+# plot helpers' input validation.
 
 build_cat_fixture <- function(seed = 2026, n = 25) {
   set.seed(seed)
@@ -23,7 +23,7 @@ build_cat_fixture <- function(seed = 2026, n = 25) {
   list(phylo = phylo, data = data)
 }
 
-# ---- categorical/threshold use_all_data branch ---------------------------
+# ---- categorical/threshold series through the stability check --------------
 
 test_that("assess_convergence on binary trait with use_all_data=TRUE", {
   testthat::skip_on_cran()
@@ -35,9 +35,13 @@ test_that("assess_convergence on binary trait with use_all_data=TRUE", {
     runs           = 4, nitt = 400, thin = 5, burnin = 100,
     verbose        = FALSE
   )))
-  out <- suppressWarnings(assess_convergence(step1, method = "summary",
-                                              use_all_data = TRUE))
+  out <- suppressWarnings(assess_convergence(step1, use_all_data = TRUE))
   expect_s3_class(out, "bace_convergence")
+  expect_true(all(out$verdicts %in% c("ok", "drift", "oscillation", "stuck")))
+  # the monitored series is a proportion: it must live in [0, 1]
+  expect_true(all(out$summary_stats$y_bin >= 0 & out$summary_stats$y_bin <= 1))
+  # and its spread series is the binomial sd, also bounded
+  expect_true(all(out$sd_stats$y_bin >= 0 & out$sd_stats$y_bin <= 0.5 + 1e-12))
 })
 
 test_that("assess_convergence on categorical trait with use_all_data=FALSE", {
@@ -51,12 +55,12 @@ test_that("assess_convergence on categorical trait with use_all_data=FALSE", {
     ovr_categorical = FALSE,
     verbose        = FALSE
   )))
-  out <- suppressWarnings(assess_convergence(step1, method = "summary",
-                                              use_all_data = FALSE))
+  out <- suppressWarnings(assess_convergence(step1, use_all_data = FALSE))
   expect_s3_class(out, "bace_convergence")
+  expect_true(all(out$summary_stats$y_cat >= 0 & out$summary_stats$y_cat <= 1))
 })
 
-test_that("assess_convergence energy method on categorical runs", {
+test_that("the defunct distribution methods error on a real fit too", {
   testthat::skip_on_cran()
   fix <- build_cat_fixture()
   step1 <- suppressWarnings(suppressMessages(bace_imp(
@@ -66,41 +70,12 @@ test_that("assess_convergence energy method on categorical runs", {
     runs           = 4, nitt = 300, thin = 5, burnin = 100,
     verbose        = FALSE
   )))
-  out <- suppressWarnings(assess_convergence(step1, method = "energy"))
-  expect_s3_class(out, "bace_convergence")
+  expect_error(assess_convergence(step1, method = "energy"), regexp = "defunct")
+  expect_error(assess_convergence(step1, method = "wasserstein"), regexp = "defunct")
+  expect_error(assess_convergence(step1, method = "all"), regexp = "defunct")
 })
 
-test_that("assess_convergence wasserstein method on categorical runs", {
-  testthat::skip_on_cran()
-  fix <- build_cat_fixture()
-  step1 <- suppressWarnings(suppressMessages(bace_imp(
-    fixformula     = "y_bin ~ x",
-    ran_phylo_form = "~ 1 | Species",
-    phylo          = fix$phylo, data = fix$data,
-    runs           = 4, nitt = 300, thin = 5, burnin = 100,
-    verbose        = FALSE
-  )))
-  out <- suppressWarnings(assess_convergence(step1, method = "wasserstein"))
-  expect_s3_class(out, "bace_convergence")
-})
-
-test_that("assess_convergence method='all' on categorical runs", {
-  testthat::skip_on_cran()
-  fix <- build_cat_fixture()
-  step1 <- suppressWarnings(suppressMessages(bace_imp(
-    fixformula     = "y_bin ~ x",
-    ran_phylo_form = "~ 1 | Species",
-    phylo          = fix$phylo, data = fix$data,
-    runs           = 4, nitt = 300, thin = 5, burnin = 100,
-    verbose        = FALSE
-  )))
-  out <- suppressWarnings(assess_convergence(step1, method = "all"))
-  expect_s3_class(out, "bace_convergence")
-  # method='all' aggregates votes across summary/energy/wasserstein
-  expect_true(!is.null(out$diagnostics$votes))
-})
-
-# ---- plot helpers --------------------------------------------------------
+# ---- plot helpers ----------------------------------------------------------
 
 test_that("plot_trace_convergence errors with no summary_stats", {
   fake_conv <- list(summary_stats = NULL,
@@ -111,12 +86,12 @@ test_that("plot_trace_convergence errors with no summary_stats", {
                regexp = "No summary statistics")
 })
 
-test_that("plot_pct_change_convergence errors with no summary_stats", {
+test_that("plot_steps_convergence errors with no summary_stats", {
   fake_conv <- list(summary_stats = NULL,
                     method_results = list(),
                     types = list())
   class(fake_conv) <- c("bace_convergence", "list")
-  expect_error(plot_pct_change_convergence(fake_conv),
+  expect_error(plot_steps_convergence(fake_conv),
                regexp = "No summary statistics")
 })
 
@@ -129,14 +104,6 @@ test_that("plot_acf_convergence errors with no summary_stats", {
                regexp = "No summary statistics")
 })
 
-test_that("plot_energy_convergence errors with no energy results", {
-  fake_conv <- list(method_results = list(energy = NULL),
-                    types = list())
-  class(fake_conv) <- c("bace_convergence", "list")
-  expect_error(plot_energy_convergence(fake_conv),
-               regexp = "No energy distance results")
-})
-
 test_that("plot_density_convergence errors with no summary_stats", {
   fake_conv <- list(summary_stats = NULL,
                     method_results = list(),
@@ -144,4 +111,16 @@ test_that("plot_density_convergence errors with no summary_stats", {
   class(fake_conv) <- c("bace_convergence", "list")
   expect_error(plot_density_convergence(fake_conv),
                regexp = "No summary statistics")
+})
+
+# ---- the defunct plot helpers point at their replacements ------------------
+
+test_that("the pre-1.1 plot helpers are defunct with pointers", {
+  fake_conv <- list(summary_stats = data.frame(iteration = 1:3, y = 1:3))
+  class(fake_conv) <- c("bace_convergence", "list")
+  expect_error(plot_pct_change_convergence(fake_conv), regexp = "defunct")
+  expect_error(plot_energy_convergence(fake_conv), regexp = "defunct")
+  expect_error(plot_wasserstein_convergence(fake_conv), regexp = "defunct")
+  expect_error(plot(fake_conv, type = "pct_change"), regexp = "defunct")
+  expect_error(plot(fake_conv, type = "energy"), regexp = "defunct")
 })

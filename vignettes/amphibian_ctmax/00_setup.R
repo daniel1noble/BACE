@@ -49,7 +49,7 @@ bace_chain_step <- function(data, tree, nitt, burnin, thin, runs, seed, verbose 
                   phylo = tree, data = data[, ctmax_vars],
                   runs = runs, nitt = nitt, burnin = burnin, thin = thin,
                   species = TRUE, verbose = verbose)
-  conv <- assess_convergence(fit, method = "summary")
+  conv <- assess_convergence(fit)
 
   # MCMC diagnostics of the last chained iteration, then drop the heavy models
   mcmc_diag <- do.call(rbind, lapply(names(fit$models_last_run), function(v) {

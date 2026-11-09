@@ -14,9 +14,11 @@ plot_pct_change_convergence(conv_object, variables = NULL, ...)
 \item{...}{Additional plotting arguments}
 }
 \value{
-Invisibly returns \code{NULL}; called for its side effect of drawing
-percentage-change panels (one per variable) on the current graphics device.
+Never returns; always throws an error pointing to the replacement.
 }
 \description{
-Plot percentage change between consecutive iterations
+Defunct. The percentage-change panel drew the pre-1.0.1
+criterion, which divided each step by the variable's own level and so
+exploded for mean-centred variables. Use
+\code{\link{plot_steps_convergence}}.
 }

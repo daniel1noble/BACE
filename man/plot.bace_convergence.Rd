@@ -6,7 +6,7 @@
 \usage{
 \method{plot}{bace_convergence}(
   x,
-  type = c("trace", "density", "acf", "pct_change", "energy", "all"),
+  type = c("trace", "steps", "density", "acf", "all"),
   variables = NULL,
   ...
 )
@@ -14,7 +14,12 @@
 \arguments{
 \item{x}{Object of class bace_convergence from assess_convergence()}
 
-\item{type}{Type of plot: "trace", "density", "acf", "pct_change", "energy", "all"}
+\item{type}{Type of plot: "trace" (the monitored mean per chained run, with
+each variable's verdict), "steps" (run-to-run movement in units of the
+variable's imputation spread, against its Monte-Carlo noise floor),
+"density", "acf", or "all". The pre-1.0.1 types "pct_change" and "energy"
+are defunct: the quantities they drew belonged to the defective pre-1.0.1
+criteria (see NEWS).}
 
 \item{variables}{Character vector of variable names to plot. If NULL (default), plots all}
 
@@ -25,7 +30,10 @@ No return value (\code{NULL}, invisibly); called for its side
 effect of drawing the requested convergence diagnostic plot(s).
 }
 \description{
-Plot convergence diagnostics for BACE imputation
+Plot the stability diagnostics for a BACE convergence chain.
+The trace panels are the primary diagnostic — the flag from
+\code{assess_convergence} is a pathology detector, not a certificate,
+so the traces deserve an eyeball (van Buuren 2018, ch. 6.5.2).
 }
 \examples{
 \donttest{
@@ -36,7 +44,7 @@ sim <- sim_bace(response_type = "gaussian", predictor_types = "gaussian",
 fit <- bace_imp(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
                 phylo = sim$tree, data = sim$data,
                 runs = 3, nitt = 600, burnin = 100, thin = 2, verbose = FALSE)
-conv <- assess_convergence(fit, method = "summary")
+conv <- assess_convergence(fit)
 plot(conv, type = "trace")
 }
 }

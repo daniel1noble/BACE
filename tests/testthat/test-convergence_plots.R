@@ -29,7 +29,7 @@ build_conv_fixture <- function(seed = 2026) {
     nitt = 600, thin = 5, burnin = 200,
     verbose = FALSE
   )
-  suppressWarnings(assess_convergence(bo, method = "all"))
+  suppressWarnings(assess_convergence(bo))
 }
 
 with_null_device <- function(expr) {
@@ -52,10 +52,10 @@ test_that("plot_density_convergence runs without error", {
   expect_no_error(with_null_device(plot_density_convergence(cv)))
 })
 
-test_that("plot_pct_change_convergence runs without error", {
+test_that("plot_steps_convergence runs without error and draws the noise floor", {
   testthat::skip_on_cran()
   cv <- suppressMessages(suppressWarnings(build_conv_fixture()))
-  expect_no_error(with_null_device(plot_pct_change_convergence(cv)))
+  expect_no_error(with_null_device(plot_steps_convergence(cv)))
 })
 
 test_that("plot_acf_convergence runs without error", {
@@ -64,25 +64,12 @@ test_that("plot_acf_convergence runs without error", {
   expect_no_error(with_null_device(plot_acf_convergence(cv)))
 })
 
-test_that("plot_energy_convergence runs without error", {
-  testthat::skip_on_cran()
-  cv <- suppressMessages(suppressWarnings(build_conv_fixture()))
-  # Only meaningful if energy method ran in fixture
-  if (!is.null(cv$method_results$energy)) {
-    expect_no_error(with_null_device(plot_energy_convergence(cv)))
-  } else {
-    succeed("energy method not present; skipping plot test")
-  }
-})
-
-test_that("plot_wasserstein_convergence runs without error", {
-  testthat::skip_on_cran()
-  cv <- suppressMessages(suppressWarnings(build_conv_fixture()))
-  if (!is.null(cv$method_results$wasserstein)) {
-    expect_no_error(with_null_device(plot_wasserstein_convergence(cv)))
-  } else {
-    succeed("wasserstein method not present; skipping plot test")
-  }
+test_that("the defunct plot helpers error with pointers", {
+  cv <- list(summary_stats = data.frame(iteration = 1:3, y = 1:3))
+  class(cv) <- c("bace_convergence", "list")
+  expect_error(plot_pct_change_convergence(cv), regexp = "defunct")
+  expect_error(plot_energy_convergence(cv), regexp = "defunct")
+  expect_error(plot_wasserstein_convergence(cv), regexp = "defunct")
 })
 
 test_that("plot_convergence_summary runs without error", {
@@ -94,10 +81,11 @@ test_that("plot_convergence_summary runs without error", {
 test_that("plot.bace_convergence dispatches by type", {
   testthat::skip_on_cran()
   cv <- suppressMessages(suppressWarnings(build_conv_fixture()))
-  for (tp in c("trace", "density", "acf", "pct_change", "energy")) {
-    if (tp == "energy" && is.null(cv$method_results$energy)) next
+  for (tp in c("trace", "steps", "density", "acf")) {
     expect_no_error(with_null_device(plot(cv, type = tp)))
   }
+  expect_error(plot(cv, type = "pct_change"), regexp = "defunct")
+  expect_error(plot(cv, type = "energy"), regexp = "defunct")
 })
 
 test_that("plot_trace_convergence errors when summary_stats missing", {
