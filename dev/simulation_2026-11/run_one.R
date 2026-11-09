@@ -121,7 +121,8 @@ saveRDS(list(
   slopes = slopes, recovery = recovery, cell_coverage = coverage,
   realised = dataset$realised, realised_frac = dataset$realised_frac,
   complete_case = cc[c("n_complete", "frac_kept", "status")],
-  bace_converged = bace$converged, wall_s = bace$wall_s,
+  bace_converged = bace$converged, bace_conv_detail = bace$conv_detail,
+  wall_s = bace$wall_s,
   bace_version = bace_version, time = Sys.time()
 ), out_file)
 

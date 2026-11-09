@@ -16,6 +16,8 @@
 # =================================================================================================
 
 
+`%||%` <- function(x, y) if (is.null(x)) y else x
+
 #' Run BACE on one dataset.
 #'
 #' RESUMING. `checkpoint_dir` makes bace() save the convergence chain when it finishes and each
@@ -85,8 +87,19 @@ fit_bace <- function(dataset, n_final = 20L, nitt = 50000L, burnin = 10000L,
   if (!is.null(checkpoint_dir) && dir.exists(checkpoint_dir))
     unlink(checkpoint_dir, recursive = TRUE)
 
+  ## Keep WHY as well as whether. "converged = FALSE" on its own is unactionable: it could mean
+  ## the chained loop genuinely has not settled, or that one variable of eight is unsettled, or
+  ## that the assessment could not run at all. The per-variable verdicts and the attempt count
+  ## are small, so they travel with the result.
+  conv_detail <- tryCatch({
+    v <- fit$convergence$method_results$summary$var_converged
+    list(n_attempts = fit$n_attempts %||% NA_integer_,
+         n_vars = length(v), n_vars_converged = sum(isTRUE(v) | v %in% TRUE, na.rm = TRUE),
+         vars = v)
+  }, error = function(e) NULL)
+
   list(imputed = imputed, intervals = intervals,
-       converged = isTRUE(fit$converged), wall_s = wall)
+       converged = isTRUE(fit$converged), conv_detail = conv_detail, wall_s = wall)
 }
 
 
