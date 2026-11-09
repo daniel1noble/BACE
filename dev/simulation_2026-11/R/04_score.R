@@ -113,8 +113,9 @@ score_cell_coverage <- function(iv, truth) {
 #' rather than as a smaller M.
 #'
 #' IMPORTANT: the argument MUST be called `tree`. with_imputations() looks for a formal with that
-#' exact name and silently drops the phylogeny if it is called anything else (BACE issue #18), so
-#' every model would then condition on the wrong tree with no warning.
+#' exact name. Up to BACE 1.0.0 a differently named argument meant the phylogeny was dropped in
+#' silence and every model conditioned on the wrong tree (BACE issue #18); from 1.0.1 that is an
+#' error instead, so this name is still required -- it just fails loudly now rather than quietly.
 pgls_slope <- function(d, tree) {
   for (start in c(0.5, 0.1, 0.9)) {
     fit <- tryCatch(

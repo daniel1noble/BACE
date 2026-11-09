@@ -25,9 +25,12 @@
 #   aux      continuous, ALWAYS observed. The auxiliary -- think body size. Present only in the
 #            good_covariate regime, related to x1 at the scenario's aux_beta.
 #
-# WHY THE CATEGORY MUST BE THE RESPONSE: sim_bace() drops all random effects from a multinomial
-# PREDICTOR that has no dependencies, so a categorical predictor comes out with essentially no
-# phylogenetic signal whatever you ask for (BACE issue #16). The response path is correct.
+# WHY THE CATEGORY IS THE RESPONSE: originally forced, now a free choice we keep. Before BACE
+# 1.0.1, sim_bace() dropped all random effects from a multinomial PREDICTOR with no dependencies,
+# so a categorical predictor came out with essentially no phylogenetic signal whatever you asked
+# for (BACE issue #16, fixed in 1.0.1 -- liability SD across species went 0.000 -> 1.000). The
+# constraint no longer binds, but the response path was always the correct one and the generated
+# data are identical either way, so there is nothing to gain by changing it.
 TRAITS <- c("cat3", "x1", "x2", "cnt", "bin", "ord")
 DRIVER_REL <- 0.35
 

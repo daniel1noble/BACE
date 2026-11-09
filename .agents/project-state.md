@@ -1,6 +1,57 @@
-# Project state (updated 2026-11-09)
+# Project state (updated 2026-11-10)
 
 Keep this current — it's the shared "where are we" so nobody re-derives it.
+
+## 2026-11-10: numerical accuracy audit — eight silent bugs found and fixed
+
+Full record: [investigation-audit-2026-11.md](investigation-audit-2026-11.md).
+
+Six independent reviewers audited the package for numbers that are *wrong* rather
+than code that crashes. Every finding had to be reproduced with a printed number
+before it counted. Eight silent bugs; two would have changed manuscript results:
+
+1. **A categorical level whose name contains a dot could never be imputed.**
+   `forest.edge` was labelled `edge`, failed the name match, and its probability
+   column was dropped. Imputed 0 times out of 210 draws although it was 35% of the
+   data. Dotted and plain names now give identical results.
+2. **Multinomial H2 was inflated, and worse with more categories.** The residual
+   diagonal was matched by a pattern requiring numeric trait labels, which MCMCglmm
+   never produces, so a fallback summed one variance plus J−1 covariances:
+   tr(R) = 1 for every K instead of 2(K−1)/K. A true H2 of 0.50 was reported as
+   0.571 (K=3) / 0.600 (K=4) / 0.615 (K=5). **The existing test passed because it
+   fabricated label formats MCMCglmm never emits.**
+3. Reported gaussian `post_sd` had the variable's mean added to it — 1000.003
+   instead of 0.0031, and negative for negative-mean variables.
+4. `pool_mi()` returned `df = M-1` and `fmi > 0` when between-imputation variance
+   was exactly 0; the correct limit is `df = Inf`, `fmi = 0` (matches mice).
+5. `fixformula = c("y ~ x1", "z ~ x1")` silently dropped every response but the
+   first, and skipped the guard that would have caught it.
+6. `with_imputations()` paired fits with the wrong tree whenever more trees were
+   supplied than imputations (49 of 50 mismatched at 100 trees / 50 imputations).
+7. `pool_mi(df_fun=)` silently skipped the Barnard–Rubin correction for `gls`,
+   `phylolm`, `MCMCglmm` (#17).
+8. `$` partial matching could read an MCMC chain length as a sample size.
+
+**Confirmed correct** (so nobody re-audits): gaussian round-trip is bit-identical;
+imputations match the closed-form optimum (r ≈ 0.98, slope 1.00); probability
+formulas reproduce hand-derivation to 2e-16; phylogenetic effects genuinely enter
+predictions; ~370 known-truth replicates show **no detectable bias in any trait
+type**, per-cell coverage 0.9545 vs nominal 0.95; no `$` partial-match sites in
+BACE's own code (all 4,239 warnings are MCMCglmm's).
+
+**Pattern worth remembering:** five of the eight are *a derived quantity treated as
+a measurement* — a label re-derived by string surgery, a tree pairing re-derived
+instead of read from `$tree_index`, a df re-derived from whatever field matched.
+The right value was already recorded; the code worked it out again, differently.
+
+Suite: **1895 pass / 0 fail / 0 error / 0 warnings**. `R CMD check` clean.
+
+**Open, needs Dan + co-authors (simulation, not package):** the pgls fallback fixes
+lambda at 1 when the optimiser returns negative lambda (fires in ~2 of 3 BACE
+replicates at ps=0.3); the three arms use different df rules so the headline
+coverage comparison is not like-for-like; `collect.R`'s `n` column is always 1;
+per-cell coverage is computed 54,000 times and never read. Details in §"Still open"
+of the investigation note.
 
 ## 2026-11-09: simulation campaign rebuilt for the new design
 
