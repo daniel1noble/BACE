@@ -109,14 +109,48 @@ score_cell_coverage <- function(iv, truth) {
 #' WHY THE RETRIES. corPagel's optimiser is unconstrained and can wander outside [0, 1] or fail to
 #' converge, more often on some completed datasets than others. Left alone that would quietly thin
 #' the imputations and bias the pooled result towards the datasets that happened to fit. So we try
-#' several starting values and return NULL if none works, which the caller treats as a failure
-#' rather than as a smaller M.
+#' several starting values before falling back.
+#'
+#' THE FALLBACK MUST GO TO THE NEAREST EDGE, NOT ALWAYS TO 1. An unconstrained lambda-hat below 0
+#' says the data carry LESS phylogenetic structure than lambda = 0; the constrained estimate on
+#' [0, 1] is then lambda = 0, because the profile likelihood is unimodal and still falling as it
+#' leaves the interval. Until 2026-11-10 every out-of-range estimate was refitted with lambda
+#' FIXED AT 1 -- the maximum-structure extreme, the opposite end of the dial from what the data
+#' said. Since the free optimiser only ever strayed BELOW 0 in the runs we measured, that turned
+#' "no phylogenetic signal" into "full Brownian motion", corrupting both the point estimate and
+#' the interval, and it fired in roughly two of every three BACE replicates at phylo signal 0.3
+#' (the BACE arm fits M imputations, so it gets M chances to trip).
+#'
+#' When no free start yields a finite lambda at all there is nothing to clamp towards, so the two
+#' boundaries are compared by likelihood rather than one of them being assumed. Both fits are
+#' REML with identical fixed effects and identical (zero) free correlation parameters, so their
+#' log-likelihoods are comparable.
+#'
+#' The returned fit carries attributes `lambda_used` and `lambda_path` ("free", "clamped_lo",
+#' "clamped_hi" or "profiled") so the caller can record how the slope was obtained.
 #'
 #' IMPORTANT: the argument MUST be called `tree`. with_imputations() looks for a formal with that
 #' exact name. Up to BACE 1.0.0 a differently named argument meant the phylogeny was dropped in
 #' silence and every model conditioned on the wrong tree (BACE issue #18); from 1.0.1 that is an
 #' error instead, so this name is still required -- it just fails loudly now rather than quietly.
 pgls_slope <- function(d, tree) {
+
+  tag <- function(fit, lam, path) {
+    if (is.null(fit)) return(NULL)
+    attr(fit, "lambda_used") <- lam
+    attr(fit, "lambda_path") <- path
+    fit
+  }
+
+  fixed_fit <- function(lam) {
+    tryCatch(nlme::gls(x2 ~ x1, data = d,
+                       correlation = ape::corPagel(lam, phy = tree, form = ~Species,
+                                                   fixed = TRUE)),
+             error = function(e) NULL, warning = function(w) NULL)
+  }
+
+  ## 1. Try the free (unconstrained) optimiser from several starts.
+  stray <- NA_real_          # last finite lambda that landed outside [0, 1]
   for (start in c(0.5, 0.1, 0.9)) {
     fit <- tryCatch(
       nlme::gls(x2 ~ x1, data = d,
@@ -124,13 +158,27 @@ pgls_slope <- function(d, tree) {
       error = function(e) NULL, warning = function(w) NULL)
     if (is.null(fit)) next
     lambda <- unname(stats::coef(fit$modelStruct$corStruct, unconstrained = FALSE))
-    if (is.finite(lambda) && lambda >= 0 && lambda <= 1) return(fit)
+    if (is.finite(lambda) && lambda >= 0 && lambda <= 1) return(tag(fit, lambda, "free"))
+    if (is.finite(lambda)) stray <- lambda
   }
-  ## Every free start failed or left [0, 1]: fall back to lambda fixed at 1 (Brownian), which
-  ## always fits. Recorded by the caller, never silent.
-  tryCatch(nlme::gls(x2 ~ x1, data = d,
-                     correlation = ape::corPagel(1, phy = tree, form = ~Species, fixed = TRUE)),
-           error = function(e) NULL)
+
+  ## 2. It strayed out of [0, 1]: refit at the NEAREST edge, not always at 1.
+  if (is.finite(stray)) {
+    lam  <- if (stray < 0) 0 else 1
+    path <- if (stray < 0) "clamped_lo" else "clamped_hi"
+    f <- fixed_fit(lam)
+    if (!is.null(f)) return(tag(f, lam, path))
+  }
+
+  ## 3. No finite free estimate at all: let the likelihood choose the edge.
+  f0 <- fixed_fit(0)
+  f1 <- fixed_fit(1)
+  if (is.null(f0) && is.null(f1)) return(NULL)
+  if (is.null(f1)) return(tag(f0, 0, "profiled"))
+  if (is.null(f0)) return(tag(f1, 1, "profiled"))
+  ll0 <- tryCatch(as.numeric(stats::logLik(f0)), error = function(e) -Inf)
+  ll1 <- tryCatch(as.numeric(stats::logLik(f1)), error = function(e) -Inf)
+  if (ll0 >= ll1) tag(f0, 0, "profiled") else tag(f1, 1, "profiled")
 }
 
 
