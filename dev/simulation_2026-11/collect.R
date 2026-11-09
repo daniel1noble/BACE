@@ -88,9 +88,16 @@ out(summary_runs,     "summary_runs.csv")
 ## STEP 7. The one check worth doing every time: the ORACLE arm sees the complete truth, so its
 ##         coverage must be about 0.95. If it is not, the assumed true slope is wrong and every
 ##         other arm's coverage is meaningless.
-orc <- summary_slopes[summary_slopes$arm == "oracle", ]
+orc  <- summary_slopes[summary_slopes$arm == "oracle", ]
+reps <- min(table(slopes$id[slopes$arm == "oracle"]))
 message("\noracle coverage (should be ~0.95): ",
-        paste(round(range(orc$covered), 3), collapse = " to "))
-if (any(orc$covered < 0.90 | orc$covered > 0.99))
-  warning("oracle coverage is off 0.95 in some scenarios -- check the assumed true slope before ",
-          "reading anything into the other arms.", call. = FALSE)
+        paste(round(range(orc$covered), 3), collapse = " to "),
+        "   [", reps, " replicates per scenario]")
+
+## Only worth checking once there are enough replicates to measure a proportion. At 1 replicate
+## coverage can only be 0 or 1, so the check would cry wolf on every rehearsal and train everyone
+## to ignore it. Monte Carlo SE of a 0.95 proportion is sqrt(.95 * .05 / reps), so 20 replicates
+## is about where the 0.90-0.99 band starts to mean anything.
+if (reps >= 20 && any(orc$covered < 0.90 | orc$covered > 0.99))
+  warning("oracle coverage is off 0.95 in some scenarios -- the assumed true slope is suspect, ",
+          "and until that is resolved no other arm's coverage means anything.", call. = FALSE)

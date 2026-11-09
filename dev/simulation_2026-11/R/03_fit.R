@@ -18,12 +18,30 @@
 
 #' Run BACE on one dataset.
 #'
+#' RESUMING. `checkpoint_dir` makes bace() save the convergence chain when it finishes and each
+#' final run as it completes, so an interrupted dataset picks up instead of starting over.
+#' Measured on a small fit: the resumed run took 5% of the time and gave an IDENTICAL result.
+#' It is worth having on a three-week campaign, where wall-time limits and node failures are
+#' ordinary -- at n = 500 a lost dataset is 2.2 hours of work.
+#'
+#' Two things to be clear about:
+#'   - It does NOT help with the two known BACE crashes. Those are deterministic: the same
+#'     scenario and seed fails the same way every time, so a resume just re-hits the bug.
+#'   - The checkpoint is BIG -- 51.6 MB even for a tiny fit, so much more at production settings.
+#'     54,000 of them cannot accumulate, so this function DELETES the directory on success. Only
+#'     interrupted datasets leave one behind, which is exactly what should be resumed.
+#'
+#' `seed` is passed whether or not checkpointing is on: resume requires it, and it makes every
+#' dataset exactly reproducible, which is worth having regardless.
+#'
 #' @param dataset   a simulate_dataset() result
 #' @param n_final   number of completed datasets (BACE's n_final; the M of multiple imputation)
 #' @param nitt,burnin,thin,runs  MCMC settings, passed straight through to bace()
+#' @param seed      makes the run reproducible, and is required for resuming
+#' @param checkpoint_dir  where to save progress, or NULL for none
 #' @return list(imputed = list of completed data frames, converged = BACE's verdict, wall_s)
 fit_bace <- function(dataset, n_final = 20L, nitt = 50000L, burnin = 10000L,
-                     thin = 25L, runs = 5L) {
+                     thin = 25L, runs = 5L, seed = 1L, checkpoint_dir = NULL) {
 
   ## STEP 1. One imputation model per trait: that trait on the left, every OTHER trait on the
   ##         right, plus `driver` and (where present) `aux`. The two helpers appear only on the
@@ -44,7 +62,8 @@ fit_bace <- function(dataset, n_final = 20L, nitt = 50000L, burnin = 10000L,
                     data           = d,
                     nitt = nitt, burnin = burnin, thin = thin, runs = runs,
                     n_final = n_final, n_cores = 1L,
-                    verbose = FALSE, skip_conv = TRUE)
+                    verbose = FALSE, skip_conv = TRUE,
+                    seed = seed, checkpoint_dir = checkpoint_dir)
   wall <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
 
   ## STEP 3. Take the completed datasets and let the fit go. Two fixes BACE's output needs:
@@ -60,6 +79,11 @@ fit_bace <- function(dataset, n_final = 20L, nitt = 50000L, burnin = 10000L,
   ## The per-cell 95% intervals (Rubin's t across the M imputations) are pulled out HERE, while
   ## the fit is still in scope, because step 4 must never be handed a 35 MB object.
   intervals <- tryCatch(BACE::get_imputation_intervals(fit), error = function(e) NULL)
+
+  ## The fit succeeded, so the checkpoint has done its job and must go -- at a few hundred MB
+  ## each, keeping them would fill the disk long before the campaign finished.
+  if (!is.null(checkpoint_dir) && dir.exists(checkpoint_dir))
+    unlink(checkpoint_dir, recursive = TRUE)
 
   list(imputed = imputed, intervals = intervals,
        converged = isTRUE(fit$converged), wall_s = wall)

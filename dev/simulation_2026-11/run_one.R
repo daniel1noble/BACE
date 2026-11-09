@@ -34,6 +34,10 @@ nitt    <- as.integer(arg("nitt", 50000L))
 burnin  <- as.integer(arg("burnin", 10000L))
 thin    <- as.integer(arg("thin", 25L))
 runs    <- as.integer(arg("runs", 5L))
+## Checkpointing is ON by default so an interrupted dataset resumes instead of restarting; it is
+## deleted as soon as the dataset succeeds. --no_checkpoint turns it off (e.g. on a disk too small
+## to hold one per concurrent job: budget a few hundred MB per core).
+use_ckpt <- !("--no_checkpoint" %in% a)
 
 here <- dirname(sub("--file=", "", grep("--file=", commandArgs(), value = TRUE)[1]))
 if (is.na(here) || !nzchar(here)) here <- "."
@@ -52,11 +56,21 @@ if (nrow(scenario) != 1L) stop("no such scenario: ", id, call. = FALSE)
 message(id, " seed ", seed)
 
 ## ---- 0. a dataset may fail, and that must not kill the job --------------------------------
-## A campaign of 54,000 datasets will hit rare failures: BACE 1.0.0 can crash in sim_bace()
-## (softmax overflow, issue #19) and in its convergence diagnostics (issue #20). A crashed job
-## writes nothing, so a silent gap appears in the results and the failure rate is invisible.
-## Instead every stage is wrapped: a failure is RECORDED and the dataset still writes its file.
-## The failure rate is then a number we report, not a hole we never notice.
+## A campaign of 54,000 datasets will hit failures, and two are known in BACE 1.0.0, both
+## reproduced on this grid:
+##   sim_bace()  "NA in probability vector" -- the softmax in mnom_liab2cat() overflows when the
+##               liabilities are large (exp(710) is Inf, and Inf/Inf is NaN). Hit 3 of 54
+##               scenarios, all at n = 500 with high signal and related traits.
+##   bace()      "zero-variance series" -- coda::geweke.diag() is called unguarded at
+##               R/model_functions.R:1635, where the same call is wrapped in tryCatch at
+##               R/phylo_signal_summary.R:850. Hit 2 of 54 scenarios.
+##
+## A crashed job writes nothing, so it leaves a silent gap and the failure rate is invisible.
+## Instead every stage is wrapped: a failure is RECORDED and the dataset still writes its file,
+## so the failure rate is a number we report rather than a hole nobody notices.
+##
+## Note these are DETERMINISTIC failures: the same scenario and seed fails the same way every
+## time, so re-running or resuming cannot help. Only fixing them in BACE will.
 fail <- function(stage, e) {
   message("FAILED at ", stage, ": ", conditionMessage(e))
   saveRDS(list(id = id, seed = seed, scenario = scenario, failed_at = stage,
@@ -78,8 +92,9 @@ oracle <- score_slope_single(dataset$truth, dataset$tree)
 cc     <- fit_complete_case(dataset)
 cc_slope <- if (cc$status == "scored") score_slope_single(cc$data, dataset$tree) else NULL
 
+ckpt <- if (use_ckpt) file.path(out_dir, "checkpoints", paste0(id, "_s", seed)) else NULL
 bace <- tryCatch(fit_bace(dataset, n_final = M, nitt = nitt, burnin = burnin,
-                          thin = thin, runs = runs),
+                          thin = thin, runs = runs, seed = seed, checkpoint_dir = ckpt),
                  error = function(e) fail("bace", e))
 bace_slope <- tryCatch(score_slope_bace(bace$imputed, dataset$tree), error = function(e) NULL)
 
