@@ -1,6 +1,45 @@
-# Project state (updated 2026-10-26)
+# Project state (updated 2026-11-09)
 
 Keep this current — it's the shared "where are we" so nobody re-derives it.
+
+## 2026-11-09: simulation campaign rebuilt for the new design
+
+Plan for co-authors: [plans/simulation-plan-2026-11.md](plans/simulation-plan-2026-11.md)
+— **awaiting Shinichi's approval**; it has four open decisions in its §8.
+Code: `dev/rubin_study_2026-09-26/code/` (start at its `README.md`, or run
+`Rscript code/walkthrough.R` for one dataset with every step printed).
+Lane suite **455 pass / 0 fail**.
+
+Design now: n ∈ {100, 500} × λ ∈ {0.3, 0.7, 0.9} × three information regimes
+(ρ_traits 0 / 0.5 / 0.5-plus-a-covariate-at-0.8) × {mcar, mar, clade},
+1000 reps = 54,000 datasets ≈ 72,000 core-hours ≈ 16 days on 200 cores.
+
+**Two silent failures found and fixed — worth remembering, both cost nothing
+to make and would have cost weeks:**
+1. **The installed BACE was not the repo's.** Repo at 1.0.0, R library still
+   at 0.1.0.9000 (built 2026-11-07). Everything ran on the old package and
+   looked entirely normal. `rubin_cell.R` and the launcher now refuse below
+   `BACE_MIN_VERSION`, and every result file records `bace_version`.
+2. **Two scenarios wrote the same filename.** The runner skips a dataset whose
+   `.rds` exists (that is what makes long runs resumable), so the "typical"
+   and "good covariate" regimes — identical but for the covariate — would have
+   collided and a third of the design would have been skipped silently.
+   Filenames now come from one function, `cell_tag()` in `rubin_lib.R`, with a
+   test over all 54 scenarios.
+
+**Three measured facts the manuscript should use:**
+- Complete-case survival: **MCAR 8%** (= 0.7⁷, so it fails by *attrition*, not
+  bias), **MAR ~14%**, **clade ~68%** (so clade is where the *bias* story is).
+- The realised covariate correlation scatters hugely — requested 0.8 gives
+  mean 0.799 but sd 0.096 over 300 datasets at n = 120; requested 0.3 gives
+  sd 0.222. Report it as a distribution, not as "0.8".
+- A single auxiliary at 0.8 with *all seven* traits is not positive definite:
+  the bound is r² < (1 + (K−1)ρ)/K, i.e. r < 0.756 at K = 7, ρ = 0.5.
+
+**Open, for Shinichi:** at n = 100, ~23% of the fixed effects in the *final*
+phase (the one that feeds inference) have effective sample size < 100. BACE
+1.0.0's new `final_nitt`/`final_thin` can address it. A ~20 core-hour pilot
+settles it against a 72,000 core-hour campaign — recommended before launch.
 
 ## Health
 - `devtools::test()` = **1418 pass / 0 fail / 0 skip** (~1.4 min; R 4.4.2,
