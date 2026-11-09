@@ -1630,14 +1630,25 @@
       var_diagnostics$autocorr_lag1[i] <- NA
       var_diagnostics$convergence[i] <- "Fixed"
     } else {
-      var_diagnostics$ess[i] <- coda::effectiveSize(param)
+      # Each diagnostic is guarded on its own: one that cannot be computed is reported as NA and
+      # never costs the run. A chain that never moved is the case that used to abort everything --
+      # coda::geweke.diag() calls stats::ar(), which stops with "zero-variance series", and the
+      # run died after the expensive fitting had already been paid for (GitHub #20). The same
+      # call is already wrapped this way in R/phylo_signal_summary.R.
+      #
+      # The isTRUE() tests below treat NA as "not ok", so a parameter whose diagnostics could not
+      # be computed is never reported as converged -- it is flagged, which is the right answer.
+      var_diagnostics$ess[i] <- tryCatch(coda::effectiveSize(param),
+                                         error = function(e) NA_real_)
 
-      geweke_result <- coda::geweke.diag(param)
-      var_diagnostics$geweke_z[i] <- geweke_result$z
-      var_diagnostics$geweke_pval[i] <- 2 * pnorm(-abs(geweke_result$z))
+      geweke_result <- tryCatch(coda::geweke.diag(param), error = function(e) NULL)
+      var_diagnostics$geweke_z[i] <- if (is.null(geweke_result)) NA_real_ else geweke_result$z
+      var_diagnostics$geweke_pval[i] <- if (is.null(geweke_result)) NA_real_ else
+        2 * pnorm(-abs(geweke_result$z))
 
-      acf_result <- stats::acf(param, lag.max = 1, plot = FALSE)
-      var_diagnostics$autocorr_lag1[i] <- acf_result$acf[2]
+      acf_result <- tryCatch(stats::acf(param, lag.max = 1, plot = FALSE),
+                             error = function(e) NULL)
+      var_diagnostics$autocorr_lag1[i] <- if (is.null(acf_result)) NA_real_ else acf_result$acf[2]
 
       # ESS > 200 adequate; Geweke p > 0.05 suggests convergence; |lag-1
       # autocorrelation| < 0.4 suggests acceptable mixing.

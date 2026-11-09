@@ -192,7 +192,13 @@ mnom_liab2cat <- function(liability, categories) {
   # Add column of zeros for reference category
   liab_full <- cbind(0, liability)
 
-  # Convert to probabilities via softmax
+  # Convert to probabilities via softmax.
+  # Subtract each row's maximum first. Softmax is invariant to adding a constant to every element
+  # of a row, so this changes nothing mathematically, but without it a liability above about 710
+  # overflows exp() to Inf, and Inf/Inf is NaN, which sample(prob = ) rejects with
+  # "NA in probability vector". Large liabilities arise whenever the response has several
+  # predictors with a strong phylogenetic effect (GitHub #19).
+  liab_full <- liab_full - apply(liab_full, 1, max)
   probs <- exp(liab_full) / rowSums(exp(liab_full))
 
   # Sample categories
