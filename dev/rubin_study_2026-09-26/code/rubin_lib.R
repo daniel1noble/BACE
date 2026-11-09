@@ -266,3 +266,30 @@ est_pgls_slope_fast <- function(df, tree, eig = NULL) {
   V <- f$s2 * solve(f$XtWX)
   list(estimate = f$beta[2, 1], variance = V[2, 2], df_com = n - 2, lambda_hat = lam, converged = TRUE)
 }
+
+#' The name of the result file for one dataset of the campaign.
+#'
+#' ONE definition, used by three places: rubin_cell.R (to decide what to write, and whether the
+#' dataset already exists and can be skipped), rubin_missing.R (to work out what has not been run
+#' yet), and the test suite (to check the two agree).
+#'
+#' EVERY SETTING THAT CHANGES THE RESULT MUST APPEAR IN THE NAME. If two different scenarios can
+#' produce the same filename, the second one is silently skipped as "already done" and simply
+#' never runs. That is not hypothetical: the 2026-11 design has a "typical" regime and a "good
+#' covariate" regime that share lambda, rho, n, M and seed and differ ONLY in the covariate, so
+#' without the covariate token they would collide.
+#'
+#' The covariate token is omitted entirely when there is no covariate, so every filename written
+#' before 2026-11 is unchanged and those results still resume correctly.
+#'
+#' @param lambda phylogenetic signal; rho trait-trait correlation; miss mechanism; frac target
+#'   missing fraction; n species; M imputations; seed; n_cov / rho_cov the auxiliary covariate
+#' @param smoke TRUE appends "_smoke" so rehearsal runs cannot be mistaken for real ones
+#' @return the file name, without a directory
+cell_tag <- function(lambda, rho, miss, frac, n, M, seed, n_cov = 0L, rho_cov = 0.8, smoke = FALSE) {
+  num <- function(x) format(as.numeric(x))      # "0.30" and 0.3 must give the same string
+  cov_tag <- if (as.integer(n_cov) > 0L) sprintf("_cov%d-%s", as.integer(n_cov), num(rho_cov)) else ""
+  sprintf("rubin_types_mixed_BM_l%s_r%s%s_%s%s_n%d_M%d_s%d%s",
+          num(lambda), num(rho), cov_tag, miss, num(frac), as.integer(n), as.integer(M),
+          as.integer(seed), if (isTRUE(smoke)) "_smoke" else "")
+}
