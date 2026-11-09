@@ -1,0 +1,22 @@
+Use case: scientific-educational, precise-object-edit.
+Edit target: the attached BACE workflow figure. This is a manuscript figure. Correct the scientific workflow in panels 3 and 4, preserving Ayumi's visual style. Keep the top two panels (1. Incomplete trait data + phylogeny; 2. Chained imputation) as close to unchanged as possible: same table, bird phylogeny, brown header bars, colours and plots. White opaque background. Clean typography, sharp legible labels. Maintain a near-square portrait composition and high resolution suitable for publication. Increase lower-panel height modestly if necessary for clear text.
+
+Critical scientific meaning:
+The final phase consists of m INDEPENDENT runs from the stabilised data, not a single shared fitted model generating all datasets. Within each run, repeat fresh per-trait model fits and posterior-predictive updates of missing values. Each run yields BOTH its retained final-sweep model fits AND its completed dataset. The default posterior pooling uses those exact retained fits; it never refits models to completed datasets. Fitting a chosen model to each completed dataset is a separate OPTIONAL downstream route.
+
+Panel 3, heading EXACT: "3. Final imputation: m independent runs"
+Replace the old shared posterior predictive curves and three dataset-only outputs with THREE clearly separate run boxes, horizontally aligned. Label them "Run 1", "Run 2", "Run m", with an ellipsis between runs 2 and m.
+Inside EACH box show a simple small repeating cycle:
+"Refit trait models" -> "Draw missing values" -> back to refit, with the loop label "Repeat sweeps".
+At the bottom of EACH run box, branch into TWO joint outputs: small terracotta/teal posterior-curve icons labelled "Retained fits" and a little completed trait-table icon labelled "Completed data". Use a plus sign between these outputs, not an arrow from the data to the models.
+Small clear shared caption within panel 3 EXACT: "Keep the final sweep's fits and data; observed values stay unchanged."
+A short additional label under panel 3's header can read "bace_final_imp()".
+
+Panel 4, heading EXACT: "4. Pooling and downstream analysis"
+Divide into TWO visually distinct routes of roughly equal widths.
+LEFT route heading EXACT: "Default: pool retained fits"
+Show three small magenta posterior curves labelled "Run 1", "Run 2", "Run m". Their arrows merge into a box labelled "Stack posterior draws", followed by one pooled magenta density. Include the function name "pool_posteriors()". The route starts from the RETAINED FITS from panel 3. Do NOT insert a new model-fitting step. No labels called Analysis 1 or Analysis 2.
+RIGHT route heading EXACT: "Optional: analyse completed data"
+Show small completed-dataset icons feeding a box "Fit chosen model to each dataset", then a box "Combine estimates and variances", and a small label "Rubin's rules". Include "with_imputations()" next to the model-fitting step and "pool_mi()" next to combination step. This route starts from the COMPLETED DATA from panel 3. Clearly keep it separate from the default route.
+Make arrows and labels unambiguous and avoid crossed connectors.
+Keep panel numbering 1,2,3,4; same brown header and border treatment, teal/terracotta traits, magenta pooled inference, familiar sparse scientific schematic appearance. All text must be spelled exactly. No new claims about guaranteed convergence, proper MI, speed or correctness. No watermark.

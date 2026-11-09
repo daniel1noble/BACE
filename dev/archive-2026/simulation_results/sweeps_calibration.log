@@ -1,0 +1,31 @@
+Sweeps calibration: reps=100 nspp=60 nitt=3000 n_final=15 k={1,2,3,5,8} cores=7
+Total wall time: 20.5 min; 200/200 replicate rows OK
+
+=== Sweeps calibration summary ===
+ mechanism sweeps   n slope_bias slope_cov95 ci_width   B_m sd_cell_y sd_cell_x
+       MAR      1 100      0.137        0.96    2.103 0.142     0.634     0.252
+       MAR      2 100      0.069        0.98    2.239 0.164     0.671     0.255
+       MAR      3 100      0.030        0.99    2.256 0.163     0.678     0.257
+       MAR      5 100      0.038        0.99    2.281 0.170     0.677     0.255
+       MAR      8 100      0.038        0.98    2.244 0.162     0.678     0.252
+      MCAR      1 100      0.109        0.96    2.077 0.126     0.599     0.246
+      MCAR      2 100      0.055        0.97    2.190 0.143     0.637     0.249
+      MCAR      3 100      0.053        0.97    2.242 0.157     0.645     0.252
+      MCAR      5 100      0.060        0.97    2.213 0.148     0.641     0.251
+      MCAR      8 100      0.047        0.97    2.172 0.142     0.640     0.252
+ joint_cor acc_cor_y wall_sec
+     0.291     0.706      4.6
+     0.286     0.712      5.8
+     0.266     0.721      7.1
+     0.265     0.722      9.8
+     0.287     0.712     13.7
+     0.281     0.773      4.6
+     0.272     0.769      5.8
+     0.286     0.771      7.1
+     0.274     0.769      9.8
+     0.286     0.779     13.7
+
+Read: k = 1 is the pre-fix behaviour; the shipped default must sit on 
+the k = max plateau for cov95, B_m and sd_cell, at acceptable wall_sec.
+
+Saved: dev/simulation_results/sweeps_calibration.rds
