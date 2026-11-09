@@ -9,18 +9,18 @@
 - [x] Problem 3 (cutpoint + final-phase diagnostics) — 8a34066
 - [x] NEWS.md, investigation note (.agents/investigation-2026-10.md),
       PR #15 reply draft (.agents/pr15-reply-draft.md — Dan to review/post)
-- [x] dev/15 sweeps calibration — DONE 2026-10-27 (20.5 min, 200/200 reps ok).
+- [x] dev/archive-2026/15 sweeps calibration — DONE 2026-10-27 (20.5 min, 200/200 reps ok).
       **Default sweeps = 3 confirmed**: matches the 8-pass reference on every
       metric at ~half its cost. The 1-pass arm measured the old bug — it
       biased the slope up ~15% of its true value (incoherent y–x pairs) and
       understated between-imputation spread. Numbers in
       .agents/investigation-2026-10.md; raw output
-      dev/simulation_results/sweeps_calibration.{rds,log} (gitignored)
-- [x] Study A re-run (dev/12, production config, same data seeds) — DONE
+      dev/archive-2026/simulation_results/sweeps_calibration.{rds,log} (gitignored)
+- [x] Study A re-run (dev/archive-2026/12, production config, same data seeds) — DONE
       2026-10-27: numerically identical to the 2026-08 run (max |Δ slope|
       ≈ 1e-8; 240/240 replicates ok). No regression; the sweeps auto-collapse
       on single-missing-variable data is confirmed empirically.
-- [x] dev/13 categorical cells re-run — DONE 2026-10-27 (1000 reps/cell,
+- [x] dev/archive-2026/13 categorical cells re-run — DONE 2026-10-27 (1000 reps/cell,
       same seeds; 60 min). vs stale 2026-08: accuracy 0.783→0.799 (MCAR),
       0.807→0.815 (MAR); balanced accuracy 0.635→0.651, 0.628→0.642 (~90%
       of the Bayes ceiling, from ~88%); prob-set coverage 0.984→0.99
@@ -50,8 +50,8 @@ silently give wrong or overconfident numbers, which is worse.
 
 BACE is not on CRAN yet. All fixes land before submission (CRAN stays on hold).
 
-Why our own simulations never caught problem 1: both existing studies (dev/12,
-dev/13) only ever made **one** trait (y) missing — and with a single missing trait
+Why our own simulations never caught problem 1: both existing studies (dev/archive-2026/12,
+dev/archive-2026/13) only ever made **one** trait (y) missing — and with a single missing trait
 the current code is actually exact. The problem only appears when two or more
 traits are missing together, which is Ayumi's real-data situation.
 
@@ -216,7 +216,7 @@ test (mocks alone could never have caught a naming drift).
   forbidden R override must error; final-phase prior option no longer hard-coded.
   Existing suites that test plumbing with several missing traits get `sweeps = 1`
   explicitly so the suite stays ~2 min.
-- **Calibration study** (new `dev/15_sweeps_calibration.R`): both traits 30%
+- **Calibration study** (new `dev/archive-2026/15_sweeps_calibration.R`): both traits 30%
   missing, MCAR and MAR, sweeps ∈ {1, 2, 3, 5, 8}; accept the default k if
   coverage ≥ 0.93 and within 0.01 of the k = 8 reference, between-imputation
   variance ≥ 85% of reference. The k = 1 column doubles as the published
@@ -234,7 +234,7 @@ test (mocks alone could never have caught a naming drift).
 - `R/bace_final_imp.R` (problems 1, 4; fallback; gelman unification)
 - `R/bace_imp.R`, `R/bace.R` (thread `priors`, `sweeps`, `seed`; unknown-arg warning)
 - `tests/testthat/` (new tests above; `sweeps = 1` in plumbing suites)
-- `dev/15_sweeps_calibration.R` (new), `dev/simulation_results/SIMULATION_REPORT.qmd`
+- `dev/archive-2026/15_sweeps_calibration.R` (new), `dev/archive-2026/simulation_results/SIMULATION_REPORT.qmd`
 - `NEWS.md`, `man/` (re-document), `vignettes/bace.qmd` (prior/uncertainty text),
   `.agents/` (plan copy, investigation note, roadmap/project-state updates)
 

@@ -84,7 +84,7 @@ t-interval specs match `ms/ms.qmd:308-330` and `rubin_lib.R:80-95` exactly.
 Accuracy and calibration come first, but BACE's runtime (22–28 h in the case
 studies) means **no feature may slow the default path, and every PR reports
 wall-time** on a fixed reference fixture (hook: the existing `benchmark.yml` /
-`sim-reference-benchmark.yml` GHA workflows and `dev/benchmark_engine.R`). Where
+`sim-reference-benchmark.yml` GHA workflows and `dev/archive-2026/benchmark_engine.R`). Where
 the time goes, measured: the final phase dominates (bird: 20 × 55–75 min final runs
 vs 2.5 h chained) — `n_final × sweeps × n_missing_vars` full MCMC fits. The levers
 that move hours are 4b/4d (chain sizing), 4c (parallelising the chained phase), and
@@ -275,7 +275,7 @@ either workflow. Pooled-BLUP caveat in roxygen and vignette.
      ~100 seeds at `n_final = 50` for 90% pass-when-true at a 10% margin (or ~35
      seeds at a 15% margin); per-seed noise reduced by estimating B from per-cell
      components where possible. Thresholds in the script header
-     (`dev/15_sweeps_calibration.R` template).
+     (`dev/archive-2026/15_sweeps_calibration.R` template).
   3. **Sweeps dose-response** (sweeps ∈ {1, 2, 3, 5, 10}, paired seeds):
      tree-group separation and B must plateau by sweeps = 3, else the default is
      raised for multiPhylo runs.
@@ -301,7 +301,7 @@ explicitly that Amelia overimputes *sequentially, one cell at a time*, while
 two diagnostics will not produce identical numbers. (The Amelia paper itself: "it
 cannot speak to the untestable assumption of MAR" — same framing.) MAR-style
 stress masking (mask probability depending on observed covariates; pattern in
-`dev/15_sweeps_calibration.R:14-16`) is the documented v2 extension.
+`dev/archive-2026/15_sweeps_calibration.R:14-16`) is the documented v2 extension.
 
 **Design decisions.**
 - **A fresh run on masked data, never mutation of an existing object** (pinned by
@@ -309,7 +309,7 @@ stress masking (mask probability depending on observed covariates; pattern in
   `missing_matrix` (`R/bace_imp.R:177-181`).
 - Masking: MCAR v1, `prop` per modelled variable, stratified for factors so no
   observed level empties (guard + **warning** — the dev masker silently skips
-  <10-cell variables, `dev/benchmark_engine.R:153`; the port warns). Never the
+  <10-cell variables, `dev/archive-2026/benchmark_engine.R:153`; the port warns). Never the
   cluster column; only variables with a formula. Per-rep mask seeds derived
   deterministically from `(seed, rep)` **outside** the pipeline call. If
   `seed = NULL` (and no checkpointing), mask seeds are drawn from the session RNG

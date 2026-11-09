@@ -65,7 +65,7 @@ factor(2)→binary(threshold), factor(≥3)→categorical(multinomial probit), o
 
 **Prediction core** `.predict_bace()` (`R/model_functions.R`): `sample=FALSE` → posterior
 mean/argmax; `sample=TRUE` → one posterior-predictive draw (K=1; median-of-3 was dropped —
-see `dev/benchmark_report_2026-04-19.md`).
+see `dev/archive-2026/benchmark_report_2026-04-19.md`).
 
 ## Repo layout
 
@@ -74,7 +74,7 @@ see `dev/benchmark_report_2026-04-19.md`).
 | `R/`, `tests/`, `man/`, `NAMESPACE`, `DESCRIPTION` | the package (tracked, shipped) |
 | `ms/`, `bib/` | manuscript + bibliography |
 | `dev/` | dev scripts, benchmarks, simulations (tracked; NOT built into the package) |
-| `dev/simulation_results/` | simulation report (`SIMULATION_REPORT.qmd`), figures, data |
+| `dev/simulation_2026-11/` | **the live simulation** — start at `dev/README.md` |
 | `.agents/` | **shared agent/onboarding knowledge** — start at `.agents/README.md` |
 | `CLAUDE.md` | Claude-Code entry (imports this file) |
 
@@ -92,7 +92,7 @@ see `dev/benchmark_report_2026-04-19.md`).
   re-runs with the fixed code + SIMULATION_REPORT before/after update; then Track B
   (competitor benchmark) and Track C (manuscript).
 - Full simulation write-up: [.agents/simulation-report.html](.agents/simulation-report.html)
-  (self-contained) / source `dev/simulation_results/SIMULATION_REPORT.qmd`.
+  (self-contained) / source `dev/archive-2026/simulation_results/SIMULATION_REPORT.qmd`.
 
 ## Where to look
 

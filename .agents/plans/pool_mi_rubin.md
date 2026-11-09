@@ -102,7 +102,7 @@ pool_mi(fits)
 - **Accepts MCMCglmm** (unlike pigauto). When fits are MCMCglmm and no extractors are
   given, default `coef_fun = function(f) colMeans(f$Sol)` and
   `vcov_fun = function(f) cov(f$Sol)` (posterior mean / posterior covariance of the
-  fixed effects; drop the `Species.` BLUP columns first, as in `dev/10`). Emit a
+  fixed effects; drop the `Species.` BLUP columns first, as in `dev/archive-2026/10`). Emit a
   one-time NOTE: "Rubin on posterior summaries is a normal approximation; for the exact
   Bayesian combiner use pool_posteriors(). Do not use pool_mi for variance components."
   For non-MCMCglmm fits, default to `stats::coef` / `stats::vcov`.
@@ -177,7 +177,7 @@ datasets often have small complete-data df where the Rubin-1987 df is badly bias
   estimates and SEs agreeing to O(1/M) at `n_final = 50`; (c) a guard test that
   Rubin-pooling a variance component is flagged/steered to stacking.
 - **Two-combiner validation (manuscript figure):** on the reference datasets
-  (`dev/09-11`), show `pool_mi` (Rubin) and `pool_posteriors` (stacking) coverage of
+  (`dev/archive-2026/09-11`), show `pool_mi` (Rubin) and `pool_posteriors` (stacking) coverage of
   known beta agree at `n_final = 50`, diverging by the expected O(1/M) at small M.
 
 ## 6. Scope

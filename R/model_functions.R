@@ -632,7 +632,7 @@
 					  # eps_i ~ N(0, sigma2_units_i) from that same iteration's VCV.
 					  # A SINGLE draw is used (K = 1). An earlier median-of-3 excursion
 					  # guard shrank the predictive variance and capped attainable
-					  # coverage at ~84%; see dev/benchmark_report_2026-04-19.md §3.1.
+					  # coverage at ~84%; see dev/archive-2026/benchmark_report_2026-04-19.md §3.1.
 					  # The K-loop / median below are no-ops at K = 1, kept as a hook.
 					  X   <- as.matrix(model$X)
 					  Sol <- as.matrix(model$Sol)

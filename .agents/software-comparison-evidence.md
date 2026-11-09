@@ -45,7 +45,7 @@ reflect between-imputation uncertainty.
   nominal: yes (multinomial probit; one-vs-rest optional)
 - evidence: this repository - `R/prep_functions.R` (`.detect_type`),
   `R/model_functions.R` (per-family prediction), `tests/` (1418 tests),
-  `dev/simulation_results/SIMULATION_REPORT.qmd` (all five types validated
+  `dev/archive-2026/simulation_results/SIMULATION_REPORT.qmd` (all five types validated
   under MCAR/MAR)
 
 

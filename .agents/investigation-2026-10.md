@@ -13,8 +13,8 @@ confirmed**, every line number she cited correct. The verification also found
 a fifth, worse bug she had not raised. Her results commit (b321ec3) and HEAD
 had identical R/ code, so all findings apply to her tutorial numbers.
 
-Key context for "how did our sims miss this": both existing studies (dev/12,
-dev/13) only ever made **one** variable (y) missing. With a single missing
+Key context for "how did our sims miss this": both existing studies (dev/archive-2026/12,
+dev/archive-2026/13) only ever made **one** variable (y) missing. With a single missing
 variable the pre-fix final phase is actually exact, so Study A's 0.949
 coverage was real — it just never tested the regime Ayumi hit (two traits
 missing together).
@@ -64,7 +64,7 @@ approximately-stationary draw, so they keep full burn-in but a 50-draw tail
 
 ## Validation campaign
 
-- `dev/15_sweeps_calibration.R` (new): BOTH x and y 30% missing, MCAR + MAR,
+- `dev/archive-2026/15_sweeps_calibration.R` (new): BOTH x and y 30% missing, MCAR + MAR,
   sweeps k in {1,2,3,5,8} paired within replicate (shared data + chained
   phase), 100 reps, n_final 15. Metrics: Rubin coverage/CI width (pool_mi,
   deliberately — understated B shows directly in T = W + (1+1/M)B),
@@ -74,13 +74,13 @@ approximately-stationary draw, so they keep full burn-in but a 50-draw tail
   conditions on the first's fresh draw; the real k=1 damage is pairing bias),
   accuracy, wall time. k=1 column = published quantification of the old bug.
   **Done 2026-10-27** → results below; raw output in
-  `dev/simulation_results/sweeps_calibration.{rds,log}` (currently gitignored).
+  `dev/archive-2026/simulation_results/sweeps_calibration.{rds,log}` (currently gitignored).
 - Study A re-run DONE 2026-10-27: numerically identical to the 2026-08 run
   (max |Δ slope| ≈ 1e-8; 240/240 ok) — no regression; the sweeps
   auto-collapse on y-only data confirmed empirically.
-- dev/13 categorical cells DONE 2026-10-27 (1000 reps/cell, same seeds as
+- dev/archive-2026/13 categorical cells DONE 2026-10-27 (1000 reps/cell, same seeds as
   2026-08; the stale cells are archived in
-  `dev/simulation_results/archive_2026-08_pre-oct-fixes/`). Fixed vs stale:
+  `dev/archive-2026/simulation_results/archive_2026-08_pre-oct-fixes/`). Fixed vs stale:
   accuracy 0.783→0.799 (MCAR), 0.807→0.815 (MAR); balanced accuracy
   0.635→0.651, 0.628→0.642 — ~90% of the 0.722/0.709 Bayes ceilings (from
   ~88%); prob-set 95% coverage 0.984→0.992/0.993 (the posterior-averaged

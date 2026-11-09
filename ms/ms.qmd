@@ -222,10 +222,33 @@ pool_mi(fits)
 #| label: sim-results-numbers
 #| echo: false
 #| include: false
-# All numbers quoted in this section (and in the two figure captions) are
-# computed here from the simulations aggregated tables, so they update if the
-# simulations are re-run and re-aggregated (dev/rubin_study_2026-09-26/).
-res_dir   <- "../dev/rubin_study_2026-09-26/results_2026-10"
+# All numbers quoted in this section (and in the two figure captions) are computed here from the
+# simulation's aggregated tables, so they update when the simulation is re-run and re-aggregated.
+#
+# Source: dev/simulation_2026-11/  (the campaign described in
+# .agents/plans/simulation-plan-2026-11.md). The previous campaign's tables are kept at
+# dev/archive-2026/rubin_study_2026-09-26/results_2026-10/ for reference.
+res_dir <- "../dev/simulation_2026-11/results"
+
+# Until the 2026-11 campaign has been run and aggregated, fall back to the superseded 2026-09/10
+# tables so the manuscript still builds -- but say so LOUDLY, every render, because a manuscript
+# quietly built on superseded numbers is the worst outcome of the two.
+need <- c("agg_cells.csv", "agg_disc.csv", "agg_down.csv", "oracle_floor.csv", "agg_failures.csv")
+sim_is_current <- all(file.exists(file.path(res_dir, need)))
+if (!sim_is_current) {
+  res_dir <- "../dev/archive-2026/rubin_study_2026-09-26/results_2026-10"
+  msg <- paste0(
+    "\n==============================================================================\n",
+    "  ms.qmd: the 2026-11 simulation has NOT been run/aggregated yet.\n",
+    "  Falling back to the SUPERSEDED 2026-09/10 tables. Every simulation number\n",
+    "  below is from the old campaign and must not be submitted as the new one.\n",
+    "  To fix: run dev/simulation_2026-11/, then aggregate into\n",
+    "          dev/simulation_2026-11/results/\n",
+    "==============================================================================\n")
+  message(msg); warning(msg, call. = FALSE)
+}
+stopifnot(all(file.exists(file.path(res_dir, need))))
+
 agg_cells <- read.csv(file.path(res_dir, "agg_cells.csv"))
 agg_disc  <- read.csv(file.path(res_dir, "agg_disc.csv"))
 agg_down  <- read.csv(file.path(res_dir, "agg_down.csv"))
@@ -458,7 +481,7 @@ p_dcov <- ggplot(dn, aes(n_f, coverage, colour = lam, shape = estimand,
 #| label: tbl-studyb
 #| eval: false
 # TODO(analysis): build the Study B summary table from
-# dev/simulation_results/response_type_per_rep.csv (per-rep metrics).
+# dev/archive-2026/simulation_results/response_type_per_rep.csv (per-rep metrics).
 ```
 
 

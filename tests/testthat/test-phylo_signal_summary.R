@@ -364,7 +364,7 @@ test_that("gaussian dual RE produces valid H2 and R_species decomposition", {
   skip_if(Sys.getenv("BACE_SKIP_SLOW") == "true")
   # NOTE: strict numerical recovery for dual RE needs n_species >> 40 to
   # identify phylo-vs-non-phylo species variance. That belongs in
-  # dev/validate_phylo_signal_summary.R. Here we only check that the
+  # dev/archive-2026/validate_phylo_signal_summary.R. Here we only check that the
   # machinery runs and returns a valid variance decomposition.
   tr <- .mk_ultrametric_tree(40, seed = 7)
   d <- .mk_dual_re_data(tr, H2 = 0.5, R_sp = 0.3, reps = 4, seed = 7)

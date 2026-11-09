@@ -6,7 +6,7 @@ wrong, and what was changed. Investigated by four independent agent
 investigations with adversarial verification; every load-bearing claim below
 was reproduced on the actual failing replicates (exact seeds) or verified by
 direct code reading. Archived pre-fix outputs:
-`dev/simulation_results/archive_2026-07_prebugfix/`.
+`dev/archive-2026/simulation_results/archive_2026-07_prebugfix/`.
 
 ## Root causes (ranked by impact)
 
@@ -31,7 +31,7 @@ covers at most ~0.845 at m=15 **even for a perfectly calibrated imputer**
 (order stats: the [min,max] of m draws covers (m−1)/(m+1)). Poisson MCAR
 (0.880) was already *at* its ceiling. The discrete "95% set" from 15 draws
 degenerates to the full draw support (0.95 unreachable at 1/15 resolution), so
-binary/ordinal's "good" coverage was partly granularity-inflated. Fix (dev/13
+binary/ordinal's "good" coverage was partly granularity-inflated. Fix (dev/archive-2026/13
 v3): added `cover95_t` (mean ± t·sd·√(1+1/m), not ceiling-capped), prob-based
 discrete sets from the models' averaged probability matrices, and
 Spearman/log1p recovery for poisson (Pearson-on-raw-counts is tail-dominated).
@@ -63,13 +63,13 @@ working prior alpha.V=1 (SD~1 on the log scale, not SD~100).
 The sim DGP was **degenerate**: all K−1 multinomial liabilities shared one
 linear predictor and one set of random draws, differing only by intercepts
 (±0.25), so class-probability ratios were constant across observations and one
-class could never be the Bayes argmax; dev/13 additionally gave categorical
+class could never be the Bayes argmax; dev/archive-2026/13 additionally gave categorical
 random weak betas (`runif(−0.5, 0.5)`) instead of the strong known slopes every
 other type got. **Bayes balanced-accuracy ceiling ≈ 0.50; observed 0.43–0.46
 was near-optimal.** Fixes: `sim_bace` gained `beta_resp_liab` (per-liability
 slopes) + independent per-liability phylo/species/residual draws + returns
 `response_probs` (true class probabilities) so studies can report the ceiling;
-dev/13 now uses strong per-liability betas and records per-rep
+dev/archive-2026/13 now uses strong per-liability betas and records per-rep
 `bayes_bal_acc`. Separately, the OVR default was genuinely miscalibrated in
 the 1-obs-per-species regime (quasi-separation, exploding phylo variance,
 incoherent normalized probabilities) — **`ovr_categorical` default flipped to

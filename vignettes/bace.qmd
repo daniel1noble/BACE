@@ -833,7 +833,7 @@ half the mean-filling baseline of 1) with interval coverage near 0.95. The
 same call handles categorical responses (swap `response_type =
 "multinomial3"`), reporting accuracy and Brier score instead.
 
-Across the full 20-replicate sweep at default `n_final = 50` settings (see `dev/sim_accuracy_multirep.R`), BACE is significantly better than the no-skill baseline on every response type (paired Wilcoxon p < 0.05). (That sweep scored intervals with raw empirical quantiles, which undercover by design — about 85–92% there; use `get_imputation_intervals()` for the calibrated t-based intervals.)
+Across the full 20-replicate sweep at default `n_final = 50` settings (see `dev/archive-2026/sim_accuracy_multirep.R`), BACE is significantly better than the no-skill baseline on every response type (paired Wilcoxon p < 0.05). (That sweep scored intervals with raw empirical quantiles, which undercover by design — about 85–92% there; use `get_imputation_intervals()` for the calibrated t-based intervals.)
 
 | response type   | BACE metric           | baseline | n_reps | paired p   |
 |-----------------|-----------------------|----------|--------|------------|
@@ -843,7 +843,7 @@ Across the full 20-replicate sweep at default `n_final = 50` settings (see `dev/
 | categorical K=3 | balanced acc 0.43     | 0.33     | 20     | <2e-3      |
 | ordinal K=4     | mae_level 0.22        | 0.63     | 20     | <1e-4      |
 
-The `dev/sim_accuracy_results/multirep_v1_n20/` directory of the package source contains the per-replicate CSVs and aggregated summary used to build this table.
+The `dev/archive-2026/sim_accuracy_results/multirep_v1_n20/` directory of the package source contains the per-replicate CSVs and aggregated summary used to build this table.
 
 {{< include amphibian_ctmax/_amphibian_ctmax.qmd >}}
 

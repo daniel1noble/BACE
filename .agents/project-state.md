@@ -6,7 +6,7 @@ Keep this current — it's the shared "where are we" so nobody re-derives it.
 
 Plan for co-authors: [plans/simulation-plan-2026-11.md](plans/simulation-plan-2026-11.md)
 — **awaiting Shinichi's approval**; it has four open decisions in its §8.
-Code: `dev/rubin_study_2026-09-26/code/` (start at its `README.md`, or run
+Code: `dev/archive-2026/rubin_study_2026-09-26/code/` (start at its `README.md`, or run
 `Rscript code/walkthrough.R` for one dataset with every step printed).
 Lane suite **455 pass / 0 fail**.
 
@@ -65,7 +65,7 @@ confirmed **all four** and found a fifth. Full write-up:
 4. Diagnostics never covered cutpoints or final-phase models → they do now
    (`bace_final$diagnostics`).
 5. Priors now user-settable per variable (`priors=`); defaults unchanged.
-Sweeps calibration (dev/15) DONE 2026-10-27: **default sweeps = 3 confirmed**
+Sweeps calibration (dev/archive-2026/15) DONE 2026-10-27: **default sweeps = 3 confirmed**
 (matches the 8-pass reference on every metric at ~half the cost); the 1-pass
 arm quantified the old bug — slope biased up ~15% of truth via incoherent
 y–x pairs, between-imputation spread understated ~13–20% (full table in
@@ -73,7 +73,7 @@ investigation-2026-10.md). Study A re-run DONE 2026-10-27: numerically
 identical to the 2026-08 run (max |Δ slope| ≈ 1e-8; 240/240 ok) — no
 regression, auto-collapse confirmed on the y-only path. R CMD check --as-cran
 PASSED 2026-10-27 (only the "New submission" NOTE + coveralls-badge 403 false
-positive). dev/13 categorical cells DONE 2026-10-27 (numbers above).
+positive). dev/archive-2026/13 categorical cells DONE 2026-10-27 (numbers above).
 **Whole 2026-10 validation campaign COMPLETE (2026-10-27):** calibration,
 Study A, categorical cells, SIMULATION_REPORT, R CMD check, tutorial
 re-render + publish (render now ~7 min — vectorised prediction removed the
@@ -82,7 +82,7 @@ old 1.5 h bottleneck; bib restored after reference-manager overwrites, see
 pending). CRAN submission remains ON HOLD until Dan posts the PR #15 reply
 and gives the go.
 
-**2026-10-27, Shinichi's Rubin study imported:** `dev/rubin_study_2026-09-26/`
+**2026-10-27, Shinichi's Rubin study imported:** `dev/archive-2026/rubin_study_2026-09-26/`
 — BACE vs frequentist MI, 18 scenarios (n 100/300/1000 × λ 0.3/0.7/1 ×
 ρ 0/0.5, 200 datasets/cell, M=20), continuous + discrete (threshold) traits;
 entry point `report/study.html`; code/records/pages included; raw 1.4 GB rds
@@ -123,7 +123,7 @@ is accuracy / low bias / nominal coverage for Current BACE across the full
 grid, not a competitor race (freq arms remain one `ARMS=` env away; the
 castor Table-1-row question is moot). Pilot on this Mac: 72 cells = all 18
 scenarios × 5/5/2 seeds (n=100/300/1000), CORES=7, output
-`dev/rubin_study_2026-09-26/results_2026-10/` (git-tracked since dd05d7b,
+`dev/archive-2026/rubin_study_2026-09-26/results_2026-10/` (git-tracked since dd05d7b,
 2026-10-28 — Dan committed the pilot rds/logs/flat tables himself; commit new
 cells with the same pattern as the campaign progresses). **n=100 tier early read (30/30 cells, zero errors, zero
 fit failures):** per-value 95% coverage 0.93–0.97 for every trait × λ;
@@ -270,7 +270,7 @@ impute nominal; only smcfcs (single-level), JointAI (no phylogeny) and hmi
   non-negative-integer → poisson type rule.
 - **Simulation machinery**: `sim_bace` non-degenerate multinomial DGP
   (`beta_resp_liab` per-liability slopes, independent per-liability random
-  draws, returns `response_probs` for Bayes-ceiling reporting); dev/13 v3
+  draws, returns `response_probs` for Bayes-ceiling reporting); dev/archive-2026/13 v3
   metrics separating model calibration from finite-draw artifacts
   (`cover95_t`, prob-based discrete sets, Spearman/log recovery,
   per-rep `bayes_bal_acc`).
@@ -282,7 +282,7 @@ impute nominal; only smcfcs (single-level), JointAI (no phylogeny) and hmi
 Study B = 9,997/10,000 replicates ok, 5.3 h wallclock. Same seeds/config as the
 2026-07 run, so differences are pure fix effect. Report re-rendered
 (`simulation-report.html`); pre-fix archive in
-`dev/simulation_results/archive_2026-07_prebugfix/`.
+`dev/archive-2026/simulation_results/archive_2026-07_prebugfix/`.
 
 | Type | Recovery pre→post | Cover(q) pre→post (ceiling 0.845) | Cover t/prob (target .95) |
 |---|---|---|---|
@@ -421,7 +421,7 @@ Methods now distinguish five fixed initial passes from confirmed convergence:
 passes use 11,250 iterations; the retained pass uses 50,000 (10,000 burn-in,
 thinning 25). Scoring definitions now match `code/rubin_lib.R`,
 `code/rubin_cell.R` and `code/rubin_discrete.R` under
-`dev/rubin_study_2026-09-26/`. Both slope and correlation attenuate at λ=1, ρ=0.5.
+`dev/archive-2026/rubin_study_2026-09-26/`. Both slope and correlation attenuate at λ=1, ρ=0.5.
 No simulation results or package code were changed.
 
 ## 2026-11-05: performance-measure definitions clarified
@@ -563,7 +563,7 @@ adversarially reviewed twice; feature 1 + its 4a prerequisite now LANDED).
 
 ## 2026-11-07 (later): multiPhylo gate study run — leakage REFUTED, plateau not yet shown
 
-`dev/16_multiphylo_gate.R` -> `dev/simulation_results/multiphylo_gate/`
+`dev/archive-2026/16_multiphylo_gate.R` -> `dev/archive-2026/simulation_results/multiphylo_gate/`
 (committed 87089b0). 100/100 seeds, ~1 min/seed, pre-registered verdicts:
 
 - **A1 (primary, the feared anti-conservative deflation): PASS by a wide
@@ -621,7 +621,7 @@ accuracy). New `R/bace_validate.R`:
   replicated species and pre-existing NAs; calibrated-imputer coverage sim
   0.92-0.98 band; mask bookkeeping + RNG restore). Full suite **1581 pass /
   0 fail**; `R CMD check --as-cran` **0/0/0** (one roxygen-markdown bracket
-  autolink fixed). dev/17_validate_metric_gates.R at realistic scale (60 sp,
+  autolink fixed). dev/archive-2026/17_validate_metric_gates.R at realistic scale (60 sp,
   prop 0.3, 5 reps/type): **ALL PASS** (gaussian zRMSE well under baseline,
   coverage in band; categorical accuracy 0.57 > 0.53 baseline).
 - Vignette benchmarking section rewritten around bace_validate(); function

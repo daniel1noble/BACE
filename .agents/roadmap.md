@@ -22,7 +22,7 @@ pre-release fixes, all landed (see
 [investigation-2026-10.md](investigation-2026-10.md) for evidence). Sweeps
 calibration done 2026-10-27: default sweeps = 3 confirmed; the 1-pass arm
 quantified the old bug (slope biased up ~15%, spread understated). Remaining
-before CRAN: Study A no-regression re-run, dev/13 categorical cells (the
+before CRAN: Study A no-regression re-run, dev/archive-2026/13 categorical cells (the
 2026-08 categorical numbers are stale — produced with phylogeny silently
 off), SIMULATION_REPORT update, R CMD check, tutorial re-render, tarball +
 win-builder re-run. Track B/C items below resume after that. Suite: 1418/0.
@@ -116,7 +116,7 @@ pipeline before spending compute on it (Track B). Full suite after: 1274 pass /
   why it must never be TRUE (two-phase invariant).
 - [x] **A3. Determinism regression tests** (`tests/testthat/test-track-a-hardening.R`):
   `.predict_bace(sample=FALSE)` identical across calls (no RNG); `sample=TRUE` varies.
-- [x] **A4. Aligned oracle-comparator prior** in `dev/10` to BACE's own gaussian prior
+- [x] **A4. Aligned oracle-comparator prior** in `dev/archive-2026/10` to BACE's own gaussian prior
   (R nu=2 + Gelman par-expanded G) so `ci_width_ratio` is apples-to-apples.
 - [x] **A5. Stacking-variance test** — `pool_posteriors()` coefficient variance =
   within + between (mixture identity), validating it propagates imputation uncertainty.
@@ -124,7 +124,7 @@ pipeline before spending compute on it (Track B). Full suite after: 1274 pass /
 
 ## Track B — Run the evidence base  (compute-heavy; the manuscript's Performance section)
 
-- [ ] **B1. Local smoke run** of `dev/10` (1-2 reps) to confirm the Track-A-fixed
+- [ ] **B1. Local smoke run** of `dev/archive-2026/10` (1-2 reps) to confirm the Track-A-fixed
   pipeline end-to-end before committing hours of MCMC.
 - [ ] **B2. Production reference-benchmark run** (sim_ideal/typical/heterogeneous/hard,
   180 reps) via the GitHub Actions `sim-reference-benchmark` workflow or overnight
@@ -173,17 +173,17 @@ Model-agnostic MI layer + free choice of combiner. Plan: `.agents/plans/pool_mi_
 
 ## Recovery simulation — parameter + value recovery under MCAR and MAR
 
-`dev/12_recovery_simulation.R` (env-var scaled; smoke defaults tiny). Uses the Track D
+`dev/archive-2026/12_recovery_simulation.R` (env-var scaled; smoke defaults tiny). Uses the Track D
 pathway: bace_imp -> bace_final_imp -> with_imputations(gls) -> pool_mi(). Compares
 oracle / complete-case / BACE on slope recovery (bias, 95% coverage), marginal-mean
 recovery (the MAR signature), and hidden-cell correlation.
 
 DONE 2026-07-11 — two production studies, full report in
-`dev/simulation_results/SIMULATION_REPORT.qmd`:
-- **Study A** (dev/12, 40 reps, gaussian, known b1): BACE slope 95% coverage 0.925 (MAR)
+`dev/archive-2026/simulation_results/SIMULATION_REPORT.qmd`:
+- **Study A** (dev/archive-2026/12, 40 reps, gaussian, known b1): BACE slope 95% coverage 0.925 (MAR)
   / 1.00 (MCAR) = nominal; slope bias equals the oracle's (unbiased vs full data); under
   MAR complete-case mean bias -0.26 vs BACE +0.005 (MI corrects MAR selection).
-- **Study B** (dev/13, 300 datasets, 5 response types x MCAR/MAR x 30 reps, 0 failures,
+- **Study B** (dev/archive-2026/13, 300 datasets, 5 response types x MCAR/MAR x 30 reps, 0 failures,
   18.2 min): recovery stable across MCAR/MAR. Ranking ordinal (acc 0.82, ord_mae 0.17) >
   binary (0.63) > gaussian/poisson (cor ~0.4) > **categorical (bal-acc 0.35-0.39, near
   chance — FLAGGED)**. Timing 15-18 s/run except categorical ~42 s. Cell-level PI
@@ -191,7 +191,7 @@ DONE 2026-07-11 — two production studies, full report in
 - [x] **Follow-up: categorical sub-study** — RESOLVED by the 2026-08
   investigation: it was a DGP artifact (degenerate shared-liability multinomial
   DGP + silently weak random betas; Bayes ceiling ≈ 0.50, so 0.43–0.46 was
-  near-optimal). DGP de-degenerated (`beta_resp_liab`), dev/13 now reports the
+  near-optimal). DGP de-degenerated (`beta_resp_liab`), dev/archive-2026/13 now reports the
   per-rep Bayes ceiling, AND the OVR default was genuinely miscalibrated —
   flipped to true multinomial (better calibrated, ~2.6× faster).
 - [ ] Optional: larger-n runs for tighter cell-PI coverage.
@@ -212,9 +212,9 @@ DONE 2026-07-11 — two production studies, full report in
   (`Species` column, type-detection rules, `ovr_categorical`, `n_final`), new
   Rubin's-rules section (`with_imputations()` + `pool_mi()`), 8 missing bib
   entries added. Details in project-state.md.
-- Coverage-calibration investigation + fix (`dev/benchmark_report_2026-04-19.md`).
-- Reference-dataset generation pipeline (`dev/09`) + eval/aggregate scripts (`dev/10`,
-  `dev/11`) + sharded GHA workflow. Datasets on disk (180 reps).
+- Coverage-calibration investigation + fix (`dev/archive-2026/benchmark_report_2026-04-19.md`).
+- Reference-dataset generation pipeline (`dev/archive-2026/09`) + eval/aggregate scripts (`dev/archive-2026/10`,
+  `dev/archive-2026/11`) + sharded GHA workflow. Datasets on disk (180 reps).
 - `phylo_signal_summary()` (branch `feature/phylo-signal-summary`; tested).
 - `sim_bace()` simulation engine; OVR categorical; `nitt_cat_mult`; posterior-
   predictive final imputation; parallel final runs; accessors.
