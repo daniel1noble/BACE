@@ -7,14 +7,18 @@
 # At rho = 0 the truth is 0 by symmetry; it is estimated anyway as a check. Datasets whose bin has one class in the
 # complete data are left out, as in the campaign scoring.
 #
-# Usage: Rscript script/rubin_discrete_truth.R --n 100,300 --lambda 0.3,0.7,1 --rho 0,0.5 --R 2000 --cores 4 \
+# Usage: Rscript script/rubin_discrete_truth.R --n 100,500 --lambda 0.3,0.7,0.9 --rho 0,0.5 --R 2000 --cores 4 \
 #          --out script/rubin_study/data/discrete/truth_slope_c1_bin.csv
 suppressPackageStartupMessages({ library(ape) })
 RNGkind("L'Ecuyer-CMRG")
 args <- commandArgs(trailingOnly = TRUE)
 get_arg <- function(flag, default) { i <- match(flag, args); if (is.na(i)) default else args[i + 1L] }
 num <- function(x) as.numeric(strsplit(x, ",")[[1]])
-ns <- num(get_arg("--n", "100,300")); lams <- num(get_arg("--lambda", "0.3,0.7,1")); rhos <- num(get_arg("--rho", "0,0.5"))
+# Defaults follow the 2026-11 campaign grid (.agents/plans/simulation-plan-2026-11.md). They are
+# only defaults -- every one can be overridden on the command line -- but a stale default here
+# silently produces a truth table with no row for the cells being scored, and the scoring then has
+# nothing to compare against.
+ns <- num(get_arg("--n", "100,500")); lams <- num(get_arg("--lambda", "0.3,0.7,0.9")); rhos <- num(get_arg("--rho", "0,0.5"))
 R <- as.integer(get_arg("--R", "2000")); cores <- as.integer(get_arg("--cores", "4"))
 out <- get_arg("--out", file.path("script", "rubin_study", "data", "discrete", "truth_slope_c1_bin.csv"))
 

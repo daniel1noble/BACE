@@ -32,7 +32,12 @@ source(file.path("code", "campaign_gnn_off_lib.R"))   # phylo_corr()
 a <- commandArgs(trailingOnly = TRUE)
 out_csv <- if (length(a) >= 1) a[1] else "results_2026-10/oracle_floor.csv"
 
-NS <- c(100L, 300L, 1000L); LAMBDAS <- c(0.3, 0.7, 1); RHOS <- c(0, 0.5)
+# The grid these reference lines are computed on MUST match the campaign's grid. If it does not,
+# the floor/ceiling lines are simply absent at the missing n or lambda and the figure panel loses
+# them silently -- ggplot drops unmatched rows with at most a warning.
+# 2026-11 design (.agents/plans/simulation-plan-2026-11.md): n = 100, 500; lambda = 0.3, 0.7, 0.9;
+# rho = 0 and 0.5 (the three information regimes use only these two trait-trait values).
+NS <- c(100L, 500L); LAMBDAS <- c(0.3, 0.7, 0.9); RHOS <- c(0, 0.5)
 TREES <- 4L; MASKS <- 2L; MISS <- 0.3; K <- 8L; DRIVER <- 8L
 A_CNT <- 1.5; B_CNT <- 0.8; SD_PRP_ERR <- 0.3
 set.seed(20261105)
