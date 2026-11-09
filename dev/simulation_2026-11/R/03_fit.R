@@ -43,7 +43,7 @@
 #' @param checkpoint_dir  where to save progress, or NULL for none
 #' @return list(imputed = list of completed data frames, converged = BACE's verdict, wall_s)
 fit_bace <- function(dataset, n_final = 20L, nitt = 50000L, burnin = 10000L,
-                     thin = 25L, runs = 5L, seed = 1L, checkpoint_dir = NULL,
+                     thin = 25L, runs = 7L, seed = 1L, checkpoint_dir = NULL,
                      final_nitt = NULL, final_burnin = NULL, final_thin = NULL) {
 
   ## STEP 1. One imputation model per trait: that trait on the left, every OTHER trait on the

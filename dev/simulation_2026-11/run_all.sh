@@ -19,7 +19,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 CORES="${CORES:-7}"
 REPS="${REPS:-1000}"
 OUT="${OUT:-$HERE/results}"
-M="${M:-20}"; NITT="${NITT:-50000}"; BURNIN="${BURNIN:-10000}"; THIN="${THIN:-25}"; RUNS="${RUNS:-5}"
+M="${M:-20}"; NITT="${NITT:-50000}"; BURNIN="${BURNIN:-10000}"; THIN="${THIN:-25}"; RUNS="${RUNS:-7}"
 # The final runs reuse the chained-phase chain unless these are set (the chain-length pilot
 # found no measurable gain from longer final chains, so the default is the cheap one).
 FINAL=""

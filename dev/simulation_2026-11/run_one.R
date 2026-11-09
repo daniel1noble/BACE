@@ -35,7 +35,11 @@ M       <- as.integer(arg("M", 20L))
 nitt    <- as.integer(arg("nitt", 50000L))
 burnin  <- as.integer(arg("burnin", 10000L))
 thin    <- as.integer(arg("thin", 25L))
-runs    <- as.integer(arg("runs", 5L))
+## 7, not 5: after the stability check discards the warm-up half, 5 chained
+## runs leave only 4 points, and detecting a flip-flop needs 5. At runs = 7 the
+## full battery (drift, flip-flop, spread collapse/divergence) can run, for a
+## measured 6% more compute (21.5 -> 22.7 min at n = 100).
+runs    <- as.integer(arg("runs", 7L))
 ## The final imputation runs may have their own, usually longer, chains. NULL = reuse the
 ## chained-phase settings. The two real case studies both split them: amphibian_ctmax runs
 ## nitt 15000 chained with final_nitt 105000, bird_social nitt 50000 with final_nitt 500000.

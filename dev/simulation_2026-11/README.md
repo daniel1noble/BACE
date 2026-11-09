@@ -89,6 +89,11 @@ realised observed-scale lambda.
 correlation than its own value: slope 0.5 gave r = 0.45 and slope 0.8 gave r = 0.62 over 25
 datasets at n = 200. Every dataset records its own realised correlation.
 
+The campaign runs **7 chained passes** (`runs = 7`), not 5. The stability check
+discards the first half of the chain as warm-up, so 5 runs leave only 4 points —
+one short of what testing for flip-flopping between runs needs. Seven turns the
+full battery on for a measured 6% more compute.
+
 `bace_converged` and `bace_conv_detail` record BACE 1.0.1's **stability check**: per-variable
 verdicts naming what it found — `ok`, `drift` (still travelling; the one problem more runs can
 cure), `oscillation` (variables flip-flopping in step), `stuck` (imputation spread collapsing) —

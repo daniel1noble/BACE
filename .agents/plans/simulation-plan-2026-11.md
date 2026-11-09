@@ -611,6 +611,17 @@ arXiv:2110.11951). **Decision: the campaign keeps nitt 50,000 for both phases
 (final_* unset).** The launcher has `FINAL_NITT`/`FINAL_BURNIN`/`FINAL_THIN`
 hooks should we ever want them.
 
+**Related decision, 2026-11-10: chained `runs` raised from 5 to 7.** Not about
+chain length but about what the stability check can see. It discards the first
+half of the chained runs as warm-up, so `runs = 5` leaves four points — enough
+to test for drift and for a collapsing spread, but one short of the five needed
+to test for flip-flopping between runs. Since flip-flopping is a pathology we
+have actually observed in these data (2 of 18 real harvested chain-series showed
+alternating structure), running a 54,000-dataset campaign that cannot screen for
+it is not defensible. `runs = 7` turns the full battery on for a **measured 6%**
+(21.5 → 22.7 min at n = 100; marginal cost 0.61 min per extra chained run), i.e.
+roughly one extra day on a 16.5-day campaign.
+
 So about a quarter of the parameters in the models that produce the published
 numbers are poorly mixed at n = 100 — and n = 100 is half of this design.
 
