@@ -173,12 +173,40 @@ datasets often have small complete-data df where the Rubin-1987 df is badly bias
   positive SE.
 - **Bayesian fits:** (a) `pool_mi()` on a `bace_mi_fits` of MCMCglmm reproduces a
   hand-computed Rubin table from `colMeans(Sol)` / `diag(cov(Sol))`; (b) the same fits
-  fed to `pool_posteriors()` (stacking) vs `pool_mi()` (Rubin) give fixed-effect point
-  estimates and SEs agreeing to O(1/M) at `n_final = 50`; (c) a guard test that
-  Rubin-pooling a variance component is flagged/steered to stacking.
+  fed to `pool_posteriors()` (stacking) vs `pool_mi()` (Rubin) — **written 2026-11-10,
+  `tests/testthat/test-pool_mi.R`**, and the measured answer corrects what this section
+  predicted; (c) a guard test that Rubin-pooling a variance component is
+  flagged/steered to stacking.
+
+  **Measured, 2026-11-10** (8 datasets at M = 20; M in {5, 10, 20, 50}):
+
+  | | stacking vs Rubin |
+  |---|---|
+  | point estimate | **identical to machine precision** (5.6e-17) at every M, every seed |
+  | standard error | agree to **0.07 per cent** |
+  | interval width | stacking **consistently wider**: +2.5% mean, +0.4% to +7.1%, 8/8 |
+
+  The point-estimate identity is arithmetic, not approximate: the mean of the stacked
+  draws equals the mean of the per-chain means exactly when every chain has the same
+  number of draws, which BACE guarantees by construction. The test pins both the
+  identity and that precondition.
+
+  **The width gap is NOT O(1/M) and does not close.** It is about 7% at M = 5 and about
+  7% at M = 50. This section's expectation that the two "diverge by the expected O(1/M)
+  at small M" is wrong for intervals: the difference is not Monte-Carlo error. Stacking
+  takes the 2.5% and 97.5% points of the actual posterior; Rubin builds a symmetric
+  t-interval around the estimate. Any departure from normality in the posterior shows up
+  as a width difference however many imputations are used. Wider is the conservative
+  direction, so this is not a defect — but it should be described as a shape difference,
+  not as a convergence rate.
 - **Two-combiner validation (manuscript figure):** on the reference datasets
   (`dev/archive-2026/09-11`), show `pool_mi` (Rubin) and `pool_posteriors` (stacking) coverage of
-  known beta agree at `n_final = 50`, diverging by the expected O(1/M) at small M.
+  known beta. **Still open.** The point estimate and SE are now settled (above), but
+  COVERAGE is not: 8 datasets gave 0.75 for stacking against 0.88 for Rubin, which is a
+  single dataset's difference and means nothing. A real answer needs hundreds of
+  replicates. Cheapest route: the 2026-11 campaign already computes the pooled model and
+  discards it, so scoring its slope as a fourth arm would answer this at 54,000
+  replicates for no extra compute. Do not quote the 8-dataset numbers.
 
 ## 6. Scope
 

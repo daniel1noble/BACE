@@ -68,6 +68,9 @@ dev/testing_data/hoarding/
 .claude/worktrees/jovial-hermann/
 .claude/scheduled_tasks.lock
 results/checkpoints/
+# run_one.R writes --out relative to the CWD; run from the repo root it
+# lands here. Never commit it: one interrupted run left 1.5 GB.
+/results/
 
 
 # Local planning notes — not tracked, not built into the package

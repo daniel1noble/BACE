@@ -19,3 +19,4 @@ ms/
 ^cran-comments\.md$
 ^Rplots\.pdf$
 ^BACE_.*\.tar\.gz$
+^results$
