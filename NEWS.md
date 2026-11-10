@@ -1,5 +1,44 @@
 # BACE 1.0.2
 
+* **`plot_steps_convergence()` drew bars on a different yardstick from the
+  one in its own caption.** The panel divided each step by
+  `mean(sd_df[[var]])`. For a numeric variable that is the imputation spread
+  and is correct; for a PROPORTION (binary, ordinal, categorical) `sd_df`
+  holds `sqrt(p(1-p))`, a function of the mean, which the check explicitly
+  refuses to treat as a spread -- it measures proportions in proportion units.
+  A settled 40-cell binary was drawn at 0.050 where the panel header printed
+  0.025, and a near-certain one (p = 0.999) at 0.092 against a true 0.005, an
+  **18.4-fold** overstatement that put a settled variable above the red alarm
+  line. Its fallback, `stats::sd(m[keep])`, was the circular yardstick removed
+  from the check itself earlier in this version.
+
+  `assess_convergence()` now reports the yardstick each verdict was reached
+  with, as `spread` in the per-variable statistics, and the panel uses it
+  instead of deriving its own. A convergence object from an older version
+  records none; the panel falls back as before, or says so rather than
+  drawing a misleading bar.
+
+* **`pool_posteriors()` stacked runs that were in different units.** Each run
+  standardises its PREDICTORS by the spread of its own completed data, so run
+  m's slope is "per sd_m of x" and run m+1's is "per sd_m+1 of x"; stacking
+  them combines numbers measured with different rulers. (The response's divisor
+  is stable -- its missing rows are re-masked before scaling, so it is the
+  observed-only sd every run -- so the drift is entirely in the predictors.)
+  Each run's coefficients are now rescaled to a common reference divisor before
+  stacking, which leaves the overall scale of the returned object unchanged and
+  only touches columns whose name exactly matches a z-scored variable; factor
+  levels and random-effect BLUPs are not standardised and are left alone.
+
+  Measured at 50 per cent missingness, where `sd(x1)` ranged 16.5 to 23.5 over
+  15 runs: against the reference of converting each run with its own constants
+  and then stacking, the pooled estimate was out by 0.37 per cent and the
+  interval width by 4.2 per cent; both are now 0.00 per cent. The November
+  audit put this at 8.6 per cent and 10 per cent, which did not reproduce --
+  the effect is real but small, and it does not grow with the drift, because
+  the per-run divisors scatter around their mean and largely average out.
+  A `bace_final` from an earlier version carries no constants and pools
+  uncorrected, as before.
+
 * **The z-scoring constants are now kept, and there is `get_scaling()` to read
   them.** BACE standardises continuous variables before fitting, so the fitted
   models -- `$pooled_models` and the per-run models -- carry coefficients in SD

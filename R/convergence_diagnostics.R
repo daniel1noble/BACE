@@ -261,12 +261,16 @@ assess_convergence <- function(bace_object,
   kind <- match.arg(kind)
   if (missing(s) || is.null(s)) s <- rep(NA_real_, length(m))
   if (!is.finite(n_cells) || n_cells < 1) n_cells <- 1
+  # Declared up front so out() -- defined below, before the yardstick is
+  # chosen -- closes over it and can report whatever was actually used.
+  spread <- NA_real_
 
   ## A series that cannot be assessed must say so, never pass silently.
   ## Non-finite runs (a run whose imputations are all NA) drop out pairwise.
   finite <- is.finite(m) & (is.finite(s) | kind == "proportion")
   base_stats <- c(net = NA_real_, step = NA_real_, acf1 = NA_real_,
-                  sd_ratio = NA_real_, n_kept = NA_real_, ref = NA_real_)
+                  sd_ratio = NA_real_, n_kept = NA_real_, ref = NA_real_,
+                  spread = NA_real_)
   if (sum(finite) < 3) {
     base_stats["n_kept"] <- sum(finite)
     return(list(verdict = "unassessable",
@@ -288,8 +292,17 @@ assess_convergence <- function(bace_object,
                   sd_ratio = NA_real_, ref = NA_real_) {
     list(verdict = verdict,
          note = if (length(note)) paste(note, collapse = "; ") else "",
+         # `spread` is the yardstick this verdict was reached with. It is
+         # reported so that NOTHING downstream has to work it out again: the
+         # step plot used to re-derive one and, for a proportion, divided by
+         # sqrt(p(1-p)) -- a function of the MEAN, which this check explicitly
+         # refuses to treat as a spread. That drew a settled 40-cell binary at
+         # 0.122 where the panel header said 0.025, and a near-certain one
+         # (p = 0.999) at 0.092 against a true 0.005, putting it above the
+         # alarm line. Re-deriving a yardstick is the defect class this whole
+         # check exists to avoid.
          stats = c(net = net, step = step, acf1 = acf1, sd_ratio = sd_ratio,
-                   n_kept = length(mk), ref = ref))
+                   n_kept = length(mk), ref = ref, spread = spread))
   }
 
   ## 0. constant chain: identical imputations every run. Legitimate certainty

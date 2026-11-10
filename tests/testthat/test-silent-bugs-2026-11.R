@@ -650,3 +650,108 @@ test_that("a checkpoint without scaling constants is not accepted", {
   expect_false(BACE:::.ckpt_is_run(old))
   expect_true(BACE:::.ckpt_is_run(new))
 })
+
+# ---- pool_posteriors: every run must be in the SAME units before stacking --
+
+test_that("pool_posteriors rescales runs to a common divisor before stacking", {
+  testthat::skip_on_cran()
+  skip_if_not_installed("ape")
+  set.seed(5); n <- 60
+  tr <- ape::rcoal(n); tr$tip.label <- paste0("sp", seq_len(n))
+  d <- data.frame(Species = tr$tip.label, x1 = rnorm(n, 500, 20))
+  d$y <- 100 + 2 * d$x1 + rnorm(n, 0, 40)
+  d$y[sample(n, 30)] <- NA; d$x1[sample(n, 30)] <- NA   # heavy, so divisors drift
+
+  fit <- suppressWarnings(suppressMessages(
+    bace("y ~ x1", "~ 1 | Species", phylo = tr, data = d, runs = 3,
+         nitt = 8000, burnin = 1500, thin = 5, n_final = 15,
+         verbose = FALSE, skip_conv = TRUE, seed = 5)))
+
+  sy   <- get_scaling(fit, "y",  model = "y")$sd
+  sx   <- get_scaling(fit, "x1", model = "y")$sd
+  mods <- fit$final_results$all_models
+
+  # the probe only means something if the divisors actually moved
+  expect_gt((max(sx) - min(sx)) / mean(sx), 0.10)
+
+  # reference: convert each run with ITS OWN constants, then stack
+  ref <- unlist(lapply(seq_along(mods), function(m)
+    as.matrix(mods[[m]]$y$Sol)[, "x1"] * sy[m] / sx[m]))
+
+  # what pool_posteriors gives, put on the data scale with one constant
+  pp  <- suppressMessages(pool_posteriors(fit$final_results, variable = "y"))
+  got <- as.matrix(pp$models$y$Sol)[, "x1"] * mean(sy) / mean(sx)
+
+  w <- function(x) diff(unname(stats::quantile(x, c(0.025, 0.975))))
+  expect_equal(mean(got), mean(ref), tolerance = 1e-6)
+  expect_equal(w(got),    w(ref),    tolerance = 1e-6)
+
+  # and without the correction it would NOT match -- so this test can fail
+  raw <- unlist(lapply(mods, function(m) as.matrix(m$y$Sol)[, "x1"])) *
+           mean(sy) / mean(sx)
+  expect_gt(abs(w(raw) - w(ref)) / w(ref), 0.01)
+})
+
+test_that("pool_posteriors still works when no scaling was recorded", {
+  # A bace_final from an older version has no $scaling. Pooling must still
+  # run -- uncorrected, as it always did -- rather than erroring.
+  testthat::skip_on_cran()
+  skip_if_not_installed("ape")
+  set.seed(9); n <- 30
+  tr <- ape::rcoal(n); tr$tip.label <- paste0("sp", seq_len(n))
+  d <- data.frame(Species = tr$tip.label, x1 = rnorm(n))
+  d$y <- 0.5 * d$x1 + rnorm(n); d$y[1:8] <- NA
+  fit <- suppressWarnings(suppressMessages(
+    bace("y ~ x1", "~ 1 | Species", phylo = tr, data = d, runs = 2,
+         nitt = 2500, burnin = 500, thin = 5, n_final = 4,
+         verbose = FALSE, skip_conv = TRUE, seed = 9)))
+
+  legacy <- fit$final_results
+  legacy$scaling <- NULL
+  expect_s3_class(suppressMessages(pool_posteriors(legacy, variable = "y")),
+                  "bace_pooled")
+})
+
+# ---- the step plot must USE the check's yardstick, not invent one ---------
+
+test_that("the check records the yardstick it reached its verdict with", {
+  a <- BACE:::.conv_assess_series(rnorm(10, 5, 0.02), rep(1, 10),
+                                  n_cells = 20L, kind = "numeric")
+  expect_equal(unname(a$stats["spread"]), 1)        # the imputation spread
+
+  b <- BACE:::.conv_assess_series(rep(c(0.50, 0.525), 5), rep(0, 10),
+                                  n_cells = 40L, kind = "proportion")
+  # a proportion is measured in PROPORTION units; sqrt(p(1-p)) is a function
+  # of the mean and must never be used as a spread
+  expect_equal(unname(b$stats["spread"]), 1)
+  expect_false(isTRUE(all.equal(unname(b$stats["spread"]),
+                                mean(sqrt(0.5 * 0.5)))))
+
+  # an unassessable series still carries the field, as NA
+  u <- BACE:::.conv_assess_series(c(1, 2), c(1, 1), n_cells = 5L)
+  expect_true("spread" %in% names(u$stats))
+  expect_true(is.na(unname(u$stats["spread"])))
+})
+
+test_that("the plotted step equals the step the check reports", {
+  # The panel header prints the check's mean step. The bars used to be drawn
+  # on a different yardstick entirely -- sqrt(p(1-p)) -- so the picture and
+  # its own caption disagreed, by 2x on an even binary and 18x on a
+  # near-certain one, enough to put a settled variable above the alarm line.
+  probe <- function(m, n_cells) {
+    a <- BACE:::.conv_assess_series(m, sqrt(m * (1 - m)), n_cells = n_cells,
+                                    kind = "proportion")
+    list(check = unname(a$stats["step"]),
+         new   = mean(abs(diff(m))) / unname(a$stats["spread"]),
+         old   = mean(abs(diff(m))) / mean(sqrt(m * (1 - m))))
+  }
+
+  even <- probe(rep(c(0.50, 0.525), 5), 40L)
+  expect_equal(even$new, even$check, tolerance = 1e-10)
+  expect_gt(even$old / even$check, 1.5)             # the old panel overstated
+
+  p <- rep(0.999, 10); p[seq(2, 10, 2)] <- 0.994
+  near <- probe(p, 40L)
+  expect_equal(near$new, near$check, tolerance = 1e-10)
+  expect_gt(near$old / near$check, 10)              # ~18x on a near-certain binary
+})

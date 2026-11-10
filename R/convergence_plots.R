@@ -283,11 +283,33 @@ plot_steps_convergence <- function(conv_object, variables = NULL, ...) {
       next
     }
 
-    # the same yardstick the check uses: the late-chain imputation spread
+    # USE the yardstick the check recorded; never work one out again here.
+    #
+    # This panel used to divide by mean(sd_df[[var]]) over the kept runs. For
+    # a numeric variable that is the imputation spread and is right. For a
+    # PROPORTION (binary, ordinal, categorical) sd_df holds sqrt(p(1-p)),
+    # which is a function of the MEAN, not a spread -- the check explicitly
+    # refuses to treat it as one and measures proportions in proportion units
+    # (spread = 1). Dividing by it drew a settled 40-cell binary at 0.122
+    # where this panel's own header printed 0.025, and a near-certain binary
+    # (p = 0.999) at 0.092 against a true 0.005, putting a settled variable
+    # above the red alarm line. The old fallback, stats::sd(m[keep]), was the
+    # circular yardstick removed from the check itself in 1.0.2.
     keep <- max(1, floor(n_iter / 2)):n_iter
-    spread <- if (!is.null(sd_df)) mean(sd_df[[var]][keep]) else NA_real_
-    if (!is.finite(spread) || spread < 1e-12) spread <- stats::sd(m[keep])
-    if (!is.finite(spread) || spread < 1e-12) spread <- 1e-12
+    spread <- if (!is.null(assessments) && var %in% names(assessments)) {
+      unname(assessments[[var]]$stats["spread"])
+    } else NA_real_
+    if (!is.finite(spread) || spread <= 0) {
+      # Only for an object from an older version, which recorded no yardstick.
+      spread <- if (!is.null(sd_df)) mean(sd_df[[var]][keep]) else NA_real_
+      if (!is.finite(spread) || spread < 1e-12) spread <- NA_real_
+    }
+    if (!is.finite(spread) || spread <= 0) {
+      plot.new(); title(paste("Step size:", var))
+      text(0.5, 0.5, paste0("no yardstick recorded\n",
+                            "(re-run assess_convergence())"), cex = 1.0)
+      next
+    }
 
     steps <- abs(diff(m)) / spread
     if (sum(is.finite(steps)) == 0) {

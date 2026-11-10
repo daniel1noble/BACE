@@ -178,7 +178,8 @@ pool_posteriors <- function(bace_final_object, variable = NULL, sample_size = NU
     }
     
     # Remove NULL entries
-    var_models <- var_models[!sapply(var_models, is.null)]
+    keep_runs  <- which(!sapply(var_models, is.null))
+    var_models <- var_models[keep_runs]
     n_valid <- length(var_models)
     
     if (n_valid == 0) {
@@ -267,6 +268,40 @@ pool_posteriors <- function(bace_final_object, variable = NULL, sample_size = NU
     }
     
     # Combine posteriors by stacking (with optional sampling)
+    # Put every run's fixed effects in the SAME units before stacking.
+    #
+    # Each run standardises its predictors by the spread of ITS OWN completed
+    # data, so run m's slope is "per sd_m of x" and run m+1's is "per sd_m+1
+    # of x". Stacking them adds up numbers measured with different rulers.
+    # (The response's divisor is stable -- its missing rows are re-masked
+    # before scaling, so it is the observed-only sd every run -- so the drift
+    # is entirely in the predictors.) Measured: sd(x1) ranged 16.5 to 23.5
+    # across 15 runs at 50 per cent missingness, and pooling without this
+    # correction moved the interval width by about 4 per cent.
+    #
+    # Each run's coefficient is rescaled to a common reference divisor, the
+    # mean across runs. That removes the inter-run inconsistency while leaving
+    # the overall scale of the returned object as it was. Only columns whose
+    # name EXACTLY matches a z-scored variable are touched: factor-level
+    # columns and random-effect BLUP columns are not standardised and must be
+    # left alone.
+    sol_rescale <- rep(1, length(sol_keep_cols))
+    names(sol_rescale) <- sol_keep_cols
+    sc_all <- bace_final_object[["scaling", exact = TRUE]]
+    if (!is.null(sc_all)) {
+      sc_runs <- sc_all[keep_runs]
+      sd_mat <- vapply(sol_keep_cols, function(cn) {
+        vapply(sc_runs, function(r) {
+          e <- if (is.list(r)) r[[var]][[cn]] else NULL
+          if (is.null(e$sd)) NA_real_ else e$sd
+        }, numeric(1))
+      }, numeric(length(sc_runs)))
+      if (!is.matrix(sd_mat)) sd_mat <- matrix(sd_mat, nrow = length(sc_runs))
+      colnames(sd_mat) <- sol_keep_cols
+    } else {
+      sd_mat <- NULL
+    }
+
     for (i in 1:n_valid) {
       start_idx <- (i - 1) * n_samples_per_imp + 1
       end_idx <- i * n_samples_per_imp
@@ -282,6 +317,17 @@ pool_posteriors <- function(bace_final_object, variable = NULL, sample_size = NU
       if (trees_vary) {
         # Align by NAME across runs (tip columns permute across trees).
         sol_i <- sol_i[, sol_keep_cols, drop = FALSE]
+      }
+      if (!is.null(sd_mat)) {
+        for (cn in colnames(sd_mat)) {
+          sdv <- sd_mat[, cn]
+          if (all(is.finite(sdv)) && all(sdv > 0)) {
+            f <- mean(sdv) / sdv[i]
+            if (is.finite(f) && f > 0 && cn %in% colnames(sol_i)) {
+              sol_i[, cn] <- sol_i[, cn] * f
+            }
+          }
+        }
       }
       pooled_sol[start_idx:end_idx, ] <- sol_i
       pooled_vcv[start_idx:end_idx, ] <- var_models[[i]]$VCV[sample_idx, , drop = FALSE]
