@@ -67,7 +67,7 @@ UPDATE_MCMCGLMM_CLASS.md
 dev/testing_data/hoarding/
 .claude/worktrees/jovial-hermann/
 .claude/scheduled_tasks.lock
-
+results/checkpoints/
 
 
 # Local planning notes — not tracked, not built into the package
