@@ -119,12 +119,17 @@ test_that(".build_formula_string_random with species=TRUE returns dual formulas"
   expect_s3_class(out$species, "formula")
 })
 
-test_that(".build_formula_string_random handles us() random-slope structure", {
-  # us(1 + temperature):Species should produce a random-slope phylo formula
-  out <- BACE:::.build_formula_string_random(
-    "~ us(1 + temperature) | Species", species = TRUE)
-  expect_named(out, c("phylo", "species"))
-  expect_s3_class(out$phylo, "formula")
+test_that(".build_formula_string_random refuses us() random-slope structure", {
+  # Random slopes are not supported -- see test-species_effects.R for why.
+  # The error must name the limitation and the supported form, so the user is
+  # not left guessing.
+  e <- tryCatch(BACE:::.build_formula_string_random(
+    "~ us(1 + temperature) | Species", species = TRUE),
+    error = function(e) conditionMessage(e))
+  expect_true(is.character(e))
+  expect_match(e, "random-INTERCEPT models only")
+  expect_match(e, "us\\(1 \\+ temperature\\)", fixed = FALSE)
+  expect_match(e, "~ 1 \\| Species", fixed = FALSE)
 })
 
 test_that(".build_formula_string_random rejects formulas without |", {

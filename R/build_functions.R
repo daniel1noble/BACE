@@ -146,6 +146,42 @@
   lhs <- trimws(parts[1])  # The left side (e.g., "1" or "us(1 + x)")
   cluster <- trimws(parts[2])
 
+  # ---- random SLOPES are not supported; refuse them rather than guess ------
+  #
+  # BACE fits random INTERCEPT models only. The formula machinery can parse a
+  # slope, but the prior machinery cannot build a correct one for it, so a
+  # slope model would run and return numbers that are quietly wrong:
+  #
+  #   * The prior widens V from 1x1 to k x k and widens alpha.mu / alpha.V to
+  #     match, but leaves nu at 0.002. An inverse-Wishart on a k x k matrix
+  #     needs nu > k - 1, so at k = 2 the prior is IMPROPER. (Hadfield's own
+  #     course notes use nu = k for a k-dimensional parameter-expanded prior.)
+  #     nu = 0.002 is correct only at k = 1 -- the intercept-only case, which
+  #     is why this went unnoticed.
+  #   * The dimension k is sniffed with a regex that only recognises us(...);
+  #     idh(1 + x1 + x2) falls through to a hardcoded k = 2, so a 3-dimensional
+  #     structure would get a 2x2 prior.
+  #   * With species = FALSE (the DEFAULT) the slope was silently DISCARDED
+  #     entirely: "~ 1 + x1 | Species" and "~ 1 | Species" produced
+  #     byte-identical models, so the user asked for one thing and got another
+  #     with nothing to tell them.
+  #
+  # Supporting slopes properly is a feature request, GitHub issue #22. Until
+  # then this is an error, because a wrong number is worse than a refusal.
+  lhs_bare <- gsub("[[:space:]]", "", lhs)
+  if (!lhs_bare %in% c("1", "(1)")) {
+    stop("BACE fits random-INTERCEPT models only; `ran_phylo_form` asked for ",
+         "a random slope.\n",
+         "  you supplied : ~ ", lhs, " | ", cluster, "\n",
+         "  supported    : ~ 1 | ", cluster, "\n",
+         "Random slopes are not supported: BACE cannot currently build a ",
+         "correct prior for them (the inverse-Wishart nu is not widened with ",
+         "V, so a 2x2 structure gets an improper prior), and on the default ",
+         "species = FALSE path the slope was silently dropped. Refusing rather ",
+         "than returning numbers that look fine and are not.",
+         call. = FALSE)
+  }
+
   if (!species) {
     # Original behavior: return simple phylo formula
     return(stats::as.formula(paste("~", cluster)))

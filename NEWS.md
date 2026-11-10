@@ -1,5 +1,20 @@
 # BACE 1.0.2
 
+* **Random slopes in `ran_phylo_form` are now an error, not a silent
+  substitution.** BACE fits random-INTERCEPT models only. The formula parser
+  could read a slope, but the prior builder cannot construct a correct one:
+  it widens `V` from 1x1 to k x k and widens `alpha.mu`/`alpha.V` to match
+  while leaving `nu` at 0.002, which is improper for k > 1 (an inverse-Wishart
+  on a k x k matrix needs `nu > k - 1`; Hadfield's course notes use `nu = k`
+  for a k-dimensional parameter-expanded prior). The dimension itself is
+  sniffed by a regex that only recognises `us(...)`, so `idh(1 + x1 + x2)`
+  fell through to a hardcoded 2. Worse, on the **default** `species = FALSE`
+  path the slope was discarded outright: `~ 1 + x1 | Species` and
+  `~ 1 | Species` produced byte-identical models, so the user asked for one
+  thing and silently got another. Supplying a slope on either path now errors,
+  naming what was given and the supported form. Proper support is a feature
+  request ([#22](https://github.com/daniel1noble/BACE/issues/22)), not a fix.
+
 * **A declared-but-unobserved factor level shifted every imputation onto the
   wrong category.** When a level of an ordered or categorical response is never
   seen in training, MCMCglmm re-indexes the response to `1:K_eff` in

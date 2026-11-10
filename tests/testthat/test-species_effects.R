@@ -189,20 +189,28 @@ test_that(".build_formula_string_random with species=TRUE returns list of two fo
   expect_equal(as.character(result$species), c("~", "Species"))
 })
 
-# Test 7: .build_formula_string_random with random slopes ----
-test_that(".build_formula_string_random handles random slopes correctly", {
-  # Random slope specification - note the pipe separator is required
-  result <- .build_formula_string_random("~ us(1 + x1) | Species", species = TRUE)
-  
-  expect_true(is.list(result))
-  expect_true(all(c("phylo", "species") %in% names(result)))
-  
-  # Phylo should have the slope structure
-  phylo_char <- paste(as.character(result$phylo), collapse = " ")
-  expect_true(grepl("us|:", phylo_char))
-  
-  # Species should be intercept only
-  expect_equal(as.character(result$species), c("~", "Species"))
+# Test 7: random slopes are REFUSED, not silently mishandled ----
+test_that(".build_formula_string_random errors on a random slope", {
+  # BACE fits random-intercept models only. The formula parser can read a
+  # slope but the prior builder cannot make a correct one for it: V is widened
+  # to k x k while nu stays at 0.002, which is improper for k > 1, and the
+  # dimension sniffer only recognises us(). Worse, with species = FALSE (the
+  # default) the slope used to be DISCARDED -- "~ 1 + x1 | Species" and
+  # "~ 1 | Species" produced byte-identical models. Refusing is the honest
+  # behaviour until slopes are supported properly.
+  for (frm in c("~ us(1 + x1) | Species", "~ 1 + x1 | Species",
+                "~ idh(1 + x1) | Species", "~ x1 | Species")) {
+    expect_error(.build_formula_string_random(frm, species = TRUE),
+                 regexp = "random-INTERCEPT models only")
+    expect_error(.build_formula_string_random(frm, species = FALSE),
+                 regexp = "random-INTERCEPT models only")
+  }
+
+  # plain intercepts still work on both paths
+  expect_s3_class(.build_formula_string_random("~ 1 | Species", species = FALSE),
+                  "formula")
+  expect_named(.build_formula_string_random("~ 1 | Species", species = TRUE),
+               c("phylo", "species"))
 })
 
 # Test 8: .make_prior handles n_rand=2 ----
