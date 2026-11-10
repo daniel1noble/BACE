@@ -1,105 +1,211 @@
 # The simulation
 
-Generates comparative datasets with known truth, hides values three different ways, imputes them
-with `BACE::bace()`, and scores what came back.
+Make comparative datasets where we know the true answer. Hide some values. Ask BACE to
+fill them back in. Check whether it got them right, and whether it was honest about how
+sure it was.
 
-Design and reasoning: [`.agents/plans/simulation-plan-2026-11.md`](../../.agents/plans/simulation-plan-2026-11.md)
+Full reasoning and the measured costs behind every number here:
+[`.agents/plans/simulation-plan-2026-11.md`](../../.agents/plans/simulation-plan-2026-11.md).
 
-## Four steps, one file each
+---
 
-| file | step |
+## What we want to test
+
+**1. BACE beats throwing data away.**
+What people normally do with gaps is delete every species that has one. That is fine if
+the gaps are purely random. It is not fine when the gaps depend on something — say,
+poorly studied species are both more likely to be missing a trait *and* genuinely
+different in it. We want to show that deleting gives the wrong answer in that case and
+BACE does not.
+
+**2. A good covariate rescues you when the family tree cannot.**
+BACE borrows information from two places: related species, and other traits on the same
+species. When species don't resemble their relatives much, the first source dries up. We
+want to show that isn't fatal, as long as you have another trait that tracks the missing
+one. This is the practical advice the paper can give: what to put in your imputation
+model.
+
+**3. BACE is honest about every kind of trait.**
+Little bias, and its "95% sure" ranges really do contain the truth about 95% of the time
+— for continuous, count, binary, ordinal and categorical traits alike.
+
+---
+
+## What will actually run
+
+Four things are varied:
+
+| | values | why |
+|---|---|---|
+| species | 100, 500 | does the answer hold on bigger trees? |
+| how much relatives resemble each other | 0.3, 0.7, 0.9 | weak, moderate, strong |
+| what else there is to borrow from | three settings, below | this is Claim 2 |
+| how the gaps are made | three ways, below | this is Claim 1 |
+
+**What else there is to borrow from:**
+
+| name | meaning |
 |---|---|
-| `R/01_scenarios.R` | **the scenarios.** `make_scenarios()` returns a table — print it to see what will run. |
-| `R/02_simulate.R` | **one dataset.** `sim_bace()` makes the traits and tree; the three missingness mechanisms are ours, because `sim_bace()` only hides values at random. |
-| `R/03_fit.R` | **run the methods.** `bace()` for imputation, plus the complete-case comparison. |
-| `R/04_score.R` | **the statistics.** Recovery of the hidden values, and the pooled PGLS slope. |
+| `floor` | traits unrelated to each other, no helper variable — nothing to go on but the tree |
+| `typical` | traits related to each other — the ordinary situation |
+| `good_covariate` | traits related, *plus* one fully observed helper (think body size) |
 
-Then three scripts that use them:
+**How the gaps are made:**
 
-| file | what |
+| name | meaning |
 |---|---|
-| `run_one.R` | **one dataset, end to end.** The unit of work — run it by hand to see exactly what happens. |
-| `run_all.sh` | runs `run_one.R` once per dataset. Writes `tasks.txt` first, so you can read every command before anything starts. |
-| `collect.R` | gathers the results into five CSVs. |
+| `mcar` | purely at random |
+| `mar` | driven by another variable we can see |
+| `clade` | whole related groups go missing — the realistic bad case |
+
+30% of values are hidden in each trait.
+
+That is **54 scenarios**, each run **1000 times** with different random data =
+**54,000 datasets**. About **72,000 core-hours**, or **16–17 days on 200 cores**.
+
+**The 500-species runs are 83% of that bill.** If three weeks is too long, that is the
+only place worth cutting — and cutting replicates there is the cheapest trim. 1000 runs
+at 100 species plus 250 at 500 species comes to about **6 days on 200 cores** and still
+answers the question that arm is there to answer.
+
+---
+
+## What it is compared against
+
+| | what it is | what it's for |
+|---|---|---|
+| `truth` | the complete data, before anything was hidden | the best anyone could do — **and the sanity check**: if its answer isn't roughly unbiased with ~95% coverage, something is wrong with the setup |
+| `complete_case` | delete every species with a gap | what people do now. Claim 1 is this versus BACE |
+| `bace` | fill the gaps with `bace()` | the method the paper is about |
+
+---
+
+## What gets measured
+
+**Did it get the values right?**
+For continuous and count traits, the error in the filled-in values, measured in units of
+that trait's own spread. 0 is perfect; 1 is no better than using the average.
+For categories, how often the most-imputed category was the right one.
+
+**Was it honest about how sure it was?**
+How often the "95% sure" range actually contained the truth. Should be 95%.
+
+**Does the downstream answer come out right?**
+The relationship between two traits, fitted on the filled-in data, compared against the
+truth — for all three arms.
+
+---
+
+## What we expect to see
+
+Written down before running, so we can't talk ourselves into whatever appears.
+
+| | random gaps | driven gaps | whole groups missing |
+|---|---|---|---|
+| deleting — relationship | fine | mildly wrong | wrong |
+| deleting — correlation | fine | **wrong** | **badly wrong** |
+| BACE — relationship | fine | fine | fine |
+| BACE — correlation | fine | **fine** | **fine** |
+| BACE — honesty | ~95% | ~95% | ~95%, maybe slightly low |
+| BACE — range width | narrow | narrow | **wider** — correctly so |
+
+**The last column is the one to watch.** BACE's ranges *should* get wider when whole
+groups go missing, because that genuinely is a harder problem. Wider but still catching
+the truth is the right answer. Narrow and still catching it would be suspicious. Narrow
+and missing it would be a real problem — and far better found now than after submission.
+
+For Claim 2: BACE should only get worse as relatives stop resembling each other **when
+there's nothing else to borrow from**. With a good helper variable, weak phylogenetic
+signal shouldn't hurt much.
+
+---
 
 ## Running it
 
 ```bash
-# 1. install the package being measured. The scripts refuse to start on an older one.
+# 1. Install the package being measured. The scripts refuse to start on an older one.
 cd <BACE repo root> && R CMD INSTALL .
 
-# 2. one dataset, to watch it work
+# 2. One dataset, to watch it work end to end (~2 min at n = 100)
 Rscript run_one.R --id n100_ps0.7_good_covariate_clade --seed 1 --out results
 
-# 3. see what the campaign would do, without doing it
-DRY_RUN=1 bash run_all.sh        # writes results/tasks.txt
+# 3. See what the whole campaign would do, without doing it
+DRY_RUN=1 bash run_all.sh        # writes results/tasks.txt — every command, readable
 
-# 4. run it. Stop and restart whenever you like.
+# 4. Run it. Stop and restart whenever you like.
 CORES=8 bash run_all.sh
 
-# 5. turn the results into tables
+# 5. Turn the results into tables
 Rscript collect.R results
 ```
 
-## The three arms
+### The code, one file per step
 
-| arm | what it is | what it is for |
-|---|---|---|
-| `oracle` | the truth, before any holes | the best anyone could do — and the **calibration check**: its bias must be ~0 and its coverage ~0.95, or the assumed true slope is wrong and nothing else means anything |
-| `complete_case` | drop every species with a gap | what people do now; the comparison claim 1 rests on |
-| `bace` | impute with `bace()` | the method the paper is about |
+| file | step |
+|---|---|
+| `R/01_scenarios.R` | the list of scenarios — print `make_scenarios()` to see exactly what will run |
+| `R/02_simulate.R` | one dataset: traits, tree, and the three ways of making gaps |
+| `R/03_fit.R` | run BACE, and the delete-the-gaps comparison |
+| `R/04_score.R` | the scoring |
+| `run_one.R` | one dataset end to end — the unit of work |
+| `run_all.sh` | runs `run_one.R` once per dataset |
+| `collect.R` | gathers everything into five CSVs |
 
-## Things that will bite, and what is done about them
+---
 
-**The wrong BACE.** An older build in the R library gives results that look entirely normal and
-mean nothing — it happened on 2026-11-09, repo at 1.0.0 and library at 0.1.0.9000. Both
-`run_one.R` and `run_all.sh` refuse to start below **1.0.1**, and every result records the version
-that produced it.
+## Things that will bite
 
-**Two known BACE crashes**, both reproduced on this grid and both deterministic:
+**The wrong version of BACE.** An old copy sitting in the R library produces results that
+look completely normal and mean nothing. This has already happened once, on 2026-11-09.
+Both `run_one.R` and `run_all.sh` refuse to start below **1.0.2**, and every result file
+records the version that made it. If you change the package, reinstall it *and* bump the
+version — the guard can only catch what the version number tells it.
 
-| where | error | hit |
-|---|---|---|
-| `sim_bace()` ([#19](https://github.com/daniel1noble/BACE/issues/19), **fixed in 1.0.1**) | `NA in probability vector` — softmax overflow | was 3 of 54 scenarios |
-| `bace()` ([#20](https://github.com/daniel1noble/BACE/issues/20), **fixed in 1.0.1**) | `zero-variance series` crash in the final-model diagnostics | was 2 of 54 scenarios |
+**Interruptions.** A wall-time limit or a dead node can hit any dataset, and at 500
+species that's 2.2 hours lost. BACE checkpoints by default, so a resumed run costs about
+5% of the time and gives an identical answer. Checkpoints are large, so they're deleted
+as soon as a dataset succeeds — only interrupted ones leave anything behind, which is
+exactly what should be resumed. `--no_checkpoint` turns it off.
 
-Both are fixed in the version this campaign requires; the guard above exists precisely so a stale
-library cannot re-introduce them. The belt-and-braces wrapping stays: a failure of any stage is
-**recorded** and the dataset still writes its file; `collect.R` counts them into `failures.csv`.
+**Stopping and restarting is always safe.** Any dataset whose result file already exists
+is skipped, so you can interrupt the campaign freely, and add more replicates later
+without redoing earlier ones.
 
-**Interruptions are different.** A wall-time limit or a dead node can strike any dataset, and at
-n = 500 that is 2.2 hours lost. `bace()`'s `checkpoint_dir` is on by default: a resumed run takes
-about 5% of the time and gives an identical result. Checkpoints are large (51.6 MB even for a tiny
-fit), so the directory is **deleted as soon as the dataset succeeds** — only interrupted datasets
-leave one behind, which is exactly what should be resumed. `--no_checkpoint` turns it off.
+**Failures don't lose data.** If any stage fails, the failure is recorded and the dataset
+still writes its file. `collect.R` counts them into `failures.csv`.
 
-**Resumability at the dataset level** is separate and always on: `run_one.R` skips any dataset
-whose `.rds` already exists, so the campaign can be stopped and relaunched freely, and replicates
-can be raised later without redoing earlier seeds.
+---
 
-## What the numbers mean
+## Two numbers that are easy to misread
 
-`phylo_signal` is phylogenetic heritability on the **latent** scale, which is the scale BACE's
-threshold models work on. It is delivered as asked and equally for every trait type. Measured on
-the observed values a binary trait looks far less phylogenetic than a continuous one at the same
-setting — that is what dichotomising a measurement does, not a flaw — so every dataset records its
-realised observed-scale lambda.
+**Phylogenetic signal** is measured on the hidden scale the models actually work on, not
+on the values you see. A binary trait always *looks* far less phylogenetic than a
+continuous one at the same setting — that's what reducing a measurement to yes/no does to
+it, not a flaw. Every dataset records what it actually realised.
 
-`trait_beta` and `aux_beta` are **regression slopes, not correlations**. A slope buys less
-correlation than its own value: slope 0.5 gave r = 0.45 and slope 0.8 gave r = 0.62 over 25
-datasets at n = 200. Every dataset records its own realised correlation.
+**`trait_beta` and `aux_beta` are regression slopes, not correlations**, and a slope buys
+less correlation than its own value: slope 0.5 gave a correlation of 0.45, slope 0.8 gave
+0.62. Every dataset records its own realised correlation, so the paper reports what the
+data had rather than what was asked for.
 
-The campaign runs **7 chained passes** (`runs = 7`), not 5. The stability check
-discards the first half of the chain as warm-up, so 5 runs leave only 4 points —
-one short of what testing for flip-flopping between runs needs. Seven turns the
-full battery on for a measured 6% more compute.
+---
 
-`bace_converged` and `bace_conv_detail` record BACE 1.0.1's **stability check**: per-variable
-verdicts naming what it found — `ok`, `drift` (still travelling; the one problem more runs can
-cure), `oscillation` (variables flip-flopping in step), `stuck` (imputation spread collapsing) —
-plus advisory notes. A pass means *no pathology detected*, not a certificate: no clear-cut
-convergence test exists for chained equations (van Buuren 2018, ch. 6.5.2). The campaign reports
-these as rates per scenario. The pre-1.0.1 check was defective (it could never pass a
-mean-centred trait) and the retired chain-length pilot (`pilot_settings.R`) answered its real
-question: coverage was nominal at every chain setting tested, so the campaign's settings stand —
-see `.agents/investigation-convergence-2026-11.md`.
+## Open — needs a decision, not a code fix
+
+1. **BACE's ranges are drawn slightly too narrow.** The plan says to use the
+   Barnard–Rubin small-sample adjustment; the code doesn't apply it (`pool_mi()` is
+   called without `df_fun`). Costs about half a percentage point of coverage at 100
+   species, less at 500, and it makes BACE look slightly *worse* than it is. Small enough
+   to note in the paper rather than fix.
+2. **Counts come out about 8% low when the big values are the missing ones.** BACE caps
+   imputed counts to stop runaway values, and that cap is set from the counts it can see
+   — which are the small ones. It warns when this happens from 1.0.2, but the cap itself
+   is unchanged. Affects the count trait under driven missingness.
+3. **The delete-the-gaps arm deletes on all six traits**, though the analysis only uses
+   two. That's harsher than any real analyst would be, and the penalty depends on the
+   mechanism, so some of the Claim 1 pattern comes from the comparison rule rather than
+   from the missingness. A deliberate choice — worth revisiting before the paper, not
+   before the run.
+4. **Unconfirmed:** if a category trait loses a whole level (possible when whole groups go
+   missing), imputed values may land on the wrong category label. One reviewer reproduced
+   it, another couldn't. Worth testing before committing the cluster time.

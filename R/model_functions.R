@@ -800,7 +800,11 @@
 				     }
 				     pred_values <- .cat_mode(draws)
 				   } else {
-				     pred_values <- .impute_levels(pred_prob, levels_var, sample = FALSE)
+				     pred_values <- .impute_levels(
+				       pred_prob, levels_var, sample = FALSE,
+				       levels_observed = intersect(
+				         levels_var, as.character(unique(stats::na.omit(lv)))),
+				       response_var = response_var)
 				   }
           }
 
@@ -869,7 +873,11 @@
 					  }
 					  pred_values <- .cat_mode(draws)
 					} else {
-					  pred_values <- .impute_levels(pred_prob, levels_var, sample = FALSE)
+					  pred_values <- .impute_levels(
+					    pred_prob, levels_var, sample = FALSE,
+					    levels_observed = intersect(
+					      levels_var, as.character(unique(stats::na.omit(lv)))),
+					    response_var = response_var)
 					}
 				 }
 
@@ -922,16 +930,34 @@
 #' @param sample A logical indicating whether to sample from the distribution or take the maximum probability
 #' @return A vector of predicted levels for each observation
 #' @noRd
-.impute_levels <- function(pred_prob, levels_var, sample = FALSE) {
+.impute_levels <- function(pred_prob, levels_var, sample = FALSE,
+                           levels_observed = NULL,
+                           response_var = "(unknown)") {
   # If pred_prob carries level names in its column order (categorical
   # case), align by name; else fall back to position-based alignment
   # (threshold case, where the iterator may return generic Level_*
   # names when ncol(pred_prob) < length(levels_var)).
+  #
+  # When a declared level was never OBSERVED in training, MCMCglmm re-indexes
+  # the response to 1:K_eff in declaration order, so the prediction has fewer
+  # columns than the factor has levels. The right vocabulary is then the
+  # OBSERVED levels in declaration order. Until 1.0.2 this call passed no
+  # `levels_observed`, so .align_levels_to_probs() fell back to "the first
+  # n_cols DECLARED levels" -- correct only when the unobserved levels happen
+  # to sit at the END. With declared 2|3|4 and only 3 and 4 observed it
+  # returned 2|3, shifting every imputation one category down with nothing but
+  # a warning that named no variable. The campaign's ordinal trait reaches
+  # this: at low phylogenetic signal it realises 3 declared levels with the
+  # top one observed once or not at all.
   if (!is.null(colnames(pred_prob)) &&
       all(colnames(pred_prob) %in% levels_var)) {
     levels_var <- colnames(pred_prob)
   } else {
-    levels_var <- .align_levels_to_probs(levels_var, ncol(pred_prob))
+    levels_var <- .align_levels_to_probs(
+      levels_var, ncol(pred_prob),
+      levels_observed = if (is.null(levels_observed)) levels_var
+                        else levels_observed,
+      response_var = response_var)
   }
   if (sample) {
     pred_values <- apply(pred_prob, 1, function(probs) {
