@@ -145,7 +145,9 @@ only), V_R = residual variance, the latent-scale H^2 formulas are:
 \item gaussian / poisson single RE: V_A / (V_A + V_R)
 \item gaussian / poisson dual RE:   V_A / (V_A + V_S + V_R)
 \item threshold / ordered single:   V_A / (V_A + 1)
-\item threshold / ordered dual:     V_A / (V_A + V_S + 1)
+\item threshold / ordered dual:     V_A / (V_A + V_S + V_R), V_R the FIXED
+residual the model used (1 under the default prior; the probit scale is
+identified only by fixing it, and a free residual is refused)
 \item multinomial single RE:        tr(G_phylo) / (tr(G_phylo) + tr(R))
 \item multinomial dual RE:          tr(G_phylo) / (tr(G_phylo) + tr(G_species) + tr(R))
 }

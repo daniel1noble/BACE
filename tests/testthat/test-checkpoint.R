@@ -246,7 +246,15 @@ testthat::test_that("a readable file of the wrong shape is not pooled as an impu
   testthat::expect_false(.ckpt_is_run(list(nonsense = 1)))
   testthat::expect_false(.ckpt_is_run(NULL))
   testthat::expect_true(.ckpt_is_run(list(models = list(), dataset = data.frame(),
-                                          prob_preds = list(), ovr_models = list())))
+                                          prob_preds = list(), ovr_models = list(),
+                                          scaling = list())))
+
+  # From 1.0.2 a run also carries the z-scoring constants it was fit on. A
+  # checkpoint written by an earlier build has none, and accepting it would
+  # leave that run's constants NULL -- so its coefficients could never be put
+  # back on the data scale, silently. It must be recomputed instead.
+  testthat::expect_false(.ckpt_is_run(list(models = list(), dataset = data.frame(),
+                                           prob_preds = list(), ovr_models = list())))
 
   testthat::skip_on_cran()
   set.seed(32)

@@ -515,3 +515,138 @@ test_that(".align_levels_to_probs honours the observed set when given one", {
   expect_warning(BACE:::.align_levels_to_probs(decl, 2, response_var = "ord"),
                  regexp = "'ord'")
 })
+
+# ---- heritability: the residual must be READ, not assumed ------------------
+
+test_that("H2 uses the residual the model actually fixed, not a literal 1", {
+  # The probit latent scale has no size of its own, so the residual is FIXED to
+  # identify it. Everything on that scale -- V_A included -- scales with the
+  # pin. Writing 1 into the denominator by hand left the numerator scaled and
+  # the denominator not, so the reported H2 climbed with an arbitrary constant.
+  mk <- function(V_A, V_R, n = 400) {
+    m <- cbind(Species = rep(V_A, n), units = rep(V_R, n))
+    structure(list(VCV = m), class = "bace_fakefit_h2")
+  }
+  for (cc in c(1, 2, 4)) {
+    out <- BACE:::.compute_H2_stats(mk(2 * cc, cc), "threshold",
+                                    species_col = "Species", species = FALSE)
+    # the ratio is scale free: 2c / (2c + c) = 2/3 whatever c is
+    expect_equal(unname(out$mean), 2 / 3, tolerance = 1e-8)
+  }
+
+  # the old hard-coded denominator would have given a different answer for
+  # every c; confirm those answers really do differ, so this test can fail
+  old <- vapply(c(1, 2, 4), function(cc) (2 * cc) / (2 * cc + 1), numeric(1))
+  expect_equal(length(unique(round(old, 6))), 3L)
+})
+
+test_that("a FREE residual prior is refused for threshold-scale traits", {
+  testthat::skip_on_cran()
+  skip_if_not_installed("ape")
+  set.seed(11); n <- 60
+  tr <- ape::rcoal(n); tr$tip.label <- sprintf("s%03d", seq_len(n))
+  C <- ape::vcv(tr); C <- C / max(C); L <- t(chol(C))
+  lia <- as.numeric(L %*% rnorm(n)) + rnorm(n)
+  d <- data.frame(Species = tr$tip.label, y = factor(as.integer(lia > 0)))
+  G <- list(G1 = list(V = 1, nu = 0.002, alpha.mu = 0, alpha.V = 1000))
+
+  grab <- function(pr) {
+    w <- NULL
+    o <- withCallingHandlers(
+      suppressMessages(phylo_signal_summary(
+        d, tr, species_col = "Species", variables = "y", methods = "H2",
+        prior = pr, nitt = 3000, burnin = 600, thin = 5)),
+      warning = function(z) { w <<- c(w, conditionMessage(z))
+                              invokeRestart("muffleWarning") })
+    list(h2 = o$table$H2_mean[1], refused = any(grepl("must keep the residual FIXED", w)))
+  }
+
+  free <- grab(list(R = list(V = 1, nu = 0.002), G = G))
+  expect_true(free$refused)
+  expect_true(is.na(free$h2))        # NA, never the old confident 1.0000
+
+  fixed <- grab(list(R = list(V = 1, fix = 1), G = G))
+  expect_false(fixed$refused)
+  expect_true(is.finite(fixed$h2))
+})
+
+test_that("phylo_signal_summary and bace() classify every column the same way", {
+  bt <- function(x) { d <- data.frame(v = x)
+                      BACE:::.get_type(BACE:::.summarise_var_types(d), "v", d) }
+  st <- function(x) { d <- data.frame(v = x)
+                      BACE:::.detect_types_for_signal(d, "v")[["v"]] }
+  cases <- list(c(1L, 2L, 3L, 7L, 2L),          # integer
+                c(1L, 2L, NA, 7L, 2L),          # integer with NA
+                c(1, 2, 3, 7, 2),               # DOUBLE whole numbers
+                c(1, 2, NA, 7, 2),              # ...with one NA
+                c(1.5, 2.25, 3.1, 7.7, 2.2))    # fractional
+  for (x in cases) expect_identical(bt(x), st(x))
+
+  # the two that used to diverge, pinned explicitly
+  expect_identical(st(c(1, 2, 3, 7, 2)), "gaussian")   # was "poisson"
+  # and one NA must not change the family
+  expect_identical(st(c(1, 2, 3, 7, 2)), st(c(1, 2, NA, 7, 2)))
+  expect_identical(st(c(1L, 2L, 3L)), st(c(1L, NA, 3L)))
+
+  # factors still behave
+  expect_identical(bt(factor(c("a","b","a"))), st(factor(c("a","b","a"))))
+  expect_identical(bt(factor(c("a","b","c"))), st(factor(c("a","b","c"))))
+})
+
+# ---- the z-scoring constants must be kept, per run AND per model ----------
+
+test_that("scaling constants are recorded and make the back-transform exact", {
+  testthat::skip_on_cran()
+  skip_if_not_installed("ape")
+  set.seed(5); n <- 50
+  tr <- ape::rcoal(n); tr$tip.label <- paste0("sp", seq_len(n))
+  d <- data.frame(Species = tr$tip.label, x1 = rnorm(n, 500, 20))
+  d$y <- 100 + 2 * d$x1 + rnorm(n, 0, 30)
+  d$y[sample(n, 12)] <- NA; d$x1[sample(n, 10)] <- NA
+
+  fit <- suppressWarnings(suppressMessages(
+    bace("y ~ x1", "~ 1 | Species", phylo = tr, data = d, runs = 3,
+         nitt = 6000, burnin = 1000, thin = 5, n_final = 5,
+         verbose = FALSE, skip_conv = TRUE, seed = 5)))
+
+  # they exist, one entry per final run
+  expect_false(is.null(fit$scaling))
+  expect_equal(length(fit$scaling), 5L)
+  expect_false(is.null(fit$final_results$scaling))
+
+  own  <- get_scaling(fit, "x1")              # x1 in its own model
+  pred <- get_scaling(fit, "x1", model = "y") # x1 as a predictor in y's model
+  expect_equal(nrow(own), 5L)
+  expect_equal(nrow(pred), 5L)
+  expect_true(all(is.finite(own$sd)) && all(own$sd > 0))
+  expect_true(all(is.finite(pred$sd)) && all(pred$sd > 0))
+
+  # THE invariant: a variable's divisor as a PREDICTOR is not its observed-only
+  # one, because as a predictor it carries that run's imputed values. Storing
+  # only the response's constants (as the first cut of this fix did) would make
+  # every cross-variable coefficient unconvertible.
+  expect_equal(length(unique(round(own$sd, 10))), 1L)   # response: stable
+  expect_gt(length(unique(round(pred$sd, 10))), 1L)     # predictor: moves
+  expect_gt(max(abs(pred$sd - own$sd[1])) / own$sd[1], 0.01)
+
+  # and the recorded constants recover the true slope
+  sy <- get_scaling(fit, "y", model = "y")
+  bz <- mean(as.matrix(get_pooled_model(fit, "y")$Sol)[, "x1"])
+  expect_lt(abs(bz * mean(sy$sd) / mean(pred$sd) - 2) / 2, 0.05)
+
+  # non-gaussian / unknown names are refused, not silently NA
+  expect_error(get_scaling(fit, "not_a_variable"), regexp = "No model recorded")
+  expect_error(get_scaling(fit, "y", model = "nope"), regexp = "No model recorded")
+  expect_error(get_scaling(structure(list(), class = "lm")),
+               regexp = "must be a 'bace_complete'")
+})
+
+test_that("a checkpoint without scaling constants is not accepted", {
+  # Accepting a pre-1.0.2 checkpoint would leave that run's constants NULL and
+  # its coefficients unconvertible -- silently. It must be recomputed instead.
+  old <- list(models = list(), dataset = data.frame(), prob_preds = list(),
+              ovr_models = list())
+  new <- c(old, list(scaling = list()))
+  expect_false(BACE:::.ckpt_is_run(old))
+  expect_true(BACE:::.ckpt_is_run(new))
+})

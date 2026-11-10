@@ -532,6 +532,9 @@ out <- list(
   final_results = final_results,
   imputed_datasets = final_results$all_datasets,   # For convenient access
   prob_preds       = final_results$all_prob_preds, # Pooled probability matrices (cat/threshold)
+  # The z-scoring constants each final run was fit on, so a coefficient from
+  # $pooled_models can be returned to the data scale. See get_scaling().
+  scaling          = final_results$scaling,
   initial_results = start,
   convergence = converge,
   converged = converged,

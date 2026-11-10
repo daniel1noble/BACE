@@ -36,8 +36,14 @@
 #' @keywords internal
 #' @noRd
 .ckpt_is_run <- function(x) {
+  # "scaling" is required from 1.0.2. A checkpoint written by an earlier build
+  # has no z-scoring constants in it, so accepting one would silently leave
+  # that run's constants NULL and make its coefficients unrecoverable -- the
+  # exact gap the constants were added to close. Such a file fails this check
+  # and the run is recomputed, which is the honest outcome.
   is.list(x) && !is.data.frame(x) &&
-    all(c("models", "dataset", "prob_preds", "ovr_models") %in% names(x))
+    all(c("models", "dataset", "prob_preds", "ovr_models", "scaling") %in%
+          names(x))
 }
 
 #' @keywords internal

@@ -1,5 +1,55 @@
 # BACE 1.0.2
 
+* **The z-scoring constants are now kept, and there is `get_scaling()` to read
+  them.** BACE standardises continuous variables before fitting, so the fitted
+  models -- `$pooled_models` and the per-run models -- carry coefficients in SD
+  units, not data units. The mean and SD used were computed, applied and then
+  **discarded**, so no exact back-transform was possible from BACE's output at
+  all: a true slope of 2.0 came back as 0.785 with nothing recording the
+  divisor.
+
+  They are recorded per imputation run **and per model**, because that is how
+  they are computed. A variable's divisor is not one number: as the response of
+  its own model it is the observed-only SD (stable), but as a *predictor* in
+  another variable's model it is recomputed from that run's imputed values and
+  moves run to run -- measured at 21.6 to 24.9 against an observed-only 22.9, a
+  spread of 8.5 per cent. A coefficient is in units of both sides, so
+  converting the slope of `y` on `x1` needs
+  `get_scaling(fit, "x1", model = "y")`, not `x1`'s own. With the recorded
+  constants the example above back-transforms to 2.0048 against a truth of 2.0;
+  the nearest guess available before was out by 3.3 per cent.
+
+  Checkpoints written by earlier versions carry no constants, so they are now
+  rejected by the shape check and recomputed rather than silently resumed with
+  the constants missing.
+
+* **`phylo_signal_summary()` reported heritability of 1.0000 where the truth
+  was 0.50.** The probit latent scale has no size of its own, so the residual
+  is FIXED to identify it, and the H2 formula wrote that `1` in by hand:
+  `V_A / (V_A + V_S + 1)`. A user prior that pins the scale elsewhere scales
+  everything on it, `V_A` included, so the numerator scaled and the denominator
+  did not. Measured on one 100-tip binary fit with a true H2 of 0.50: pinning
+  the residual at 1 / 2 / 4 gave `V_A` 12.0 / 21.4 / 41.2 and a reported H2 of
+  0.810 / 0.884 / 0.929 against the model's own 0.810 / 0.805 / 0.795. Worse,
+  the standard MCMCglmm idiom `R = list(V = 1, nu = 0.002)` leaves the residual
+  **free**: it ran to 2e19 and H2 was reported as **1.0000**. `bace()` already
+  refuses an R override for these types; this function exposed the same
+  documented `prior` argument with no such guard. It now reads the residual the
+  model actually used (identical results under the default prior) and refuses a
+  free residual, naming the fix. `R_species` had the same hard-coded `1`.
+
+* **`phylo_signal_summary()` could fit a different model family from
+  `bace()` for the same column.** It built its own type summary with a looser,
+  NA-sensitive integer rule — `is.integer(x) || (is.numeric(x) && all(!is.na(x)
+  & x == floor(x)))` against `bace()`'s plain `is.integer(x)`. A whole-number
+  **double**, which is what `read.csv()` gives for a count column, was gaussian
+  to `bace()` and **poisson** here, so the same data got a different variance
+  decomposition: H2 0.492 against 0.766-0.787 on a column whose true value was
+  0.8, flipping the printed band from "high" to "moderate". And because
+  `all(!is.na(x) & ...)` is FALSE as soon as one value is missing, a single
+  `NA` silently changed the family back. Both paths now use
+  `.summarise_var_types()`, so there is one rule.
+
 * **Random slopes in `ran_phylo_form` are now an error, not a silent
   substitution.** BACE fits random-INTERCEPT models only. The formula parser
   could read a slope, but the prior builder cannot construct a correct one:

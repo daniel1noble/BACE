@@ -134,3 +134,101 @@ get_imputed_data <- function(object, format = c("list", "data.frame")) {
   }
   do.call(rbind, datasets)
 }
+
+
+#' Scaling constants used to standardise each variable
+#'
+#' @description
+#' BACE z-scores continuous variables before fitting (subtract the mean, divide
+#' by the SD) because MCMC mixes far better on tidy numbers. Imputed values are
+#' returned on your original scale automatically, but the **fitted models** --
+#' \code{$pooled_models}, and the per-run models in \code{$final_results} -- are
+#' on the standardised scale. Their coefficients are in SD units, not data
+#' units.
+#'
+#' This returns the constants that were actually used, so a coefficient can be
+#' put back on the data scale:
+#'
+#' \deqn{\beta_{data} = \beta_{z} \times sd(y) / sd(x)}
+#'
+#' @details
+#' The constants are recorded **per imputation run and per variable**, because
+#' that is how they are computed: every run re-standardises using its own
+#' completed data, so the divisor differs from run to run. There is no single
+#' constant for the whole fit, and guessing one from the returned datasets is
+#' wrong -- measured at -0.6 per cent to +3.3 per cent depending on which guess
+#' is made. Non-gaussian variables are never z-scored and are absent.
+#'
+#' Before 1.0.2 these were discarded once fitting finished, so no exact
+#' back-transform was possible from BACE's output at all.
+#'
+#' @param object A \code{bace_complete} (from \code{\link{bace}}) or a
+#'   \code{bace_final} (from \code{\link{bace_final_imp}}).
+#' @param variable Optional variable name. When given, returns a data.frame with
+#'   one row per run (\code{run}, \code{mean}, \code{sd}); otherwise the full
+#'   nested list, keyed run -> model -> variable.
+#' @param model Optional: the model (i.e. the response) whose fit you want
+#'   \code{variable}'s constants from. Defaults to \code{variable}'s own model.
+#'   A coefficient is in units of BOTH sides, so converting the slope of
+#'   \code{y} on \code{x1} needs \code{get_scaling(fit, "x1", model = "y")} --
+#'   as a predictor, \code{x1} is standardised by its current IMPUTED values,
+#'   which differ from its observed-only spread.
+#'
+#' @return A data.frame when \code{variable} is supplied, else a list of length
+#'   \code{n_final}, each a named list of \code{list(mean =, sd =)}.
+#' @seealso \code{\link{get_pooled_model}}, \code{\link{get_imputed_data}}
+#' @examples
+#' \dontrun{
+#' fit <- bace("y ~ x1", "~ 1 | Species", phylo = tree, data = d)
+#' get_scaling(fit, "y")          # one row per imputation
+#'
+#' # put the pooled slope back on the data scale
+#' sy <- mean(get_scaling(fit, "y")$sd)
+#' sx <- mean(get_scaling(fit, "x1")$sd)
+#' beta_z <- mean(as.matrix(get_pooled_model(fit, "y")$Sol)[, "x1"])
+#' beta_z * sy / sx
+#' }
+#' @export
+get_scaling <- function(object, variable = NULL, model = NULL) {
+  sc <- if (inherits(object, "bace_complete")) {
+    object[["scaling", exact = TRUE]] %||%
+      object$final_results[["scaling", exact = TRUE]]
+  } else if (inherits(object, "bace_final")) {
+    object[["scaling", exact = TRUE]]
+  } else {
+    stop("`object` must be a 'bace_complete' or a 'bace_final'.", call. = FALSE)
+  }
+
+  if (is.null(sc)) {
+    stop("This fit carries no scaling constants. They are recorded from BACE ",
+         "1.0.2; a fit made with an earlier version cannot be back-transformed ",
+         "exactly, because the divisor each run used was not kept.",
+         call. = FALSE)
+  }
+  if (is.null(variable)) return(sc)
+
+  # sc is run -> model (by response) -> variable -> list(mean, sd).
+  # Default to the variable's constants in ITS OWN model; `model` asks for the
+  # constants it had as a PREDICTOR in another variable's model, which is what
+  # a cross-variable coefficient needs.
+  mdl <- if (is.null(model)) variable else model
+  models_present <- unique(unlist(lapply(sc, names)))
+  if (!mdl %in% models_present) {
+    stop("No model recorded for '", mdl, "'. This fit has models for: ",
+         paste(models_present, collapse = ", "), ".", call. = FALSE)
+  }
+  vars_present <- unique(unlist(lapply(sc, function(r) names(r[[mdl]]))))
+  if (!variable %in% vars_present) {
+    stop("No scaling recorded for '", variable, "' in the model of '", mdl,
+         "'. Only z-scored (gaussian) variables have any; that model has: ",
+         paste(vars_present, collapse = ", "), ".", call. = FALSE)
+  }
+  rows <- lapply(seq_along(sc), function(m) {
+    e <- sc[[m]][[mdl]][[variable]]
+    data.frame(run  = m,
+               mean = if (is.null(e$mean)) NA_real_ else e$mean,
+               sd   = if (is.null(e$sd))   NA_real_ else e$sd)
+  })
+  out <- do.call(rbind, rows)
+  out[!is.na(out$mean) | !is.na(out$sd), , drop = FALSE]
+}

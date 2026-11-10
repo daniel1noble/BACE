@@ -62,7 +62,9 @@
 #' * gaussian / poisson single RE: V_A / (V_A + V_R)
 #' * gaussian / poisson dual RE:   V_A / (V_A + V_S + V_R)
 #' * threshold / ordered single:   V_A / (V_A + 1)
-#' * threshold / ordered dual:     V_A / (V_A + V_S + 1)
+#' * threshold / ordered dual:     V_A / (V_A + V_S + V_R), V_R the FIXED
+#'   residual the model used (1 under the default prior; the probit scale is
+#'   identified only by fixing it, and a free residual is refused)
 #' * multinomial single RE:        tr(G_phylo) / (tr(G_phylo) + tr(R))
 #' * multinomial dual RE:          tr(G_phylo) / (tr(G_phylo) + tr(G_species) + tr(R))
 #'
@@ -292,20 +294,26 @@ phylo_signal_summary <- function(
 #' @keywords internal
 #' @noRd
 .detect_types_for_signal <- function(data, variables) {
-  # Build the per-variable summary .get_type expects
-  sum_tbl <- do.call(rbind, lapply(variables, function(v) {
-    x <- data[[v]]
-    data.frame(
-      variable   = v,
-      is_numeric = is.numeric(x),
-      is_integer = is.integer(x) ||
-                   (is.numeric(x) && all(!is.na(x) & x == floor(x))),
-      is_factor  = is.factor(x),
-      is_ordered = is.ordered(x),
-      n_levels   = if (is.factor(x)) nlevels(x) else NA_integer_,
-      stringsAsFactors = FALSE
-    )
-  }))
+  # Use the SAME summary bace() builds, so the two cannot disagree about the
+  # same column. This function used to build its own, with a looser and
+  # NA-sensitive integer rule:
+  #
+  #   bace()  : is_integer = is.integer(x)
+  #   here    : is_integer = is.integer(x) ||
+  #                          (is.numeric(x) && all(!is.na(x) & x == floor(x)))
+  #
+  # That diverged in two ways, both silent:
+  #   * a DOUBLE holding whole numbers -- what read.csv() gives you for a count
+  #     column -- was gaussian to bace() and POISSON here, a different model
+  #     family and so a different variance decomposition. Measured: H2 0.492
+  #     here against 0.766-0.787 from bace()'s family, on a column whose true
+  #     H2 was 0.8, flipping the printed band from "high" to "moderate".
+  #   * `all(!is.na(x) & ...)` is FALSE as soon as ONE value is missing, so the
+  #     same column changed family depending on whether it had an NA.
+  #
+  # Whatever the rule is, it must be ONE rule; .summarise_var_types() is it.
+  sum_tbl <- .summarise_var_types(data[, variables, drop = FALSE],
+                                  store_levels = FALSE)
   out <- stats::setNames(
     lapply(variables, function(v) .get_type(sum_tbl, v, data)),
     variables
@@ -383,6 +391,38 @@ phylo_signal_summary <- function(
   n_levels <- if (type %in% c("threshold", "ordinal", "categorical") &&
                   is.factor(d[[v]])) nlevels(d[[v]]) else NULL
   pr <- prior
+
+  # One `prior` is applied to EVERY variable here, whatever its type. For a
+  # threshold / ordinal / categorical trait the probit latent scale has no size
+  # of its own, so the residual must stay FIXED or nothing computed from a
+  # variance ratio means anything. bace() refuses an R override for exactly
+  # these types (.validate_priors in R/priors.R); this function exposes the same
+  # `prior` argument and had no such guard. The standard MCMCglmm idiom
+  # R = list(V = 1, nu = 0.002) leaves the residual free, and it then ran away
+  # to ~2e19 while H2 divided by a hard-coded 1: REPORTED H2 = 1.0000 on data
+  # whose true H2 was 0.50. Refuse it, naming the fix.
+  if (!is.null(pr) && type %in% c("threshold", "ordinal", "categorical")) {
+    R_block <- if (is.list(pr)) pr[["R", exact = TRUE]] else NULL
+    if (!is.null(R_block)) {
+      fixed <- is.list(R_block) &&
+               !is.null(R_block[["fix", exact = TRUE]]) &&
+               isTRUE(as.numeric(R_block[["fix", exact = TRUE]])[1] >= 1)
+      if (!fixed) {
+        stop("phylo_signal_summary: the residual (R) prior for '", v,
+             "' (type ", type, ") must keep the residual FIXED.
+",
+             "  The probit latent scale is identified only by fixing it, so a ",
+             "free residual makes H2 and R_species meaningless: measured, it ",
+             "ran to ~2e19 and H2 was reported as 1.0000 where the truth was ",
+             "0.50.
+",
+             "  Use R = list(V = 1, fix = 1), or drop the R block to take ",
+             "BACE's default. bace() refuses this override for the same reason.",
+             call. = FALSE)
+      }
+    }
+  }
+
   if (is.null(pr)) {
     pr <- .make_prior(
       n_rand = n_rand, type = type,
@@ -626,8 +666,17 @@ phylo_signal_summary <- function(
   } else if (type %in% c("threshold", "ordinal")) {
     V_A <- vcv[, phylo_col]
     V_S <- if (species) vcv[, sp2_col] else 0
-    # Residual is fixed at 1 (probit identification)
-    h2 <- V_A / (V_A + V_S + 1)
+    # The probit latent scale has no size of its own, so the residual is FIXED
+    # to identify it -- at 1 by BACE's default prior. Read the value the model
+    # actually used rather than writing 1 in by hand: a user prior that pins it
+    # elsewhere scales everything on the latent scale with it, V_A included, so
+    # a hard-coded 1 left the numerator scaled and the denominator not.
+    # Measured on one 100-tip binary fit, true H2 = 0.50: residual pinned at
+    # 1 / 2 / 4 gave V_A 12.0 / 21.4 / 41.2 and a REPORTED H2 of
+    # 0.810 / 0.884 / 0.929 against the model's own 0.810 / 0.805 / 0.795.
+    # With the default prior vcv[, units_col] IS 1, so this changes nothing.
+    V_R <- vcv[, units_col]
+    h2 <- V_A / (V_A + V_S + V_R)
 
   } else if (type == "categorical") {
     # Multinomial: VCV columns for G_phylo are (K-1)^2 entries named like
@@ -805,7 +854,8 @@ phylo_signal_summary <- function(
   } else if (type %in% c("threshold", "ordinal")) {
     V_A <- vcv[, phylo_col]
     V_S <- vcv[, sp2_col]
-    rs <- V_S / (V_A + V_S + 1)
+    # Read the fixed residual rather than assuming 1; see .compute_H2_stats().
+    rs  <- V_S / (V_A + V_S + vcv[, "units"])
 
   } else if (type == "categorical") {
     J <- n_levels - 1L

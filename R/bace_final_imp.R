@@ -391,6 +391,14 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
     models_this_run <- list()
     ovr_models_this_run <- list()   # per-level binary models for OVR categorical vars
     prob_preds_this_run <- list()   # probability matrices for cat/threshold vars
+    # The z-scoring constants ACTUALLY used, per variable, for THIS run. They
+    # are recomputed from the current completed data at every variable of every
+    # run, so there is no single constant for the whole fit -- and without them
+    # a model's coefficients cannot be returned to the data scale at all. They
+    # used to be discarded as soon as the fit finished: a true slope of 2.0 came
+    # back as 0.785 with nothing recording the divisor, and guessing it from the
+    # completed datasets was wrong by -0.6% to +3.3% depending on which guess.
+    scaling_this_run <- list()
 
     for (s in seq_len(eff_sweeps)) {
     last_sweep <- (s == eff_sweeps)
@@ -431,6 +439,19 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
       )
 
       data_i <- dat_prep[[1]]
+
+      # Keep the constants THIS MODEL was fit on -- for every gaussian variable
+      # in it, not just the response. A coefficient is in units of BOTH sides:
+      # to put the slope of y on x1 back on the data scale you need x1's
+      # divisor as well, and x1 is standardised here by its CURRENT imputed
+      # values, which differ from run to run and from its observed-only sd.
+      # (The response's own divisor is the observed-only one, because its
+      # missing rows were re-masked above -- so that one is stable, but the
+      # predictors' are not.) dat_prep[[2]] is NULL for non-gaussian variables,
+      # which are never z-scored.
+      scaling_this_run[[response_var]] <-
+        if (is.list(dat_prep[[2]]))
+          Filter(Negate(is.null), dat_prep[[2]]) else list()
 
       if (species) {
         species_col_name <- phylo_ran[["cluster"]]
@@ -587,7 +608,8 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
     # / pool_mi use only the datasets), so this one-generation offset is
     # harmless - it is the standard Gibbs state at the time of each update.
     list(models = models_this_run, dataset = data_current,
-         prob_preds = prob_preds_this_run, ovr_models = ovr_models_this_run)
+         prob_preds = prob_preds_this_run, ovr_models = ovr_models_this_run,
+         scaling = scaling_this_run)
   }
 
   # Run serially or in parallel
@@ -658,6 +680,7 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
 
   all_models     <- lapply(results_list, `[[`, "models")
   all_datasets   <- lapply(results_list, `[[`, "dataset")
+  all_scaling    <- lapply(results_list, `[[`, "scaling")
   all_prob_preds <- lapply(results_list, `[[`, "prob_preds")
   all_ovr_models <- lapply(results_list, `[[`, "ovr_models")
 
@@ -665,6 +688,9 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
   out <- list(
     all_models     = all_models,
     all_datasets   = all_datasets,
+    # Per run, per variable: the mean and sd the model was actually fit on.
+    # Needed to put any coefficient back on the data scale; see get_scaling().
+    scaling        = all_scaling,
     all_prob_preds = all_prob_preds,   # prob matrices per run, for pooled prediction
     all_ovr_models = all_ovr_models,   # per-level binary models per run (OVR path only)
     formulas = formulas,
