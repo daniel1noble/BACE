@@ -1,3 +1,30 @@
+# BACE 1.0.2
+
+* **A declared-but-unobserved factor level shifted every imputation onto the
+  wrong category.** When a level of an ordered or categorical response is never
+  seen in training, MCMCglmm re-indexes the response to `1:K_eff` in
+  declaration order, so the prediction comes back with fewer columns than the
+  factor has levels. The right vocabulary is then the **observed** levels in
+  declaration order. `.impute_levels()` passed no observed set, so
+  `.align_levels_to_probs()` fell back to *the first `n_cols` declared levels*
+  — correct only when the unobserved levels happen to sit at the end. With
+  levels `2 | 3 | 4` and only `3` and `4` observed, it returned `2 | 3`, moving
+  every imputed value one category down, reported only as a warning naming no
+  variable (`'(unknown)'`). The observed set and the response name are now
+  passed through, and the other call site already did this correctly. Reached
+  in practice: the 2026-11 campaign's ordinal trait realises three declared
+  levels at low phylogenetic signal, with the top one observed once or not at
+  all.
+
+* `assess_convergence()`'s reported `thresholds` are derived from the code's
+  own defaults rather than written out by hand, so they cannot drift from the
+  values actually applied again.
+
+* This is the version the 2026-11 simulation campaign requires. The guards in
+  `run_one.R` and `run_all.sh` refuse to start below it, because an older build
+  reporting the same version number produces results that look entirely normal
+  and mean nothing.
+
 # BACE 1.0.1
 
 * **The chained-equations convergence check was defective and has been

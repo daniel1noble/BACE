@@ -470,3 +470,48 @@ test_that("every response in a character vector of formulas gets a model", {
   expect_false(anyNA(fit$imputed_data$z))
   expect_false(anyNA(fit$imputed_data$y))
 })
+
+# ---- an unobserved declared level must not shift the category labels ------
+
+test_that("imputed categories follow the OBSERVED levels, not the first n declared", {
+  # When a declared level is never observed in training, MCMCglmm re-indexes
+  # the response to 1:K_eff in declaration order, so the prediction has fewer
+  # columns than the factor has levels. The right vocabulary is the OBSERVED
+  # levels in declaration order. Falling back to "the first n_cols DECLARED"
+  # is correct only when the unobserved levels sit at the END -- otherwise
+  # every imputation is shifted onto a neighbouring category.
+  decl <- c("2", "3", "4")
+  pp   <- matrix(c(0.2, 0.8,
+                   0.7, 0.3), nrow = 2, byrow = TRUE)
+
+  for (obs in list(c("2", "3"), c("3", "4"), c("2", "4"))) {
+    got  <- suppressWarnings(
+      BACE:::.impute_levels(pp, decl, sample = FALSE, levels_observed = obs,
+                            response_var = "ord"))
+    want <- obs[apply(pp, 1, which.max)]
+    expect_equal(got, want)
+  }
+
+  # the specific regression: observed 3|4 used to come back as 3|2
+  shifted <- suppressWarnings(BACE:::.impute_levels(pp, decl, sample = FALSE))
+  expect_equal(shifted, c("3", "2"))                       # the old answer
+  correct <- suppressWarnings(
+    BACE:::.impute_levels(pp, decl, sample = FALSE,
+                          levels_observed = c("3", "4")))
+  expect_equal(correct, c("4", "3"))                       # the right one
+  expect_false(identical(shifted, correct))
+})
+
+test_that(".align_levels_to_probs honours the observed set when given one", {
+  decl <- c("2", "3", "4")
+  expect_equal(BACE:::.align_levels_to_probs(decl, 2, levels_observed = c("3","4")),
+               c("3", "4"))
+  expect_equal(BACE:::.align_levels_to_probs(decl, 3), decl)
+  # with no observed set it can only guess, and must warn while doing so
+  expect_warning(g <- BACE:::.align_levels_to_probs(decl, 2),
+                 regexp = "Falling back")
+  expect_equal(g, c("2", "3"))
+  # the warning names the variable rather than "(unknown)"
+  expect_warning(BACE:::.align_levels_to_probs(decl, 2, response_var = "ord"),
+                 regexp = "'ord'")
+})
