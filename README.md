@@ -82,7 +82,7 @@ validation <- bace_validate(result, prop = 0.1, seed = 1)
 validation
 ```
 
-See `?bace`, `?bace_imp`, `?bace_final_imp`, `?pool_posteriors`, `?assess_convergence`, `?get_pooled_model`, `?get_imputed_data`, `?get_imputation_intervals` and `?bace_validate` for details.
+See `?bace`, `?bace_imp`, `?bace_final_imp`, `?pool_posteriors`, `?pool_mi`, `?assess_convergence`, `?get_pooled_model`, `?get_imputed_data`, `?get_imputation_intervals`, `?get_scaling`, `?phylo_signal_summary` and `?bace_validate` for details.
 
 ## Tutorial
 
@@ -97,11 +97,11 @@ A full tutorial — including when BACE is appropriate relative to other MI tool
 - [x] **One-vs-rest (OVR) categorical imputation** — as an alternative to the default multinomial probit, unordered categorical variables can be modelled as J independent binary threshold models (one per level) via `ovr_categorical = TRUE`
 - [x] **`nitt_cat_mult` parameter** — integer multiplier applied to `nitt` and `burnin` for categorical and ordinal variables only, for cases where harder-to-mix models need longer chains
 - [x] Gelman / pseudo-Gelman prior options for categorical models to improve mixing, and fully user-settable priors per variable via the `priors` argument
-- [x] Stability check on the chained-equations loop (`assess_convergence()`): watches the mean and SD of each variable's imputed values across runs, discards the warm-up half, measures movement against the variable's own imputation spread, and names what it finds — drift, oscillation, a collapsing or diverging spread. A pass means no pathology detected, not a certificate (van Buuren 2018, ch. 6.5.2)
+- [x] Stability check on the chained-equations loop (`assess_convergence()`): watches the mean and SD of each variable's imputed values across runs, discards the warm-up half, and names what it finds — drift, oscillation, a collapsing or diverging spread. Movement is measured against the variable's imputation spread, or, when the imputed cells have none (a single missing cell, or counts that all round to the same integer), against the spread of its **observed** values. Where no scale independent of the series exists the verdict is `unassessable` rather than a guess. A pass means no pathology detected, not a certificate (van Buuren 2018, ch. 6.5.2)
 - [x] Auto-restart of the chained imputation when — and only when — the stability check finds drift, the one pathology more runs can cure (`bace()` with `max_attempts`)
 - [x] Final independent imputations with posterior-predictive sampling (`bace_final_imp()`), so each of the `n_final` imputed datasets is a proper draw rather than a repeated point estimate — continuous variables draw from the posterior predictive via the fixed-effect design matrix, categorical/ordinal variables sample from the posterior probability distribution
 - [x] Posterior pooling across imputations by stacking per-imputation MCMC chains — a Monte Carlo approximation to the marginal posterior integrating over the imputation distribution; see `?pool_posteriors` for the references and assumptions
-- [x] **Rubin's-rules pathway** — `with_imputations()` fits any downstream analysis model to each imputed dataset and `pool_mi()` combines the estimates with Rubin's rules (Barnard–Rubin small-sample degrees of freedom, `fmi`/`riv` diagnostics; matches `mice::pool` to machine precision on identical inputs)
+- [x] **Rubin's-rules pathway** — `with_imputations()` fits any downstream analysis model to each imputed dataset and `pool_mi()` combines the estimates with Rubin's rules (Barnard–Rubin small-sample degrees of freedom, `fmi`/`riv` diagnostics; matches `mice::pool` to machine precision on identical inputs). Where `df.residual()` is undefined — `gls`, `phylolm`, `MCMCglmm` — the complete-data degrees of freedom are derived automatically rather than the correction being skipped
 - [x] Parallel execution of final imputation runs (`bace_final_imp(n_cores = …)`) via `parallel::mclapply`
 - [x] Accessor helpers `get_pooled_model()` and `get_imputed_data()` for extracting pooled models and imputed datasets from `bace_complete` / `bace_pooled` / `bace_final` objects
 - [x] `get_imputation_intervals()`: calibrated per-cell 95% intervals for imputed values (Rubin t), for reporting and plotting
@@ -109,11 +109,24 @@ A full tutorial — including when BACE is appropriate relative to other MI tool
 - [x] Separate MCMC settings for the final imputation runs (`final_nitt`, `final_thin`, `final_burnin` in `bace()`), so the chained phase and the pooled-inference phase can have different chain lengths
 - [x] `bace_validate()`: hide known cells, re-impute, compare — one-call validation of imputation quality on your own data, reusing a finished run's settings
 - [x] Phylogenetic (tree) uncertainty: pass a `multiPhylo` and each final imputation run is fit under its own tree
-- [x] Simulation engine `sim_bace()` for generating phylogenetically-structured comparative datasets with arbitrary response types, interaction terms and random slopes — useful for method validation
+- [x] **Phylogenetic signal pre-flight (`phylo_signal_summary()`)** — fits a univariate phylogenetic mixed model per variable and reports posterior-mean heritability H² with 95% HPD, and optionally Pagel's λ, Blomberg's K and Fritz–Purvis D. A cheap way to see how much the tree can actually contribute before committing to a full run
+- [x] **`get_scaling()`** — BACE z-scores continuous variables before fitting, so fitted models carry coefficients in SD units. The constants used are recorded per imputation run *and per model*, so any coefficient can be put back on the data scale exactly. A variable's divisor is not a single number: as the response of its own model it is the observed-only SD, but as a predictor elsewhere it is recomputed from that run's imputed values
+- [x] Convergence plots: `plot_trace_convergence()`, `plot_steps_convergence()`, `plot_density_convergence()`, `plot_acf_convergence()` and `plot_convergence_summary()`, plus `plot_bace_imputation_comparison()` for observed-versus-imputed distributions
+- [x] Session-wide defaults via `bace_options()` / `bace_option_defaults()`
+- [x] Simulation engine `sim_bace()` for generating phylogenetically-structured comparative datasets with arbitrary response types, interaction terms and random slopes (`rr`, `rr_form`), plus `sim_tree()` for the tree and species assignment on its own — useful for method validation
+
+## Not currently supported
+
+- **Random slopes in the imputation models.** `ran_phylo_form` takes a random-intercept
+  formula only. A slope is **refused with an error** rather than silently fitted as an
+  intercept: BACE cannot yet build a correct prior for one (the inverse-Wishart `nu` is not
+  widened with `V`, so a 2×2 structure gets an improper prior). Tracked as
+  [#22](https://github.com/daniel1noble/BACE/issues/22). Note this is separate from
+  `sim_bace()`, which *can* simulate data with random slopes.
 
 ## Future development
 
-- [ ] Random slopes and more flexible random-effect structures per response variable (accept a *list* of random-effect formulas so each imputation model can have its own random-effect specification)
+- [ ] Random slopes and more flexible random-effect structures per response variable (accept a *list* of random-effect formulas so each imputation model can have its own random-effect specification) — [#22](https://github.com/daniel1noble/BACE/issues/22)
 - [ ] Parallelisation within a single chained-equations iteration (currently only the `n_final` independent runs are parallelised)
 
 Bug reports, feature requests and worked examples are very welcome at <https://github.com/daniel1noble/BACE/issues>.
