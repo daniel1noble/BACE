@@ -755,3 +755,100 @@ test_that("the plotted step equals the step the check reports", {
   expect_equal(near$new, near$check, tolerance = 1e-10)
   expect_gt(near$old / near$check, 10)              # ~18x on a near-certain binary
 })
+
+# ---- third audit: defects introduced by the 2026-11-10 fixes themselves ----
+
+test_that("the trait prefix strip is right for dotted responses AND dotted levels", {
+  f <- BACE:::.strip_trait_prefix
+  # the case the greedy rule lost (what the first fix was for)
+  expect_identical(f("traithabtype.forest.edge", "habtype"), "forest.edge")
+  # the case the NON-greedy rule lost (what that fix introduced). read.csv()
+  # turns every space in a column heading into a dot, so this is common.
+  expect_identical(f("traithab.type.open", "hab.type"), "open")
+  # both at once
+  expect_identical(f("traithab.type.forest.edge", "hab.type"), "forest.edge")
+  # plain
+  expect_identical(f("traithabtype.open", "habtype"), "open")
+  # regex metacharacters in the response name must not be interpreted
+  expect_identical(f("traity(1).open", "y(1)"), "open")
+  # vectorised, and falls back sanely with no response name
+  expect_identical(f(c("traity.a", "traity.b"), "y"), c("a", "b"))
+  expect_identical(f("traithabtype.forest.edge", NULL), "forest.edge")
+})
+
+test_that("a dotted response column name imputes the same as an undotted one", {
+  testthat::skip_on_cran()
+  skip_if_not_installed("ape")
+  run <- function(vname) {
+    set.seed(42); n <- 30
+    tr <- ape::rcoal(n); tr$tip.label <- sprintf("sp%02d", seq_len(n))
+    set.seed(7)
+    lev <- c("forest", "open", "shrub")
+    d <- data.frame(Species = tr$tip.label, y = rnorm(n))
+    d[[vname]] <- factor(sample(lev, n, TRUE, prob = c(.4, .35, .25)),
+                         levels = lev)
+    mi <- c(3, 8, 12, 19, 25); d[[vname]][mi] <- NA
+    f <- list(stats::as.formula(paste(vname, "~ y")))
+    cv <- suppressWarnings(suppressMessages(bace_imp(
+      f, "~ 1 | Species", phylo = tr, data = d, runs = 2,
+      nitt = 1500, burnin = 300, thin = 3, verbose = FALSE)))
+    fin <- suppressWarnings(suppressMessages(bace_final_imp(
+      cv, fixformula = f, ran_phylo_form = "~ 1 | Species", phylo = tr,
+      n_final = 6, nitt = 1500, burnin = 300, thin = 3, n_cores = 1,
+      verbose = FALSE)))
+    list(tab = as.vector(table(factor(unlist(lapply(fin$all_datasets,
+            function(dd) as.character(dd[[vname]][mi]))), levels = lev))),
+         cols = colnames(fin$all_prob_preds[[1]][[vname]]))
+  }
+  a <- run("diettype"); b <- run("diet.type")
+  expect_identical(a$tab, b$tab)              # the NAME must not matter
+  expect_identical(a$cols, b$cols)
+  expect_gt(sum(b$tab[-1]), 0)                # non-baseline levels reachable
+})
+
+test_that("a colon in a level name does not hide the multinomial diagonal", {
+  mk <- function(levs) as.vector(outer(
+    paste0("traity.", levs), paste0("traity.", levs),
+    function(a, b) paste0(a, ":", b, ".units")))
+  for (levs in list(c("b", "c"), c("b:1", "c:2"),
+                    c("forest.edge", "open"), c("b", "b2"))) {
+    want <- paste0("traity.", levs, ":traity.", levs, ".units")
+    got  <- BACE:::.get_multinom_diag_cols(mk(levs), "units", length(levs))
+    expect_setequal(got, want)
+    expect_equal(length(got), length(levs))
+  }
+})
+
+test_that("the pooling correction reaches interactions and multinomial slopes", {
+  testthat::skip_on_cran()
+  skip_if_not_installed("ape")
+  set.seed(3); n <- 55
+  tr <- ape::rcoal(n); tr$tip.label <- sprintf("sp%02d", seq_len(n))
+  C <- ape::vcv(tr); C <- C / max(C); L <- t(chol(C))
+  d <- data.frame(Species = tr$tip.label,
+                  x1 = as.numeric(L %*% rnorm(n)), x2 = rnorm(n))
+  d$y <- 0.6*d$x1 + 0.4*d$x2 + 0.3*d$x1*d$x2 + rnorm(n, 0, 0.6)
+  d$y[sample(n, 16)] <- NA; d$x1[sample(n, 16)] <- NA; d$x2[sample(n, 14)] <- NA
+  fit <- suppressWarnings(suppressMessages(
+    bace(list("y ~ x1 * x2", "x1 ~ y + x2", "x2 ~ y + x1"), "~ 1 | Species",
+         phylo = tr, data = d, runs = 3, nitt = 5000, burnin = 1000, thin = 5,
+         n_final = 8, verbose = FALSE, skip_conv = TRUE, seed = 3)))
+  s1 <- get_scaling(fit, "x1", model = "y")$sd
+  s2 <- get_scaling(fit, "x2", model = "y")$sd
+  mods <- fit$final_results$all_models
+  pp <- suppressMessages(pool_posteriors(fit$final_results, variable = "y"))
+  w <- function(x) diff(unname(stats::quantile(x, c(0.025, 0.975))))
+
+  # the interaction needs BOTH divisors; an exact-name rule saw neither
+  for (k in c("x1", "x2", "x1:x2")) {
+    fac <- switch(k,
+      "x1"    = function(m) mean(s1) / s1[m],
+      "x2"    = function(m) mean(s2) / s2[m],
+      "x1:x2" = function(m) (mean(s1) / s1[m]) * (mean(s2) / s2[m]))
+    ref <- unlist(lapply(seq_along(mods), function(m)
+      as.matrix(mods[[m]]$y$Sol)[, k] * fac(m)))
+    got <- as.matrix(pp$models$y$Sol)[, k]
+    expect_equal(mean(got), mean(ref), tolerance = 1e-6)
+    expect_equal(w(got), w(ref), tolerance = 1e-6)
+  }
+})

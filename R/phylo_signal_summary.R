@@ -828,10 +828,23 @@ phylo_signal_summary <- function(
   # idh(trait):<re> produces no ":" and yields only diagonal columns.
   if (!any(has_colon)) return(cand[seq_len(min(J, length(cand)))])
 
-  halves  <- strsplit(core, ":", fixed = TRUE)
-  is_diag <- vapply(halves,
-                    function(h) length(h) == 2L && identical(h[1L], h[2L]),
-                    logical(1))
+  # A diagonal column is "H:H" -- the SAME trait identifier either side of one
+  # colon. Splitting on ":" and demanding exactly two pieces assumes no colon
+  # inside a level name; a factor level like "b:1" yields four pieces, matches
+  # nothing, and tr(R) silently falls through to the no-columns branch.
+  # Measured: renaming one level from "b" to "b:1", nothing else changed,
+  # moved H2 from 0.988 ("high") to 0.000 ("low") with no warning.
+  #
+  # Instead, test the shape directly: a diagonal name has odd length with the
+  # colon exactly in the middle and identical halves. That is true however
+  # many colons the level names themselves contain.
+  is_diag <- vapply(core, function(x) {
+    n <- nchar(x)
+    if (n < 3L || n %% 2L == 0L) return(FALSE)
+    k <- (n - 1L) %/% 2L
+    substr(x, k + 1L, k + 1L) == ":" &&
+      identical(substr(x, 1L, k), substr(x, k + 2L, n))
+  }, logical(1), USE.NAMES = FALSE)
   cand[is_diag]
 }
 

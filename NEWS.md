@@ -18,6 +18,59 @@
   records none; the panel falls back as before, or says so rather than
   drawing a misleading bar.
 
+* **A third audit, of the 2026-11-10 fixes themselves, found six defects that
+  those fixes had introduced.** All are corrected here. Recorded because the
+  pattern matters: each round of fixes has created defects of its own, and the
+  only thing that caught them was auditing the fix rather than trusting it.
+
+  - **A dotted response COLUMN NAME made every categorical imputation collapse
+    onto the baseline level.** Earlier on 2026-11-10 the level-label strip was
+    changed from greedy (`sub(".*\\.", "")`, which loses a LEVEL containing a
+    dot) to non-greedy (`sub("^trait.*?\\.", "")`). But MCMCglmm names traits
+    `trait<response>.<level>`, so the non-greedy rule loses a RESPONSE NAME
+    containing a dot -- and those are common, because `read.csv()` and
+    `data.frame()` turn every space in a column heading into a dot. Renaming a
+    column from `diettype` to `diet.type`, nothing else changed, moved the
+    imputed spread from 11/18/7 to **36/0/0**: the two non-baseline levels
+    became un-imputable, accuracy against the hidden truth fell from 65 per
+    cent to 2.5 per cent, and the between-imputation variance became exactly
+    zero, so any downstream interval ignored missing-data uncertainty. Neither
+    loose rule is right in general; the strip is now the exact, regex-escaped
+    `^trait<response>.` taken from the formula's LHS, which is correct for a
+    dotted response, a dotted level, and both at once.
+
+  - **A colon in a factor level made heritability collapse to zero.** The
+    multinomial diagonal matcher split the column name on `":"` and required
+    exactly two pieces, which assumes no colon inside a level name. Renaming
+    one level from `b` to `b:1` moved `H2_mean` from 0.988 ("high") to
+    **0.000** ("low"), with no warning. Diagonals are now identified by shape
+    -- the same trait identifier either side of one colon -- however many
+    colons the level names contain.
+
+  - **The new pooling unit-correction never fired for a categorical response,
+    nor for any interaction term.** It matched a Sol column only when the whole
+    name was exactly a z-scored variable, so it saw `x1` but not `x1:x2` and
+    not `trait<resp>.<level>:x1` -- i.e. it did nothing at all for multinomial
+    slopes. Measured at 8.6 to 23.6 per cent on multinomial interval widths,
+    against the ~4 per cent that justified the correction in the first place.
+    A column's units now come from every standardised variable named in it.
+
+  - **`get_scaling()`'s own worked example used the wrong divisor**, and
+    contradicted the `@param model` text three lines above it: it took the
+    predictor's constants from its own model (the observed-only SD) rather
+    than from the model the coefficient belongs to. Measured at up to 16 per
+    cent on the recovered slope, systematically upward. The `@return` field
+    also described a two-level structure where the object is three-level
+    (run -> model -> variable).
+
+  - **Known limitation, deliberately not approximated:** the pooling correction
+    harmonises the SCALE but not the CENTRE, so the pooled intercept still
+    mixes runs centred on different means (about 4.6 per cent on its interval
+    width). The exact correction is easy with main effects only but an
+    interaction changes the main effects too, so a partial application would be
+    wrong rather than incomplete. The slopes, which are what is normally
+    interpreted, are exact.
+
 * **`pool_posteriors()` stacked runs that were in different units.** Each run
   standardises its PREDICTORS by the spread of its own completed data, so run
   m's slope is "per sd_m of x" and run m+1's is "per sd_m+1 of x"; stacking

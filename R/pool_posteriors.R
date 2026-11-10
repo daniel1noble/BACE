@@ -285,22 +285,62 @@ pool_posteriors <- function(bace_final_object, variable = NULL, sample_size = NU
     # name EXACTLY matches a z-scored variable are touched: factor-level
     # columns and random-effect BLUP columns are not standardised and must be
     # left alone.
-    sol_rescale <- rep(1, length(sol_keep_cols))
-    names(sol_rescale) <- sol_keep_cols
+    # A column's units come from EVERY standardised variable named in it, not
+    # from an exact match on the whole column name. Real Sol names look like:
+    #
+    #   (Intercept)        no predictor                  -> factor 1
+    #   x1                 one predictor                 -> f(x1)
+    #   x1:x2              an interaction                -> f(x1) * f(x2)
+    #   fb                 a factor LEVEL, not z-scored  -> factor 1
+    #   traitg.b           multinomial intercept         -> factor 1
+    #   traitg.b:x1        multinomial slope on x1       -> f(x1)
+    #   Species.sp1        a random-effect BLUP          -> factor 1
+    #
+    # Matching the whole name exactly, as this did when first written, fired
+    # ONLY for a bare "x1". So the correction silently did nothing for any
+    # interaction term, and nothing at all for a CATEGORICAL response, whose
+    # slope columns are always "trait<resp>.<level>:<predictor>" -- measured
+    # at 8.6 to 23.6 per cent on multinomial interval widths, against the
+    # ~4 per cent that justified adding the correction in the first place.
+    # Splitting on ":" and multiplying the factor for each piece that names a
+    # z-scored variable covers all three shapes with one rule.
     sc_all <- bace_final_object[["scaling", exact = TRUE]]
+    sd_tab <- NULL
     if (!is.null(sc_all)) {
       sc_runs <- sc_all[keep_runs]
-      sd_mat <- vapply(sol_keep_cols, function(cn) {
-        vapply(sc_runs, function(r) {
-          e <- if (is.list(r)) r[[var]][[cn]] else NULL
-          if (is.null(e$sd)) NA_real_ else e$sd
-        }, numeric(1))
-      }, numeric(length(sc_runs)))
-      if (!is.matrix(sd_mat)) sd_mat <- matrix(sd_mat, nrow = length(sc_runs))
-      colnames(sd_mat) <- sol_keep_cols
-    } else {
-      sd_mat <- NULL
+      zvars <- unique(unlist(lapply(sc_runs, function(r)
+        if (is.list(r) && is.list(r[[var]])) names(r[[var]]) else NULL)))
+      if (length(zvars)) {
+        sd_tab <- vapply(zvars, function(v2) {
+          vapply(sc_runs, function(r) {
+            e <- if (is.list(r)) r[[var]][[v2]] else NULL
+            if (is.null(e$sd)) NA_real_ else e$sd
+          }, numeric(1))
+        }, numeric(length(sc_runs)))
+        if (!is.matrix(sd_tab)) sd_tab <- matrix(sd_tab, nrow = length(sc_runs),
+                                                 dimnames = list(NULL, zvars))
+        # keep only variables whose divisor is usable in EVERY run
+        good <- apply(sd_tab, 2, function(z) all(is.finite(z) & z > 0))
+        sd_tab <- sd_tab[, good, drop = FALSE]
+        if (!ncol(sd_tab)) sd_tab <- NULL
+      }
     }
+    # per column, which z-scored variables it involves
+    col_parts <- lapply(sol_keep_cols, function(cn)
+      strsplit(cn, ":", fixed = TRUE)[[1]])
+    names(col_parts) <- sol_keep_cols
+
+    # KNOWN LIMITATION -- the SCALE half of the standardisation drift is
+    # corrected here; the CENTRE half is not. Each run also centres its
+    # predictors on its own mean, so the INTERCEPT still mixes runs centred
+    # differently. The exact correction is
+    #     a_common = a_m + sum_j b_jm * (mu_jref - mu_jm) / s_jm
+    # which is straightforward with main effects only, but an interaction
+    # changes the main effects as well as the intercept, so a partial
+    # application would be wrong rather than incomplete. Measured at 4.6 per
+    # cent on the pooled intercept's interval width; the slopes, which are
+    # what is normally interpreted, are exact. Left uncorrected deliberately
+    # rather than approximated. See NEWS for 1.0.2.
 
     for (i in 1:n_valid) {
       start_idx <- (i - 1) * n_samples_per_imp + 1
@@ -318,15 +358,14 @@ pool_posteriors <- function(bace_final_object, variable = NULL, sample_size = NU
         # Align by NAME across runs (tip columns permute across trees).
         sol_i <- sol_i[, sol_keep_cols, drop = FALSE]
       }
-      if (!is.null(sd_mat)) {
-        for (cn in colnames(sd_mat)) {
-          sdv <- sd_mat[, cn]
-          if (all(is.finite(sdv)) && all(sdv > 0)) {
-            f <- mean(sdv) / sdv[i]
-            if (is.finite(f) && f > 0 && cn %in% colnames(sol_i)) {
-              sol_i[, cn] <- sol_i[, cn] * f
-            }
-          }
+      if (!is.null(sd_tab)) {
+        zn <- colnames(sd_tab)
+        for (cn in intersect(sol_keep_cols, colnames(sol_i))) {
+          hits <- intersect(col_parts[[cn]], zn)
+          if (!length(hits)) next
+          f <- prod(vapply(hits, function(v2)
+            mean(sd_tab[, v2]) / sd_tab[i, v2], numeric(1)))
+          if (is.finite(f) && f > 0) sol_i[, cn] <- sol_i[, cn] * f
         }
       }
       pooled_sol[start_idx:end_idx, ] <- sol_i

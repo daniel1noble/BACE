@@ -1250,6 +1250,9 @@
   scaling_factor <- sqrt(1 + c2 * diag(IJ))
 
   # Build fixed-effects design matrix for ALL rows
+  # The response NAME is what the trait prefix is built from; see
+  # .strip_trait_prefix(). Taken from the formula's LHS, which is present here.
+  resp_name <- tryCatch(all.vars(formula[[2]])[1], error = function(e) NULL)
   rhs   <- formula[-2]   # drop LHS response
   X_all <- tryCatch(model.matrix(rhs, data_i), error = function(e) NULL)
 
@@ -1261,7 +1264,7 @@
     # to the LAST dot": a factor level that itself contains a dot, e.g.
     # "forest.edge", was otherwise truncated to "edge". See the note at the
     # all_level_names assignment below.
-    non_base <- sub("^trait.*?\\.", "", trait_names)
+    non_base <- .strip_trait_prefix(trait_names, resp_name)
     colnames(df) <- c(baseline_name, non_base)
     rownames(df) <- paste0("Obs_", seq_len(n_obs))
     return(df)
@@ -1318,7 +1321,7 @@
   # 0 times although it was 35 per cent of the observed data. The sample=FALSE
   # path escaped because .impute_levels falls back to positional alignment.
   # The same non-greedy prefix rule is what .pred_cat / .pred_cat_iter use.
-  non_baseline_names <- sub("^trait.*?\\.", "", trait_names)
+  non_baseline_names <- .strip_trait_prefix(trait_names, resp_name)
   all_level_names    <- c(baseline_name, non_baseline_names)
 
   df_final  <- as.data.frame(do.call(cbind, prop_results[c(n_traits + 1L, seq_len(n_traits))]))
@@ -2085,4 +2088,46 @@ summary.bace_diagnostics <- function(object, ...) {
            "values); treat the imputations for this variable with care."),
     as.integer(n_capped), response_var, rate_cap), call. = FALSE)
   invisible(NULL)
+}
+
+
+#' @title .strip_trait_prefix
+#' @description Internal: recover factor-level labels from MCMCglmm trait
+#'   identifiers, which are named \code{trait<response>.<level>}.
+#'
+#'   The ONLY correct rule is to strip the exact, regex-escaped
+#'   \code{"^trait<response>."}. Both looser rules fail, in opposite
+#'   directions, and BACE has shipped each of them:
+#'
+#'   \tabular{lllll}{
+#'     trait name \tab want \tab greedy \tab non-greedy \tab exact \cr
+#'     traithabtype.open \tab open \tab open \tab open \tab open \cr
+#'     traithab.type.open \tab open \tab open \tab type.open (X) \tab open \cr
+#'     traithabtype.forest.edge \tab forest.edge \tab edge (X) \tab forest.edge \tab forest.edge \cr
+#'     traithab.type.forest.edge \tab forest.edge \tab edge (X) \tab type.forest.edge (X) \tab forest.edge
+#'   }
+#'
+#'   Greedy ("everything after the last dot") loses a LEVEL containing a dot.
+#'   Non-greedy ("up to the first dot after trait") loses a RESPONSE NAME
+#'   containing a dot -- and those are common, because read.csv() and
+#'   data.frame() turn every space in a column heading into a dot. Measured on
+#'   a 3-level factor whose column was renamed from "diettype" to "diet.type":
+#'   every imputed cell collapsed onto the baseline level (36/0/0 against a
+#'   correct 11/18/7), accuracy against the hidden truth fell from 65 per cent
+#'   to 2.5 per cent, and the between-imputation variance became exactly zero.
+#' @param trait_names MCMCglmm trait identifiers.
+#' @param response_var Name of the response, or NULL to fall back.
+#' @return The level labels.
+#' @noRd
+.strip_trait_prefix <- function(trait_names, response_var = NULL) {
+  if (!is.null(response_var) && length(response_var) == 1L &&
+      nzchar(response_var)) {
+    pat <- paste0("^trait", gsub("([^[:alnum:]])", "\\\\\\1", response_var), "\\.")
+    out <- sub(pat, "", trait_names)
+    # Only trust it if it actually stripped something from every name.
+    if (!any(out == trait_names)) return(out)
+  }
+  # No usable response name: non-greedy is the better of the two loose rules,
+  # because a dotted LEVEL is the case BACE's own tests cover.
+  sub("^trait.*?\\.", "", trait_names)
 }

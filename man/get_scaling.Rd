@@ -22,8 +22,11 @@ as a predictor, \code{x1} is standardised by its current IMPUTED values,
 which differ from its observed-only spread.}
 }
 \value{
-A data.frame when \code{variable} is supplied, else a list of length
-\code{n_final}, each a named list of \code{list(mean =, sd =)}.
+A data.frame (\code{run}, \code{mean}, \code{sd}) when
+\code{variable} is supplied. Otherwise the full nested structure, which is
+THREE levels deep: a list of length \code{n_final}, each a named list by
+model (the response fitted), each of those a named list by variable of
+\code{list(mean =, sd =)}.
 }
 \description{
 BACE z-scores continuous variables before fitting (subtract the mean, divide
@@ -52,11 +55,18 @@ back-transform was possible from BACE's output at all.
 \examples{
 \dontrun{
 fit <- bace("y ~ x1", "~ 1 | Species", phylo = tree, data = d)
-get_scaling(fit, "y")          # one row per imputation
+get_scaling(fit, "y")                      # one row per imputation
 
-# put the pooled slope back on the data scale
-sy <- mean(get_scaling(fit, "y")$sd)
-sx <- mean(get_scaling(fit, "x1")$sd)
+# Put the pooled slope of y on x1 back on the data scale.
+#
+# BOTH constants must come from the model the coefficient belongs to, i.e.
+# model = "y". Using get_scaling(fit, "x1") here instead -- x1's divisor in
+# ITS OWN model -- is the single commonest mistake: that is the
+# observed-only SD, while as a PREDICTOR x1 was standardised by that run's
+# imputed values. The two differ, systematically rather than randomly, and
+# the slip overstated the recovered slope by up to 16 per cent in testing.
+sy <- mean(get_scaling(fit, "y",  model = "y")$sd)
+sx <- mean(get_scaling(fit, "x1", model = "y")$sd)
 beta_z <- mean(as.matrix(get_pooled_model(fit, "y")$Sol)[, "x1"])
 beta_z * sy / sx
 }
