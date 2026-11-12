@@ -1,3 +1,50 @@
+# BACE 1.0.3
+
+* **The trait simulator produced different data on different machines, from the
+  same seed.** `sample_random_effects()` drew the phylogenetic effects with
+  `MASS::mvrnorm()`, which builds its matrix square root from
+  `eigen(Sigma, symmetric = TRUE)`. Eigenvectors are **not unique**: LAPACK
+  fixes no sign convention, so any implementation may return a column negated,
+  and for repeated eigenvalues the whole subspace is arbitrary. Every such
+  choice is a valid square root, so each machine drew a different -- though
+  correctly distributed -- set of traits from an identical random stream.
+
+  Measured across three machines running the same seed, tree and RNG settings:
+
+  | | `x1[1:3]` | realised lambda |
+  |---|---|---|
+  | Accelerate (macOS) | 7.169, -1.485, 0.273 | 0.827 |
+  | OpenBLAS (Linux) | 2.047, -1.537, 2.636 | 0.875 |
+  | AOCL (Linux) | 4.074, -1.417, 4.599 | 0.850 |
+
+  The trees, tip labels, `runif()`, `sample()` and the masked cells were
+  **identical** on all three, which is what isolated the fault to the matrix
+  square root rather than to the random-number stream. Negating half the
+  eigenvector columns on one machine reproduces it exactly.
+
+  The draw now goes through the **Cholesky factor**, which is unique for a
+  positive-definite matrix, so implementations agree to rounding error instead
+  of choosing between valid alternatives. It still consumes exactly `n` normals,
+  so trees, missingness patterns and everything else downstream are unchanged.
+  A near-degenerate matrix gets a deterministic ridge, never an eigen fallback.
+
+  Recovery is unaffected: imputation accuracy against known truth is
+  statistically identical before and after (mean r 0.510 vs 0.528 over 30
+  seeds, p = 0.85). The simulated VALUES all change, because the old ones were
+  machine-dependent and there was nothing to preserve.
+
+  `tests/testthat/test-simulator-reproducibility.R` pins this, including a
+  golden test with a fixed tree and seed at a tolerance of 1e-8 -- loose enough
+  for rounding, tight enough to catch a sign flip. **Running the test suite on
+  any machine is therefore a cross-machine check.**
+
+* `test-numerical_correctness.R`'s imputation-recovery test ran on 40 species,
+  leaving 12 hidden cells. A correlation on 12 points is far too noisy to
+  assert anything: over 20 seeds it ranged from -0.29 to +0.93 and fell below
+  its own threshold in 7 of them, so it was passing on a lucky seed rather than
+  on a property of the code. At 120 species the same measurement is stable
+  (mean 0.724, sd 0.153, minimum 0.406, none below threshold).
+
 # BACE 1.0.2
 
 * **`plot_steps_convergence()` drew bars on a different yardstick from the

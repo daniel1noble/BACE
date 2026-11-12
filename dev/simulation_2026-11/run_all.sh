@@ -32,7 +32,7 @@ mkdir -p "$OUT"
 # Refuse to start on the wrong BACE. Checked here as its own command (not in a pipeline, where the
 # exit status would be tee's) so a wrong version costs one second rather than 54,000 failures.
 VERS=$(Rscript -e "v <- as.character(utils::packageVersion('BACE'))
-  if (utils::compareVersion(v, '1.0.2') < 0) stop('BACE ', v, ' is too old; run  R CMD INSTALL .  from the repo root', call. = FALSE)
+  if (utils::compareVersion(v, '1.0.3') < 0) stop('BACE ', v, ' is too old; run  R CMD INSTALL .  from the repo root', call. = FALSE)
   cat('BACE', v, '| R', as.character(getRversion()), '\n')" 2>&1)
 if [ $? -ne 0 ]; then echo "$VERS" >&2; echo "REFUSING TO LAUNCH." >&2; exit 1; fi
 echo "$VERS" | tee "$OUT/versions.txt"

@@ -250,8 +250,30 @@ sample_random_effects <- function(sigma2, n, cor_matrix = NULL) {
     # Independent random effects
     return(rnorm(n, mean = 0, sd = sqrt(sigma2)))
   } else {
-    # Correlated random effects (e.g., phylogenetic)
-    return(MASS::mvrnorm(n = 1, mu = rep(0, n), Sigma = sigma2 * cor_matrix))
+    # Correlated random effects (e.g., phylogenetic), drawn through the
+    # CHOLESKY factor rather than MASS::mvrnorm().
+    #
+    # mvrnorm() builds its square root from eigen(Sigma, symmetric = TRUE).
+    # Eigenvectors are not unique: LAPACK fixes no sign convention, so any
+    # implementation may return a column negated, and for repeated eigenvalues
+    # the whole subspace is arbitrary. Every such choice is a valid square
+    # root, so every machine draws a DIFFERENT -- though correctly
+    # distributed -- set of traits from the SAME random stream.
+    #
+    # That is not hypothetical. The same seed, same tree and same RNG state
+    # gave x1[1:3] of 7.17 / -1.49 / 0.27 on one machine, 2.05 / -1.54 / 2.64
+    # on a second and 4.07 / -1.42 / 4.60 on a third (Accelerate, OpenBLAS and
+    # AOCL). Trees, tip labels, runif(), sample() and the masked cells were
+    # identical on all three -- only the traits differed. Negating half the
+    # eigenvector columns here reproduces it exactly: -0.92 becomes +0.97 with
+    # the sd unchanged.
+    #
+    # The Cholesky factor of a positive-definite matrix is UNIQUE (with a
+    # positive diagonal), so implementations agree to rounding error instead.
+    # The draw still consumes exactly n normals, so the random stream stays
+    # aligned with everything downstream.
+    z <- stats::rnorm(n)
+    return(as.vector(.chol_factor_lower(sigma2 * cor_matrix) %*% z))
   }
 
   # TODO: add later option to generate a RE matrix with given structure
@@ -497,4 +519,35 @@ if (is.numeric(beta_resp) && !is.list(beta_resp)) {
     beta_full = beta_full,
     beta_resp_stored = beta_resp_stored
   ))
+}
+
+#' @title .chol_factor_lower
+#' @description Internal: lower-triangular Cholesky factor, with a deterministic
+#'   fallback. A phylogenetic correlation matrix from `vcv(tree, corr = TRUE)`
+#'   is positive definite for a well-formed tree, but can be numerically
+#'   borderline for very large or near-degenerate trees. The fallback adds a
+#'   tiny ridge to the diagonal and retries, which is deterministic -- the one
+#'   thing it must not do is fall back to an eigen-based square root, since
+#'   that is exactly the machine-dependence this exists to remove.
+#' @param S A covariance matrix.
+#' @return The lower-triangular factor L with L %*% t(L) = S.
+#' @noRd
+.chol_factor_lower <- function(S) {
+  R <- tryCatch(chol(S), error = function(e) NULL)
+  if (!is.null(R)) return(t(R))
+
+  eps <- max(mean(diag(S)), .Machine$double.eps) * 1e-10
+  for (i in seq_len(12L)) {
+    R <- tryCatch(chol(S + diag(eps, nrow(S))), error = function(e) NULL)
+    if (!is.null(R)) {
+      warning("sample_random_effects: the correlation matrix was not positive ",
+              "definite; added a ridge of ", format(eps, digits = 3),
+              " to factor it. Check the tree for zero-length or duplicated tips.",
+              call. = FALSE)
+      return(t(R))
+    }
+    eps <- eps * 10
+  }
+  stop("sample_random_effects: could not factor the correlation matrix even ",
+       "with a ridge. Check the tree.", call. = FALSE)
 }

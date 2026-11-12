@@ -63,7 +63,20 @@ make_continuous_fixture <- function(n_species = 40,
 
 test_that("BACE imputed values correlate with truth (high phylo signal)", {
   testthat::skip_on_cran()
-  fix <- make_continuous_fixture(n_species = 40,
+  # n_species = 120, not 40. At 40 species a 30 per cent mask leaves only 12
+  # hidden cells, and a correlation on 12 points is far too noisy to assert
+  # anything: measured over 20 seeds it ran from -0.29 to +0.93 (mean 0.487,
+  # sd 0.410) and fell below this test's own threshold in 7 of 20. The test
+  # was passing on a lucky seed, not on a property of the code -- it failed
+  # the moment the simulator's draws changed for an unrelated reason, while
+  # the old and new simulators recover equally well (mean r 0.510 vs 0.528
+  # over 30 seeds, p = 0.85).
+  #
+  # With 120 species the mask leaves 36 cells and the same measurement is
+  # stable: mean 0.724, sd 0.153, minimum 0.406 over 20 seeds, none below the
+  # threshold. The extra species cost a few seconds and buy a test that means
+  # something.
+  fix <- make_continuous_fixture(n_species = 120,
                                  phylo_signal = 0.8,
                                  n_predictors = 1,
                                  miss_frac = 0.30,
@@ -86,9 +99,10 @@ test_that("BACE imputed values correlate with truth (high phylo signal)", {
   imp_v    <- imp_last[[fix$resp_col]][fix$mask_idx]
 
   expect_true(all(!is.na(imp_v)))
-  # With phylo_signal = 0.8 and a real predictor, BACE should clearly
-  # correlate with truth on hidden cells. Loose threshold so MCMC noise
-  # at this small scale doesn't flake the test.
+  # With phylo_signal = 0.8 and a real predictor, BACE correlates with truth
+  # on the hidden cells at about r = 0.72 (20-seed mean, sd 0.15). The 0.30
+  # threshold sits roughly 2.8 sd below that, so it flags a real regression
+  # without flaking on MCMC noise.
   r <- suppressWarnings(stats::cor(imp_v, truth_v))
   expect_gt(r, 0.30)
 })

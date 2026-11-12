@@ -165,7 +165,7 @@ Rscript collect.R results
 
 **The wrong version of BACE.** An old copy sitting in the R library produces results that
 look completely normal and mean nothing. This has already happened once, on 2026-11-09.
-Both `run_one.R` and `run_all.sh` refuse to start below **1.0.2**, and every result file
+Both `run_one.R` and `run_all.sh` refuse to start below **1.0.3**, and every result file
 records the version that made it. If you change the package, reinstall it *and* bump the
 version — the guard can only catch what the version number tells it.
 
