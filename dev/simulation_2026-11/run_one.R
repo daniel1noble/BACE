@@ -22,6 +22,20 @@ if (utils::compareVersion(bace_version, BACE_MIN_VERSION) < 0)
   stop("BACE ", bace_version, " is installed; this campaign needs >= ", BACE_MIN_VERSION,
        ". Run  R CMD INSTALL .  from the BACE repo root.", call. = FALSE)
 
+## ---- Pin the random-number generator -------------------------------------------------------
+## R's sample() changed in 3.6.0. Without fixing this, the SAME SEED produces different data on
+## different R versions -- not slightly different, entirely different. Measured on seed 1 of
+## n100_ps0.7_typical_mcar, switching only sample.kind:
+##
+##   tree total branch length  230.381  vs  182.038
+##   cells hidden in x1        3,6,12,15,...  vs  1,6,18,23,...
+##   ordinal category counts   2/36/51/11  vs  4/31/49/16
+##
+## That last line is enough to move ordinal accuracy several fold, which is exactly the
+## cross-machine difference reported in the 2026-11 review. Fixing all three components here
+## makes the generated data depend on the seed alone.
+suppressWarnings(RNGkind("Mersenne-Twister", "Inversion", "Rejection"))
+
 `%||%` <- function(x, y) if (is.null(x)) y else x
 
 ## ---- arguments --------------------------------------------------------------------------------
@@ -140,7 +154,16 @@ saveRDS(list(
   settings = c(M = M, nitt = nitt, burnin = burnin, thin = thin, runs = runs,
                final_nitt = final_nitt %||% nitt, final_thin = final_thin %||% thin),
   wall_s = bace$wall_s,
-  bace_version = bace_version, time = Sys.time()
+  bace_version = bace_version, time = Sys.time(),
+  ## Provenance: without this we cannot tell, after the fact, whether two results came from the
+  ## same software. Nothing else pins these -- there is no renv - so record them per dataset.
+  env = list(r = as.character(getRversion()),
+             platform = R.version$platform,
+             rng = paste(RNGkind(), collapse = "/"),
+             pkgs = vapply(c("MCMCglmm", "ape", "phytools", "Matrix", "nlme"),
+                           function(p) tryCatch(as.character(utils::packageVersion(p)),
+                                                error = function(e) NA_character_),
+                           character(1)))
 ), out_file)
 
 message("wrote ", basename(out_file), "  (", round(bace$wall_s), "s)")

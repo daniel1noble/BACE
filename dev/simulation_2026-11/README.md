@@ -61,7 +61,14 @@ Four things are varied:
 30% of values are hidden in each trait.
 
 That is **54 scenarios**, each run **1000 times** with different random data =
-**54,000 datasets**. About **72,000 core-hours**, or **16–17 days on 200 cores**.
+**54,000 datasets**.
+
+Per dataset, at the campaign's real settings (M = 20, nitt = 50,000): **20-30 minutes**
+at 100 species, **about 2 hours** at 500. That totals **52,000-72,000 core-hours**, or
+roughly **12-17 days on 200 cores**. The range is machine speed, not uncertainty about
+the design: the plan was costed on one Mac at 27.6 min per n = 100 dataset, and a faster
+box measured 18-23 min, which is where the lower figure comes from. Time one dataset on
+your own machine before committing to a schedule.
 
 **The 500-species runs are 83% of that bill.** If three weeks is too long, that is the
 only place worth cutting — and cutting replicates there is the cheapest trim. 1000 runs
@@ -126,7 +133,8 @@ signal shouldn't hurt much.
 # 1. Install the package being measured. The scripts refuse to start on an older one.
 cd <BACE repo root> && R CMD INSTALL .
 
-# 2. One dataset, to watch it work end to end (~2 min at n = 100)
+# 2. One dataset, to watch it work end to end (20-30 min at n = 100,
+#    about 2 h at n = 500, at the campaign's real settings)
 Rscript run_one.R --id n100_ps0.7_good_covariate_clade --seed 1 --out results
 
 # 3. See what the whole campaign would do, without doing it
@@ -163,9 +171,50 @@ version — the guard can only catch what the version number tells it.
 
 **Interruptions.** A wall-time limit or a dead node can hit any dataset, and at 500
 species that's 2.2 hours lost. BACE checkpoints by default, so a resumed run costs about
-5% of the time and gives an identical answer. Checkpoints are large, so they're deleted
-as soon as a dataset succeeds — only interrupted ones leave anything behind, which is
-exactly what should be resumed. `--no_checkpoint` turns it off.
+5% of the time and gives an identical answer. They're deleted as soon as a dataset
+succeeds — only interrupted ones leave anything behind, which is exactly what should be
+resumed. `--no_checkpoint` turns it off.
+
+They are **big**, and the size grows in direct proportion to the number of species:
+
+| | per running dataset | × 200 concurrent |
+|---|---|---|
+| n = 100 | 1.5 GB | 300 GB |
+| n = 500 | 7.5 GB | **~1.5 TB** |
+
+It does not accumulate, but that much scratch space has to exist while the run is going.
+The scenarios are sorted by tree size, so the two halves run one after the other: the
+300 GB and the 1.5 TB are separate peaks, not a sum, and **the 1.5 TB belongs entirely to
+the n = 500 half**.
+
+If 1.5 TB is awkward, the choice is between disk and time:
+
+| | disk at peak | n = 500 phase | cost |
+|---|---|---|---|
+| 200 at once, checkpointed | 1.46 TB | 11.2 days | baseline |
+| 100 at once, checkpointed | 0.73 TB | 22.5 days | **+11 days** |
+| 200 at once, no checkpoints | 0 | 11.2 days | re-run whatever is interrupted |
+
+Dropping checkpoints looks like the worse idea and is usually the better one.
+Checkpointing is insurance: you pay disk on *every* run to avoid a loss that only happens
+to *some*. At 500 species a lost dataset costs one 2-hour re-run, so even a 20 per cent
+interruption rate across the whole half is about 10,800 core-hours — roughly 2 days at 200
+cores, against the 11 days that halving concurrency costs.
+
+**The exception, and it is the reason checkpointing exists: a wall-time limit shorter than
+a single dataset.** If jobs are killed at, say, 1 hour, then *every* n = 500 run is
+interrupted, the rate is 100 per cent rather than 5, and checkpointing is the only thing
+that lets the half finish at all. Check the queue's wall-time limit before deciding.
+
+**The R version used to change the data.** `sample()` changed in R 3.6.0, so before
+2026-11-12 the same seed produced *different* trees and hid *different* cells on different
+R versions — not slightly different, unrelated. Measured on seed 1: tree length 230.4 vs
+182.0, ordinal counts 2/36/51/11 vs 4/31/49/16. `run_one.R` now pins the generator
+explicitly, and every result file records the R version, platform and package versions. If
+you are comparing results between machines, run `reproducibility_probe.R` on both first —
+it takes seconds, runs no MCMC, and tells you whether you are even analysing the same data.
+Note the pin fixes the *data* for R >= 3.6; it does not make results identical across
+different MCMCglmm or ape versions, which is why those are recorded.
 
 **Stopping and restarting is always safe.** Any dataset whose result file already exists
 is skipped, so you can interrupt the campaign freely, and add more replicates later
@@ -178,10 +227,20 @@ still writes its file. `collect.R` counts them into `failures.csv`.
 
 ## Two numbers that are easy to misread
 
-**Phylogenetic signal** is measured on the hidden scale the models actually work on, not
-on the values you see. A binary trait always *looks* far less phylogenetic than a
-continuous one at the same setting — that's what reducing a measurement to yes/no does to
-it, not a flaw. Every dataset records what it actually realised.
+**Phylogenetic signal** is set on the hidden scale the models actually work on, not on the
+values you see. The two are the same thing for a continuous trait and very different for a
+categorical one, so "asked 0.7, measured 0.17" is not a failure. Measured over 25 seeds,
+all asked for 0.7:
+
+| trait | mean realised lambda | how often exactly 0.00 |
+|---|---|---|
+| `x1` continuous | 0.68 | 0% |
+| `cnt` count | 0.45 | 0% |
+| `ord` ordinal | 0.54 | 4% |
+| `bin` binary | **0.17** | **16%** |
+
+A binary trait reading 0.00 is ordinary; the same from `x1` is not, and would be worth
+chasing. Every dataset records what it actually realised.
 
 **`trait_beta` and `aux_beta` are regression slopes, not correlations**, and a slope buys
 less correlation than its own value: slope 0.5 gave a correlation of 0.45, slope 0.8 gave
