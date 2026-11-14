@@ -156,6 +156,11 @@ CORES=8 bash run_all.sh
 Rscript collect.R results
 ```
 
+Two flags on `run_one.R` exist for experiments, not for the campaign: `--rate_cap <number|off>`
+sets the multiplier in BACE's guard on imputed count rates (needs BACE 1.0.5; see below), and
+`--tag <text>` is appended to the output file name so experiment files never collide with the
+campaign's.
+
 ### The code, one file per step
 
 | file | step |
@@ -280,6 +285,37 @@ without redoing earlier ones.
 
 **Failures don't lose data.** If any stage fails, the failure is recorded and the dataset
 still writes its file. `collect.R` counts them into `failures.csv`.
+
+---
+
+## The count-cap experiment (needs BACE 1.0.5)
+
+BACE caps an imputed count's rate at 3 × the largest observed count + 5, to stop a chain
+excursion on the log scale from producing an astronomical count. The cap is set from the counts
+BACE can see, so it binds, and pulls the imputations down, exactly when the missing counts are
+the large ones: driven and clade missingness hide those, and at strong signal the counts span
+orders of magnitude. It fired in 77% of the first 301 campaign datasets. Whether that costs
+anything is measured, not assumed:
+
+```bash
+# on a machine with BACE 1.0.5 in ITS OWN library (never reinstall over the campaign's):
+R CMD INSTALL --library=/path/to/lib105 .
+R_LIBS=/path/to/lib105 CORES=10 bash cap_experiment.sh results/   # 20 runs -> results_cap/
+Rscript cap_compare.R results_cap/
+```
+
+`cap_experiment.sh` reruns the ten campaign datasets where the cap fired most (`cap_pick.R`
+reads that from the result files; given no results directory it falls back to signal-0.3
+datasets, where it is known to fire — at signal 0.9 the observed counts already include giants
+and the cap did not fire at all in one test), twice each: the cap as in the campaign (`_capon`)
+and switched off (`_capoff`). Same seed, same data, same MCMC settings, so
+the pairs differ only in the cap. `cap_compare.R` reports, for the count trait's hidden cells,
+the raw- and log-scale error, the **bias on the log scale** (negative = imputations run low),
+interval coverage and width, how many rates were capped, the downstream slope, and the wall
+time, each as cap on, cap off, and the paired difference with its standard error. If the cap-on
+bias is clearly negative and the cap-off bias is not, the cap is doing the damage described in
+open item 2 and the recorded cap counts say which campaign datasets to rerun under a revised
+rule; if the two agree, it is not, and nothing changes.
 
 ---
 

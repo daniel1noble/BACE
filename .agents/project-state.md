@@ -57,6 +57,23 @@ Shinichi confirmed 1.0.3 identical on Mac, Totoro and rorqual before this fix.
   codes) — the simulator is reproducible across these two R versions.
 - **Version 1.0.4**; guards in `run_one.R`, `run_all.sh` and the README require it; the probe
   prints the codes and its Section A is committed as a reference.
+- **2026-11-15, oracle coverage false alarm.** Shinichi's first 301 files gave oracle (PGLS on
+  true data) coverage 0.89. Measured on 900 generated datasets: 0.973 / 0.953 / 0.940 at signal
+  0.3 / 0.7 / 0.9, scatter = SE, bias +0.01 (ML under-covers at 0.3, OLS collapses to 0.56 at 0.9,
+  so the REML lambda-free estimator is right). His number was the first ~11 seeds counted up to
+  18 times each: the oracle fit is identical across mcar/mar/clade files, floor and typical share
+  random draws (typical slope = floor slope + 0.5 exactly), and a seed's tree is shared across
+  signals, so seed 12 misses at all three. Restricting to his seeds reproduces 0.909 / 0.833 /
+  0.97 exactly. `collect.R` now counts each distinct dataset once (4930f35). Also expected:
+  complete-case rows absent under mcar at n = 100 (0.7^6 = 12 survivors, below the 10-species
+  floor in ~a quarter of seeds; a two-trait deletion rule would keep 49 and is an analysis-stage
+  refit).
+- **BACE 1.0.5 (2026-11-15): the count rate cap is an option.** `bace_options(poisson_rate_cap=)`
+  (default 3 unchanged; `Inf` = off with a 2^31 - 1 ceiling so rpois stays finite); warning names
+  the multiplier; checkpoint fingerprint carries it. For the cap-on/cap-off experiment, which
+  rorqual can run now: `cap_experiment.sh` (10 signal-0.9 datasets × 2 arms, `--rate_cap off`,
+  `--tag`), `cap_compare.R` (paired differences; `bias_log` added to `score_recovery`). 1.0.5
+  goes into a SEPARATE library on rorqual; the campaign stays on 1.0.4.
 - **Count trait at strong signal (Dan, same day):** MCMCglmm's Poisson model carries an
   observation-level residual, so the overdispersion is modelled correctly (the generator is
   exactly Poisson-lognormal). What can still mistreat counts is ours: BACE's rate cap

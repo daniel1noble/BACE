@@ -76,8 +76,8 @@ summary_slopes <- stats::aggregate(
   FUN = mean, na.rm = TRUE)
 
 summary_recovery <- stats::aggregate(
-  cbind(zrmse, zrmse_log, accuracy) ~ .,
-  data = recovery[, c(by, "trait", "kind", "zrmse", "zrmse_log", "accuracy")],
+  cbind(zrmse, zrmse_log, bias_log, accuracy) ~ .,
+  data = recovery[, c(by, "trait", "kind", "zrmse", "zrmse_log", "bias_log", "accuracy")],
   FUN = function(z) mean(z, na.rm = TRUE), na.action = stats::na.pass)
 
 summary_runs <- stats::aggregate(

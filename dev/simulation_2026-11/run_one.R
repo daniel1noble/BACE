@@ -66,6 +66,18 @@ final_thin   <- int_or_null(arg("final_thin"))
 ## deleted as soon as the dataset succeeds. --no_checkpoint turns it off (e.g. on a disk too small
 ## to hold one per concurrent job: budget a few hundred MB per core).
 use_ckpt <- !("--no_checkpoint" %in% a)
+## --rate_cap <number|off>: the multiplier in BACE's guard on imputed count rates (cap = multiplier
+## * max(observed) + 5; BACE's default is 3; "off" removes it). Needs BACE >= 1.0.5. For the
+## cap-on / cap-off experiment (see cap_experiment.sh); the campaign itself never sets it.
+## --tag <text>: appended to the output file name, so experiment files never collide with the
+## campaign's and "already done" works per arm (e.g. --tag _capoff).
+rate_cap <- arg("rate_cap")
+tag      <- arg("tag", "")
+if (!is.null(rate_cap)) {
+  if (utils::compareVersion(bace_version, "1.0.5") < 0)
+    stop("--rate_cap needs BACE >= 1.0.5 (installed: ", bace_version, ").", call. = FALSE)
+  BACE::bace_options(poisson_rate_cap = if (identical(rate_cap, "off")) Inf else as.numeric(rate_cap))
+}
 
 here <- dirname(sub("--file=", "", grep("--file=", commandArgs(), value = TRUE)[1]))
 if (is.na(here) || !nzchar(here)) here <- "."
@@ -73,7 +85,7 @@ for (f in sprintf("R/0%d_%s.R", 1:4, c("scenarios", "simulate", "fit", "score"))
   source(file.path(here, f))
 
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
-out_file <- file.path(out_dir, paste0(id, "_s", seed, ".rds"))
+out_file <- file.path(out_dir, paste0(id, "_s", seed, tag, ".rds"))
 if (file.exists(out_file)) { message("already done: ", basename(out_file)); quit(save = "no") }
 
 ## ---- find the scenario ------------------------------------------------------------------------
@@ -156,6 +168,8 @@ saveRDS(list(
   bace_converged = bace$converged, bace_conv_detail = bace$conv_detail,
   settings = c(M = M, nitt = nitt, burnin = burnin, thin = thin, runs = runs,
                final_nitt = final_nitt %||% nitt, final_thin = final_thin %||% thin),
+  ## the count rate-cap multiplier in force ("default" = BACE's own, 3)
+  rate_cap_setting = rate_cap %||% "default", tag = tag,
   wall_s = bace$wall_s,
   bace_version = bace_version, time = Sys.time(),
   ## Provenance: without this we cannot tell, after the fact, whether two results came from the

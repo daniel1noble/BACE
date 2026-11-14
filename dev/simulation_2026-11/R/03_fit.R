@@ -32,6 +32,9 @@ with_rate_cap_count <- function(expr) {
   events <- list()
   value <- withCallingHandlers(expr, warning = function(w) {
     msg <- conditionMessage(w)
+    ## The warning reads "...rate guard bound on 39 predicted rate(s) for 'cnt' (cap = 56 = ...".
+    ## The pattern below picks out the three numbers in it: how many rates (39), which
+    ## variable ('cnt') and the cap (56). Any other warning does not match and passes through.
     m <- regmatches(msg, regexec(
       "rate guard bound on ([0-9]+) predicted rate\\(s\\) for '([^']+)' \\(cap = ([^ ]+) =", msg))[[1]]
     if (length(m) == 4L) {

@@ -57,12 +57,16 @@ score_recovery <- function(truth, mask, imputed) {
       ## span orders of magnitude and a handful of giants dominate the raw-scale error, so the
       ## raw number says how the tail came out and the log number how the typical species did.
       ## Both are reported; neither replaces the other. Continuous traits get NA here.
-      zrmse_log <- if (is.integer(truth[[v]])) {
-        sqrt(mean((log1p(best) - log1p(actual))^2)) / stats::sd(log1p(truth[[v]][!mask[, v]]))
-      } else NA_real_
+      ## ... and the DIRECTION of the error on that scale (imputed minus true, averaged over
+      ## the hidden cells, in units of the observed log-scale spread): negative means the
+      ## imputations run low, which is what the rate cap does when it binds.
+      is_count <- is.integer(truth[[v]])
+      log_sd   <- if (is_count) stats::sd(log1p(truth[[v]][!mask[, v]])) else NA_real_
+      zrmse_log <- if (is_count) sqrt(mean((log1p(best) - log1p(actual))^2)) / log_sd else NA_real_
+      bias_log  <- if (is_count) mean(log1p(best) - log1p(actual)) / log_sd else NA_real_
       rows[[v]] <- data.frame(trait = v, kind = "numeric", n_hidden = length(hidden),
                               zrmse = sqrt(mean((best - actual)^2)) / spread,
-                              zrmse_log = zrmse_log,
+                              zrmse_log = zrmse_log, bias_log = bias_log,
                               accuracy = NA_real_)
     } else {
       ## STEP 2b. Category: the most frequently imputed class wins, ties share the credit.
@@ -72,7 +76,8 @@ score_recovery <- function(truth, mask, imputed) {
         as.numeric(actual[i] %in% top) / length(top)
       }, numeric(1))
       rows[[v]] <- data.frame(trait = v, kind = "category", n_hidden = length(hidden),
-                              zrmse = NA_real_, zrmse_log = NA_real_, accuracy = mean(hit))
+                              zrmse = NA_real_, zrmse_log = NA_real_, bias_log = NA_real_,
+                              accuracy = mean(hit))
     }
   }
   do.call(rbind, rows)
