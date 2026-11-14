@@ -23,7 +23,8 @@ sim_bace(
   missingness = NULL,
   sigmas = NULL,
   rr = FALSE,
-  rr_form = NULL
+  rr_form = NULL,
+  ordinal_thresholds = NULL
 )
 }
 \arguments{
@@ -111,6 +112,20 @@ Each element is a vector for response + predictors
 
 \item{rr_form}{Named list specifying random slopes. Each element is named
 by random effect and contains character vector of covariate names}
+
+\item{ordinal_thresholds}{Cutpoints for \code{"thresholdK"} variables, as a
+named list with one numeric vector of K - 1 non-decreasing values per
+variable, on the latent (liability) scale. Any threshold variable not
+named here gets the default: cutpoints at the quartiles (for K = 4; in
+general the k/K quantiles) of its OWN latent distribution, i.e.
+\code{intercept + qnorm(k/K) * sqrt(sigma2_species + sigma2_phylo + sigma2_residual)}.
+These are population constants, so hidden and observed cells in an
+imputation study are draws from the same population. The default is exact
+when the variable has no predictors; with predictors the latent scale is
+wider than the variable's own, so the outer categories receive more than
+their share (never fewer) -- supply thresholds on the full latent scale
+when equal shares matter, as the 2026-11 simulation does. The thresholds
+used are returned in \code{params$ordinal_thresholds}.}
 }
 \value{
 Named list containing:

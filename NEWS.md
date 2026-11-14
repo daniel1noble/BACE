@@ -1,3 +1,109 @@
+# BACE 1.0.4
+
+* **The simulated ordinal trait collapsed to two or three categories at low
+  phylogenetic signal.** `sim_bace()` turns a latent liability into an ordinal
+  trait by cutting it at thresholds, and `ordinal_liab2cat()` used fixed
+  constants (-2.25 / 0 / +2.25 for four categories) whatever the liability's
+  scale. That scale grows with the signal asked for. In the 2026-11 simulation
+  the ordinal's liability is `0.5 * x1` plus its own species, phylogenetic and
+  residual effects, with population SD 1.00 / 1.53 / 2.65 at signal 0.3 / 0.7 /
+  0.9 (0.53 / 0.82 / 1.41 for an ordinal with no predictor), so at signal 0.3
+  about two species in a hundred reached the outer cutpoints, and with no
+  predictor none did. Measured on the 1.0.3 generator, 40 seeds per setting
+  (n = 100, traits related at slope 0.5, whole clades hidden):
+
+  | signal | fewer than 4 levels in truth | a level with no observed species after 30% clade masking |
+  |---|---|---|
+  | 0.3 | 27 / 40 | 31 / 40 |
+  | 0.7 | 7 / 40 | 9 / 40 |
+  | 0.9 | 2 / 40 | 4 / 40 |
+
+  Seed 1 at signal 0.3 came out 0 / 47 / 52 / 1. One dataset whose observed
+  ordinal was 0 / 29 / 39 / 0 ran for an hour where its neighbours took
+  nineteen minutes: MCMCglmm's cutpoint sampler has nothing to anchor a
+  cutpoint between two empty categories.
+
+  **The fix is population thresholds, not sample quantiles.** `sim_bace()`
+  gains `ordinal_thresholds`: cutpoints on the latent scale, one vector per
+  threshold variable, returned in `params$ordinal_thresholds`. When none is
+  supplied the default is the k/K quantiles of the variable's *own* latent
+  distribution, `intercept + qnorm(k/K) * sqrt(sigma2_species + sigma2_phylo +
+  sigma2_residual)`: exact for an ordinal with no predictors, and with
+  predictors the outer categories receive more than their share, never fewer.
+  Cutting at the *sample* quantiles was tried first and rejected, for a reason
+  worth recording: it populates every level by construction, but then the
+  hidden cells' level counts are the exact complement of the observed cells'
+  (correlation -1.00 across seeds in every setting tried), so an imputer that
+  estimates cutpoints from the observed cells -- BACE's threshold model does --
+  is pushed the wrong way, and predicting the observed majority scores
+  0.11-0.21 on the hidden cells against a chance level of 0.25. Under
+  population thresholds that correlation is +0.2 to +0.9, the floor is
+  0.27-0.43, and a phylogenetic threshold model scored 0.03-0.12 higher on
+  identical liabilities and masks. The sample-quantile rule remains available
+  for direct calls as `ordinal_liab2cat(method = "quantile")`, the old constants
+  as `method = "fixed"`, and the function now warns whenever a requested
+  category is empty.
+
+  Population thresholds have an honest price. At strong signal a whole tree can
+  shift together: at signal 0.9 and n = 100 about 1 dataset in 20 has an
+  ordinal level with no species at all, and 1 in 10 to 20 has a level
+  unobserved after 30% clade masking; at signal 0.7 the latter happened once
+  in 40 datasets (none of either in 10 seeds at n = 500).
+  A level nobody observes cannot be imputed by any method, and it is what made
+  the hour-long runs. The 2026-11 simulation now records the level counts of
+  every discrete trait per dataset, before and after masking, so this is
+  reported rather than discovered.
+
+  Cutting consumes no random numbers under any rule, so trees, masking patterns
+  and every other trait are identical to 1.0.3 by position (verified on 200
+  datasets); only the ordinal codes change, and with them anything simulated
+  from the ordinal. **A simulation that imputes an ordinal trait jointly with
+  other traits -- the 2026-11 campaign imputes every trait from every other --
+  must be rerun in full on 1.0.4. Only its timings carry over.**
+
+* **Species names no longer depend on the machine's locale, and each case is
+  matched to its tree tip by name.** `sim_tree()` sorted the random species
+  names with the session's collation, so the same seed attached different
+  name strings to the same positions in different locales (en_US puts
+  `1wIAO` before `1WsN2`; the C locale, which `R CMD check` uses for tests,
+  puts it after). Values, tree structure and hidden cells were unaffected,
+  because the design matrix pairing each case with its species' phylogenetic
+  effect was built from `factor(species)`, whose level order follows the
+  same collation: the two orderings agreed, so the pairing was right. But
+  nothing enforced that agreement. A first fix that sorted only the names in
+  C order silently gave every case *another* species' effect in en_US
+  sessions -- the same set of values on different cases, sums identical,
+  `x1[1:3]` 2.95 / -3.09 / 2.36 became -1.63 / -0.69 / 1.40 -- with nothing
+  to warn. Names are now sorted in C order on every machine ("C order" is
+  plain byte order: digits, then capitals, then lower case, the same on
+  every computer; `sort(method = "radix")`), and the design matrix names its
+  levels from the tree's tip labels, so the pairing is explicit and
+  locale-proof. A test runs the generator under the C and en_US locales and
+  requires identical output. On a machine whose locale is not C this relabels
+  the species relative to 1.0.3; the values are unchanged.
+
+* **Interaction terms: names in C order on every machine, and a supplied
+  coefficient must reach its term.** `parse_ix_matrix()` named a pair with
+  the session's collation (`Body:age` in C, `age:Body` in en_US), and
+  `generate_ix_betas()` replaced any `beta_ix` entry that matched no term with
+  a random draw -- a typo, a reversed pair or a locale change silently swapped
+  a user's coefficient for a random one, and because that draw moved the
+  random stream, the whole dataset changed. Names are now canonical (either
+  order is accepted) and an unmatched entry is an error that lists the valid
+  terms.
+
+* **`sim_tree()` refuses a one-species draw** (possible when `n_cases >
+  n_species` puts every case on one species) instead of hanging inside
+  `ape::vcv()`.
+
+* **Golden test for every trait type.** `test-ordinal-generator.R` pins the
+  2026-11 campaign's complete recipe for one seed -- tree, two continuous
+  traits, a count, a binary, a 4-level ordinal and a 3-level categorical
+  response -- to recorded values (continuous to 1e-8, codes exactly), in any
+  locale. Running the suite on any machine now checks that the same seed
+  gives the same dataset for *all* trait types, not only the continuous draw
+  pinned in 1.0.3. It is what found the locale problems above.
+
 # BACE 1.0.3
 
 * **The trait simulator produced different data on different machines, from the

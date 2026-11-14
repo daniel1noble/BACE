@@ -165,8 +165,13 @@ test_that("ordinal_liab2cat output is in 1..K for various K", {
 test_that("ordinal_liab2cat threshold_spread parameter affects level distribution", {
   set.seed(2026)
   liab <- rnorm(200)
-  tight <- ordinal_liab2cat(liab, n_cats = 5, threshold_spread = 0.5)
-  loose <- ordinal_liab2cat(liab, n_cats = 5, threshold_spread = 3.0)
+  tight <- ordinal_liab2cat(liab, n_cats = 5, method = "fixed", threshold_spread = 0.5)
+  # spread 3.0 puts the outer cutpoints at +/-6: nothing from N(0, 1) gets
+  # there, so two categories are empty and the tripwire fires
+  expect_warning(ordinal_liab2cat(liab, n_cats = 5, method = "fixed", threshold_spread = 3.0),
+                 "requested categories are populated")
+  loose <- suppressWarnings(
+    ordinal_liab2cat(liab, n_cats = 5, method = "fixed", threshold_spread = 3.0))
   # Tight thresholds give more middle-class observations relative to
   # loose. Specifically, loose has more level-3 (middle) values
   # because more of N(0,1) sits inside +/- middle-threshold.

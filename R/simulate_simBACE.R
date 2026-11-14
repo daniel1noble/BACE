@@ -76,6 +76,19 @@
 #' @param rr Logical, if TRUE allow random slopes (default FALSE)
 #' @param rr_form Named list specifying random slopes. Each element is named
 #'   by random effect and contains character vector of covariate names
+#' @param ordinal_thresholds Cutpoints for \code{"thresholdK"} variables, as a
+#'   named list with one numeric vector of K - 1 non-decreasing values per
+#'   variable, on the latent (liability) scale. Any threshold variable not
+#'   named here gets the default: cutpoints at the quartiles (for K = 4; in
+#'   general the k/K quantiles) of its OWN latent distribution, i.e.
+#'   \code{intercept + qnorm(k/K) * sqrt(sigma2_species + sigma2_phylo + sigma2_residual)}.
+#'   These are population constants, so hidden and observed cells in an
+#'   imputation study are draws from the same population. The default is exact
+#'   when the variable has no predictors; with predictors the latent scale is
+#'   wider than the variable's own, so the outer categories receive more than
+#'   their share (never fewer) -- supply thresholds on the full latent scale
+#'   when equal shares matter, as the 2026-11 simulation does. The thresholds
+#'   used are returned in \code{params$ordinal_thresholds}.
 #'
 #' @return Named list containing:
 #'   - data: data.frame with simulated data
@@ -141,7 +154,8 @@ sim_bace <- function(
     missingness = NULL,
     sigmas = NULL,
     rr = FALSE,
-    rr_form = NULL) {
+    rr_form = NULL,
+    ordinal_thresholds = NULL) {
 
   
   # -------------------------------------------------------------------------
@@ -328,6 +342,37 @@ sim_bace <- function(
   sigma2_phylo <- (phylo_signal * (sigma2_species + sigma2_residual)) /
     pmax(1 - phylo_signal, 1e-6)
 
+  # ---- cutpoints for threshold (ordinal) variables ------------------------
+  # Population constants, not sample quantiles: see ?sim_bace (ordinal_thresholds)
+  # and the note in ordinal_liab2cat(). Resolved here, once the variance
+  # components are known; recorded in params$ordinal_thresholds.
+  all_types_now <- c(response_type, predictor_types)
+  thr_vars <- var_names[grepl("^threshold", all_types_now)]
+  if (!is.null(ordinal_thresholds)) {
+    if (!is.list(ordinal_thresholds) || is.null(names(ordinal_thresholds)) ||
+        any(!nzchar(names(ordinal_thresholds))))
+      stop("ordinal_thresholds must be a named list, one numeric vector per threshold variable.", call. = FALSE)
+    unknown <- setdiff(names(ordinal_thresholds), thr_vars)
+    if (length(unknown))
+      stop("ordinal_thresholds names variables that are not thresholdK: ",
+           paste(unknown, collapse = ", "),
+           if (length(thr_vars)) paste0(". Threshold variables: ", paste(thr_vars, collapse = ", ")) else ". There are none",
+           ".", call. = FALSE)
+  }
+  thresholds_used <- list()
+  .ord_thresholds <- function(name, idx, n_cats, centre) {
+    thr <- ordinal_thresholds[[name]]
+    if (is.null(thr)) {
+      own_sd <- sqrt(sigma2_species[idx] + sigma2_phylo[idx] + sigma2_residual[idx])
+      thr <- centre + stats::qnorm(seq_len(n_cats - 1) / n_cats) * own_sd
+    } else if (!is.numeric(thr) || length(thr) != n_cats - 1 || any(!is.finite(thr)) || is.unsorted(thr)) {
+      stop("ordinal_thresholds[['", name, "']] must be ", n_cats - 1,
+           " finite, non-decreasing numbers (", name, " has ", n_cats, " categories).", call. = FALSE)
+    }
+    thresholds_used[[name]] <<- unname(thr)
+    thr
+  }
+
   # -------------------------------------------------------------------------
   # SAMPLE RANDOM EFFECTS
   # -------------------------------------------------------------------------
@@ -397,8 +442,17 @@ sim_bace <- function(
   # -------------------------------------------------------------------------
 
   # Z-matrix for species (maps observations to species)
+  # The random effects are drawn in TREE TIP ORDER (cor_phylo is vcv(tree)), so
+  # the columns of Z must be in tree tip order too. Name the levels explicitly:
+  # factor(species) alone orders the levels by the session's collation, which
+  # agreed with sim_tree()'s sort only because both used the same locale. When
+  # the two orderings differed (2026-11-14, after sim_tree() moved to a
+  # locale-independent sort), every case silently received ANOTHER species'
+  # phylogenetic effect -- same set of values, different cases -- with nothing
+  # to warn. Matching by name makes the pairing explicit and locale-proof.
+  stopifnot(all(case_species %in% tree$tip.label))
   Z <- model.matrix(
-    ~ 0 + factor(species),
+    ~ 0 + factor(species, levels = tree$tip.label),
     data.frame(species = case_species)
   )
   colnames(Z) <- species_list
@@ -521,8 +575,10 @@ sim_bace <- function(
     } else if (grepl("^threshold", pred_type)) {
       n_cats <- as.numeric(gsub("threshold", "", pred_type))
       
-      # Threshold type uses single latent variable with thresholds
-      covars[[pred_name]] <- ordinal_liab2cat(linear_pred, n_cats)
+      # Threshold type: one latent variable cut at population thresholds
+      covars[[pred_name]] <- ordinal_liab2cat(
+        linear_pred, n_cats, method = "thresholds",
+        thresholds = .ord_thresholds(pred_name, var_idx, n_cats, intercepts$predictors[vari]))
     }
   }
 
@@ -683,8 +739,10 @@ sim_bace <- function(
   } else if (grepl("^threshold", response_type)) {
     n_cats <- as.numeric(gsub("threshold", "", response_type))
     
-    # Threshold type uses single latent variable with thresholds
-    response <- ordinal_liab2cat(linear_pred_resp, n_cats)
+    # Threshold type: one latent variable cut at population thresholds
+    response <- ordinal_liab2cat(
+      linear_pred_resp, n_cats, method = "thresholds",
+      thresholds = .ord_thresholds(var_names[1], 1L, n_cats, intercepts$response))
   } else {
     stop("Unknown response_type: ", response_type)
   }
@@ -742,6 +800,7 @@ sim_bace <- function(
     ix_betas = ix_betas,
     parsed_interactions = parsed_interactions,
     intercepts = intercepts,
+    ordinal_thresholds = thresholds_used,   # cutpoints actually used for each thresholdK variable
     phylo_signal = phylo_signal,
     sigmas = sigmas,
     n_cases = n_cases,

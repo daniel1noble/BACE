@@ -22,8 +22,18 @@ var_name_gen <- function(n_predictors) {
 #' @return List containing tree and case-to-species assignment
 #' @export
 sim_tree <- function(n_species, birth, death, n_cases, str_len = 5) {
-  # Generate random species names
-  mock_names <- sort(stringi::stri_rand_strings(n_species, str_len))
+  # Generate random species names.
+  #
+  # Sorted with method = "radix", which orders in the C locale on EVERY machine.
+  # The default sort() uses the session's collation, and that differs between
+  # locales (and between the ICU/glibc/macOS implementations of the "same"
+  # locale): en_US puts "1wIAO" before "1WsN2", C puts it after. The values,
+  # the tree's structure and which cells are hidden do not depend on this --
+  # only the strings attached to each position do -- but a dataset whose
+  # species are called different things on different machines is not the
+  # same dataset. Found 2026-11-14 when R CMD check (which runs tests in the C
+  # locale) gave different species names from an interactive en_US session.
+  mock_names <- sort(stringi::stri_rand_strings(n_species, str_len), method = "radix")
 
   # Assign cases to species (with replacement if n_cases > n_species)
   
@@ -32,7 +42,14 @@ sim_tree <- function(n_species, birth, death, n_cases, str_len = 5) {
   } else {
     case_species <- sample(mock_names, n_cases, replace = FALSE)
   }
-  species_in_data <- sort(unique(case_species))
+  species_in_data <- sort(unique(case_species), method = "radix")
+  if (length(species_in_data) < 2L) {
+    # ape::vcv() on a one-tip tree never returns (prop.part loops below the R
+    # level), so this would hang rather than error. Reachable only when
+    # n_cases > n_species puts every case on one species.
+    stop("sim_tree: only one species was drawn for ", n_cases, " cases; a tree needs at least 2. ",
+         "Increase n_species or n_cases.", call. = FALSE)
+  }
 
 
   # Simulate tree
@@ -210,32 +227,108 @@ mnom_liab2cat <- function(liability, categories) {
 }
 
 #' @title Ordinal liability to category
-#' @description Converts latent liability to ordered categorical outcomes (1, 2, 3, ...)
-#'   using cumulative probit/logit model with evenly spaced thresholds
+#' @description Converts a latent liability to ordered categories 1, 2, ..., K by
+#'   cutting it at K - 1 thresholds. Three rules:
+#'   \itemize{
+#'     \item \code{"thresholds"}: cut at thresholds you supply, on the liability
+#'       scale. This is what \code{sim_bace()} uses, with population thresholds
+#'       (see \code{ordinal_thresholds} there), so hidden and observed cells are
+#'       draws from the same population.
+#'     \item \code{"quantile"}: cut at the empirical quantiles of the liability
+#'       (equal shares by default, \code{probs} for unequal). Every category is
+#'       populated whatever the latent scale. Caveat for imputation studies:
+#'       the category counts are then fixed in the sample, so the HIDDEN cells'
+#'       composition is the exact complement of the OBSERVED cells' -- an
+#'       imputer that estimates cutpoints from observed cells is pushed the
+#'       wrong way, and predicting the observed majority scores below chance.
+#'     \item \code{"fixed"}: the pre-1.0.4 evenly spaced constants. Kept for
+#'       reference; see the note inside on why it was replaced.
+#'   }
+#'   Consumes no random numbers under any rule.
 #' @param liability Vector of latent liabilities (n_cases)
 #' @param n_cats Number of ordered categories
-#' @param threshold_spread Controls spread of thresholds (default 1.5)
+#' @param probs Target proportion of cases per category (default: equal).
+#'   Used by \code{method = "quantile"}.
+#' @param method \code{"quantile"} (default for direct calls), \code{"thresholds"}
+#'   or \code{"fixed"}; see Description.
+#' @param thresholds Numeric vector of \code{n_cats - 1} non-decreasing cutpoints
+#'   on the liability scale; required by \code{method = "thresholds"}.
+#' @param threshold_spread Spacing of the fixed cutpoints (default 1.5);
+#'   only used by \code{method = "fixed"}.
 #' @return Integer vector of ordered categories (1, 2, ..., n_cats)
 #' @noRd
-ordinal_liab2cat <- function(liability, n_cats, threshold_spread = 1.5) {
+ordinal_liab2cat <- function(liability, n_cats, probs = NULL,
+                             method = c("quantile", "thresholds", "fixed"),
+                             thresholds = NULL, threshold_spread = 1.5) {
+  method  <- match.arg(method)
   n_cases <- length(liability)
+  n_cats  <- as.integer(n_cats)
+  if (is.na(n_cats) || n_cats < 2L) stop("ordinal_liab2cat: n_cats must be at least 2.", call. = FALSE)
 
-  # Create evenly spaced thresholds
-  # For K categories, we need K-1 thresholds
-  thresholds <- seq(
-    from = -threshold_spread * (n_cats - 1) / 2,
-    to = threshold_spread * (n_cats - 1) / 2,
-    length.out = n_cats - 1
-  )
-
-  # Assign categories based on thresholds
-  # Category k if threshold[k-1] < liability <= threshold[k]
-  result <- rep(1L, n_cases)
-  for (k in seq_along(thresholds)) {
-    result[liability > thresholds[k]] <- as.integer(k + 1)
+  if (method == "thresholds") {
+    if (is.null(thresholds) || !is.numeric(thresholds) || length(thresholds) != n_cats - 1L ||
+        any(!is.finite(thresholds)) || is.unsorted(thresholds)) {
+      stop("ordinal_liab2cat: `thresholds` must be ", n_cats - 1L,
+           " finite, non-decreasing numbers on the liability scale.", call. = FALSE)
+    }
+  } else if (method == "fixed") {
+    # The pre-1.0.4 rule: evenly spaced cutpoints at fixed constants, e.g.
+    # -2.25 / 0 / +2.25 for four categories, whatever the scale of the
+    # liability. In the 2026-11 campaign the ordinal's liability is
+    # 0.5 * x1 + its own species, phylogenetic and residual effects, with
+    # population variance 0.7 / (1 - phylo_signal): SD 1.00 / 1.53 / 2.65 at
+    # signal 0.3 / 0.7 / 0.9 (realised 0.96 / 1.40 / 2.36), and 0.53 / 0.82 /
+    # 1.41 for an ordinal with no parent. At signal 0.3 about two species in
+    # a hundred fall beyond +/-2.25, and with no parent none do. Measured on
+    # 40 seeds (n = 100, typical regime): fewer than four levels in 27 / 7 / 2
+    # datasets at signal 0.3 / 0.7 / 0.9; seed 1 at signal 0.3 came out
+    # 0 / 47 / 52 / 1, observed 0 / 30 / 37 / 1 after clade masking; and one
+    # dataset at 0.7 (truth 1 / 43 / 55 / 1, observed 0 / 29 / 39 / 0) left
+    # MCMCglmm's cutpoint sampler crawling for an hour where its neighbours
+    # took nineteen minutes.
+    thresholds <- seq(from = -threshold_spread * (n_cats - 1) / 2,
+                      to   =  threshold_spread * (n_cats - 1) / 2,
+                      length.out = n_cats - 1)
+  } else {
+    # Cutpoints at the empirical quantiles of the liability, so each category
+    # receives its intended share whatever the latent scale or mean: with
+    # equal `probs` a 4-level trait is 25/25/25/25 at n = 100. In 400 campaign
+    # datasets with 30 per cent clade masking no level went unobserved
+    # (smallest observed level 7). See the Description for the caveat.
+    if (is.null(probs)) probs <- rep(1 / n_cats, n_cats)
+    if (length(probs) != n_cats || any(!is.finite(probs)) || any(probs <= 0) ||
+        abs(sum(probs) - 1) > 1e-8) {
+      stop("ordinal_liab2cat: `probs` must be ", n_cats,
+           " positive proportions summing to 1.", call. = FALSE)
+    }
+    if (n_cases < n_cats) {
+      stop("ordinal_liab2cat: need at least n_cats = ", n_cats,
+           " cases to populate every category; got ", n_cases, ".", call. = FALSE)
+    }
+    thresholds <- stats::quantile(liability, probs = cumsum(probs)[-n_cats],
+                                  names = FALSE, type = 7)
   }
 
-  return(result)
+  result <- rep(1L, n_cases)
+  for (k in seq_along(thresholds)) {
+    result[liability > thresholds[k]] <- as.integer(k + 1L)
+  }
+
+  # Tripwire. An empty category is never what a simulation asked for. With
+  # fixed cutpoints it is the collapse described above; with population
+  # thresholds it is a whole-tree shift at strong signal; with quantile
+  # cutpoints it can only happen through ties. Either way, say so.
+  n_seen <- length(unique(result))
+  if (n_seen < n_cats) {
+    warning("ordinal_liab2cat: only ", n_seen, " of the ", n_cats,
+            " requested categories are populated",
+            switch(method,
+                   fixed = " (fixed cutpoints ignore the liability's scale; use population thresholds)",
+                   thresholds = " (the realised liabilities did not reach every threshold; at strong phylogenetic signal a whole tree can shift together)",
+                   quantile = " (the liability has ties at a cutpoint)"),
+            ".", call. = FALSE)
+  }
+  result
 }
 
 #' @title Sample random effects
@@ -358,8 +451,11 @@ parse_ix_matrix <- function(ix_matrix, var_names) {
         # Create all pairwise interactions
         pairs <- combn(vars_with_code, 2, simplify = FALSE)
         for (pair in pairs) {
-          # Sort pair for consistency
-          pair <- sort(pair)
+          # Sort pair for consistency -- in C order on every machine. The
+          # session collation differs between locales ("Body:age" in C is
+          # "age:Body" in en_US), and a term name that moves with the locale
+          # would silently fail to match a user's beta_ix (2026-11-14).
+          pair <- sort(pair, method = "radix")
           pair_name <- paste(pair, collapse = ":")
           if (!pair_name %in% names(row_interactions)) {
             row_interactions[[pair_name]] <- pair
@@ -384,6 +480,38 @@ parse_ix_matrix <- function(ix_matrix, var_names) {
 #' @noRd
 generate_ix_betas <- function(interactions, beta_ix = NULL, beta_range = c(-0.3, 0.3)) {
   ix_betas <- list()
+
+  # A supplied coefficient must reach its term. Before 2026-11-14 a name that
+  # matched nothing -- a typo, a reversed pair ("x2:x1"), or a pair whose
+  # order the locale had changed -- was silently replaced by a random draw,
+  # and because that draw moved the random stream, the whole dataset changed.
+  # Names are normalised to C order ("a:b" and "b:a" both work) and anything
+  # left unmatched is an error.
+  if (!is.null(beta_ix)) {
+    if (!is.list(beta_ix) || is.null(names(beta_ix)) || any(!nzchar(names(beta_ix))))
+      stop("beta_ix must be a named list: list(y = list(\"x1:x2\" = 0.3)).", call. = FALSE)
+    for (var_name in names(beta_ix)) {
+      if (!var_name %in% names(interactions) || !length(interactions[[var_name]]))
+        stop("beta_ix names a variable with no interactions: '", var_name, "'. Variables with ",
+             "interaction terms: ", paste(names(interactions)[lengths(interactions) > 0], collapse = ", "),
+             ".", call. = FALSE)
+      terms <- beta_ix[[var_name]]
+      if (!is.list(terms) && !is.numeric(terms)) stop("beta_ix[['", var_name, "']] must be a named list or named numeric vector.", call. = FALSE)
+      if (is.null(names(terms)) || any(!nzchar(names(terms))))
+        stop("every coefficient in beta_ix[['", var_name, "']] must be named by its term, e.g. \"x1:x2\".", call. = FALSE)
+      canon <- vapply(strsplit(names(terms), ":", fixed = TRUE),
+                      function(parts) paste(sort(parts, method = "radix"), collapse = ":"), character(1))
+      known <- names(interactions[[var_name]])
+      bad <- canon[!canon %in% known]
+      if (length(bad))
+        stop("beta_ix[['", var_name, "']] names a term that does not exist: ",
+             paste(sQuote(names(terms)[!canon %in% known]), collapse = ", "),
+             ". Terms for '", var_name, "': ", if (length(known)) paste(known, collapse = ", ") else "(none)",
+             ".", call. = FALSE)
+      names(terms) <- canon
+      beta_ix[[var_name]] <- as.list(terms)
+    }
+  }
   
   for (var_name in names(interactions)) {
     var_interactions <- interactions[[var_name]]

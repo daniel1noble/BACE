@@ -123,8 +123,12 @@ test_that("ordinal_liab2cat: higher liability tends toward higher categories", {
   # the lower category).
   liab_low  <- rep(-5, 100)
   liab_high <- rep( 5, 100)
-  out_low  <- ordinal_liab2cat(liab_low,  n_cats = 5)
-  out_high <- ordinal_liab2cat(liab_high, n_cats = 5)
+  # Every case lands in one category, so the other four are empty: the cutter
+  # must say so rather than hand back a collapsed trait in silence.
+  expect_warning(ordinal_liab2cat(liab_low, n_cats = 5, method = "fixed"),
+                 "1 of the 5 requested categories")
+  out_low  <- suppressWarnings(ordinal_liab2cat(liab_low,  n_cats = 5, method = "fixed"))
+  out_high <- suppressWarnings(ordinal_liab2cat(liab_high, n_cats = 5, method = "fixed"))
   expect_lt(mean(out_low),  mean(out_high))
   expect_true(all(out_low  == 1L))
   expect_true(all(out_high == 5L))
