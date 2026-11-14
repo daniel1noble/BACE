@@ -700,7 +700,8 @@
 					# cannot occur.
 					obs_counts <- suppressWarnings(as.numeric(dat_prep[[1]][[response_var]]))
 					obs_counts <- obs_counts[is.finite(obs_counts)]
-					rate_cap   <- if (length(obs_counts) > 0) 3 * max(obs_counts) + 5 else 1e6
+					cap_mult   <- getOption("BACE.poisson_rate_cap", bace_option_defaults()$poisson_rate_cap)
+					rate_cap   <- .poisson_rate_cap(obs_counts, cap_mult)
 
 					if (sample) {
 					  # Proper posterior predictive for counts: pick one iteration i,
@@ -728,7 +729,7 @@
 					  # and a between-imputation SD shrunk to 0.33x the uncapped value
 					  # on the worst cells. Capping may still be the right trade, but
 					  # the user has to be able to see that it happened.
-					  .warn_rate_cap(n_capped, rate_cap, response_var)
+					  .warn_rate_cap(n_capped, rate_cap, response_var, cap_mult)
 					  pred_values <- apply(draws, 2L, stats::median)
 					} else {
 					  # Point estimate: median-based rate (exp of the median liability),
@@ -737,7 +738,7 @@
 					  # imputations that the final phase then froze into every dataset.
 					  pred_prob   <- .pred_count(model)                            # Full prediction
 					  .warn_rate_cap(sum(pred_prob[, "post_median"] > rate_cap, na.rm = TRUE),
-					                 rate_cap, response_var)
+					                 rate_cap, response_var, cap_mult)
 					  pred_values <- round(pmin(pred_prob[, "post_median"], rate_cap), digits = 0)
 					}
 				 }
@@ -2064,30 +2065,43 @@ summary.bace_diagnostics <- function(object, ...) {
 }
 
 
-#' @title .warn_rate_cap
-#' @description Internal: report that the poisson rate guard actually bound.
-#'   The cap (3 * max(observed) + 5) exists to stop log-link chain excursions
-#'   turning into astronomical counts, but it cannot distinguish an excursion
-#'   from genuine extrapolation. When the missing counts are larger than the
-#'   observed ones it truncates legitimate posterior-predictive draws, biasing
-#'   imputations downward and shrinking between-imputation variance. That is a
-#'   trade-off the user may accept -- but not one they should have to discover.
-#' @param n_capped Number of rates that exceeded the cap.
-#' @param rate_cap The cap applied.
-#' @param response_var Name of the response, for the message.
-#' @return Invisibly NULL; called for the warning.
+#' @title .poisson_rate_cap
+#' @description The ceiling on an imputed count's rate: mult * max(observed) + 5,
+#'   with `mult` from bace_options("poisson_rate_cap") (default 3). `Inf` means
+#'   "off", which still needs a finite ceiling for rpois(): 2^31 - 1, a count no
+#'   dataset holds, so it never binds in practice.
+#' @keywords internal
 #' @noRd
-.warn_rate_cap <- function(n_capped, rate_cap, response_var = "the response") {
+.poisson_rate_cap <- function(obs_counts, mult) {
+  if (!is.finite(mult)) return(.Machine$integer.max)
+  if (length(obs_counts) > 0) mult * max(obs_counts) + 5 else 1e6
+}
+
+#' @title .warn_rate_cap
+#' @description Warn when the poisson rate guard truncated predicted rates.
+#'   The cap (mult * max(observed) + 5) exists to stop log-link chain excursions
+#'   from producing astronomical counts, but under MAR-on-high it binds on real
+#'   draws and biases the imputations downward. Truncating the posterior
+#'   predictive in silence is never acceptable, so every bound is reported.
+#' @param n_capped How many predicted rates exceeded the cap.
+#' @param rate_cap The cap applied.
+#' @param response_var The variable, for the message.
+#' @param mult The multiplier the cap was built from (see bace_options).
+#' @keywords internal
+#' @noRd
+.warn_rate_cap <- function(n_capped, rate_cap, response_var = "the response", mult = 3) {
   if (!is.finite(n_capped) || n_capped < 1L) return(invisible(NULL))
+  cap_txt <- if (is.finite(mult)) sprintf("cap = %.4g = %g * max(observed) + 5", rate_cap, mult)
+             else sprintf("cap = %.4g = the ceiling used when the cap is off", rate_cap)
   warning(sprintf(
     paste0("BACE: the poisson rate guard bound on %d predicted rate(s) for '%s' ",
-           "(cap = %.4g = 3 * max(observed) + 5). Those draws were truncated, ",
+           "(%s). Those draws were truncated, ",
            "which biases the imputed counts downward and understates ",
            "between-imputation variance. This is expected when the missing ",
            "counts are genuinely larger than the observed ones (MAR on high ",
-           "values); treat the imputations for this variable with care."),
-    as.integer(n_capped), response_var, rate_cap), call. = FALSE)
-  invisible(NULL)
+           "values); treat the imputations for this variable with care. ",
+           "The multiplier is bace_options(poisson_rate_cap = ...)."),
+    as.integer(n_capped), response_var, cap_txt), call. = FALSE)
 }
 
 

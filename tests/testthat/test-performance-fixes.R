@@ -155,3 +155,56 @@ test_that("poisson prior: log-link-scaled R-structure and tight PX working
   expect_equal(p$R$nu, 1)
   expect_equal(p$G[[1]]$alpha.V, 1 * diag(1))
 })
+
+
+# ---- 2b. The rate cap is an option (1.0.5): off for experiments, never silent ----
+
+test_that("bace_options(poisson_rate_cap) scales the cap, Inf switches it off, bad values refuse", {
+  old <- getOption("BACE.poisson_rate_cap"); on.exit(options(BACE.poisson_rate_cap = old), add = TRUE)
+  set.seed(587)
+  n_iter <- 60; n_obs <- 6
+  liab <- matrix(rnorm(n_iter * n_obs, 0.5, 0.3), n_iter, n_obs)
+  liab[, 5] <- 20.4                                  # every draw for cell 5 is an excursion
+  model <- mock_liab_model(liab)
+  dat_prep <- list(data.frame(y = c(0L, 1L, 2L, 1L, NA, NA)), NULL)
+
+  # default multiplier 3: cap 11, and the message names the multiplier
+  expect_equal(bace_options()$poisson_rate_cap, 3)
+  expect_warning(pt3 <- BACE:::.predict_bace(model, dat_prep, response_var = "y",
+                                             type = "poisson", sample = FALSE),
+                 "cap = 11 = 3 \\* max\\(observed\\) \\+ 5")
+  expect_true(all(pt3$pred_values <= 11))
+
+  # multiplier 10: cap 25
+  bace_options(poisson_rate_cap = 10)
+  expect_warning(pt10 <- BACE:::.predict_bace(model, dat_prep, response_var = "y",
+                                              type = "poisson", sample = FALSE),
+                 "cap = 25 = 10 \\* max")
+  expect_true(all(pt10$pred_values <= 25))
+  expect_equal(max(pt10$pred_values), 25)
+
+  # Inf: the cap is off -- the excursion cell comes through at exp(20.4), no warning,
+  # on the point path and on the draw path (the draw stays finite)
+  bace_options(poisson_rate_cap = Inf)
+  expect_silent(ptI <- BACE:::.predict_bace(model, dat_prep, response_var = "y",
+                                            type = "poisson", sample = FALSE))
+  expect_equal(max(ptI$pred_values), round(exp(20.4)))
+  expect_silent(dr <- BACE:::.predict_bace(model, dat_prep, response_var = "y",
+                                           type = "poisson", sample = TRUE))
+  expect_true(all(is.finite(dr$pred_values)))
+  expect_gt(max(dr$pred_values), 1e8)
+  expect_equal(BACE:::.poisson_rate_cap(c(0, 2), Inf), .Machine$integer.max)
+  expect_equal(BACE:::.poisson_rate_cap(c(0, 2), 3), 11)
+  expect_equal(BACE:::.poisson_rate_cap(numeric(0), 3), 1e6)
+
+  # validation
+  expect_error(bace_options(poisson_rate_cap = 0.5), ">= 1")
+  expect_error(bace_options(poisson_rate_cap = "off"), ">= 1")
+  expect_error(bace_options(poisson_rate_cap = c(3, 4)), ">= 1")
+
+  # the checkpoint fingerprint carries it, so a resume cannot mix cap settings
+  bace_options(poisson_rate_cap = 7)
+  expect_equal(BACE:::.ckpt_common()$poisson_rate_cap, 7)
+  bace_options(.reset = TRUE)
+  expect_equal(BACE:::.ckpt_common()$poisson_rate_cap, 3)
+})

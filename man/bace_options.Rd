@@ -17,6 +17,24 @@ A named list of effective option values (after defaults + overrides).
 \description{
 Get or set BACE options
 }
+\details{
+The options are:
+\describe{
+\item{\code{verbose}}{print progress (default \code{TRUE}).}
+\item{\code{digits}}{digits in printed summaries (default 3).}
+\item{\code{gelman}}{prior for categorical fixed effects: 2 = pseudo-Gelman
+(default), 0 = none.}
+\item{\code{poisson_rate_cap}}{the multiplier in the rate guard for count
+imputations. An imputed count's rate is capped at
+\code{poisson_rate_cap * max(observed count) + 5} (default 3), which stops
+a chain excursion on the log scale from producing an astronomical count. The
+cap is set from the counts BACE can see, so it binds, and biases the
+imputations down, exactly when the missing counts are larger than the
+observed ones; BACE warns each time it does. \code{Inf} switches the cap
+off (a ceiling of 2^31 - 1 remains so that the Poisson draw stays finite).
+Changing it between a checkpoint and a resume is refused.}
+}
+}
 \examples{
 # show the current (effective) options
 bace_options()

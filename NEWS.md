@@ -1,3 +1,18 @@
+# BACE 1.0.5
+
+* **The count rate cap is now an option.** `bace_options(poisson_rate_cap = )`
+  sets the multiplier in the guard on imputed count rates, which caps a rate at
+  `poisson_rate_cap * max(observed count) + 5` (default 3, unchanged). `Inf`
+  switches the cap off (a ceiling of 2^31 - 1 remains so the Poisson draw stays
+  finite). The cap stops a chain excursion on the log scale from producing an
+  astronomical count, but it is set from the counts BACE can see, so it binds,
+  and biases the imputations down, exactly when the missing counts are larger
+  than the observed ones. In the 2026-11 simulation it fired in 77% of the first
+  301 datasets. The option exists so that cost can be measured (the cap-on /
+  cap-off experiment in `dev/simulation_2026-11/`) rather than assumed. The
+  warning names the multiplier, and the checkpoint fingerprint records it, so a
+  resumed run refuses to mix cap settings.
+
 # BACE 1.0.4
 
 * **The simulated ordinal trait collapsed to two or three categories at low

@@ -12,17 +12,18 @@ reset_bace_options <- function() {
 
 test_that("bace_option_defaults returns expected keys", {
   d <- bace_option_defaults()
-  expect_named(d, c("verbose", "digits", "gelman"))
+  expect_named(d, c("verbose", "digits", "gelman", "poisson_rate_cap"))
   expect_type(d$verbose, "logical")
   expect_type(d$digits, "integer")
   expect_type(d$gelman, "double")
+  expect_equal(d$poisson_rate_cap, 3)
 })
 
 test_that("bace_options() with no args returns merged defaults", {
   reset_bace_options()
   on.exit(reset_bace_options(), add = TRUE)
   eff <- bace_options()
-  expect_named(eff, c("verbose", "digits", "gelman"))
+  expect_named(eff, c("verbose", "digits", "gelman", "poisson_rate_cap"))
 })
 
 test_that("bace_options sets and gets verbose", {

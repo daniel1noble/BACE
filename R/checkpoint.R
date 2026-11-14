@@ -252,7 +252,10 @@
        r_version    = paste0(R.version$major, ".", R.version$minor),
        gelman       = if (is.null(getOption("BACE.gelman")))
                         bace_option_defaults()$gelman else
-                        getOption("BACE.gelman"))
+                        getOption("BACE.gelman"),
+       ## the count rate cap changes imputed values, so a resume must not mix settings
+       poisson_rate_cap = getOption("BACE.poisson_rate_cap",
+                                    bace_option_defaults()$poisson_rate_cap))
 }
 
 #' Evaluate an expression under a fixed random seed, restoring the caller's state
