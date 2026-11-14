@@ -2,6 +2,11 @@
 
 Draft for Dan to send. Written 2026-11-10.
 
+> **Partly superseded (2026-11-14).** The package is now **1.0.4** and the scripts refuse
+> anything older (not 1.0.2 as below). Point 1 (the ordinal collapse) was fixed in 1.0.4,
+> and the "about 2 minutes" in step 1 was wrong: 20–30 minutes at n = 100. Current
+> instructions: `dev/simulation_2026-11/README.md`.
+
 ---
 
 Hi Shinichi,

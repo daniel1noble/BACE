@@ -1,5 +1,20 @@
 # BACE completion roadmap
 
+**2026-11-14 — BACE 1.0.4: the simulated ordinal trait is cut at population thresholds.**
+Shinichi's hold on the campaign lifts once 1.0.4 is installed on Totoro and rorqual and
+`reproducibility_probe.R` Section A matches `reproducibility_probe_reference.txt`.
+**Everything run on 1.0.3 must be rerun** (every trait is imputed from every other, so a
+changed ordinal changes them all; only timings carry over). A first fix (sample-quartile
+cuts) was rejected by review for coupling the hidden cells to the observed ones; the
+shipped rule is population thresholds, with level counts now recorded per dataset. The
+generator is pinned for *every* trait type and locale by a golden test. Record:
+[investigation-ordinal-generator-2026-11.md](investigation-ordinal-generator-2026-11.md);
+the companion 1.0.3 fix (machine-dependent trait draws) is in
+[investigation-simulator-reproducibility-2026-11.md](investigation-simulator-reproducibility-2026-11.md).
+Analysis-stage decisions now on the table: report ordinal accuracy with and without the
+datasets whose ordinal lost a level; the count trait is wildly overdispersed at signal 0.9
+(README open item 5).
+
 **2026-11-05 — bird manuscript example and figure:** Ayumi's case-study text and
 panels c–d are in `ms/ms.qmd`, with per-category social accuracy and four verified
 species illustrations. PDF/Word and standalone figure exports refreshed. Details

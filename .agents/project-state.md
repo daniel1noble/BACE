@@ -1,7 +1,62 @@
-# Project state (updated 2026-11-10)
+# Project state (updated 2026-11-14)
 
 Keep this current — it's the shared "where are we" so nobody re-derives it.
 
+## 2026-11-14: BACE 1.0.4 — the simulated ordinal trait is cut at population thresholds
+
+Full record: [investigation-ordinal-generator-2026-11.md](investigation-ordinal-generator-2026-11.md).
+Companion fix the day before, 1.0.3: the trait simulator gave different data on
+different machines (`mvrnorm`'s eigen square root is not unique; now Cholesky) —
+[investigation-simulator-reproducibility-2026-11.md](investigation-simulator-reproducibility-2026-11.md).
+Shinichi confirmed 1.0.3 identical on Mac, Totoro and rorqual before this fix.
+
+- **Symptom (Shinichi, first 1.0.3 runs):** a 4-level ordinal with an empty level and a
+  one-species level at signal 0.3 (seed 1: 0/47/52/1); seed 1 of
+  `n100_ps0.7_good_covariate_clade` ran for an hour — its ordinal was *observed* as
+  0/29/39/0, two empty levels.
+- **Not the missingness.** The collapse is in the truth. `ordinal_liab2cat()` cut at fixed
+  constants (−2.25/0/+2.25) while the campaign's ordinal liability (0.5·x1 + own effects)
+  has population SD 1.00/1.53/2.65 at signal 0.3/0.7/0.9. Baseline on the 1.0.3 generator,
+  40 seeds, n = 100: fewer than 4 levels in truth in 27/7/2 datasets; a level with no
+  observed species after clade masking in 31/9/4.
+- **First fix rejected by adversarial review:** sample-quartile cutpoints (exactly
+  25/25/25/25) make the hidden cells' level counts the exact complement of the observed
+  cells' (correlation −1.00), push a cutpoint-estimating imputer the wrong way (BACE-like
+  threshold model −0.03 to −0.12 accuracy) and put the majority floor below chance
+  (0.11–0.21). Also found: three sets of wrong numbers in my docs, locale-sorted interaction
+  names with a silent random fallback for an unmatched `beta_ix`, a hang on a one-species
+  tree, and a false claim that 1.0.3 results for x1/x2/cnt/bin were reusable.
+- **Fix shipped:** `sim_bace(ordinal_thresholds=)` — population cutpoints on the latent
+  scale; default = quartiles of the variable's own latent distribution; the campaign passes
+  `qnorm(c(.25,.5,.75))·sqrt((2·β² + 0.2)/(1 − signal))`. Correlation now +0.2 to +0.9, floor
+  0.27–0.43. Price: at signal 0.9, n = 100, ~1 in 20 datasets has an empty ordinal level in
+  truth and 1 in 10–20 an unobserved one after masking (0/10 at n = 500); recorded per
+  dataset (`realised$levels_truth`, `levels_observed`). No RNG consumed: tree, masks, x1, x2,
+  cnt, bin, driver, aux identical to 1.0.3 by position on 200 datasets.
+- **Also found by the new golden test: species names depended on the locale.** `R CMD
+  check` runs tests in the C locale; every value reproduced but the labels did not. A first
+  fix (C-order names only) silently changed VALUES in en_US — the design matrix was built
+  from `factor(species)` (locale level order) while effects were drawn in tree-tip order;
+  two independent sorts had agreed by luck. Now names are C-ordered everywhere and the
+  design matrix names its levels from `tree$tip.label` (pairing by name). Interaction-term
+  names C-ordered too; an unmatched `beta_ix` is an error; `sim_tree()` refuses a
+  one-species draw.
+- **Tests:** `test-ordinal-generator.R` — the cutter's three rules, `sim_bace`'s default
+  arithmetic, explicit thresholds reaching the variable, the golden test for the full
+  campaign recipe (every trait type, any locale), a C-vs-en_US test that verifies the two
+  locales really differ, interaction-name and one-species tests. Suite **2119 pass / 0
+  fail / 0 error / 0 warn / 0 skip**; `R CMD check --as-cran` **0 errors / 0 warnings / 2
+  NOTEs** (both environmental); under check 1551 pass / 0 fail in the C locale. Nine
+  hand-made mutations of the new code paths each fail at least one test.
+- **Machine note (2026-11-14 ~11:56):** R on Dan's Mac was upgraded to 4.6.2 with an empty
+  user library; everything above ran on 4.5.3, which is still reachable through
+  `/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/bin/exec/R` with
+  `R_HOME`/`R_LIBS` set. The golden tests are the cross-version check once 4.6 has packages.
+- **Version 1.0.4**; guards in `run_one.R`, `run_all.sh` and the README require it; the probe
+  prints the codes and its Section A is committed as a reference.
+- **For the campaign: everything run on 1.0.3 must be rerun** — every trait is imputed from
+  every other, so a changed `ord` changes all of them. Timings carry over. Mock runs of the
+  two failing datasets on the final build: see the investigation note.
 ## 2026-11-10: numerical accuracy audit — eight silent bugs found and fixed
 
 Full record: [investigation-audit-2026-11.md](investigation-audit-2026-11.md).
