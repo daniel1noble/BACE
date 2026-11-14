@@ -101,11 +101,21 @@ out(summary_runs,     "summary_runs.csv")
 ## STEP 7. The one check worth doing every time: the ORACLE arm sees the complete truth, so its
 ##         coverage must be about 0.95. If it is not, the assumed true slope is wrong and every
 ##         other arm's coverage is meaningless.
-orc  <- summary_slopes[summary_slopes$arm == "oracle", ]
-reps <- min(table(slopes$id[slopes$arm == "oracle"]))
-message("\noracle coverage (should be ~0.95): ",
+##         COUNT EACH DATASET ONCE. The truth data do not depend on the missingness mechanism, so
+##         the oracle fit for a given seed is the same in the mcar, mar and clade files; and the
+##         floor and typical regimes share their random draws (the typical slope is the floor
+##         slope plus 0.5, exactly), so those are one fit too. Judged on the files, one unlucky
+##         seed is counted up to 18 times. On 2026-11-15 the first 301 files read 0.89 this way
+##         while the same seeds, counted once, were ordinary and 150 seeds gave 0.94-0.97.
+orc_rows <- slopes[slopes$arm == "oracle", ]
+orc_rows$draw <- paste(orc_rows$n_species, orc_rows$phylo_signal,
+                       ifelse(orc_rows$regime == "floor", "typical", orc_rows$regime), orc_rows$seed)
+orc_rows <- orc_rows[!duplicated(orc_rows$draw), ]
+orc  <- stats::aggregate(covered ~ n_species + phylo_signal, orc_rows, mean)
+reps <- min(table(paste(orc_rows$n_species, orc_rows$phylo_signal)))
+message("\noracle coverage (should be ~0.95), one count per distinct dataset: ",
         paste(round(range(orc$covered), 3), collapse = " to "),
-        "   [", reps, " replicates per scenario]")
+        "   [", nrow(orc_rows), " distinct datasets; ", reps, " per n x signal]")
 
 ## Only worth checking once there are enough replicates to measure a proportion. At 1 replicate
 ## coverage can only be 0 or 1, so the check would cry wolf on every rehearsal and train everyone

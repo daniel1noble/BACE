@@ -81,7 +81,7 @@ answers the question that arm is there to answer.
 
 | | what it is | what it's for |
 |---|---|---|
-| `truth` | the complete data, before anything was hidden | the best anyone could do — **and the sanity check**: if its answer isn't roughly unbiased with ~95% coverage, something is wrong with the setup |
+| `truth` | the complete data, before anything was hidden | the best anyone could do — **and the sanity check**: if its answer isn't roughly unbiased with ~95% coverage, something is wrong with the setup. Count it once per distinct dataset: the truth is the same in the mcar, mar and clade files, and the floor and typical regimes share their random draws, so one unlucky seed shows up 18 times across files. `collect.R` does this; measured on 900 generated datasets the oracle covers 0.94–0.97 |
 | `complete_case` | delete every species with a gap | what people do now. Claim 1 is this versus BACE |
 | `bace` | fill the gaps with `bace()` | the method the paper is about |
 
