@@ -51,7 +51,10 @@ Shinichi confirmed 1.0.3 identical on Mac, Totoro and rorqual before this fix.
 - **Machine note (2026-11-14 ~11:56):** R on Dan's Mac was upgraded to 4.6.2 with an empty
   user library; everything above ran on 4.5.3, which is still reachable through
   `/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/bin/exec/R` with
-  `R_HOME`/`R_LIBS` set. The golden tests are the cross-version check once 4.6 has packages.
+  `R_HOME`/`R_LIBS` set. Later the same day the 4.6 library was populated and BACE 1.0.4
+  installed into it: **the golden recipe on R 4.6.2 reproduces every value of the 4.5.3 run
+  exactly** (tree, species names, x1 to 12 digits, counts, binary, ordinal and categorical
+  codes) — the simulator is reproducible across these two R versions.
 - **Version 1.0.4**; guards in `run_one.R`, `run_all.sh` and the README require it; the probe
   prints the codes and its Section A is committed as a reference.
 - **For the campaign: everything run on 1.0.3 must be rerun** — every trait is imputed from

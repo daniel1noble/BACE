@@ -240,7 +240,9 @@ Downstream slope (truth 0.5): oracle 0.58, complete-case 0.51, BACE 0.57, all co
 Both runs used R 4.5.3 through its own binary, because R on this Mac was upgraded to
 4.6.2 with an empty package library at midday (two earlier attempts died on "no package
 called ape" for that reason, after a transient typo in the runner had killed the pair
-before them at the scoring step, 24 minutes in). The runner itself is unchanged.
+before them at the scoring step, 24 minutes in). The runner itself is unchanged. Once the
+4.6 library was populated, the golden recipe on R 4.6.2 reproduced every value of the
+4.5.3 run exactly — one more machine-independence check, this time across R versions.
 
 ## Related
 
