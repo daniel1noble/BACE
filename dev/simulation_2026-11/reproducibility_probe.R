@@ -40,8 +40,14 @@ for (id in c("n100_ps0.7_typical_mcar", "n100_ps0.3_typical_clade")) {
   cat("  mean(x1), sd(x1)         : ", fmt(mean(d$truth$x1)), " ", fmt(sd(d$truth$x1)), "\n", sep = "")
   cat("  table(ord)               : ",
       paste(names(table(d$truth$ord)), table(d$truth$ord), sep = "=", collapse = " "), "\n", sep = "")
+  # A table of counts is a weak fingerprint (two different datasets can share one); the
+  # codes themselves are not. From 1.0.4 the ordinal is cut at population thresholds.
+  cat("  ord[1:30]                : ", paste(as.character(head(d$truth$ord, 30)), collapse = ""), "\n", sep = "")
   cat("  table(bin)               : ",
       paste(names(table(d$truth$bin)), table(d$truth$bin), sep = "=", collapse = " "), "\n", sep = "")
+  cat("  bin[1:30]                : ", paste(as.character(head(d$truth$bin, 30)), collapse = ""), "\n", sep = "")
+  cat("  cat3[1:30]               : ", paste(as.character(head(d$truth$cat3, 30)), collapse = ""), "\n", sep = "")
+  cat("  cnt[1:10]                : ", paste(head(d$truth$cnt, 10), collapse = " "), "\n", sep = "")
   cat("  realised lambda_x1       : ", fmt(d$realised$lambda_x1), "\n", sep = "")
   cat("  realised lambda_bin      : ", fmt(d$realised$lambda_bin), "\n", sep = "")
   m <- apply_missingness(d$truth, d$tree, s$mechanism, s$miss_frac, seed = 1)

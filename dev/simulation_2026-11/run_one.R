@@ -16,7 +16,7 @@ suppressPackageStartupMessages({ library(ape); library(nlme); library(phytools) 
 ## A campaign measures one version of BACE. An older build sitting in the R library produces
 ## results that look entirely normal and mean nothing -- that happened on 2026-11-09, with the
 ## repository at 1.0.0 and the library still at 0.1.0.9000.
-BACE_MIN_VERSION <- "1.0.3"
+BACE_MIN_VERSION <- "1.0.4"
 bace_version <- as.character(utils::packageVersion("BACE"))
 if (utils::compareVersion(bace_version, BACE_MIN_VERSION) < 0)
   stop("BACE ", bace_version, " is installed; this campaign needs >= ", BACE_MIN_VERSION,
@@ -29,7 +29,8 @@ if (utils::compareVersion(bace_version, BACE_MIN_VERSION) < 0)
 ##
 ##   tree total branch length  230.381  vs  182.038
 ##   cells hidden in x1        3,6,12,15,...  vs  1,6,18,23,...
-##   ordinal category counts   2/36/51/11  vs  4/31/49/16
+##   ordinal category counts   2/36/51/11  vs  4/31/49/16   (pre-1.0.4 cutter; from 1.0.4 the
+##                                                           ordinal is cut at population thresholds)
 ##
 ## That last line is enough to move ordinal accuracy several fold, which is exactly the
 ## cross-machine difference reported in the 2026-11 review. Fixing all three components here
@@ -149,6 +150,7 @@ saveRDS(list(
   id = id, seed = seed, scenario = scenario, failed_at = NA_character_,
   slopes = slopes, recovery = recovery, cell_coverage = coverage,
   realised = dataset$realised, realised_frac = dataset$realised_frac,
+  levels_observed = dataset$levels_observed,
   complete_case = cc[c("n_complete", "frac_kept", "status")],
   bace_converged = bace$converged, bace_conv_detail = bace$conv_detail,
   settings = c(M = M, nitt = nitt, burnin = burnin, thin = thin, runs = runs,

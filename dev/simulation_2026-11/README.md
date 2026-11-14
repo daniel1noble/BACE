@@ -165,9 +165,53 @@ Rscript collect.R results
 
 **The wrong version of BACE.** An old copy sitting in the R library produces results that
 look completely normal and mean nothing. This has already happened once, on 2026-11-09.
-Both `run_one.R` and `run_all.sh` refuse to start below **1.0.3**, and every result file
+Both `run_one.R` and `run_all.sh` refuse to start below **1.0.4**, and every result file
 records the version that made it. If you change the package, reinstall it *and* bump the
 version — the guard can only catch what the version number tells it.
+
+**Ordinal traits from 1.0.3 or earlier were not four-level, and every 1.0.3 result must be
+rerun.** The generator cut the hidden value behind `ord` at fixed constants (−2.25 / 0 /
++2.25) while that value's spread grows with the signal asked for (its standard deviation is
+1.00 / 1.53 / 2.65 at signal 0.3 / 0.7 / 0.9 here), so at signal 0.3 about two species in a
+hundred reached the outer cuts. Measured on 40 seeds per setting at n = 100:
+
+| signal | fewer than 4 levels in truth | a level with nobody observed, after clade masking |
+|---|---|---|
+| 0.3 | 27/40 | 31/40 |
+| 0.7 | 7/40 | 9/40 |
+| 0.9 | 2/40 | 4/40 |
+
+The dataset that ran for an hour on Totoro (seed 1, `n100_ps0.7_good_covariate_clade`) was
+one of those: its ordinal was observed as 0/29/39/0, two levels with nobody in them, and
+MCMCglmm's cutpoint sampler had nothing to anchor the cutpoints between.
+
+From **1.0.4** the cuts are *population* constants: the quartiles of the hidden value's known
+distribution, `qnorm(c(.25, .5, .75)) * sqrt((2 * trait_beta² + 0.2) / (1 − signal))`
+(derivation in `R/02_simulate.R`, step 3b). So every level has 25 species in expectation at
+every signal, and the hidden and observed cells are draws from the same population. We did
+**not** cut at the sample quartiles, which would have given exactly 25/25/25/25 every time:
+that makes the hidden cells' level counts the exact complement of the observed cells', which
+pushes any method that estimates cutpoints from observed cells (BACE's threshold model does)
+the wrong way and puts the "guess the commonest level" floor *below* chance (0.11–0.21
+against 0.25). Under population cuts the floor is 0.27–0.43, and a phylogenetic threshold model
+scored 0.03–0.12 higher on identical data.
+
+The price is honest and recorded. A strongly phylogenetic trait shifts whole clades together,
+so at signal 0.9 and n = 100 about 1 dataset in 20 has an ordinal level with no species at
+all, and 1 in 10–20 has a level unobserved after clade masking (at signal 0.7, once in 40); at
+n = 500, none in 10 seeds. A
+level nobody observes cannot be imputed by any method, and those are the slow datasets. Every
+result file now carries `realised$levels_truth` and `levels_observed` (counts per level of
+`ord`, `cat3` and `bin`, before and after masking), so the analysis can report ordinal
+accuracy with and without those datasets instead of discovering them.
+
+The fix draws no random numbers, so the tree, the masks and every other trait are
+bit-identical to 1.0.3 by position; only `ord` changes, and `cat3` with it, because `cat3` is
+simulated from `ord`. (1.0.4 also sorts species names in C order — plain byte order, the same
+on every computer — so the *names* attached to each row differ from a 1.0.3 run on a non-C
+machine; the values do not.) **But the campaign imputes every trait from every other, so a
+changed `ord` changes the imputation of `x1`, `x2`, `cnt` and `bin` too: nothing from 1.0.3 or
+earlier can go in the same table as 1.0.4 results. Only the timings carry over.**
 
 **Interruptions.** A wall-time limit or a dead node can hit any dataset, and at 500
 species that's 2.2 hours lost. BACE checkpoints by default, so a resumed run costs about
@@ -209,10 +253,15 @@ that lets the half finish at all. Check the queue's wall-time limit before decid
 **The R version used to change the data.** `sample()` changed in R 3.6.0, so before
 2026-11-12 the same seed produced *different* trees and hid *different* cells on different
 R versions — not slightly different, unrelated. Measured on seed 1: tree length 230.4 vs
-182.0, ordinal counts 2/36/51/11 vs 4/31/49/16. `run_one.R` now pins the generator
+182.0, ordinal counts 2/36/51/11 vs 4/31/49/16 (counts from the pre-1.0.4 cutter; from 1.0.4
+the ordinal is cut at population thresholds and the probe prints the codes themselves as
+well as the table). `run_one.R` now pins the generator
 explicitly, and every result file records the R version, platform and package versions. If
 you are comparing results between machines, run `reproducibility_probe.R` on both first —
 it takes seconds, runs no MCMC, and tells you whether you are even analysing the same data.
+Its Section A for 1.0.4, as produced on the Mac, is committed as
+`reproducibility_probe_reference.txt`: diff your Section A against it. Any difference at
+all means your machine is not generating the campaign's data.
 Note the pin fixes the *data* for R >= 3.6; it does not make results identical across
 different MCMCglmm or ape versions, which is why those are recorded.
 
@@ -265,6 +314,17 @@ data had rather than what was asked for.
    mechanism, so some of the Claim 1 pattern comes from the comparison rule rather than
    from the missingness. A deliberate choice — worth revisiting before the paper, not
    before the run.
-4. **Unconfirmed:** if a category trait loses a whole level (possible when whole groups go
-   missing), imputed values may land on the wrong category label. One reviewer reproduced
-   it, another couldn't. Worth testing before committing the cluster time.
+4. **A trait losing a whole level after masking — measured, and it will happen.** Under
+   1.0.4's population cuts, at signal 0.9 and n = 100 about 1 dataset in 20 has an ordinal
+   level with no species in truth and 1 in 10–20 has one unobserved after clade masking (none
+   at n = 500 in 10 seeds; `cat3` and `bin` never lost a level in 200 datasets). Those
+   datasets are recorded (`levels_truth`, `levels_observed`) and are the slow ones. Two
+   decisions for the analysis, not the run: report ordinal accuracy with and without them,
+   and check what BACE does with a level it never saw (the imputed value may land on a wrong
+   label — one reviewer reproduced that on an older build, another could not).
+5. **Counts are wildly overdispersed at strong signal.** The count trait's hidden scale also
+   grows with signal (it inherits `0.5 * x1`): at signal 0.3 / 0.7 / 0.9 the counts have
+   variance-to-mean ratios of about 5 / 33 / 1600 and maxima of 47 / 270 / 5778, with ~40%
+   zeros throughout. Not a bug and unchanged by 1.0.4, but "signal 0.9" count results are
+   results on a very different kind of count trait, and the count-cap warning (item 2) will
+   fire there often.

@@ -81,6 +81,27 @@ simulate_traits <- function(scenario, seed) {
   ##         it, not a flaw in the design -- but it is worth reporting, so step 5 measures it.
   signal <- rep(scenario$phylo_signal, 1 + n_pred)
 
+  ## STEP 3b. Where to cut the ordinal. The hidden value behind `ord` is
+  ##
+  ##            trait_beta * x1  +  its own species, phylogenetic and residual effects
+  ##
+  ##         x1 has population variance 2 / (1 - signal) (sim_bace's gaussian defaults: species
+  ##         and residual variance 1 each, phylogenetic variance set from the signal), and the
+  ##         ordinal's own effects total 0.2 / (1 - signal) (non-gaussian defaults 0.1 + 0.1).
+  ##         So the hidden value is Normal with variance (2 * trait_beta^2 + 0.2) / (1 - signal),
+  ##         and cutting it at the quartiles of THAT distribution gives four levels of 25 species
+  ##         each in expectation at every signal level. These are population constants: they do
+  ##         not look at the dataset, so hidden and observed cells are draws from the same
+  ##         population and nothing ties one to the other (a sample-quantile cut would make the
+  ##         hidden cells' level counts the exact complement of the observed cells', which pushes
+  ##         any cutpoint-estimating imputer the wrong way -- measured 2026-11-14). The price is
+  ##         that at strong signal a whole tree can shift together: at signal 0.9 and n = 100 about
+  ##         1 dataset in 20 has a level with no species in truth, and 1 in 10-20 has a level
+  ##         unobserved after masking; at n = 500 none in 10 seeds. Both are recorded per dataset
+  ##         below (level counts), so the paper can report them rather than discover them.
+  ord_sd  <- sqrt((2 * scenario$trait_beta^2 + 0.2) / (1 - scenario$phylo_signal))
+  ord_thr <- stats::qnorm(c(0.25, 0.5, 0.75)) * ord_sd
+
   ## STEP 4. Simulate. One row per species, and NO missingness -- we add that ourselves next.
   set.seed(seed)
   sim <- suppressMessages(BACE::sim_bace(
@@ -92,7 +113,8 @@ simulate_traits <- function(scenario, seed) {
     phylo_signal    = signal,
     n_cases         = scenario$n_species,
     n_species       = scenario$n_species,
-    missingness     = NULL))
+    missingness     = NULL,
+    ordinal_thresholds = list(ord = ord_thr)))
 
   truth <- sim$complete_data
   rownames(truth) <- truth$Species
@@ -105,7 +127,14 @@ simulate_traits <- function(scenario, seed) {
     lambda_cnt = realised_lambda(truth$cnt, sim$tree, truth$Species),
     lambda_bin = realised_lambda(as.integer(truth$bin), sim$tree, truth$Species),
     cor_x1_x2  = stats::cor(truth$x1, truth$x2),
-    cor_x1_aux = if (scenario$aux_beta > 0) stats::cor(truth$x1, truth$aux) else NA_real_)
+    cor_x1_aux = if (scenario$aux_beta > 0) stats::cor(truth$x1, truth$aux) else NA_real_,
+    ## how many species each level of the discrete traits actually has, before masking. An
+    ## ordinal level with no species (possible at strong signal, see step 3b) makes that dataset
+    ## a 3-level problem; the count is what lets the analysis say so.
+    levels_truth = list(ord  = as.integer(table(factor(truth$ord,  levels = 1:4))),
+                        cat3 = as.integer(table(factor(truth$cat3, levels = c("A", "B", "C")))),
+                        bin  = as.integer(table(factor(truth$bin,  levels = c("0", "1"))))),
+    ord_thresholds = ord_thr)
 
   list(truth = truth, tree = sim$tree, realised = realised)
 }
@@ -188,5 +217,11 @@ apply_missingness <- function(truth, tree, mechanism, frac, seed) {
 simulate_dataset <- function(scenario, seed) {
   sim <- simulate_traits(scenario, seed)
   miss <- apply_missingness(sim$truth, sim$tree, scenario$mechanism, scenario$miss_frac, seed)
-  c(sim, miss)      # truth, tree, realised, data, mask, realised_frac
+  ## and the level counts BACE will actually see. A level observed 0 times cannot be imputed by
+  ## any method and makes MCMCglmm's cutpoint sampler crawl (the hour-long runs of 2026-11-13).
+  miss$levels_observed <- list(
+    ord  = as.integer(table(factor(miss$data$ord,  levels = 1:4))),
+    cat3 = as.integer(table(factor(miss$data$cat3, levels = c("A", "B", "C")))),
+    bin  = as.integer(table(factor(miss$data$bin,  levels = c("0", "1")))))
+  c(sim, miss)      # truth, tree, realised, data, mask, realised_frac, levels_observed
 }

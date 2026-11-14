@@ -1,0 +1,40 @@
+# Reference output of reproducibility_probe.R, SECTION A, BACE 1.0.4, produced on aarch64-apple-darwin20 (R 4.5.3, reference BLAS/LAPACK).
+# Run the probe on your machine and diff its Section A against this file. Any difference means the
+# simulator is not reproducing on your machine and the campaign cannot be pooled. Section B is not
+# included because it is machine-specific by design.
+=============== SECTION A: generated data (no MCMC) ===============
+
+scenario: n100_ps0.7_typical_mcar   seed 1
+  tree total branch length : 230.3810096628
+  first 3 tip labels       : 0i6Rd 1WsN2 1wIAO
+  x1[1:3]                  : 2.9529703594 -3.0898354568 2.3598279612
+  mean(x1), sd(x1)         : -0.0154745268 2.4157987735
+  table(ord)               : 1=11 2=35 3=29 4=25
+  ord[1:30]                : 414414222422433332334222241341
+  table(bin)               : 0=52 1=48
+  bin[1:30]                : 101001000100101011011010010000
+  cat3[1:30]               : CABCCCCBBCCCCBCCCACBCCCBACCCCC
+  cnt[1:10]                : 1 0 3 3 1 8 1 0 0 18
+  realised lambda_x1       : 0.7260281095
+  realised lambda_bin      : 0.4520665846
+  which cells hidden in x1 : 3 6 12 15 16 19 24 30
+
+scenario: n100_ps0.3_typical_clade   seed 1
+  tree total branch length : 230.3810096628
+  first 3 tip labels       : 0i6Rd 1WsN2 1wIAO
+  x1[1:3]                  : 2.4315360535 -2.0197980576 0.4409973546
+  mean(x1), sd(x1)         : 0.0415506578 1.6162756106
+  table(ord)               : 1=15 2=32 3=27 4=26
+  ord[1:30]                : 413414222422423341244232241342
+  table(bin)               : 0=43 1=57
+  bin[1:30]                : 100001110101001010010010111011
+  cat3[1:30]               : BBBBBBBBCBCBBBCCBABCBCBCBCCCCC
+  cnt[1:10]                : 1 1 0 3 0 5 1 0 0 4
+  realised lambda_x1       : 0.3457519946
+  realised lambda_bin      : 0.0656933271
+  which cells hidden in x1 : 2 7 8 11 12 17 27 28
+
+  Two bare RNG checks, independent of every package:
+    runif(3)      : 0.2655086631 0.3721238996 0.5728533634
+    sample(100, 5): 68 39 1 34 87
+
