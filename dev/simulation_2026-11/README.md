@@ -92,7 +92,16 @@ answers the question that arm is there to answer.
 **Did it get the values right?**
 For continuous and count traits, the error in the filled-in values, measured in units of
 that trait's own spread. 0 is perfect; 1 is no better than using the average.
+For counts, the same error on the log(1 + count) scale as well (`zrmse_log`): at strong
+signal the counts span orders of magnitude and a few giants dominate the raw-scale error, so
+the raw number says how the tail came out and the log number how the typical species did.
 For categories, how often the most-imputed category was the right one.
+
+**Did BACE's count cap bite?** BACE caps an imputed count's rate at 3 × the largest observed
+count + 5 to stop runaway draws, and that biases counts down exactly when the hidden counts
+are the large ones. Every result file records how many rates were capped and in which traits
+(`rate_cap`; `n_rates_capped` and `capped_vars` in the tables), so the affected datasets can
+be identified rather than guessed at.
 
 **Was it honest about how sure it was?**
 How often the "95% sure" range actually contained the truth. Should be 95%.
@@ -308,7 +317,12 @@ data had rather than what was asked for.
 2. **Counts come out about 8% low when the big values are the missing ones.** BACE caps
    imputed counts to stop runaway values, and that cap is set from the counts it can see
    — which are the small ones. It warns when this happens from 1.0.2, but the cap itself
-   is unchanged. Affects the count trait under driven missingness.
+   is unchanged. Affects the count trait under driven and clade missingness, and more at
+   strong signal, where the counts span orders of magnitude (item 5). Since 2026-11-14 every
+   result file records how often the cap bit, and counts are also scored on the log scale.
+   Planned after launch, not before: ten signal-0.9 datasets imputed with and without the
+   cap, against truth, to measure the bias. If it is material, the records say exactly which
+   datasets to rerun under a revised cap; the rest of the campaign is untouched.
 3. **The delete-the-gaps arm deletes on all six traits**, though the analysis only uses
    two. That's harsher than any real analyst would be, and the penalty depends on the
    mechanism, so some of the Claim 1 pattern comes from the comparison rule rather than

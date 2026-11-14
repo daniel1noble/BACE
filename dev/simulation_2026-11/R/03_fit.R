@@ -18,6 +18,34 @@
 
 `%||%` <- function(x, y) if (is.null(x)) y else x
 
+#' Run an expression and count BACE's poisson rate-cap warnings, per variable.
+#'
+#' BACE caps an imputed poisson rate at 3 * max(observed) + 5 to stop runaway draws, and warns
+#' each time it does. The cap biases counts DOWN exactly when the hidden counts are the large
+#' ones -- driven and clade missingness hide those, and at strong signal the counts span orders
+#' of magnitude -- so how often it bit is a result, not noise. It only lived in log files until
+#' 2026-11-14; now it travels with every dataset. Every other warning passes through untouched.
+#'
+#' @return list(value = what expr returned, rate_cap = named list, one entry per capped variable:
+#'   n_warnings, n_rates (rates truncated, summed over warnings), cap (the last cap value))
+with_rate_cap_count <- function(expr) {
+  events <- list()
+  value <- withCallingHandlers(expr, warning = function(w) {
+    msg <- conditionMessage(w)
+    m <- regmatches(msg, regexec(
+      "rate guard bound on ([0-9]+) predicted rate\\(s\\) for '([^']+)' \\(cap = ([^ ]+) =", msg))[[1]]
+    if (length(m) == 4L) {
+      v <- m[3]
+      prev <- events[[v]] %||% list(n_warnings = 0L, n_rates = 0L, cap = NA_real_)
+      events[[v]] <<- list(n_warnings = prev$n_warnings + 1L,
+                           n_rates    = prev$n_rates + as.integer(m[2]),
+                           cap        = as.numeric(m[4]))
+      invokeRestart("muffleWarning")
+    }
+  })
+  list(value = value, rate_cap = events)
+}
+
 #' Run BACE on one dataset.
 #'
 #' RESUMING. `checkpoint_dir` makes bace() save the convergence chain when it finishes and each
@@ -41,7 +69,8 @@
 #' @param nitt,burnin,thin,runs  MCMC settings, passed straight through to bace()
 #' @param seed      makes the run reproducible, and is required for resuming
 #' @param checkpoint_dir  where to save progress, or NULL for none
-#' @return list(imputed = list of completed data frames, converged = BACE's verdict, wall_s)
+#' @return list(imputed = list of completed data frames, intervals, converged = BACE's verdict,
+#'   conv_detail, wall_s, rate_cap = how often BACE's poisson rate cap bit, per variable)
 fit_bace <- function(dataset, n_final = 20L, nitt = 50000L, burnin = 10000L,
                      thin = 25L, runs = 7L, seed = 1L, checkpoint_dir = NULL,
                      final_nitt = NULL, final_burnin = NULL, final_thin = NULL) {
@@ -59,7 +88,7 @@ fit_bace <- function(dataset, n_final = 20L, nitt = 50000L, burnin = 10000L,
   ## STEP 2. Impute. skip_conv = TRUE because a campaign cannot afford unbounded retries; the
   ##         convergence verdict is recorded per dataset instead and reported as a rate.
   t0  <- Sys.time()
-  fit <- BACE::bace(fixformula    = formulas,
+  run <- with_rate_cap_count(BACE::bace(fixformula    = formulas,
                     ran_phylo_form = "~1|Species",
                     phylo          = dataset$tree,
                     data           = d,
@@ -72,7 +101,8 @@ fit_bace <- function(dataset, n_final = 20L, nitt = 50000L, burnin = 10000L,
                     ## supply the draws that are pooled for inference. NULL reuses the chained
                     ## settings, which is what BACE did before 1.0.0.
                     final_nitt = final_nitt, final_burnin = final_burnin,
-                    final_thin = final_thin)
+                    final_thin = final_thin))
+  fit  <- run$value
   wall <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
 
   ## STEP 3. Take the completed datasets and let the fit go. Two fixes BACE's output needs:
@@ -113,7 +143,8 @@ fit_bace <- function(dataset, n_final = 20L, nitt = 50000L, burnin = 10000L,
   }, error = function(e) NULL)
 
   list(imputed = imputed, intervals = intervals,
-       converged = isTRUE(fit$converged), conv_detail = conv_detail, wall_s = wall)
+       converged = isTRUE(fit$converged), conv_detail = conv_detail, wall_s = wall,
+       rate_cap = run$rate_cap)
 }
 
 

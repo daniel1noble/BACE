@@ -151,6 +151,7 @@ saveRDS(list(
   slopes = slopes, recovery = recovery, cell_coverage = coverage,
   realised = dataset$realised, realised_frac = dataset$realised_frac,
   levels_observed = dataset$levels_observed,
+  rate_cap = bace$rate_cap,
   complete_case = cc[c("n_complete", "frac_kept", "status")],
   bace_converged = bace$converged, bace_conv_detail = bace$conv_detail,
   settings = c(M = M, nitt = nitt, burnin = burnin, thin = thin, runs = runs,

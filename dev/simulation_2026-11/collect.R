@@ -60,6 +60,10 @@ runs <- do.call(rbind, lapply(r, function(x) cbind(key(x),
              bace_pathology = paste(unique(setdiff(
                unlist(x$bace_conv_detail$verdicts), "ok")), collapse = "+"),
              wall_s         = x$wall_s,
+             ## how often BACE's poisson rate cap truncated an imputed rate (see 03_fit.R):
+             ## total rates capped in this dataset, and which variables it hit. 0 and "" = never.
+             n_rates_capped = sum(vapply(x$rate_cap %||% list(), function(e) e$n_rates, integer(1))),
+             capped_vars    = paste(names(x$rate_cap %||% list()), collapse = "+"),
              bace_version   = x$bace_version))))
 
 ## STEP 5. Summaries, averaged over replicates within each scenario. `n` is how many replicates
@@ -72,14 +76,16 @@ summary_slopes <- stats::aggregate(
   FUN = mean, na.rm = TRUE)
 
 summary_recovery <- stats::aggregate(
-  cbind(zrmse, accuracy) ~ ., data = recovery[, c(by, "trait", "kind", "zrmse", "accuracy")],
+  cbind(zrmse, zrmse_log, accuracy) ~ .,
+  data = recovery[, c(by, "trait", "kind", "zrmse", "zrmse_log", "accuracy")],
   FUN = function(z) mean(z, na.rm = TRUE), na.action = stats::na.pass)
 
 summary_runs <- stats::aggregate(
   cbind(bace_converged, drift = bace_pathology == "drift",
-        cc_frac_kept, lambda_x1, cor_x1_x2, wall_s) ~ .,
+        cc_frac_kept, lambda_x1, cor_x1_x2, wall_s, n_rates_capped,
+        any_rate_capped = n_rates_capped > 0) ~ .,
   data = cbind(runs[, c(by, "bace_converged", "cc_frac_kept", "lambda_x1",
-                        "cor_x1_x2", "wall_s")],
+                        "cor_x1_x2", "wall_s", "n_rates_capped")],
                bace_pathology = runs$bace_pathology),
   FUN = mean, na.rm = TRUE)
 

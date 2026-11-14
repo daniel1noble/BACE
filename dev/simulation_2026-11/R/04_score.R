@@ -53,8 +53,16 @@ score_recovery <- function(truth, mask, imputed) {
       ##          standardise by the spread of the values that were NOT hidden.
       best  <- rowMeans(draws)
       spread <- stats::sd(truth[[v]][!mask[, v]])
+      ## For a COUNT the same error on the log(1 + count) scale. At strong signal the counts
+      ## span orders of magnitude and a handful of giants dominate the raw-scale error, so the
+      ## raw number says how the tail came out and the log number how the typical species did.
+      ## Both are reported; neither replaces the other. Continuous traits get NA here.
+      zrmse_log <- if (is.integer(truth[[v]])) {
+        sqrt(mean((log1p(best) - log1p(actual))^2)) / stats::sd(log1p(truth[[v]][!mask[, v]]))
+      } else NA_real_
       rows[[v]] <- data.frame(trait = v, kind = "numeric", n_hidden = length(hidden),
                               zrmse = sqrt(mean((best - actual)^2)) / spread,
+                              zrmse_log = zrmse_log,
                               accuracy = NA_real_)
     } else {
       ## STEP 2b. Category: the most frequently imputed class wins, ties share the credit.
@@ -64,7 +72,7 @@ score_recovery <- function(truth, mask, imputed) {
         as.numeric(actual[i] %in% top) / length(top)
       }, numeric(1))
       rows[[v]] <- data.frame(trait = v, kind = "category", n_hidden = length(hidden),
-                              zrmse = NA_real_, accuracy = mean(hit))
+                              zrmse = NA_real_, zrmse_log = NA_real_, accuracy = mean(hit))
     }
   }
   do.call(rbind, rows)

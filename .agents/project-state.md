@@ -57,6 +57,14 @@ Shinichi confirmed 1.0.3 identical on Mac, Totoro and rorqual before this fix.
   codes) — the simulator is reproducible across these two R versions.
 - **Version 1.0.4**; guards in `run_one.R`, `run_all.sh` and the README require it; the probe
   prints the codes and its Section A is committed as a reference.
+- **Count trait at strong signal (Dan, same day):** MCMCglmm's Poisson model carries an
+  observation-level residual, so the overdispersion is modelled correctly (the generator is
+  exactly Poisson-lognormal). What can still mistreat counts is ours: BACE's rate cap
+  (3·max observed + 5) when the hidden counts are the big ones, and a raw-scale zRMSE that
+  the giants dominate. Decided: no change to the cap before launch; the campaign now records
+  how often the cap bit per dataset (`rate_cap`, via a warning counter in `03_fit.R`) and
+  scores counts on the log(1 + count) scale too (`zrmse_log`); a cap-on/cap-off side
+  experiment on ~10 signal-0.9 datasets is planned after launch.
 - **For the campaign: everything run on 1.0.3 must be rerun** — every trait is imputed from
   every other, so a changed `ord` changes all of them. Timings carry over. Mock runs of the
   two failing datasets on the final build: see the investigation note.
