@@ -31,6 +31,20 @@ if (length(failed)) {
 }
 if (!length(r)) stop("every dataset failed", call. = FALSE)
 
+## Files written by an older run_one.R can lack a column that a newer one writes (the scoring
+## gained two log-scale columns on 2026-11-16, mid-campaign). Base rbind() refuses to stack data
+## frames with different columns, so this fills a missing column with NA before stacking.
+stack_rows <- function(pieces) {
+  pieces <- Filter(Negate(is.null), pieces)
+  if (length(pieces) == 0) return(NULL)
+  all_columns <- unique(unlist(lapply(pieces, names)))
+  for (i in seq_along(pieces)) {
+    for (column in setdiff(all_columns, names(pieces[[i]]))) pieces[[i]][[column]] <- NA
+    pieces[[i]] <- pieces[[i]][, all_columns, drop = FALSE]
+  }
+  do.call(rbind, pieces)
+}
+
 ## STEP 1. The scenario each dataset belongs to, so every table can be grouped by it.
 key <- function(x) data.frame(id = x$id, seed = x$seed, n_species = x$scenario$n_species,
                               phylo_signal = x$scenario$phylo_signal, regime = x$scenario$regime,
@@ -41,8 +55,8 @@ slopes <- do.call(rbind, lapply(r, function(x) if (is.null(x$slopes)) NULL else
                                 cbind(key(x), x$slopes)))
 
 ## STEP 3. One row per dataset per trait: how well the hidden values came back.
-recovery <- do.call(rbind, lapply(r, function(x) if (is.null(x$recovery)) NULL else
-                                  cbind(key(x), x$recovery)))
+recovery <- stack_rows(lapply(r, function(x) if (is.null(x$recovery)) NULL else
+                                cbind(key(x), x$recovery)))
 
 ## STEP 4. One row per dataset: everything else worth knowing about how the run went.
 runs <- do.call(rbind, lapply(r, function(x) cbind(key(x),
@@ -76,8 +90,9 @@ summary_slopes <- stats::aggregate(
   FUN = mean, na.rm = TRUE)
 
 summary_recovery <- stats::aggregate(
-  cbind(zrmse, zrmse_log, bias_log, accuracy) ~ .,
-  data = recovery[, c(by, "trait", "kind", "zrmse", "zrmse_log", "bias_log", "accuracy")],
+  cbind(zrmse, zrmse_log, bias_log, zrmse_logdraws, bias_logdraws, accuracy) ~ .,
+  data = recovery[, c(by, "trait", "kind", "zrmse", "zrmse_log", "bias_log",
+                      "zrmse_logdraws", "bias_logdraws", "accuracy")],
   FUN = function(z) mean(z, na.rm = TRUE), na.action = stats::na.pass)
 
 summary_runs <- stats::aggregate(

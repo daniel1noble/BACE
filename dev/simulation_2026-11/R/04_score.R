@@ -64,9 +64,24 @@ score_recovery <- function(truth, mask, imputed) {
       log_sd   <- if (is_count) stats::sd(log1p(truth[[v]][!mask[, v]])) else NA_real_
       zrmse_log <- if (is_count) sqrt(mean((log1p(best) - log1p(actual))^2)) / log_sd else NA_real_
       bias_log  <- if (is_count) mean(log1p(best) - log1p(actual)) / log_sd else NA_real_
+      ## CAUTION on the two lines above: `best` is the average of the M imputations on the raw
+      ## count scale, and for a count with a wide, right-skewed spread of imputations that average
+      ## is pulled up by the big draws. So bias_log can be POSITIVE even when a typical imputation
+      ## is not too high (seen 2026-11-16: +0.37 to +1.02 with the cap on). The two measures below
+      ## average the imputations on the log scale FIRST, which says what a typical imputation looks
+      ## like. Keep both: the pair above is what the campaign recorded from the start.
+      if (is_count) {
+        best_log <- rowMeans(log1p(draws))
+        zrmse_logdraws <- sqrt(mean((best_log - log1p(actual))^2)) / log_sd
+        bias_logdraws  <- mean(best_log - log1p(actual)) / log_sd
+      } else {
+        zrmse_logdraws <- NA_real_
+        bias_logdraws  <- NA_real_
+      }
       rows[[v]] <- data.frame(trait = v, kind = "numeric", n_hidden = length(hidden),
                               zrmse = sqrt(mean((best - actual)^2)) / spread,
                               zrmse_log = zrmse_log, bias_log = bias_log,
+                              zrmse_logdraws = zrmse_logdraws, bias_logdraws = bias_logdraws,
                               accuracy = NA_real_)
     } else {
       ## STEP 2b. Category: the most frequently imputed class wins, ties share the credit.
@@ -77,6 +92,7 @@ score_recovery <- function(truth, mask, imputed) {
       }, numeric(1))
       rows[[v]] <- data.frame(trait = v, kind = "category", n_hidden = length(hidden),
                               zrmse = NA_real_, zrmse_log = NA_real_, bias_log = NA_real_,
+                              zrmse_logdraws = NA_real_, bias_logdraws = NA_real_,
                               accuracy = mean(hit))
     }
   }

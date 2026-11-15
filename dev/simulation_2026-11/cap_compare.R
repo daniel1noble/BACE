@@ -27,9 +27,14 @@ read_one <- function(file) {
   x   <- readRDS(file)
   arm <- if (grepl("_capon[.]rds$", file)) "cap_on" else "cap_off"
 
-  ## A dataset that failed has no numbers; keep a row so it is counted, then skip it.
+  ## A dataset that failed has no numbers. It still gets a full row -- every column, all NA --
+  ## so the rows stack; it is reported and then left out. (Stacking a short row crashed this
+  ## script on 2026-11-16; Shinichi found it.)
   if (!is.na(x$failed_at)) {
-    return(data.frame(id = x$id, seed = x$seed, arm = arm, failed = TRUE))
+    return(data.frame(id = x$id, seed = x$seed, arm = arm, failed = TRUE,
+                      rates_capped = NA, error_raw = NA, error_log = NA, bias_log = NA,
+                      error_logdraws = NA, bias_logdraws = NA, coverage = NA, width = NA,
+                      slope_bias = NA, slope_covered = NA, wall_minutes = NA))
   }
 
   ## The count trait's recovery row (error and bias on the hidden cells).
@@ -46,10 +51,16 @@ read_one <- function(file) {
     }
   }
 
-  ## The downstream slope of x2 on x1 from the BACE arm (the truth is 0.5).
+  ## The downstream slope of x2 on x1 from the BACE arm, compared with the truth recorded in
+  ## the file (0.5 when the traits are related, 0 in the "floor" regime).
   slope_row <- x$slopes[x$slopes$arm == "bace", ]
-  slope_estimate <- if (nrow(slope_row) == 1) slope_row$estimate else NA
-  slope_covered  <- if (nrow(slope_row) == 1) slope_row$covered  else NA
+  slope_bias    <- if (nrow(slope_row) == 1) slope_row$estimate - slope_row$truth else NA
+  slope_covered <- if (nrow(slope_row) == 1) slope_row$covered else NA
+
+  ## The log-scale measures that average the imputations on the log scale first (added to the
+  ## scoring on 2026-11-16; NA in files written before that).
+  error_logdraws <- if ("zrmse_logdraws" %in% names(count_row)) count_row$zrmse_logdraws else NA
+  bias_logdraws  <- if ("bias_logdraws"  %in% names(count_row)) count_row$bias_logdraws  else NA
 
   ## How many imputed rates the cap truncated in this run (0 when the cap was off).
   rates_capped <- 0
@@ -60,9 +71,11 @@ read_one <- function(file) {
              error_raw      = count_row$zrmse,
              error_log      = count_row$zrmse_log,
              bias_log       = count_row$bias_log,
+             error_logdraws = error_logdraws,
+             bias_logdraws  = bias_logdraws,
              coverage       = coverage,
              width          = width,
-             slope_estimate = slope_estimate,
+             slope_bias     = slope_bias,
              slope_covered  = as.numeric(slope_covered),
              wall_minutes   = x$wall_s / 60)
 }
@@ -105,10 +118,12 @@ cat("\n  count trait, hidden cells:\n")
 report("error, raw scale",   cap_on$error_raw,  cap_off$error_raw)
 report("error, log scale",   cap_on$error_log,  cap_off$error_log)
 report("bias, log scale",    cap_on$bias_log,   cap_off$bias_log)
+report("error, log of draws", cap_on$error_logdraws, cap_off$error_logdraws)
+report("bias, log of draws",  cap_on$bias_logdraws,  cap_off$bias_logdraws)
 report("95% interval coverage", cap_on$coverage, cap_off$coverage)
 report("interval width",     cap_on$width,      cap_off$width)
-cat("\n  downstream slope of x2 on x1 (truth 0.5), BACE arm:\n")
-report("estimate",           cap_on$slope_estimate, cap_off$slope_estimate)
+cat("\n  downstream slope of x2 on x1, BACE arm (estimate minus the truth recorded for that dataset):\n")
+report("slope bias",         cap_on$slope_bias, cap_off$slope_bias)
 report("interval covered",   cap_on$slope_covered,  cap_off$slope_covered)
 report("wall time, minutes", cap_on$wall_minutes,   cap_off$wall_minutes)
 

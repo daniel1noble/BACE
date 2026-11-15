@@ -74,6 +74,15 @@ Shinichi confirmed 1.0.3 identical on Mac, Totoro and rorqual before this fix.
   rorqual can run now: `cap_experiment.sh` (10 signal-0.9 datasets × 2 arms, `--rate_cap off`,
   `--tag`), `cap_compare.R` (paired differences; `bias_log` added to `score_recovery`). 1.0.5
   goes into a SEPARATE library on rorqual; the campaign stays on 1.0.4.
+  **Result (Shinichi, Totoro, 2026-11-16): keep the cap.** Cap off: 4/10 runs failed with
+  singular mixed-model equations (uncapped counts in the millions as predictors), and the 6
+  finished pairs were worse on every count measure (log error 3.8 vs 1.8; raw error ~16,000
+  vs 4.7; interval width ~130,000 vs 48); downstream slope unchanged (+0.008, SE 0.051). His
+  positive log-scale bias with the cap ON (+0.37, +1.02) is largely the raw-scale mean of
+  right-skewed imputations (Jensen); `score_recovery` now also writes `zrmse_logdraws` /
+  `bias_logdraws` (log scale first), `collect.R` tolerates files without them, and
+  `cap_compare.R` no longer crashes on a failed run and judges the slope against its own
+  truth (0 in the floor regime) -- both bugs found by Shinichi.
 - **Count trait at strong signal (Dan, same day):** MCMCglmm's Poisson model carries an
   observation-level residual, so the overdispersion is modelled correctly (the generator is
   exactly Poisson-lognormal). What can still mistreat counts is ours: BACE's rate cap

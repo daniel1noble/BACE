@@ -356,9 +356,17 @@ data had rather than what was asked for.
    is unchanged. Affects the count trait under driven and clade missingness, and more at
    strong signal, where the counts span orders of magnitude (item 5). Since 2026-11-14 every
    result file records how often the cap bit, and counts are also scored on the log scale.
-   Planned after launch, not before: ten signal-0.9 datasets imputed with and without the
-   cap, against truth, to measure the bias. If it is material, the records say exactly which
-   datasets to rerun under a revised cap; the rest of the campaign is untouched.
+   **Measured 2026-11-16 (Shinichi, Totoro, `cap_experiment.sh` on the ten most-capped
+   datasets): keep the cap.** With the cap off, BACE failed on 4 of the 10 ("mixed model
+   equations singular"; an imputed count in the millions sits on the right-hand side of every
+   other trait's model), and on the 6 pairs that finished the uncapped run was worse on every
+   count measure (log-scale error 3.8 vs 1.8, raw-scale error about 16,000 vs 4.7, interval
+   width about 130,000 vs 48). The downstream slope did not move. So the cap is a stabiliser,
+   not just a guard, and the "counts come out low" worry is smaller than the alternative. One
+   caution on reading the bias: `bias_log` averages the imputations on the raw scale first,
+   which big draws pull upward, so it reads positive even with the cap on; `bias_logdraws`
+   (added 2026-11-16, NA in earlier files) averages on the log scale first and is the one to
+   read for "is a typical imputation too high or too low".
 3. **The delete-the-gaps arm deletes on all six traits**, though the analysis only uses
    two. That's harsher than any real analyst would be, and the penalty depends on the
    mechanism, so some of the Claim 1 pattern comes from the comparison rule rather than
