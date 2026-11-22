@@ -1,0 +1,265 @@
+"id","seed","failed_at","error"
+"n100_ps0.7_floor_clade",359,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_floor_clade",672,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_floor_mar",366,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_floor_mar",377,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_floor_mcar",176,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_floor_mcar",729,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_floor_mcar",765,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_floor_mcar",851,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_good_covariate_mar",663,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_good_covariate_mar",871,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_good_covariate_mar",889,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_good_covariate_mar",976,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_good_covariate_mcar",530,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_good_covariate_mcar",69,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_good_covariate_mcar",716,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_typical_mar",368,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_typical_mar",561,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.7_typical_mcar",850,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_clade",158,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_clade",224,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_clade",359,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_clade",439,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_clade",442,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_clade",489,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_clade",547,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_clade",647,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_clade",714,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_clade",746,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_clade",894,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mar",128,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mar",158,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mar",224,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mar",36,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mar",544,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mar",553,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mar",555,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mar",600,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mar",62,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mar",714,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mar",746,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mar",76,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mar",791,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mar",833,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mar",850,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mar",898,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mcar",158,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mcar",205,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mcar",213,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mcar",31,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mcar",442,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mcar",62,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mcar",76,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mcar",792,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mcar",850,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mcar",863,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_floor_mcar",963,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_clade",262,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_clade",372,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_clade",395,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_clade",400,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_clade",441,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_clade",542,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_clade",631,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_clade",635,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_clade",716,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_clade",987,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mar",200,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mar",270,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mar",31,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mar",44,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mar",452,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mar",464,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mar",542,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mar",663,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mar",69,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mar",723,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mar",871,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mar",976,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mcar",154,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mcar",31,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mcar",320,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mcar",321,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mcar",345,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mcar",433,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mcar",44,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mcar",442,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mcar",452,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mcar",486,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mcar",530,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mcar",69,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mcar",782,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mcar",785,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mcar",88,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_good_covariate_mcar",889,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_clade",175,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_clade",21,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_clade",272,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_clade",303,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_clade",318,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_clade",416,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_clade",442,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_clade",471,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_clade",476,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_clade",525,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_clade",792,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_clade",891,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mar",166,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mar",215,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mar",46,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mar",471,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mar",476,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mar",51,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mar",53,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mar",556,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mar",569,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mar",647,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mar",745,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mar",775,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mar",802,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mcar",442,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mcar",555,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mcar",569,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mcar",756,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mcar",77,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mcar",775,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mcar",792,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mcar",85,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mcar",851,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mcar",888,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mcar",891,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n100_ps0.9_typical_mcar",958,"bace","Mixed model equations singular: use a (stronger) prior
+"
+"n500_ps0.9_good_covariate_mcar",57,"bace","Mixed model equations singular: use a (stronger) prior
+"
