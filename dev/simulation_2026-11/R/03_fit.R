@@ -121,6 +121,13 @@ fit_bace <- function(dataset, n_final = 20L, nitt = 50000L, burnin = 10000L,
   ## The per-cell 95% intervals (Rubin's t across the M imputations) are pulled out HERE, while
   ## the fit is still in scope, because step 4 must never be handed a 35 MB object.
   intervals <- tryCatch(BACE::get_imputation_intervals(fit), error = function(e) NULL)
+  ## From BACE 1.0.6 there is a second kind of interval, taken from the fitted models' own
+  ## predictive draws. For counts it is the right shape (whole numbers, never negative); the
+  ## Rubin one covered hidden counts 0.93 in the first campaign. Both are kept, so they can be
+  ## compared; NULL on an older BACE.
+  intervals_predictive <- if (utils::packageVersion("BACE") >= "1.0.6") {
+    tryCatch(BACE::get_imputation_intervals(fit, method = "predictive"), error = function(e) NULL)
+  } else NULL
 
   ## The fit succeeded, so the checkpoint has done its job and must go -- at a few hundred MB
   ## each, keeping them would fill the disk long before the campaign finished.
@@ -145,7 +152,7 @@ fit_bace <- function(dataset, n_final = 20L, nitt = 50000L, burnin = 10000L,
          notes = Filter(nzchar, cv$notes %||% character(0)))
   }, error = function(e) NULL)
 
-  list(imputed = imputed, intervals = intervals,
+  list(imputed = imputed, intervals = intervals, intervals_predictive = intervals_predictive,
        converged = isTRUE(fit$converged), conv_detail = conv_detail, wall_s = wall,
        rate_cap = run$rate_cap)
 }

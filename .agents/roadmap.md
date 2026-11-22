@@ -1,5 +1,18 @@
 # BACE completion roadmap
 
+**2026-11-22 — trimmed campaign COMPLETE (27,000 + 6,750 datasets); BACE 1.0.6.** Headline
+numbers and the full ledger are in `project-state.md`. Two package fixes came out of the run:
+an unobserved factor level no longer crashes MCMCglmm (the 7 `.SEGFAULT` datasets), and
+`get_imputation_intervals(method = "predictive")` gives counts a properly shaped interval
+(Rubin's symmetric one covered 0.93, this 0.99). **Decisions for the paper, not code:** (1) the
+slope attenuation at n = 100 (−0.02 to −0.04, growing with signal) needs a sentence; (2) results
+at signal 0.9 describe successful fits (132 singular failures, all ≥ 0.7); (3) check whether
+"non-converged" datasets differ in coverage before the flag is reported (19% in one n = 500
+cell); (4) count coverage in the paper: report the Rubin figure as measured, with the
+predictive-interval result from Shinichi's 24-dataset check, or rerun a subset on 1.0.6 with
+both intervals recorded; (5) the complete-case arm's deletion rule (all six traits vs the two
+analysed); (6) what to commit from the 40 MB results zip.
+
 **2026-11-14 — BACE 1.0.4: the simulated ordinal trait is cut at population thresholds.**
 Shinichi's hold on the campaign lifts once 1.0.4 is installed on Totoro and rorqual and
 `reproducibility_probe.R` Section A matches `reproducibility_probe_reference.txt`.

@@ -58,6 +58,15 @@ slopes <- do.call(rbind, lapply(r, function(x) if (is.null(x$slopes)) NULL else
 recovery <- stack_rows(lapply(r, function(x) if (is.null(x$recovery)) NULL else
                                 cbind(key(x), x$recovery)))
 
+## STEP 3b. One row per dataset per numeric trait: did the 95% interval for each hidden value
+##          contain the truth, and how wide was it (BACE's get_imputation_intervals()). Shinichi
+##          read this from the .rds files by hand for the first campaign; now it is a table.
+coverage <- stack_rows(lapply(r, function(x) if (is.null(x$cell_coverage)) NULL else
+                                cbind(key(x), x$cell_coverage)))
+## and the model-based interval (BACE >= 1.0.6), written to its own tables when present
+coverage_predictive <- stack_rows(lapply(r, function(x) if (is.null(x$cell_coverage_predictive)) NULL else
+                                           cbind(key(x), x$cell_coverage_predictive)))
+
 ## STEP 4. One row per dataset: everything else worth knowing about how the run went.
 runs <- do.call(rbind, lapply(r, function(x) cbind(key(x),
   data.frame(realised_frac  = x$realised_frac,
@@ -86,14 +95,25 @@ runs <- do.call(rbind, lapply(r, function(x) cbind(key(x),
 by <- c("n_species", "phylo_signal", "regime", "mechanism")
 
 summary_slopes <- stats::aggregate(
-  cbind(bias, covered, width = upper - lower, n = 1) ~ ., data = slopes[, c(by, "arm", "bias", "covered", "lower", "upper")],
+  cbind(bias, covered, width = upper - lower) ~ ., data = slopes[, c(by, "arm", "bias", "covered", "lower", "upper")],
   FUN = mean, na.rm = TRUE)
+## `n` = how many replicates contributed to each row. (Until 2026-11-22 this column averaged a
+## column of ones, so it read 1 everywhere; Shinichi spotted it.)
+replicates <- stats::aggregate(cbind(n = seed) ~ ., data = slopes[, c(by, "arm", "seed")], FUN = length)
+summary_slopes <- merge(summary_slopes, replicates, by = c(by, "arm"))
 
 summary_recovery <- stats::aggregate(
   cbind(zrmse, zrmse_log, bias_log, zrmse_logdraws, bias_logdraws, accuracy) ~ .,
   data = recovery[, c(by, "trait", "kind", "zrmse", "zrmse_log", "bias_log",
                       "zrmse_logdraws", "bias_logdraws", "accuracy")],
   FUN = function(z) mean(z, na.rm = TRUE), na.action = stats::na.pass)
+
+summary_coverage <- if (is.null(coverage)) NULL else {
+  cov_mean <- stats::aggregate(cbind(coverage, width) ~ ., data = coverage[, c(by, "variable", "coverage", "width")],
+                               FUN = mean, na.rm = TRUE)
+  cov_n <- stats::aggregate(cbind(n = seed) ~ ., data = coverage[, c(by, "variable", "seed")], FUN = length)
+  merge(cov_mean, cov_n, by = c(by, "variable"))
+}
 
 summary_runs <- stats::aggregate(
   cbind(bace_converged, drift = bace_pathology == "drift",
@@ -111,6 +131,12 @@ out(slopes,           "per_dataset_slopes.csv")
 out(recovery,         "per_dataset_recovery.csv")
 out(summary_slopes,   "summary_slopes.csv")
 out(summary_recovery, "summary_recovery.csv")
+if (!is.null(coverage)) { out(coverage, "per_dataset_coverage.csv"); out(summary_coverage, "summary_coverage.csv") }
+if (!is.null(coverage_predictive)) {
+  cp_mean <- stats::aggregate(cbind(coverage, width) ~ ., data = coverage_predictive[, c(by, "variable", "coverage", "width")],
+                              FUN = mean, na.rm = TRUE)
+  out(coverage_predictive, "per_dataset_coverage_predictive.csv"); out(cp_mean, "summary_coverage_predictive.csv")
+}
 out(summary_runs,     "summary_runs.csv")
 
 ## STEP 7. The one check worth doing every time: the ORACLE arm sees the complete truth, so its

@@ -2,6 +2,58 @@
 
 Keep this current — it's the shared "where are we" so nobody re-derives it.
 
+## 2026-11-22: trimmed campaign complete; segfault cause found and fixed (1.0.6); model-based count interval
+
+- **Campaign done (Shinichi, rorqual, BACE 1.0.4, R 4.5.0):** 27,000 n = 100 and 6,750 n = 500
+  datasets, backed up on Totoro; the result tables and figures are committed in
+  `dev/simulation_2026-11/BACE_campaign_results_2026-11/` (Dan, 627bd34). Headlines: downstream slope coverage BACE 0.958 (n = 100) /
+  0.946 (n = 500), complete-case 0.924 / 0.935 with ~40% wider intervals, oracle 0.948 / 0.946;
+  BACE attenuates the slope −0.02 → −0.04 with signal at n = 100 (−0.01 at 500; needs a
+  sentence); per-value coverage continuous 0.93–0.97, counts 0.93–0.95; failures 132 singular
+  (0.4%), 21 timeouts, 7 segfaults, all at signal ≥ 0.7; convergence flag 83% / 91%, as low as
+  19% in one n = 500 cell (check whether flagged datasets differ in coverage before it goes in
+  the paper); cap fired in 58% of datasets (44/58/72% by signal); ~26 min per n = 100 dataset,
+  134 min at 500, ~30,000 core-hours.
+- **The 7 segfaults, cause and fix:** an ordinal level present in the factor but with no
+  observed row (seed 79: 0/7/24/34) reaches MCMCglmm's threshold sampler and R dies with a bus
+  error; reproduced here on R 4.6.2; through BACE's own path the empty level kept = crash,
+  dropped = fit OK (imputed 9/38/53). **1.0.6:** `.drop_unobserved_levels()` leaves such
+  levels out of that model in both phases (one warning in the chained phase); one-level
+  responses are refused with a clear error. Tests: unit + end-to-end through `bace_imp`.
+  **Proof run:** seed 79 through `run_one.R` on 1.0.6 (scratch library, campaign settings)
+  completes in 22 min with no failure; ordinal observed 0/7/24/34, accuracy 0.56 on the three
+  levels with data, binary 0.95, count zRMSE 1.39 (log scale 0.53).
+- **Count intervals (Shinichi):** the Rubin t-interval covered hidden counts 0.933 overall,
+  0.756 above 20, lower bound negative in 99% of cells; quantiles of the models' posterior
+  predictive draws 0.986 / 0.923. His one open question — are MCMCglmm's `Liab` columns in
+  data-row order, NA rows included, with replicated species — **verified directly for
+  gaussian, poisson and threshold** (one column per row; column means correlate 0.95–0.99
+  with the true latent, ~0 when rows are shuffled). **1.0.6:**
+  `get_imputation_intervals(method = "predictive")` (counts: Poisson draws from exp(latent);
+  continuous: back-transformed with the run's scaling); default unchanged. `03_fit.R` /
+  `run_one.R` / `collect.R` record and summarise both coverages from 1.0.6.
+- **Review of 1.0.6 (three lenses + skeptics, 16 confirmed, 0 refuted):** the must-fix was
+  mine -- the guard dropped an empty level for a *categorical* response while the multinomial
+  prior was still sized from the full level count, so that path errored; both phases now
+  size the prior from the fitted data (test: multinomial4 with an unobserved level, OVR and
+  multinomial). Also fixed: the predictive interval ignored the count cap the imputations
+  were drawn under (now the same cap + warning, so the two methods agree on the mean);
+  count bounds were type-7 interpolations, not whole numbers (now type 1); the empty result
+  lacked `method`; docs for n_final = 1 and mean-vs-quantile. Test strength: a hand-built
+  `bace_final` pins the gaussian back-transform (a z-scale mutant survived the suite), the
+  Poisson spread, row alignment and the cap; the final-phase guard and the categorical paths
+  are exercised; the alignment test's truth threshold lowered to 0.3 (seed-fragile) with the
+  Rubin cross-check as the discriminating criterion. Final gate: suite **2208 pass / 0 fail /
+  0 skip**; `R CMD check --as-cran` **0 / 0 / 2 NOTEs** (environmental); under check 1600 / 0.
+- **Also:** `cap_compare.R` fixed (failed-run row; slope judged against its own truth, 0 in
+  the floor regime); `score_recovery` gained `bias_log` and the log-of-draws pair
+  (`zrmse_logdraws`, `bias_logdraws`), since the raw-scale mean of right-skewed imputations
+  reads as a positive bias even with the cap on; `collect.R` tolerates files without the new
+  columns, writes per-cell coverage tables, and its `n` column now counts replicates (was
+  always 1). Oracle false alarm (0.89 on the first 301 files) was a counting artefact, see
+  2026-11-15 entry. Complete-case rows absent under mcar at n = 100 are the arm declining
+  below 10 survivors (0.7^6 ≈ 12 expected).
+
 ## 2026-11-14: BACE 1.0.4 — the simulated ordinal trait is cut at population thresholds
 
 Full record: [investigation-ordinal-generator-2026-11.md](investigation-ordinal-generator-2026-11.md).

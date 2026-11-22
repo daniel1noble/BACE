@@ -372,17 +372,26 @@ data had rather than what was asked for.
    mechanism, so some of the Claim 1 pattern comes from the comparison rule rather than
    from the missingness. A deliberate choice — worth revisiting before the paper, not
    before the run.
-4. **A trait losing a whole level after masking — measured, and it will happen.** Under
-   1.0.4's population cuts, at signal 0.9 and n = 100 about 1 dataset in 20 has an ordinal
-   level with no species in truth and 1 in 10–20 has one unobserved after clade masking (none
-   at n = 500 in 10 seeds; `cat3` and `bin` never lost a level in 200 datasets). Those
-   datasets are recorded (`levels_truth`, `levels_observed`) and are the slow ones. Two
-   decisions for the analysis, not the run: report ordinal accuracy with and without them,
-   and check what BACE does with a level it never saw (the imputed value may land on a wrong
-   label — one reviewer reproduced that on an older build, another could not).
+4. **A trait losing a whole level after masking crashed R, and now does not.** The first
+   campaign had 7 datasets that died inside MCMCglmm ("bus error, invalid alignment"), all
+   at strong signal with whole clades hidden, deterministic, written as `.SEGFAULT` files
+   with no `.rds`. Cause, reproduced on seed 79 of `n100_ps0.9_good_covariate_clade`
+   (observed ordinal 0/7/24/34): an ordinal level that exists in the factor but has no
+   observed row reaches MCMCglmm's threshold sampler, which crashes. BACE 1.0.6 leaves such
+   a level out of that variable's model (and warns), so the dataset runs; its imputed values
+   cannot take the empty level, which is honest. The `levels_observed` record says which
+   datasets this touched.
 5. **Counts are wildly overdispersed at strong signal.** The count trait's hidden scale also
    grows with signal (it inherits `0.5 * x1`): at signal 0.3 / 0.7 / 0.9 the counts have
    variance-to-mean ratios of about 5 / 33 / 1600 and maxima of 47 / 270 / 5778, with ~40%
    zeros throughout. Not a bug and unchanged by 1.0.4, but "signal 0.9" count results are
    results on a very different kind of count trait, and the count-cap warning (item 2) will
    fire there often.
+6. **Count intervals under-cover because of their shape, not the model.** Per-cell 95%
+   intervals for hidden counts covered 0.93 overall and only 0.76 of counts above 20
+   (Shinichi, 729 hidden counts in 24 datasets): BACE's default interval is symmetric, so its
+   lower bound goes below zero and its upper bound comes up short where the big counts are.
+   Quantiles of the fitted models' own predictive draws covered 0.99 and 0.92. That interval
+   is in BACE 1.0.6 as `get_imputation_intervals(method = "predictive")`; `run_one.R` now
+   records its coverage next to the default one (`cell_coverage_predictive`, from 1.0.6), and
+   `collect.R` writes both. The first campaign's files carry only the default.

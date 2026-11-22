@@ -144,6 +144,9 @@ bace_slope <- tryCatch(score_slope_bace(bace$imputed, dataset$tree), error = fun
 recovery <- tryCatch(score_recovery(dataset$truth, dataset$mask, bace$imputed),
                      error = function(e) NULL)
 coverage <- tryCatch(score_cell_coverage(bace$intervals, dataset$truth), error = function(e) NULL)
+## the same for the model-based interval (BACE >= 1.0.6; NULL otherwise)
+coverage_predictive <- tryCatch(score_cell_coverage(bace$intervals_predictive, dataset$truth),
+                                error = function(e) NULL)
 
 ## One tidy row per arm for the slope, with coverage of the TRUE value.
 slope_row <- function(arm, s) {
@@ -161,6 +164,7 @@ slopes <- rbind(slope_row("oracle", oracle),
 saveRDS(list(
   id = id, seed = seed, scenario = scenario, failed_at = NA_character_,
   slopes = slopes, recovery = recovery, cell_coverage = coverage,
+  cell_coverage_predictive = coverage_predictive,
   realised = dataset$realised, realised_frac = dataset$realised_frac,
   levels_observed = dataset$levels_observed,
   rate_cap = bace$rate_cap,
