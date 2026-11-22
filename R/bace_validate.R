@@ -33,18 +33,53 @@
 #' Intervals are only meaningful for numeric variables (continuous or count);
 #' rows for factor variables are left out.
 #'
+#' \strong{Two ways to build the interval.} \code{method = "rubin"} (the
+#' default, above) summarises the M imputed values with a symmetric
+#' t-interval. For a count that is the wrong shape: a count is a whole
+#' number, never negative and usually right-skewed, so the lower bound goes
+#' below zero and the upper bound comes up short exactly where the big counts
+#' are. Measured on 729 hidden counts in a 2026-11 simulation, the t-interval
+#' covered 0.93 overall and 0.76 of the counts above 20.
+#' \code{method = "predictive"} instead takes the interval straight from the
+#' fitted models: for each of the M final fits it reads the latent value of
+#' every missing cell at every retained iteration (\code{pl = TRUE}), turns it
+#' into the model's predictive draw -- a Poisson count for a count variable, the
+#' value on the data scale for a continuous one -- pools the draws over the M
+#' fits (typically tens of thousands per cell) and reports their quantiles.
+#' This is the posterior predictive distribution of the missing value,
+#' integrated over the imputation models, the same idea as
+#' \code{\link{pool_posteriors}}. On the same 729 counts it covered 0.99
+#' overall and 0.92 above 20; the excess over 0.95 is because counts are
+#' whole numbers, so an interval cannot stop exactly at 95 percent. For a
+#' count the rates are capped exactly as the imputations were
+#' (\code{bace_options("poisson_rate_cap")}), with the same warning when the
+#' cap binds, so the interval describes the distribution the imputed values
+#' were actually drawn from; its bounds are whole numbers. The draws for
+#' counts are random, so set a seed if you need the same bounds twice. The two
+#' methods agree on the mean to sampling error; only the shape of the interval
+#' differs. The mean is a mean and the bounds are quantiles, so at narrow
+#' levels (say 0.5) a cell's mean can sit outside its interval; at 0.95 this
+#' does not happen in practice. With a single imputation the predictive
+#' interval is that one fit's posterior predictive interval: it carries the
+#' within-model uncertainty but no between-fit component.
+#'
 #' @param object A result from \code{\link{bace}} or
 #'   \code{\link{bace_final_imp}}.
+#' @param method \code{"rubin"} (default): mean +/- t * sd across the M imputed
+#'   values. \code{"predictive"}: quantiles of the fitted models' posterior
+#'   predictive draws, pooled over the M final fits (recommended for counts;
+#'   see Details).
 #' @param variable Optional: one variable name. Default: all numeric variables
 #'   that had missing data.
 #' @param level Interval level. Default 0.95.
 #' @return A data frame with one row per imputed cell: \code{row} (row number
 #'   in the original data), \code{species} (the cluster column's value),
-#'   \code{variable}, \code{mean}, \code{sd}, \code{lower}, \code{upper}, and
-#'   \code{n_imputations}. If no numeric variable had missing data, a zero-row
+#'   \code{variable}, \code{mean}, \code{sd}, \code{lower}, \code{upper},
+#'   \code{n_imputations} and \code{method}. If no numeric variable had missing data, a zero-row
 #'   data frame is returned with a message. With a single imputation
-#'   (\code{n_final = 1}) the spread is undefined: the mean is returned and
-#'   the bounds are NA, with a message.
+#'   (\code{n_final = 1}) the Rubin spread is undefined: the mean is returned
+#'   and the bounds are NA, with a message; the predictive interval is then
+#'   that fit's own (see Details).
 #' @references Rubin, D. B. (1987) Multiple Imputation for Nonresponse in
 #'   Surveys. Wiley.
 #' @seealso \code{\link{get_imputed_data}}, \code{\link{bace_validate}}
@@ -61,9 +96,14 @@
 #'
 #' # Mean and 95% interval for every imputed cell
 #' head(get_imputation_intervals(fit))
+#'
+#' # The same from the models' posterior predictive draws (use this for counts)
+#' head(get_imputation_intervals(fit, method = "predictive"))
 #' }
 #' @export
-get_imputation_intervals <- function(object, variable = NULL, level = 0.95) {
+get_imputation_intervals <- function(object, variable = NULL, level = 0.95,
+                                     method = c("rubin", "predictive")) {
+  method <- match.arg(method)
   fin <- if (inherits(object, "bace_complete")) object$final_results else object
   if (!inherits(fin, "bace_final")) {
     stop("`object` must come from bace() or bace_final_imp().", call. = FALSE)
@@ -76,7 +116,7 @@ get_imputation_intervals <- function(object, variable = NULL, level = 0.95) {
   empty <- data.frame(row = integer(0), species = character(0),
                       variable = character(0), mean = numeric(0),
                       sd = numeric(0), lower = numeric(0), upper = numeric(0),
-                      n_imputations = integer(0))
+                      n_imputations = integer(0), method = character(0))
 
   vars <- unique(miss$colname)
   # keep numeric variables only (intervals make no sense for classes)
@@ -92,6 +132,9 @@ get_imputation_intervals <- function(object, variable = NULL, level = 0.95) {
   if (length(vars) == 0L) {
     message("No numeric variables had missing data; nothing to interval.")
     return(empty)
+  }
+  if (method == "predictive") {
+    return(.intervals_predictive(fin, vars, level, cluster))
   }
   if (M < 2L) {
     message("Only one imputation: the spread between imputations is ",
@@ -111,7 +154,89 @@ get_imputation_intervals <- function(object, variable = NULL, level = 0.95) {
                species = as.character(datasets[[1]][rows, cluster]),
                variable = v, mean = m, sd = s,
                lower = m - hw, upper = m + hw,
-               n_imputations = M, row.names = NULL)
+               n_imputations = M, method = "rubin", row.names = NULL)
+  })
+  do.call(rbind, out)
+}
+
+#' The interval straight from the fitted models (get_imputation_intervals, method = "predictive")
+#'
+#' For each final fit, the latent value of every missing cell at every retained
+#' iteration is turned into a predictive draw and the draws are pooled over fits.
+#' MCMCglmm stores one latent column per DATA ROW, in data order, including rows
+#' whose response is missing (checked directly for gaussian, poisson and
+#' threshold families, with replicated species rows, 2026-11-22), so column
+#' \code{row} is that cell.
+#' @keywords internal
+#' @noRd
+.intervals_predictive <- function(fin, vars, level, cluster) {
+  models <- fin$all_models
+  if (is.null(models) || length(models) == 0L) {
+    stop("method = \"predictive\" needs the final models, which this fit does not keep.",
+         call. = FALSE)
+  }
+  p <- (1 - level) / 2
+  cap_mult <- getOption("BACE.poisson_rate_cap", bace_option_defaults()$poisson_rate_cap)
+  out <- lapply(vars, function(v) {
+    rows <- fin$miss_dat$row[fin$miss_dat$colname == v]
+    type <- fin$types[[v]]
+    if (!type %in% c("gaussian", "poisson")) {
+      stop("method = \"predictive\" is defined for continuous and count variables; '",
+           v, "' is ", type, ".", call. = FALSE)
+    }
+    # For a count, the same rate cap the imputations were drawn under (the
+    # observed cells are the rows that were never missing). Without it the
+    # interval could reach values no imputed dataset can hold, and the two
+    # methods would disagree exactly where BACE warns (review, 2026-11-22).
+    rate_cap <- NA_real_
+    if (type == "poisson") {
+      obs <- suppressWarnings(as.numeric(fin$all_datasets[[1]][[v]][-rows]))
+      rate_cap <- .poisson_rate_cap(obs[is.finite(obs)], cap_mult)
+    }
+    n_capped <- 0L
+    draws <- lapply(seq_along(models), function(m) {
+      mod <- models[[m]][[v]]
+      if (is.null(mod) || is.null(mod$Liab)) {
+        stop("The final model for '", v, "' in run ", m, " carries no latent values ",
+             "(it must be fitted with pl = TRUE, which BACE does from 1.0.0).", call. = FALSE)
+      }
+      L <- as.matrix(mod$Liab)
+      n_rows <- nrow(fin$all_datasets[[m]])
+      if (ncol(L) != n_rows) {
+        stop("The latent values of '", v, "' in run ", m, " have ", ncol(L),
+             " columns but the data have ", n_rows, " rows, so cells cannot be matched.",
+             call. = FALSE)
+      }
+      L <- L[, rows, drop = FALSE]
+      if (type == "poisson") {
+        rate <- exp(L)
+        n_capped <<- n_capped + sum(rate > rate_cap, na.rm = TRUE)
+        rate <- pmin(rate, rate_cap)
+        matrix(stats::rpois(length(rate), rate), nrow(L))
+      } else {
+        # continuous: the model was fitted on the z-scored variable; put the
+        # draws back on the data scale with that run's own constants
+        sc <- fin$scaling[[m]][[v]][[v]]
+        if (is.null(sc)) {
+          stop("No scaling constants for '", v, "' in run ", m, "; this fit predates ",
+               "BACE 1.0.2, which started recording them.", call. = FALSE)
+        }
+        L * sc$sd + sc$mean
+      }
+    })
+    if (type == "poisson") .warn_rate_cap(n_capped, rate_cap, v, cap_mult)
+    D <- do.call(rbind, draws)                       # all draws (rows) for each cell (columns)
+    # Counts take quantile type 1 (an actual draw, so a whole number); continuous
+    # values take the usual interpolated type 7.
+    qtype <- if (type == "poisson") 1L else 7L
+    data.frame(row = rows,
+               species = as.character(fin$all_datasets[[1]][rows, cluster]),
+               variable = v,
+               mean  = colMeans(D),
+               sd    = apply(D, 2L, stats::sd),
+               lower = apply(D, 2L, stats::quantile, probs = p, names = FALSE, type = qtype),
+               upper = apply(D, 2L, stats::quantile, probs = 1 - p, names = FALSE, type = qtype),
+               n_imputations = length(models), method = "predictive", row.names = NULL)
   })
   do.call(rbind, out)
 }

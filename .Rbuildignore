@@ -20,3 +20,5 @@ ms/
 ^Rplots\.pdf$
 ^BACE_.*\.tar\.gz$
 ^results$
+^tests/testthat/_problems$
+^tests/testthat/testthat-problems\.rds$

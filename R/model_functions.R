@@ -13,6 +13,47 @@
 #' @importFrom methods as
 #' @noRd
 
+#' @title .drop_unobserved_levels
+#' @description A factor response can declare a level that no observed row has:
+#'   the level was there before the gaps, and every row that had it is now
+#'   missing. MCMCglmm's threshold sampler, handed such a category, crashes R
+#'   (bus error, "invalid alignment"; 7 datasets of the 2026-11 simulation, all
+#'   at strong signal with whole clades hidden; reproduced on seed 79 of
+#'   n100_ps0.9_good_covariate_clade, 2026-11-22). Dropping the empty level for
+#'   the fit makes the same dataset run. Imputed values then cannot take that
+#'   level, which is right: there is nothing to learn it from. The data column
+#'   outside the model keeps its full set of levels.
+#' @param data The prepared data for one model.
+#' @param response_var Its response.
+#' @param type The response's type.
+#' @param warn Say so (once is enough: the chained phase warns, the final phase does not).
+#' @return `data` with the empty levels dropped from the response.
+#' @keywords internal
+#' @noRd
+.drop_unobserved_levels <- function(data, response_var, type, warn = TRUE) {
+  if (!type %in% c("threshold", "ordinal", "categorical", "binary")) return(data)
+  y <- data[[response_var]]
+  if (!is.factor(y)) return(data)
+  counts <- table(factor(y[!is.na(y)], levels = levels(y)))
+  empty  <- names(counts)[counts == 0]
+  if (length(empty) == 0L) return(data)
+  if (sum(counts > 0) < 2L) {
+    stop("'", response_var, "' has observed values in only one of its levels (",
+         paste(names(counts)[counts > 0], collapse = ", "), "); a model for it cannot be ",
+         "fitted. Levels with no observed value: ", paste(empty, collapse = ", "), ".",
+         call. = FALSE)
+  }
+  if (warn) {
+    warning("BACE: '", response_var, "' has ", length(empty), " level(s) with no observed ",
+            "value (", paste(empty, collapse = ", "), "). They are left out of its ",
+            "imputation model, so imputed values can never take them: there is nothing ",
+            "to learn them from. (Fitting with an empty category crashes MCMCglmm.)",
+            call. = FALSE)
+  }
+  data[[response_var]] <- droplevels(y)
+  data
+}
+
 .model_fit <- function(data, tree, fixformula, randformula, type, prior, nitt = 6000, thin = 5, burnin = 1000) {
 
 	# Sparse inverse phylogenetic covariance, cached per tree (.get_ainv,

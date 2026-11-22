@@ -4,7 +4,12 @@
 \alias{get_imputation_intervals}
 \title{Per-cell intervals for imputed values}
 \usage{
-get_imputation_intervals(object, variable = NULL, level = 0.95)
+get_imputation_intervals(
+  object,
+  variable = NULL,
+  level = 0.95,
+  method = c("rubin", "predictive")
+)
 }
 \arguments{
 \item{object}{A result from \code{\link{bace}} or
@@ -14,15 +19,21 @@ get_imputation_intervals(object, variable = NULL, level = 0.95)
 that had missing data.}
 
 \item{level}{Interval level. Default 0.95.}
+
+\item{method}{\code{"rubin"} (default): mean +/- t * sd across the M imputed
+values. \code{"predictive"}: quantiles of the fitted models' posterior
+predictive draws, pooled over the M final fits (recommended for counts;
+see Details).}
 }
 \value{
 A data frame with one row per imputed cell: \code{row} (row number
 in the original data), \code{species} (the cluster column's value),
-\code{variable}, \code{mean}, \code{sd}, \code{lower}, \code{upper}, and
-\code{n_imputations}. If no numeric variable had missing data, a zero-row
+\code{variable}, \code{mean}, \code{sd}, \code{lower}, \code{upper},
+\code{n_imputations} and \code{method}. If no numeric variable had missing data, a zero-row
 data frame is returned with a message. With a single imputation
-(\code{n_final = 1}) the spread is undefined: the mean is returned and
-the bounds are NA, with a message.
+(\code{n_final = 1}) the Rubin spread is undefined: the mean is returned
+and the bounds are NA, with a message; the predictive interval is then
+that fit's own (see Details).
 }
 \description{
 For every originally missing cell, this gives the mean imputed value and a
@@ -41,6 +52,36 @@ stays close to its stated level from M of about 20. Taking the 2.5 and
 
 Intervals are only meaningful for numeric variables (continuous or count);
 rows for factor variables are left out.
+
+\strong{Two ways to build the interval.} \code{method = "rubin"} (the
+default, above) summarises the M imputed values with a symmetric
+t-interval. For a count that is the wrong shape: a count is a whole
+number, never negative and usually right-skewed, so the lower bound goes
+below zero and the upper bound comes up short exactly where the big counts
+are. Measured on 729 hidden counts in a 2026-11 simulation, the t-interval
+covered 0.93 overall and 0.76 of the counts above 20.
+\code{method = "predictive"} instead takes the interval straight from the
+fitted models: for each of the M final fits it reads the latent value of
+every missing cell at every retained iteration (\code{pl = TRUE}), turns it
+into the model's predictive draw -- a Poisson count for a count variable, the
+value on the data scale for a continuous one -- pools the draws over the M
+fits (typically tens of thousands per cell) and reports their quantiles.
+This is the posterior predictive distribution of the missing value,
+integrated over the imputation models, the same idea as
+\code{\link{pool_posteriors}}. On the same 729 counts it covered 0.99
+overall and 0.92 above 20; the excess over 0.95 is because counts are
+whole numbers, so an interval cannot stop exactly at 95 percent. For a
+count the rates are capped exactly as the imputations were
+(\code{bace_options("poisson_rate_cap")}), with the same warning when the
+cap binds, so the interval describes the distribution the imputed values
+were actually drawn from; its bounds are whole numbers. The draws for
+counts are random, so set a seed if you need the same bounds twice. The two
+methods agree on the mean to sampling error; only the shape of the interval
+differs. The mean is a mean and the bounds are quantiles, so at narrow
+levels (say 0.5) a cell's mean can sit outside its interval; at 0.95 this
+does not happen in practice. With a single imputation the predictive
+interval is that one fit's posterior predictive interval: it carries the
+within-model uncertainty but no between-fit component.
 }
 \examples{
 \donttest{
@@ -55,6 +96,9 @@ fit <- bace(fixformula = "y ~ x1", ran_phylo_form = "~ 1 | Species",
 
 # Mean and 95\% interval for every imputed cell
 head(get_imputation_intervals(fit))
+
+# The same from the models' posterior predictive draws (use this for counts)
+head(get_imputation_intervals(fit, method = "predictive"))
 }
 }
 \references{

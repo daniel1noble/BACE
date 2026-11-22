@@ -343,10 +343,16 @@ bace_imp <- function(fixformula, ran_phylo_form, phylo, data, nitt = 6000, thin 
 			# the resulting data_i is internally consistent — no post-hoc
 			# patching of predictor cells is needed.
 			    dat_prep <- .data_prep(data = data_for_model, formula = formulas[[i]], types = types, ran_cluster = phylo_ran[["cluster"]])
+			    # A level nobody observes would crash MCMCglmm: leave it out of this model (warn on the first pass only)
+			    dat_prep[[1]] <- .drop_unobserved_levels(dat_prep[[1]], response_var, types[[response_var]], warn = (r == 2))
 			    data_i <- dat_prep[[1]]
 
 			# Set up prior for the specific variable type
-			   levels_cat <- data_summary$n_levels[which(data_summary$variable == response_var)]
+			   # Count the levels on the data the model is FITTED on (an unobserved level was just
+			   # dropped), not on the original column: the multinomial prior is sized from this number,
+			   # and a mismatch is an MCMCglmm error ("V is the wrong dimension"). Found by review, 2026-11-22.
+			   levels_cat <- if (is.factor(dat_prep[[1]][[response_var]])) nlevels(dat_prep[[1]][[response_var]])
+			                 else data_summary$n_levels[which(data_summary$variable == response_var)]
       			levels <- if (anyNA(levels_cat)) NULL else levels_cat
 
     			if (is.null(getOption("BACE.gelman"))) {

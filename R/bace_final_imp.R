@@ -437,6 +437,10 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
         types = types,
         ran_cluster = phylo_ran[["cluster"]]
       )
+      # A level nobody observes would crash MCMCglmm: leave it out of this model
+      # (the chained phase already warned about it)
+      dat_prep[[1]] <- .drop_unobserved_levels(dat_prep[[1]], response_var,
+                                               types[[response_var]], warn = FALSE)
 
       data_i <- dat_prep[[1]]
 
@@ -472,7 +476,8 @@ bace_final_imp <- function(bace_object, fixformula, ran_phylo_form, phylo,
         fixform    <- formulas[[i]]
         # Compute number of factor levels from the working data (dat_prep$levels is not set)
         levels <- if (types[[response_var]] %in% c("categorical", "threshold")) {
-          nlevels(data_current[[response_var]])
+          # on the data the model is fitted on (an unobserved level may have been dropped above)
+          nlevels(dat_prep[[1]][[response_var]])
         } else {
           NULL
         }

@@ -1,3 +1,41 @@
+# BACE 1.0.6
+
+* **An ordinal or categorical level that no observed row has no longer crashes
+  R.** Whole-clade missingness can hide every species that had a level, so the
+  factor declares a level that is absent from the data. MCMCglmm's threshold
+  sampler, handed such an empty category, dies with a bus error ("invalid
+  alignment") -- 7 datasets of the 2026-11 simulation, all at strong signal,
+  all at n = 100, deterministic. BACE now leaves the empty level out of that
+  variable's imputation model, warns once (chained phase), and the imputed
+  values cannot take that level, which is the honest answer: there is nothing
+  to learn it from. The data column keeps its full set of levels. A variable
+  with observed values in only one level is refused with a clear error. The
+  7 crashing datasets are now ordinary runs (seed 79 of
+  `n100_ps0.9_good_covariate_clade`: imputed ordinal 9/38/53 over the three
+  levels that had data).
+
+* **`get_imputation_intervals(method = "predictive")`: an interval taken
+  straight from the fitted models.** The default Rubin t-interval is symmetric,
+  which is the wrong shape for a count: in the 2026-11 simulation it covered
+  hidden counts 0.93 overall and only 0.76 of counts above 20, with a negative
+  lower bound in 99 per cent of cells (Shinichi's finding, 729 hidden counts in
+  24 datasets). The new method reads the latent value of every missing cell at
+  every retained iteration of each final fit, turns it into the model's
+  predictive draw (a Poisson count, or the continuous value on the data scale),
+  pools the draws over the M fits and reports their quantiles -- the posterior
+  predictive distribution of the missing value, in the spirit of
+  `pool_posteriors()`. On the same counts it covered 0.99 overall and 0.92 above
+  20 (conservative because counts are whole numbers). The count rates are
+  capped exactly as the imputations were, with the same warning, so the
+  interval describes the distribution the imputed values were drawn from
+  and the two methods agree on the mean; its bounds are whole numbers. An
+  ordinal or categorical level with no observed row is dropped for the
+  multinomial model too, with the prior sized to match. MCMCglmm stores one
+  latent column per data row in data order, NA-response rows included, with
+  replicated species rows -- checked directly for the gaussian, poisson and
+  threshold families -- so cells are matched by row. The default is unchanged;
+  `bace_validate()` still scores the Rubin interval.
+
 # BACE 1.0.5
 
 * **The count rate cap is now an option.** `bace_options(poisson_rate_cap = )`
